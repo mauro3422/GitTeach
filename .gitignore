@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+.npm
+.pnpm-store
+
+# Environment
+.env
+.env.local
+
+# AI Models & Heavy Binaries
+models/*.gguf
+server/llama-server.exe
+server/*.log
+
+# Electron Builds
+out/
+dist/
+build/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

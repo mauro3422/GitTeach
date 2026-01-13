@@ -1,0 +1,42 @@
+[
+    {
+        "input": "Pon un título gigante que salude a mis visitantes",
+        "response": "ERROR"
+    },
+    {
+        "input": "Necesito una portada animada con mi nombre",
+        "response": "ERROR"
+    },
+    {
+        "input": "Quiero ver a la víbora comiendo mis commits",
+        "response": "ERROR"
+    },
+    {
+        "input": "Pon esa cosa que se mueve por el calendario de verde",
+        "response": "ERROR"
+    },
+    {
+        "input": "Muéstrame qué tan activo he sido con una tarjeta de datos",
+        "response": "ERROR"
+    },
+    {
+        "input": "Analiza mi rendimiento y ponlo en el readme",
+        "response": "ERROR"
+    },
+    {
+        "input": "Un pastel visual con mis tecnologías favoritas",
+        "response": "ERROR"
+    },
+    {
+        "input": "Crea un archivo LICENSE.md automático",
+        "response": "ERROR"
+    },
+    {
+        "input": "Dime un chiste sobre Java",
+        "response": "ERROR"
+    },
+    {
+        "input": "¿Puedes optimizar mi código?",
+        "response": "ERROR"
+    }
+]
