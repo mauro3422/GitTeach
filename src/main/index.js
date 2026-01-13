@@ -7,16 +7,29 @@ const authService = require('./services/authService');
 const profileService = require('./services/profileService');
 const repoService = require('./services/repoService');
 
+// --- OPTIMIZACIÓN GPU PARA AGENTES PARALELOS ---
+// Configuramos el entorno para que Ollama permita múltiples slots (Workers)
+process.env.OLLAMA_NUM_PARALLEL = "4"; // Permite hasta 4 inferencias simultáneas
+process.env.OLLAMA_MAX_LOADED_MODELS = "2"; // Permite tener el modelo de visión y chat cargados
+
 // --- MANEJADORES IPC ---
 
 // Autenticación
 ipcMain.handle('github:login', async () => {
-    return await authService.login();
+    try {
+        return await authService.login();
+    } catch (error) {
+        return { error: error.message };
+    }
 });
 
 ipcMain.handle('github:check-auth', async () => {
-    console.log('[Main] Petición github:check-auth recibida');
-    return await authService.checkAuth();
+    try {
+        console.log('[Main] Petición github:check-auth recibida');
+        return await authService.checkAuth();
+    } catch (error) {
+        return { error: error.message };
+    }
 });
 
 ipcMain.on('github:logout', () => {
@@ -35,7 +48,11 @@ ipcMain.handle('github:get-user', async () => {
 
 // README de Perfil
 ipcMain.handle('github:get-profile-readme', async (event, username) => {
-    return await profileService.getProfileReadme(username);
+    try {
+        return await profileService.getProfileReadme(username);
+    } catch (error) {
+        return { error: error.message };
+    }
 });
 
 ipcMain.handle('github:update-profile-readme', async (event, { username, content, sha }) => {
@@ -48,7 +65,27 @@ ipcMain.handle('github:update-profile-readme', async (event, { username, content
 
 // Repositorios
 ipcMain.handle('github:list-repos', async () => {
-    return await repoService.listUserRepos();
+    try {
+        return await repoService.listUserRepos();
+    } catch (error) {
+        return { error: error.message };
+    }
+});
+
+ipcMain.handle('github:get-repo-readme', async (event, { owner, repo }) => {
+    try {
+        return await repoService.getRepoReadme(owner, repo);
+    } catch (error) {
+        return { error: error.message };
+    }
+});
+
+ipcMain.handle('github:get-repo-tree', async (event, { owner, repo, recursive }) => {
+    try {
+        return await repoService.getRepoTree(owner, repo, recursive);
+    } catch (error) {
+        return { error: error.message };
+    }
 });
 
 ipcMain.handle('github:create-profile-repo', async (event, username) => {
@@ -59,26 +96,34 @@ ipcMain.handle('github:create-profile-repo', async (event, username) => {
     }
 });
 
-ipcMain.handle('github:get-file-content', async (event, { owner, repo, path }) => {
+ipcMain.handle('github:create-workflow', async (event, { username, content }) => {
     try {
-        return await repoService.getFileContent(owner, repo, path);
+        return await repoService.createWorkflow(username, content);
     } catch (error) {
         return { error: error.message };
     }
 });
 
+// --- DEV TOOLS & LOGGING ---
+
 ipcMain.on('dev:export-prompt', (event, prompt) => {
+    // Dev Tools Export
+    console.log('[Dev] Export Prompt solicitado.');
     const fs = require('fs');
     const filePath = path.join(__dirname, '../../scripts/current_prompt.json');
-    fs.writeFileSync(filePath, JSON.stringify({ systemPrompt: prompt }, null, 4));
-    console.log('[Dev] Prompt exportado a scripts/current_prompt.json');
-    console.log('[Dev] Prompt exportado a scripts/current_prompt.json');
+    try {
+        fs.writeFileSync(filePath, JSON.stringify({ systemPrompt: prompt }, null, 4));
+        console.log('[Dev] Prompt exportado a:', filePath);
+    } catch (e) {
+        console.error('[Dev] Error exportando prompt:', e);
+    }
 });
 
-ipcMain.on('app:log', (event, arg) => {
-    // Imprime directamente en la terminal donde corre "npm start"
-    console.log('[App Renderer]', arg);
+// LOG BRIDGE: Renderer -> Terminal
+ipcMain.on('app:log', (event, msg) => {
+    console.log(`[App Renderer] ${msg}`);
 });
+
 
 // --- CICLO DE VIDA DE LA APP ---
 
@@ -96,6 +141,9 @@ function createWindow() {
 
     win.setMenuBarVisibility(false);
     win.loadFile(path.join(__dirname, '../renderer/index.html'));
+
+    // DEBUG: Abrir consola para ver errores del Renderer
+    win.webContents.openDevTools({ mode: 'detach' });
 }
 
 app.whenReady().then(() => {

@@ -2,6 +2,19 @@
 
 Todas las mejoras y cambios notables del proyecto GitTeach.
 
+## [v1.2.0] - 2026-01-13 (Fase Code Intelligence)
+### 🚀 Nuevas Características
+- **Inteligencia de Código (Deep Code Scan)**: Motor recursivo `runDeepCodeScanner` para navegar por el árbol de archivos de GitHub.
+- **Auditoría Técnica**: Detección automática de arquitectura (.js, .py, .cpp, .java) y extracción de snippets reales.
+- **Honestidad Agéntica**: Detección de Rate Limit para prevenir alucinaciones de la IA por falta de acceso.
+- **Memoria de Sesión**: La IA ahora recuerda detalles técnicos de tus repositorios durante toda la sesión de chat.
+
+### 🧹 Correcciones y Mejoras
+- **UX**: Transiciones cinematográficas y feedback de workers en tiempo real.
+- **Seguridad**: Headers `User-Agent` obligatorios y soporte de `AUTH_TOKEN` para evitar bloqueos 401.
+- **Limpieza**: Eliminación automática de logs y archivos temporales de diagnóstico.
+
+
 ## [v1.0.0] - 2024-01-13 (Release "Cerebro Local")
 
 ### 🚀 Nuevas Características

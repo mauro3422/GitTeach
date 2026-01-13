@@ -3,6 +3,15 @@
  * Sigue el principio de Responsabilidad Única (SOLID).
  */
 export const AIService = {
+    currentSessionContext: "", // Memoria de lo aprendido en el escaneo profundo
+
+    /**
+     * Actualiza el contexto de la sesión con los hallazgos de los workers.
+     */
+    setSessionContext(context) {
+        this.currentSessionContext = context;
+        console.log("[AIService] Contexto de sesión actualizado.");
+    },
     /**
      * Procesa la entrada del usuario usando LFM 2.5 local.
      * @param {string} input 
@@ -15,7 +24,8 @@ export const AIService = {
             const { AIToolbox } = await import('./aiToolbox.js'); // Importar Toolbox para ejecución interna
 
             // --- PASO 1: ROUTER (Identificar Intención) ---
-            const routerPrompt = PromptBuilder.getRouterPrompt(ToolRegistry.tools);
+            const routerPrompt = PromptBuilder.getRouterPrompt(ToolRegistry.tools) +
+                (this.currentSessionContext ? `\nCONTEXTO ACTUAL: ${this.currentSessionContext}` : "");
             const routerResponse = await this.callAI(routerPrompt, input, 0.0);
 
             let intent = 'chat';
@@ -28,7 +38,12 @@ export const AIService = {
                 intent = routerResponse.trim().toLowerCase();
             }
 
-            console.log(`[AIService] Router Intent: "${intent}"`);
+            if (window.githubAPI?.logToTerminal) {
+                window.githubAPI.logToTerminal(`\n--- 🤖 AI ROUTER ---`);
+                window.githubAPI.logToTerminal(`📥 USER INPUT: "${input}"`);
+                window.githubAPI.logToTerminal(`🎯 INTENT: "${intent}"`);
+                window.githubAPI.logToTerminal(`--------------------\n`);
+            }
 
             // --- CASO CHAT (Sin Herramienta) ---
             if (intent === 'chat' || intent.includes('chat')) {
@@ -44,15 +59,22 @@ export const AIService = {
             const constructorPrompt = PromptBuilder.getConstructorPrompt(tool);
             const jsonResponse = await this.callAI(constructorPrompt, input, 0.0); // Temp 0 para precisión JSON
 
+            if (window.githubAPI?.logToTerminal) {
+                window.githubAPI.logToTerminal(`🤖 RAW AI RESPONSE: ${jsonResponse}`);
+            }
+
             let parsedParams = {};
+
             try {
                 const cleanJson = jsonResponse.replace(/```json/g, '').replace(/```/g, '').trim();
                 const parsed = JSON.parse(cleanJson);
                 parsedParams = parsed.params || {};
 
-                // Log para transparencia
                 if (window.githubAPI?.logToTerminal) {
-                    window.githubAPI.logToTerminal("🤖 PLANIFICACIÓN (JSON): " + JSON.stringify(parsed, null, 2));
+                    window.githubAPI.logToTerminal(`\n--- 🏗️ AI CONSTRUCTOR ---`);
+                    window.githubAPI.logToTerminal(`🛠️ TOOL: ${tool.name}`);
+                    window.githubAPI.logToTerminal(`📝 PARSED PARAMS: ${JSON.stringify(parsedParams, null, 2)}`);
+                    window.githubAPI.logToTerminal(`------------------------\n`);
                 }
             } catch (e) {
                 console.error("JSON Parse Error", e);
@@ -60,18 +82,14 @@ export const AIService = {
             }
 
             // --- PASO 3: EJECUCIÓN (Acción Real) ---
-            // Aquí cerramos el ciclo. La IA no "predice", el sistema "ejecuta".
-            let executionResult = { success: false, details: "Herramienta no implementada." };
+            let executionResult = { success: false, details: "Herramienta no reconocida." };
 
-            const allowedTools = ['welcome_header', 'github_stats', 'top_langs', 'tech_stack', 'contribution_snake', 'list_repos', 'read_repo', 'github_trophies', 'streak_stats', 'profile_views'];
+            if (tool && typeof tool.execute === 'function') {
+                executionResult = await tool.execute(parsedParams, username);
 
-            if (allowedTools.includes(intent)) {
-                if (intent === 'list_repos') {
-                    executionResult = await AIToolbox.listRepos();
-                } else if (intent === 'read_repo') {
-                    executionResult = await AIToolbox.readRepo(username, parsedParams);
-                } else {
-                    executionResult = AIToolbox.insertBanner(intent, username, parsedParams);
+                // Si la herramienta genera contenido Markdown, lo insertamos en el editor
+                if (executionResult.success && executionResult.content) {
+                    AIToolbox.applyContent(executionResult.content);
                 }
             }
 

@@ -3,24 +3,24 @@
  * Permite que tanto la App como los scripts de test compartan la misma lógica.
  */
 export const PromptBuilder = {
-    /**
-     * Genera el System Prompt dinámico.
-     * @param {string} toolInstructions - Instrucciones obtenidas de ToolRegistry.
-     * @returns {string}
-     */
-    /**
-     * AGENTE 1: ROUTER
-     * Decide QUÉ herramienta usar basándose en ejemplos dinámicos.
-     * Salida estrictamente JSON para aprovechar el entrenamiento del modelo.
-     */
-    getRouterPrompt(tools) {
-        const trainingData = tools.map(t => {
-            return t.examples.map(ex => `User: "${ex}"\nJSON: {"tool": "${t.id}"}`).join('\n\n');
-        }).join('\n\n');
+  /**
+   * Genera el System Prompt dinámico.
+   * @param {string} toolInstructions - Instrucciones obtenidas de ToolRegistry.
+   * @returns {string}
+   */
+  /**
+   * AGENTE 1: ROUTER
+   * Decide QUÉ herramienta usar basándose en ejemplos dinámicos.
+   * Salida estrictamente JSON para aprovechar el entrenamiento del modelo.
+   */
+  getRouterPrompt(tools) {
+    const trainingData = tools.map(t => {
+      return t.examples.map(ex => `User: "${ex}"\nJSON: {"tool": "${t.id}"}`).join('\n\n');
+    }).join('\n\n');
 
-        const toolDescriptions = tools.map(t => `- ${t.id}: ${t.description}`).join('\n');
+    const toolDescriptions = tools.map(t => `- ${t.id}: ${t.description}`).join('\n');
 
-        return `SYSTEM: You are an Intent Classifier. You ONLY output JSON.
+    return `SYSTEM: You are an Intent Classifier. You ONLY output JSON.
 Tasks:
 1. Analyze the user request.
 2. Match it to a tool ID from the catalog.
@@ -44,21 +44,21 @@ JSON: {"tool": "chat"}
 RESPONSE FORMAT:
 {"tool": "TOOL_ID_OR_CHAT"}
 `;
-    },
+  },
 
-    /**
-     * AGENTE 2: CONSTRUCTOR
-     * Genera el JSON final para una herramienta específica (Few-Shot).
-     */
-    /**
-     * AGENTE 2: CONSTRUCTOR
-     * Genera el JSON final para una herramienta específica (Few-Shot).
-     */
-    getConstructorPrompt(tool) {
-        // Simplificación radical para modelo 1.2B
-        const fields = Object.keys(tool.schema).map(k => `- ${k} (${tool.schema[k]})`).join('\n');
+  /**
+   * AGENTE 2: CONSTRUCTOR
+   * Genera el JSON final para una herramienta específica (Few-Shot).
+   */
+  /**
+   * AGENTE 2: CONSTRUCTOR
+   * Genera el JSON final para una herramienta específica (Few-Shot).
+   */
+  getConstructorPrompt(tool) {
+    // Simplificación radical para modelo 1.2B
+    const fields = Object.keys(tool.schema).map(k => `- ${k} (${tool.schema[k]})`).join('\n');
 
-        return `Eres un Extractor de Parámetros experto para la herramienta "${tool.id}".
+    return `Eres un Extractor de Parámetros experto para la herramienta "${tool.id}".
 Tu único trabajo es leer el texto del usuario y sacar los datos para llenar este JSON.
 
 VARIABLES A EXTRAER:
@@ -90,19 +90,29 @@ JSON:
   "message": "Texto establecido con tema oscuro."
 }
 
+EJEMPLO 3:
+Input: "Configura snake_game"
+JSON:
+{
+  "action": "insert_banner",
+  "toolId": "configure_snake_workflow",
+  "params": {},
+  "message": "Iniciando configuración del workflow de Snake."
+}
+
 TU TURNO (Usa el Input del Usuario):
 Responde SOLO con el JSON válido.
 `;
-    },
+  },
 
-    /**
-     * Genera el prompt para el Agente Respondedor (ReAct - Observer Phase).
-     * @param {string} toolName 
-     * @param {Object} result { success, details }
-     * @param {string} userRequest 
-     */
-    getPostActionPrompt(toolName, result, userRequest) {
-        return `Eres el Agente de Comunicación de GitTeach.
+  /**
+   * Genera el prompt para el Agente Respondedor (ReAct - Observer Phase).
+   * @param {string} toolName 
+   * @param {Object} result { success, details }
+   * @param {string} userRequest 
+   */
+  getPostActionPrompt(toolName, result, userRequest) {
+    return `Eres el Agente de Comunicación de GitTeach.
 Acabamos de ejecutar una acción técnica basada en la petición del usuario.
 Tu trabajo es reportar el resultado de forma natural y amigable en ESPAÑOL.
 
@@ -118,5 +128,5 @@ INSTRUCCIONES:
 3. NO menciones "JSON" ni detalles técnicos internos innecesarios.
 4. Sé conciso.
 `;
-    }
+  }
 };

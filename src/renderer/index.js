@@ -1,13 +1,12 @@
 // src/renderer/index.js
 import { AuthView } from './js/views/auth.js';
-import { AuthService } from './js/services/authService.js';
-import { ProfileService } from './js/services/profileService.js';
-import { RepoService } from './js/services/repoService.js';
+
 import { DashboardView } from './js/views/dashboard.js';
 import { ChatComponent } from './js/components/chatComponent.js';
 import { ResizableManager } from './js/utils/resizable_manager.js';
 import { DropdownComponent } from './js/components/dropdownComponent.js';
 import { WidgetGallery } from './js/components/widgetGallery.js';
+import { ProfileAnalyzer } from './js/services/profileAnalyzer.js';
 
 // DOM Elements
 const views = {
@@ -47,26 +46,74 @@ function showView(viewName) {
 
 // Inicialización de módulos
 AuthView.init(async () => {
+    // 1. Mostrar dashboard inmediatamente para feedback instantáneo
+    showView('dashboard');
+
+    // 2. Cargar datos en segundo plano
     await DashboardView.updateUserInfo();
     ChatComponent.init();
 
-    // Inicializar resizers del Dashboard
     const resizable = new ResizableManager('dashboard-view');
     resizable.init();
-
-    // Inicializar Menú de Usuario
     DropdownComponent.init('btn-user-menu', 'user-dropdown');
 
-    showView('dashboard');
+    // --- ANÁLISIS AGÉNTICO EN SEGUNDO PLANO ---
+    const username = DashboardView.currentUsername || 'mauro3422';
+
+    if (username) {
+        const analyzer = new ProfileAnalyzer();
+        const { AIService } = await import('./js/services/aiService.js');
+
+        // 1. Saludo Proactivo
+        ChatComponent.showInsight(`¡Hola **${username}**! 👋 Soy tu Director de Arte. He empezado a analizar tus repositorios para conocerte mejor.`);
+
+        // 2. Ejecutar análisis con feedback en tiempo real
+        analyzer.analyze(username, (msg) => {
+            ChatComponent.showProactiveStep(msg);
+        }).then(results => {
+            if (results) {
+                // 3. Persistencia de memoria enriquecida en el chat
+                // Pasamos no solo el resumen, sino hallazgos específicos de arquitectura
+                const repoFacts = results.deepScan.map(s =>
+                    `- Repo ${s.repo}: Detectada estructura ${s.structure}.`
+                ).join('\n');
+
+                const context = `El usuario ${username} es experto en ${results.mainLangs.join(', ')}.\n` +
+                    `Hallazgos de Arquitectura Reales:\n${repoFact}\n` +
+                    `Análisis de Expertos: ${results.summary}`;
+
+                AIService.setSessionContext(context);
+
+                // 4. Feedback final del ciclo con resumen técnico real
+                setTimeout(() => {
+                    ChatComponent.showInsight(`✨ He terminado mi auditoría técnica.`);
+                    ChatComponent.showInsight(`**Resumen de Experto:** ${results.summary}`);
+                    ChatComponent.showInsight(`Basándome en tu código, he activado sugerencias personalizadas en tu Galería de Widgets. ¿Qué te gustaría hacer ahora?`);
+                }, 1000);
+            }
+        });
+    }
 });
 
 // Logout desde el menú
+// Logout desde el menú
 document.addEventListener('click', async (e) => {
-    if (e.target.id === 'menu-logout') {
+    const logoutBtn = e.target.closest('#menu-logout');
+    if (logoutBtn) {
         e.preventDefault();
-        // Llamamos al logout del dashboard view que ya maneja la pestaña y el token
+        console.log("Logout triggered");
+
+        // 1. Borrar token en backend
         await window.githubAPI.logout();
+
+        // 2. Resetear UI Check
+        // Lo más seguro es recargar la app para limpiar estado en memoria
+        // pero si queremos fluidez:
+        AuthView.showGuestState();
         showView('login');
+
+        // Optional: Reload to be 100% clean
+        window.location.reload();
     }
 });
 
@@ -145,6 +192,8 @@ function initEditor() {
 
     editorTabs.editor.addEventListener('click', () => switchTab('editor'));
     editorTabs.preview.addEventListener('click', () => switchTab('preview'));
-    editorTabs.gallery.addEventListener('click', () => switchTab('gallery'));
+    if (editorTabs.gallery) {
+        editorTabs.gallery.addEventListener('click', () => switchTab('gallery'));
+    }
 }
 

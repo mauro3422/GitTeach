@@ -1,34 +1,81 @@
-/* Grid Layout */
 .widgets-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 20px;
     padding: 20px;
     overflow-y: auto;
-    height: 100%;
+    scrollbar-width: none;
 }
 
-/* Card Style */
+.widgets-grid::-webkit-scrollbar {
+    display: none;
+}
+
+/* Card Style & Layout */
 .widget-card-item {
-    background: var(--bg-secondary);
+    background: #161b22;
     border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 20px;
+    border-radius: 12px;
+    padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 15px;
-    transition: transform 0.2s, border-color 0.2s;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    overflow: hidden;
+    position: relative;
 }
 
 .widget-card-item:hover {
-    transform: translateY(-2px);
-    border-color: var(--accent-color);
+    transform: translateY(-5px);
+    border-color: var(--accent);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
 }
 
-.widget-icon {
-    font-size: 2.5rem;
-    text-align: center;
-    margin-bottom: 5px;
+.widget-preview-container {
+    width: 100%;
+    height: 140px;
+    background: #0d1117;
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.widget-preview-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 10px;
+    transition: transform 0.3s;
+}
+
+.widget-card-item:hover .widget-preview-img {
+    transform: scale(1.05);
+}
+
+.widget-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: var(--accent);
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 100px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.widget-icon-fallback {
+    font-size: 3rem;
+    opacity: 0.5;
+}
+
+.widget-info {
+    padding: 15px;
+    flex: 1;
 }
 
 .widget-info h4 {
@@ -44,10 +91,12 @@
     line-height: 1.4;
 }
 
+.widget-actions {
+    padding: 0 15px 15px 15px;
+}
+
 .btn-sm {
-    padding: 6px 12px;
-    font-size: 0.9rem;
-    margin-top: auto;
-    /* Pushes button to bottom */
     width: 100%;
+    border-radius: 8px;
+    font-weight: 600;
 }

@@ -1,0 +1,93 @@
+/* Design System & Global Classes */
+:root {
+    --user-avatar-size: 32px;
+    --dropdown-z-index: 100;
+}
+
+/* Cleanup for index.html inline styles */
+.user-mini-card-wrapper {
+    margin-bottom: 1.5rem;
+    position: relative;
+}
+
+.user-info-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+
+.user-avatar-small {
+    width: var(--user-avatar-size);
+    height: var(--user-avatar-size);
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    background-size: cover;
+    border: 1px solid var(--border-color);
+}
+
+.user-name-text {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+/* Quick Action Chips */
+.quick-actions-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 0.5rem;
+    padding: 0 4px;
+}
+
+.action-chip {
+    background: rgba(48, 54, 61, 0.4);
+    backdrop-filter: blur(4px);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    padding: 6px 12px;
+    border-radius: 100px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.action-chip:hover {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(31, 111, 235, 0.3);
+}
+
+/* Sync & Save Buttons standardization */
+.btn-secondary-outline {
+    width: auto !important;
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+    padding: 8px 16px !important;
+}
+
+.btn-primary-compact {
+    width: auto !important;
+    padding: 8px 16px !important;
+}
+
+/* Profile Creation CTA */
+.cta-container {
+    background: #161b22;
+    border: 1px dashed var(--accent);
+    padding: 24px;
+    border-radius: 12px;
+    margin-top: 1.5rem;
+    text-align: center;
+    animation: fadeIn 0.4s ease-out;
+}
+
+.cta-text {
+    margin: 0 0 1rem 0;
+    color: var(--text-main);
+    font-size: 1rem;
+}

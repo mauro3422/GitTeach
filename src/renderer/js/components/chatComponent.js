@@ -10,12 +10,43 @@ export const ChatComponent = {
 
         this.input.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && this.input.value.trim() && !this.isProcessing) {
-                const text = this.input.value.trim();
-                this.addMessage(text, 'user');
+                this.sendMessage(this.input.value.trim());
                 this.input.value = '';
-                this.processAIResponse(text);
             }
         });
+
+        this.initQuickActions();
+    },
+
+    initQuickActions() {
+        const actionsContainer = document.getElementById('quick-actions');
+        if (!actionsContainer) return;
+
+        const actions = [
+            { label: "✨ Mejorar Header", query: "Mejora mi banner de bienvenida" },
+            { label: "📊 Mis Stats", query: "Pon mis estadísticas de GitHub" },
+            { label: "🤖 Auditoría", query: "Audita mi perfil y dime qué mejorar" },
+            { label: "🏆 Logros", query: "Muestra mis trofeos" }
+        ];
+
+        actionsContainer.innerHTML = actions.map(act =>
+            `<button class="action-chip" data-query="${act.query}">${act.label}</button>`
+        ).join('');
+
+        actionsContainer.addEventListener('click', (e) => {
+            const chip = e.target.closest('.action-chip');
+            if (chip && !this.isProcessing) {
+                this.sendMessage(chip.dataset.query);
+            }
+        });
+    },
+
+    sendMessage(text) {
+        console.log("[ChatComponent] Enviando mensaje:", text);
+        if (window.githubAPI?.logToTerminal) window.githubAPI.logToTerminal(`💬 Chat Input: ${text}`);
+
+        this.addMessage(text, 'user');
+        this.processAIResponse(text);
     },
 
     addMessage(text, type) {
@@ -49,15 +80,20 @@ export const ChatComponent = {
             const { AIToolbox } = await import('../services/aiToolbox.js');
             const { DashboardView } = await import('../views/dashboard.js');
 
-            const username = DashboardView.currentUsername || 'User';
+            const usernameEl = document.getElementById('user-name');
+            const username = usernameEl?.dataset.login || DashboardView.currentUsername || 'User';
             const intent = await AIService.processIntent(userInput, username);
 
             this.removeLoading();
 
             // La "Acción" ya se ejecutó dentro del servicio (Ciclo Cerrado).
             // Solo mostramos el mensaje final del AI Report.
+            console.log("[ChatComponent] Respuesta AI recibida:", intent.message);
             this.addMessage(intent.message, 'ai');
         } catch (error) {
+            console.error("[ChatComponent] Error procesando AI:", error);
+            if (window.githubAPI?.logToTerminal) window.githubAPI.logToTerminal(`❌ Chat Error: ${error.message}`);
+
             this.removeLoading();
             this.addMessage("Ups, perdí la conexión con mi motor local. ¿Está el servidor encendido?", 'ai');
             console.error('ChatComponent Error:', error);
@@ -68,5 +104,26 @@ export const ChatComponent = {
 
     scrollToBottom() {
         this.container.scrollTop = this.container.scrollHeight;
+    },
+
+    /**
+     * Muestra un paso del proceso agéntico (ej. "Analizando repo X")
+     */
+    showProactiveStep(message) {
+        if (!this.container) return;
+        const bubble = document.createElement('div');
+        bubble.className = 'chat-bubble ai proactive';
+        bubble.innerHTML = `<span class="bot-icon">🧵</span> ${message}`;
+        this.container.appendChild(bubble);
+        this.scrollToBottom();
+    },
+
+    /**
+     * Muestra un insight proactivo de la IA
+     */
+    showInsight(message) {
+        if (!this.container) return;
+        this.addMessage(message, 'ai');
+        if (window.githubAPI?.logToTerminal) window.githubAPI.logToTerminal(`🤖 AI Insight Automatic: ${message}`);
     }
 };

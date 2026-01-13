@@ -17,6 +17,7 @@ class AuthService {
 
     async login() {
         return new Promise((resolve, reject) => {
+            console.log('[AuthService] Iniciando flujo OAuth...');
             if (this.server) this.server.close();
 
             this.server = http.createServer(async (req, res) => {
@@ -33,8 +34,12 @@ class AuthService {
                 }
             }).listen(3000);
 
-            const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&scope=user,repo`;
-            shell.openExternal(authUrl);
+            const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&scope=user,repo,workflow`;
+            console.log('[AuthService] Abriendo URL externa:', authUrl);
+            shell.openExternal(authUrl).catch(err => {
+                console.error('[AuthService] Error abriendo external URL:', err);
+                reject(err);
+            });
         });
     }
 
@@ -52,26 +57,40 @@ class AuthService {
 
     async checkAuth() {
         console.log('[AuthService] Verificando sesión guardada...');
-        const token = this.loadToken();
+        console.log('[AuthService] Token Path:', this.tokenPath);
+
+        let token;
+        try {
+            token = this.loadToken();
+        } catch (e) {
+            console.error('[AuthService] Error loading token from disk:', e);
+            return null;
+        }
+
         if (!token) {
             console.log('[AuthService] No se encontró token en disco.');
             return null;
         }
 
-        console.log('[AuthService] Token cargado, validando con GitHub...');
+        console.log('[AuthService] Token cargado de disco, validando con GitHub...');
         githubClient.setToken(token);
         try {
             const profileService = require('./profileService');
+            console.log('[AuthService] Calling profileService.getUserData()...');
             const user = await profileService.getUserData();
+            console.log('[AuthService] getUserData returned:', user ? user.login : 'NULL');
+
             if (user && !user.error) {
                 console.log('[AuthService] Sesión válida para:', user.login);
                 return user;
             }
-            console.warn('[AuthService] Token expirado o inválido.');
+            console.warn('[AuthService] Token expirado o inválido response:', user);
             return null;
         } catch (e) {
             console.error('[AuthService] Error al validar sesión:', e.message);
-            return null;
+            // Si falla la validación, tal vez el token es vijeo, lo borramos?
+            // Dejamost que el usuario decida reloguearse.
+            return { error: e.message };
         }
     }
 

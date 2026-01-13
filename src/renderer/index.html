@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="style/base.css">
     <link rel="stylesheet" href="style/auth.css">
     <link rel="stylesheet" href="style/dashboard.css">
+    <link rel="stylesheet" href="style/design_system.css">
     <link rel="stylesheet" href="style/components/chat.css">
     <link rel="stylesheet" href="style/components/widgets.css">
 </head>
@@ -49,12 +50,10 @@
         <aside class="widgets-panel">
             <h3 style="margin-top: 0;">📊 Insights</h3>
 
-            <div class="user-mini-card" style="margin-bottom: 1.5rem; position: relative;">
-                <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
-                    <div id="user-avatar"
-                        style="width: 32px; height: 32px; border-radius: 50%; background: var(--bg-secondary); background-size: cover; border: 1px solid var(--border-color);">
-                    </div>
-                    <span id="user-name" style="font-size: 0.9rem; font-weight: 600;">Usuario</span>
+            <div class="user-mini-card-wrapper">
+                <div class="user-info-group">
+                    <div id="user-avatar" class="user-avatar-small"></div>
+                    <span id="user-name" class="user-name-text">Usuario</span>
                 </div>
                 <button id="btn-user-menu" class="icon-btn" title="Opciones de cuenta">⋮</button>
 
@@ -85,17 +84,16 @@
         <!-- Columna 2: Editor Central (Centro) -->
         <main class="main-editor">
             <header class="editor-toolbar">
+                <div class="editor-actions">
+                    <button id="btn-sync" class="github-btn btn-secondary-outline"
+                        title="Traer la última versión de tu README guardada en GitHub">🔄 Sincronizar</button>
+                    <button id="btn-save" class="github-btn btn-primary-compact"
+                        title="Guardar y subir tus cambios locales a GitHub">🚀 Publicar Cambios</button>
+                </div>
                 <div class="tabs-switcher">
                     <button id="btn-show-editor" class="tab-btn active">Editor</button>
                     <button id="btn-show-preview" class="tab-btn">Vista Previa</button>
                     <button id="btn-show-gallery" class="tab-btn">✨ Galería</button>
-                </div>
-                <div class="editor-actions">
-                    <button id="btn-sync" class="github-btn"
-                        title="Traer la última versión de tu README guardada en GitHub"
-                        style="width: auto; background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 8px 16px;">Sincronizar</button>
-                    <button id="btn-save" class="github-btn" title="Guardar y subir tus cambios locales a GitHub"
-                        style="width: auto; padding: 8px 16px;">Publicar Cambios</button>
                 </div>
             </header>
             <div id="editor-container" class="editor-content-wrapper">
@@ -127,6 +125,11 @@
                 <div class="chat-bubble ai">¡Hola! Soy tu Director de Arte. He analizado tu perfil y tengo algunas ideas
                     para tu cabecera. ¿Quieres verlas?</div>
             </div>
+
+            <div id="quick-actions" class="quick-actions-container">
+                <!-- Chips inyectados por JS -->
+            </div>
+
             <div class="chat-input-wrapper">
                 <input type="text" placeholder="Pregunta algo a la IA..." class="chat-input" id="chat-input-box">
             </div>

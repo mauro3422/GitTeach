@@ -9,6 +9,64 @@
     overflow: hidden;
 }
 
+/* Dropdown Menu Styles */
+.dropdown-menu {
+    position: absolute;
+    top: 50px;
+    left: 0;
+    right: 0;
+    background: #161b22;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    padding: 8px 0;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.dropdown-header {
+    padding: 8px 16px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.dropdown-item {
+    display: block;
+    padding: 8px 16px;
+    color: var(--text-main);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: background 0.15s;
+    cursor: pointer;
+}
+
+.dropdown-item:hover {
+    background: var(--accent);
+    color: white;
+}
+
+.dropdown-item.danger {
+    color: #ff7b72;
+}
+
+.dropdown-item.danger:hover {
+    background: #da3633;
+    color: white;
+}
+
+.dropdown-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 8px 0;
+}
+
+.hidden {
+    display: none !important;
+}
+
 .hidden {
     display: none !important;
 }
@@ -36,18 +94,96 @@
     box-shadow: inset -10px 0 20px rgba(0, 0, 0, 0.1);
     overflow-y: auto;
     overflow-x: hidden;
-    /* Eliminar scroll horizontal */
+    scrollbar-width: none;
 }
 
+.widgets-panel::-webkit-scrollbar {
+    display: none;
+}
+
+.user-mini-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: border-color 0.2s;
+}
+
+.user-mini-card:hover {
+    border-color: var(--accent);
+}
+
+.icon-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.icon-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-main);
+}
+
+/* Main Editor Layout */
 .main-editor {
+    display: flex;
+    flex-direction: column;
     padding: 1.5rem 2rem;
     overflow-y: auto;
     overflow-x: hidden;
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
+    scrollbar-width: none;
     background: radial-gradient(circle at top right, #161b22, #0d1117);
 }
+
+.main-editor::-webkit-scrollbar {
+    display: none;
+}
+
+/* Floating Island Toolbar (Dynamic & Premium) */
+.editor-toolbar {
+    position: sticky;
+    top: 1rem;
+    /* Pequeño margen superior para que flote */
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+
+    /* Diseño de Cápsula Centrada */
+    width: fit-content;
+    max-width: 90%;
+    margin: 0 auto 1.5rem auto;
+    padding: 12px 24px;
+
+    /* Estética de Cristal Ultra-Premium */
+    background: rgba(22, 27, 34, 0.5);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+
+    /* Bordes y Sombra */
+    border-radius: 24px;
+    /* Look de cápsula */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.editor-toolbar:hover {
+    transform: scale(1.02);
+    /* Sutil crecimiento al pasar el mouse */
+}
+
 
 /* Tabs Switcher */
 .tabs-switcher {
@@ -97,21 +233,12 @@
 
 .editor-actions {
     display: flex;
-    flex-direction: column;
-    /* Apilar botones para evitar solapamiento lateral */
-    gap: 6px;
-    flex-shrink: 0;
-    align-items: stretch;
-    min-width: 140px;
-    /* Asegurar que el texto se lea bien */
-}
-
-/* En caso de que haya mucho espacio, podemos volver a horizontal (opcional con media queries, pero vertical es más seguro aquí) */
-@media (min-width: 1200px) {
-    .editor-actions {
-        flex-direction: row;
-        align-items: center;
-    }
+    flex-direction: row;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    /* Asegura el centrado de los botones internos */
 }
 
 .editor-area {

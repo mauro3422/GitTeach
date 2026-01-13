@@ -12,7 +12,10 @@ export const DashboardView = {
         const user = await window.githubAPI.getUserData();
         if (user && !user.error) {
             this.currentUsername = user.login;
-            if (userName) userName.innerText = user.name || user.login;
+            if (userName) {
+                userName.innerText = user.name || user.login;
+                userName.dataset.login = user.login; // Guardamos el login real
+            }
             if (user.avatar_url && userAvatar) {
                 userAvatar.style.backgroundImage = `url(${user.avatar_url})`;
             }
@@ -58,9 +61,9 @@ export const DashboardView = {
 
         const cta = document.createElement('div');
         cta.id = 'cta-create-profile';
-        cta.setAttribute('style', "background: #161b22; border: 1px dashed var(--accent); padding: 20px; border-radius: 8px; margin-top: 15px; text-align: center;");
+        cta.className = 'cta-container';
         cta.innerHTML = `
-            <p style="margin: 0 0 15px 0; color: var(--text-main);">🚀 <b>¡Casi listo!</b> GitHub necesita que crees un repositorio especial con tu nombre.</p>
+            <p class="cta-text">🚀 <b>¡Casi listo!</b> GitHub necesita que crees un repositorio especial con tu nombre.</p>
             <button id="btn-create-profile-now" class="github-btn" style="width: auto;">Crear Perfil</button>
         `;
 
@@ -91,52 +94,15 @@ export const DashboardView = {
         const preview = document.getElementById('preview-container');
         const editorContainer = document.getElementById('editor-container');
 
-        // Tab Buttons
-        const btnShowEditor = document.getElementById('btn-show-editor');
-        const btnShowPreview = document.getElementById('btn-show-preview');
-
-        // Tab Switching Logic
-        const switchTab = (mode) => {
-            if (mode === 'preview') {
-                btnShowEditor.classList.remove('active');
-                btnShowPreview.classList.add('active');
-                editorContainer.classList.add('hidden');
-                preview.classList.remove('hidden');
-
-                // Renderizar Markdown
-                if (window.marked) {
-                    preview.innerHTML = window.marked.parse(editor.value || '# Sin contenido');
-                } else {
-                    preview.innerText = "Error: Cargador de Markdown no disponible.";
-                }
-            } else {
-                btnShowPreview.classList.remove('active');
-                btnShowEditor.classList.add('active');
-                preview.classList.add('hidden');
-                editorContainer.classList.remove('hidden');
-            }
-        };
-
-        btnShowEditor?.addEventListener('click', () => switchTab('editor'));
-        btnShowPreview?.addEventListener('click', () => switchTab('preview'));
-
-        // Listener para cambios en el editor (Live update si se desea, o manual al cambiar de pestaña)
-        editor?.addEventListener('input', () => {
-            // Si la pestaña de preview está activa, actualizar en vivo
-            if (!preview.classList.contains('hidden')) {
-                preview.innerHTML = window.marked.parse(editor.value);
-            }
-        });
-
         if (btnSync) {
             btnSync.addEventListener('click', async () => {
                 const originalText = btnSync.innerText;
                 btnSync.innerText = "⏳ Sincronizando...";
                 await this.loadReadme();
-                // Actualizar preview si está visible
-                if (!preview.classList.contains('hidden')) {
-                    preview.innerHTML = window.marked.parse(editor.value);
-                }
+
+                // Disparar evento de input para que el preview se actualice automáticamente
+                editor.dispatchEvent(new Event('input'));
+
                 btnSync.innerText = originalText;
             });
         }

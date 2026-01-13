@@ -14,20 +14,35 @@ export const AuthView = {
 
         // Flujo Login Normal
         btnLogin.addEventListener('click', async () => {
+            console.log("LOGIN CLICKED");
+            if (window.githubAPI.logToTerminal) window.githubAPI.logToTerminal("🖱️ CLICK en Botón Login");
+
             btnLogin.innerText = 'Conectando...';
-            const result = await window.githubAPI.login();
-            if (result.success) this.onLoginSuccess();
+            try {
+                const result = await window.githubAPI.login();
+                if (window.githubAPI.logToTerminal) window.githubAPI.logToTerminal("Respuesta Login: " + JSON.stringify(result));
+
+                if (result.success) this.onLoginSuccess();
+            } catch (err) {
+                console.error(err);
+                if (window.githubAPI.logToTerminal) window.githubAPI.logToTerminal("❌ Error en Login: " + err.message);
+                alert("Error al intentar abrir el navegador: " + err.message);
+            }
             btnLogin.innerText = 'Iniciar flujo OAuth';
         });
 
-        // Flujo de Continuidad (Click en el card)
-        profileCard.addEventListener('click', () => {
+        // Flujo de Continuidad (Click en el card o sus hijos)
+        profileCard.addEventListener('click', (e) => {
+            console.log("CONTINUE SESSION CLICKED");
+            if (window.githubAPI.logToTerminal) window.githubAPI.logToTerminal("🖱️ CLICK en Card de Continuidad");
+
             this.onLoginSuccess();
         });
 
         // Cambiar cuenta
         linkChange.addEventListener('click', (e) => {
             e.preventDefault();
+            console.log("CHANGE ACCOUNT CLICKED");
             this.showGuestState();
         });
     },

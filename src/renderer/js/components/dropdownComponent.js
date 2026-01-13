@@ -25,9 +25,10 @@ export const DropdownComponent = {
             }
         });
 
-        // Prevenir cierre al hacer clic dentro del menú (opcional)
-        menu.addEventListener('click', (e) => {
-            e.stopPropagation();
-        });
+        // (Opcional) Si quieres que el menú NO se cierre al clicar dentro, descomenta esto.
+        // Pero para botones de acción como 'Logout', necesitamos que el evento suba (burbujee).
+        // menu.addEventListener('click', (e) => {
+        //    e.stopPropagation();
+        // });
     }
 };
