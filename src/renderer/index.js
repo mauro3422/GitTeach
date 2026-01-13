@@ -1,21 +1,39 @@
 // src/renderer/index.js
 import { AuthView } from './js/views/auth.js';
+import { AuthService } from './js/services/authService.js';
+import { ProfileService } from './js/services/profileService.js';
+import { RepoService } from './js/services/repoService.js';
 import { DashboardView } from './js/views/dashboard.js';
 import { ChatComponent } from './js/components/chatComponent.js';
 import { ResizableManager } from './js/utils/resizable_manager.js';
 import { DropdownComponent } from './js/components/dropdownComponent.js';
+import { WidgetGallery } from './js/components/widgetGallery.js';
 
-const loginView = document.getElementById('login-view');
-const dashboardView = document.getElementById('dashboard-view');
+// DOM Elements
+const views = {
+    login: document.getElementById('login-view'),
+    dashboard: document.getElementById('dashboard-view')
+};
+
+const editorTabs = {
+    editor: document.getElementById('btn-show-editor'),
+    preview: document.getElementById('btn-show-preview'),
+    gallery: document.getElementById('btn-show-gallery'), // New Tab
+    containers: {
+        editor: document.getElementById('editor-container'),
+        preview: document.getElementById('preview-container'),
+        gallery: document.getElementById('gallery-container') // New Container
+    }
+};
 
 function showView(viewName) {
     const updateDOM = () => {
         if (viewName === 'dashboard') {
-            loginView.classList.add('hidden');
-            dashboardView.classList.remove('hidden');
+            views.login.classList.add('hidden');
+            views.dashboard.classList.remove('hidden');
         } else {
-            loginView.classList.remove('hidden');
-            dashboardView.classList.add('hidden');
+            views.login.classList.remove('hidden');
+            views.dashboard.classList.add('hidden');
         }
     };
 
@@ -102,22 +120,31 @@ function initEditor() {
     // Render inicial
     render();
 
-    // 2. Cambio de Pestañas (Editor vs Preview)
-    const switchTab = (mode) => {
-        if (mode === 'editor') {
-            editorContainer.classList.remove('hidden');
-            preview.classList.add('hidden');
-            btnEditor.classList.add('active');
-            btnPreview.classList.remove('active');
-        } else {
-            editorContainer.classList.add('hidden');
-            preview.classList.remove('hidden');
-            btnEditor.classList.remove('active');
-            btnPreview.classList.add('active');
-            render(); // Asegurar render al cambiar
-        }
-    };
+    // --- TABS DEL EDITOR ---
+    function switchTab(activeTab) {
+        // Reset classes
+        Object.values(editorTabs).forEach(el => {
+            if (el instanceof HTMLElement) el.classList.remove('active');
+        });
+        Object.values(editorTabs.containers).forEach(el => el.classList.add('hidden'));
 
-    btnEditor.addEventListener('click', () => switchTab('editor'));
-    btnPreview.addEventListener('click', () => switchTab('preview'));
+        // Activate selected
+        if (activeTab === 'editor') {
+            editorTabs.editor.classList.add('active');
+            editorTabs.containers.editor.classList.remove('hidden');
+        } else if (activeTab === 'preview') {
+            editorTabs.preview.classList.add('active');
+            editorTabs.containers.preview.classList.remove('hidden');
+            render(); // Activar renderizado
+        } else if (activeTab === 'gallery') {
+            editorTabs.gallery.classList.add('active');
+            editorTabs.containers.gallery.classList.remove('hidden');
+            WidgetGallery.init(); // Cargar widgets
+        }
+    }
+
+    editorTabs.editor.addEventListener('click', () => switchTab('editor'));
+    editorTabs.preview.addEventListener('click', () => switchTab('preview'));
+    editorTabs.gallery.addEventListener('click', () => switchTab('gallery'));
 }
+

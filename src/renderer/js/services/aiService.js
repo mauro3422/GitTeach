@@ -63,7 +63,7 @@ export const AIService = {
             // Aquí cerramos el ciclo. La IA no "predice", el sistema "ejecuta".
             let executionResult = { success: false, details: "Herramienta no implementada." };
 
-            const allowedTools = ['welcome_header', 'github_stats', 'top_langs', 'tech_stack', 'contribution_snake', 'list_repos', 'read_repo'];
+            const allowedTools = ['welcome_header', 'github_stats', 'top_langs', 'tech_stack', 'contribution_snake', 'list_repos', 'read_repo', 'github_trophies', 'streak_stats', 'profile_views'];
 
             if (allowedTools.includes(intent)) {
                 if (intent === 'list_repos') {

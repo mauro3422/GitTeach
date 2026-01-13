@@ -62,6 +62,34 @@ export const ToolRegistry = {
                 repo: 'Name of the repository to read',
                 owner: 'Owner username (optional, defaults to current user)'
             }
+        },
+        // --- VISUAL WIDGETS ---
+        {
+            id: 'github_trophies',
+            name: 'GitHub Trophies',
+            description: 'Muestra trofeos visuales basados en logros (estrellas, commits, seguidores). Ideal para "logros", "trofeos" o "premios".',
+            examples: ["Pon mis trofeos", "Muestra mis logros", "Quiero ver mis medallas"],
+            schema: {
+                theme: 'Theme name (flat, onedark, gitlab, etc.)'
+            }
+        },
+        {
+            id: 'streak_stats',
+            name: 'Streak Stats',
+            description: 'Muestra la racha actual de contribuciones (días seguidos). Ideal para "racha", "streak", "constancia".',
+            examples: ["Pon mi racha de días", "Muestra mi streak", "Cuántos días seguidos llevo?"],
+            schema: {
+                theme: 'Theme name'
+            }
+        },
+        {
+            id: 'profile_views',
+            name: 'Contador de Visitas',
+            description: 'Un badge simple que cuenta cuántas veces han visto el perfil. Ideal para "visitas", "counter", "visualizaciones".',
+            examples: ["Pon un contador de visitas", "Cuánta gente me ve?", "Views counter"],
+            schema: {
+                color: 'Hex color name (blue, green, brightgreen)'
+            }
         }
     ],
 

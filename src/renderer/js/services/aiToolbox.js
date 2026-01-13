@@ -42,7 +42,10 @@ export const AIToolbox = {
             top_langs: (u, p) => `![Top Langs](https://github-readme-stats.vercel.app/api/top-langs/?username=${u}&layout=compact&theme=${p.theme || 'tokyonight'})`,
             welcome_header: (u, p) => `![Welcome](https://capsule-render.vercel.app/api?type=${p.type || 'waving'}&color=${getColor(p.color)}&height=${p.height || '200'}&section=header&text=${encodeURIComponent(p.text || 'Welcome to ' + u + ' Profile')}&fontSize=${p.fontSize || '60'})`,
             tech_stack: (u, p) => `### 🛠️ Tech Stack\n\n![JavaScript](https://img.shields.io/badge/-JavaScript-F7DF1E?logo=javascript&logoColor=black) ![Electron](https://img.shields.io/badge/-Electron-47848F?logo=electron&logoColor=white)`,
-            contribution_snake: (u, p) => `![Snake Game](https://github.com/${u}/${u}/blob/output/github-contribution-grid-snake.svg)`
+            contribution_snake: (u, p) => `![Snake Game](https://github.com/${u}/${u}/blob/output/github-contribution-grid-snake.svg)`,
+            github_trophies: (u, p) => `[![Trophies](https://github-profile-trophy.vercel.app/?username=${u}&theme=${p.theme || 'flat'}&no-frame=true&no-bg=true&margin-w=4)](https://github.com/ryo-ma/github-profile-trophy)`,
+            streak_stats: (u, p) => `[![GitHub Streak](https://github-readme-streak-stats.herokuapp.com/?user=${u}&theme=${p.theme || 'default'})](https://git.io/streak-stats)`,
+            profile_views: (u, p) => `![Visitor Count](https://komarev.com/ghpvc/?username=${u}&color=${p.color || 'blue'})`
         };
 
         if (templates[type]) {

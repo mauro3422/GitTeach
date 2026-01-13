@@ -1,116 +1,53 @@
-.widget-card {
-    background: var(--bg-primary);
+/* Grid Layout */
+.widgets-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    padding: 20px;
+    overflow-y: auto;
+    height: 100%;
+}
+
+/* Card Style */
+.widget-card-item {
+    background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    padding: 1.25rem;
-    border-radius: 10px;
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
     transition: transform 0.2s, border-color 0.2s;
 }
 
-.widget-card:hover {
-    transform: translateY(-3px);
-    border-color: var(--accent);
+.widget-card-item:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent-color);
 }
 
-.widget-card h4 {
-    margin: 0 0 0.5rem 0;
-    font-size: 0.8rem;
+.widget-icon {
+    font-size: 2.5rem;
+    text-align: center;
+    margin-bottom: 5px;
+}
+
+.widget-info h4 {
+    margin: 0 0 5px 0;
+    color: var(--text-color);
+    font-size: 1.1rem;
+}
+
+.widget-info p {
+    margin: 0;
     color: var(--text-muted);
-    text-transform: uppercase;
+    font-size: 0.9rem;
+    line-height: 1.4;
 }
 
-.widget-card .value {
-    font-size: 1.75rem;
-    font-weight: bold;
-    color: var(--text-main);
-}
-
-.user-mini-card {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 1.5rem;
-    padding: 10px;
-    border-radius: 8px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    position: relative;
-}
-
-.icon-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    font-size: 1.2rem;
-    cursor: pointer;
-    padding: 5px;
-    border-radius: 4px;
-    transition: background 0.2s, color 0.2s;
-    line-height: 1;
-}
-
-.icon-btn:hover {
-    background: var(--bg-secondary);
-    color: var(--text-main);
-}
-
-/* Dropdown Menu */
-.dropdown-menu {
-    position: absolute;
-    bottom: calc(100% + 5px);
-    right: 0;
-    background: #1c2128;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    min-width: 170px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-    z-index: 100;
-    padding: 4px 0;
-    animation: dropdownSlide 0.2s ease-out;
-}
-
-@keyframes dropdownSlide {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.dropdown-header {
-    padding: 8px 12px;
-    font-size: 0.72rem;
-    color: var(--text-muted);
-    font-weight: 600;
-    text-transform: uppercase;
-    border-bottom: 1px solid var(--border-color);
-    margin-bottom: 4px;
-    letter-spacing: 0.5px;
-}
-
-.dropdown-item {
-    display: block;
-    padding: 8px 12px;
-    color: var(--text-main);
-    text-decoration: none;
-    font-size: 0.85rem;
-    transition: background 0.2s, color 0.2s;
-}
-
-.dropdown-item:hover {
-    background: var(--accent);
-    color: white;
-}
-
-.dropdown-item.danger:hover {
-    background: #da3633;
-}
-
-.dropdown-divider {
-    height: 1px;
-    background: var(--border-color);
-    margin: 4px 0;
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 0.9rem;
+    margin-top: auto;
+    /* Pushes button to bottom */
+    width: 100%;
 }
