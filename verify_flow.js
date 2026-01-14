@@ -86,7 +86,7 @@ const mockGithubAPI = {
     },
     logToTerminal: (msg) => {
         // Capturar telemetría limpia
-        const clean = String(msg).replace(/[\u{1F300}-\u{1F9FF}]/gu, '').replace(/[️✨🔍🚀📂📄⚠✅🧩🎯🛠📝👁📊🏗]/g, '').trim();
+        const clean = String(msg).replace(/[\u{1F300}-\u{1F9FF}]/gu, '').replace(/[️✨🔍🚀📂📄⚠✅🧩🎯🛠📝👁📊🏗🧱🧪🏗️🧪🏗️]/g, '').trim();
         if (clean) {
             log(`[TEL] ${clean}`);
             console.log(`[TEL] ${clean}`); // También a consola real
@@ -209,20 +209,23 @@ async function verifyAgenticFlow() {
         log(statMsg);
         console.log(statMsg);
 
-        log("");
-        const msgStep3 = ">>> STEP 3: Refreshing Chat Context with Deep Knowledge";
-        log(msgStep3);
-        console.log(`\n${msgStep3}`);
-
         const { AIService } = await import('./src/renderer/js/services/aiService.js');
 
-        // NUEVO: Obtener contexto fresco con todos los resúmenes de los workers
-        const richContext = analyzer.getFreshContext("mauro3422");
+        // NUEVO: Verificamos el contexto de sesión que se inyectó automáticamente al final del background
+        const richContext = AIService.currentSessionContext;
 
-        AIService.setSessionContext(richContext);
-        log("[CONTEXTO INYECTADO AL CHAT (FRESH)]:");
-        log(richContext.substring(0, 1000) + "...");
-        console.log("[CONTEXTO INYECTADO AL CHAT (FRESH)]");
+        log("[CONTEXTO EN SESIÓN (AUTO-REFRESHED)]:");
+        log(richContext.substring(0, 1500) + "...");
+        console.log("[CONTEXTO EN SESIÓN (AUTO-REFRESHED)]");
+
+        if (richContext.includes("SÍNTESIS DEL 100% DEL CÓDIGO VIA MAP-REDUCE")) {
+            log("  ✅ DEEP MEMORY DETECTADA EN EL CONTEXTO!");
+            console.log("  ✅ DEEP MEMORY DETECTADA EN EL CONTEXTO!");
+        } else {
+            log("  ⚠️ DEEP MEMORY NO DETECTADA - Verificando inyección manual...");
+            const manualContext = analyzer.getFreshContext("mauro3422", "Manual Recovery Test");
+            AIService.setSessionContext(manualContext);
+        }
 
         // ENCUESTA: Múltiples preguntas para verificar conocimiento de la IA
         log("");

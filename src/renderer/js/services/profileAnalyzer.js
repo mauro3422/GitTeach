@@ -357,9 +357,20 @@ export class ProfileAnalyzer {
             window.githubAPI.logToTerminal(`🧠 [BACKGROUND] Refrescando memoria del Director de Arte con conocimiento profundo...`);
         }
 
-        // --- ACTUALIZACIÓN DE SESIÓN AUTOMÁTICA ---
-        // Ahora que tenemos los resúmenes de los workers, refrescamos el contexto de la IA de chat.
-        const freshContext = this.getFreshContext(username);
+        // --- ACTUALIZACIÓN DE SESIÓN AUTOMÁTICA CON DEEP CURATION (Map-Reduce) ---
+        // Ahora procesamos el 100% de la información para crear la memoria profunda.
+        if (window.githubAPI?.logToTerminal) {
+            window.githubAPI.logToTerminal(`🧠 [BACKGROUND] Iniciando Deep Curation (Map-Reduce) de ${finalStats.totalFiles} archivos...`);
+        }
+
+        const deepMemory = await this.runDeepCurator(username);
+
+        if (window.githubAPI?.logToTerminal) {
+            window.githubAPI.logToTerminal(`✨ [BACKGROUND] Memoria Profunda generada y sincronizada con el Director de Arte.`);
+        }
+
+        // Refrescamos el contexto de la IA de chat con la memoria destilada del 100%.
+        const freshContext = this.getFreshContext(username, deepMemory);
         AIService.setSessionContext(freshContext);
     }
 
@@ -411,9 +422,64 @@ export class ProfileAnalyzer {
             .map(e => e[0]);
     }
 
-    async fetchUserEvents(username) {
-        // Podríamos extender el githubClient para esto, por ahora simulamos
-        return [];
+    /**
+     * Motor de Curación Profunda (Map-Reduce):
+     * Toma el 100% de los resúmenes y los reduce a una memoria densa.
+     */
+    async runDeepCurator(username) {
+        const allSummariesString = this.coordinator.getAllSummaries();
+        const allSummaries = allSummariesString.split('\n').filter(s => s.trim().length > 0);
+
+        // --- FASE 1: MAP (Procesar por lotes de 20 resúmenes) ---
+        const batches = [];
+        for (let i = 0; i < allSummaries.length; i += 20) {
+            batches.push(allSummaries.slice(i, i + 20));
+        }
+
+        if (window.githubAPI?.logToTerminal) {
+            window.githubAPI.logToTerminal(`🏗️ [MAPPER] Destilando patrones en ${batches.length} lotes de conocimiento...`);
+        }
+
+        const partialSyntheses = await Promise.all(batches.map(async (batch, index) => {
+            const prompt = `Eres un ANALISTA DE PATRONES. Tu tarea es extraer EVIDENCIAS TÉCNICAS de este lote de 20 archivos.
+            
+            LOTE ANALIZADO:
+            ${batch.join('\n')}
+            
+            REGLAS:
+            1. No resumas archivo por archivo.
+            2. Extrae 3 PATRONES DE HABITO (ej: "Nombres de funciones descriptivos", "Uso intensivo de mocks", "Consistencia en tipos").
+            3. Detecta 1 FORTALEZA OCULTA (ej: "Capacidad para refactorizar deuda técnica").
+            
+            Respuesta corta, técnica y en ESPAÑOL.`;
+
+            try {
+                return await AIService.callAI("Mapper de Inteligencia", prompt, 0.3);
+            } catch (e) {
+                return "Error en lote " + index;
+            }
+        }));
+
+        // --- FASE 2: REDUCE (Sintetizar todo en la Memoria Final) ---
+        if (window.githubAPI?.logToTerminal) {
+            window.githubAPI.logToTerminal(`🧪 [REDUCER] Sintetizando Memoria Final del Desarrollador...`);
+        }
+
+        const reducePrompt = `ERES EL REDUCTOR DE INTELIGENCIA. Tienes ante ti todas las "evidencias" extraídas del 100% del código de ${username}.
+        
+        EVIDENCIAS DESTILADAS (MAPPER OUTPUT):
+        ${partialSyntheses.join('\n\n')}
+        
+        TU MISIÓN: Crear la "MEMORIA DEFINITIVA DE ${username.toUpperCase()}" (Máximo 300 palabras).
+        
+        ESTRUCTURA OBLIGATORIA:
+        1. [ADN TÉCNICO]: Hábitos, patrones y consistencia arquitectónica.
+        2. [PUNTOS DE DOLOR RESUELTOS]: Qué problemas complejos ha atacado el usuario.
+        3. [Veredicto de Talento]: Por qué este usuario es un desarrollador senior/junior/especialista.
+        
+        Responde en ESPAÑOL, tono muy profesional y basado ÚNICAMENTE en las evidencias.`;
+
+        return await AIService.callAI("Reducer Final", reducePrompt, 0.7);
     }
 
     async getAIInsights(username, langs, projects, codeInsights, hasRealData) {
@@ -481,23 +547,28 @@ export class ProfileAnalyzer {
      * Obtiene el contexto más reciente incluyendo todos los resúmenes de archivos
      * Se debe llamar después de que el background analysis o los workers terminen.
      */
-    getFreshContext(username) {
+    getFreshContext(username, deepMemory) {
         if (!this.results) return "";
 
         const langList = (this.results.mainLangs && this.results.mainLangs.length > 0)
             ? this.results.mainLangs.join(', ')
             : 'varios lenguajes';
-        const deepSummaries = this.coordinator.getSummaryForChat();
+
+        // Obtenemos el "Quick Reference" (Top 10) para no saturar el contexto inmediato
+        const quickSummaries = this.coordinator.getSummaryForChat();
 
         return `--- MEMORIA PROFUNDA DEL DIRECTOR DE ARTE ---
 USUARIO: ${username}
-TALENTO: ${langList}
+TALENTO PRINCIPAL: ${langList}
 
-INTRODUCCIÓN CURADA:
+INTRODUCCIÓN CURADA (BIOGRAFÍA DE ALTO IMPACTO):
 ${this.results.summary}
 
-EVIDENCIA TÉCNICA (DETALLE POR ARCHIVO - FORTALEZAS Y PATRONES):
-${deepSummaries || "Pendiente de completar el scanner profundo..."}
+--- MEMORIA TÉCNICA (SÍNTESIS DEL 100% DEL CÓDIGO VIA MAP-REDUCE) ---
+${deepMemory || "Generando síntesis profunda... usa los resúmenes rápidos por ahora."}
+
+EVIDENCIA TÉCNICA RÁPIDA (ARCHIVOS CLAVE):
+${quickSummaries || "Escaneando archivos..."}
 
 --- FIN DEL CONTEXTO ---`;
     }

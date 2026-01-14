@@ -171,27 +171,36 @@ export class CoordinatorAgent {
     }
 
     /**
-     * Obtiene un resumen consolidado de los archivos más importantes analizados
-     * Filtra archivos de baja prioridad para no saturar el contexto de la IA.
-     * Basado en un presupuesto de 20K por slot (80K total / 4 parallel).
+     * Obtiene resúmenes filtrados para el chat (Top 10 por repo para ahorrar contexto)
      */
     getSummaryForChat() {
+        return this.getSummaryByFilter({ limitPerRepo: 10, minPriority: 60 });
+    }
+
+    /**
+     * Obtiene el 100% de los resúmenes de los workers (Sin filtros)
+     * Usado para la Curación Profunda (Map-Reduce) en segundo plano.
+     */
+    getAllSummaries() {
+        return this.getSummaryByFilter({ limitPerRepo: 9999, minPriority: 0 });
+    }
+
+    /**
+     * Motor genérico de extracción de resúmenes.
+     */
+    getSummaryByFilter({ limitPerRepo, minPriority }) {
         const summaries = [];
         for (const repo of this.inventory.repos) {
-            // Solo incluir archivos de muy alta prioridad (código real core)
             const completed = repo.files.filter(f =>
                 f.status === 'completed' &&
                 f.summary &&
-                f.priority >= 60
+                f.priority >= minPriority
             );
 
             if (completed.length > 0) {
-                // Ordenar por prioridad dentro de los completados
                 const sorted = [...completed].sort((a, b) => b.priority - a.priority);
-
                 summaries.push(`--- REPO: ${repo.name} ---`);
-                // Limitar a los 10 más importantes por repo (garantiza < 20K tokens)
-                const topFiles = sorted.slice(0, 10);
+                const topFiles = sorted.slice(0, limitPerRepo);
                 topFiles.forEach(f => {
                     summaries.push(`[${f.path}]: ${f.summary}`);
                 });
