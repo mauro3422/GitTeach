@@ -121,9 +121,42 @@ export const ChatComponent = {
     /**
      * Muestra un insight proactivo de la IA
      */
+    /**
+     * Muestra un insight proactivo de la IA
+     */
     showInsight(message) {
         if (!this.container) return;
         this.addMessage(message, 'ai');
         if (window.githubAPI?.logToTerminal) window.githubAPI.logToTerminal(`🤖 AI Insight Automatic: ${message}`);
+    },
+
+    /**
+     * Actualiza la barra de progreso discreta
+     */
+    updateProgress(percent, text) {
+        const panel = document.getElementById('ai-progress-panel');
+        const bar = document.getElementById('progress-bar-fill');
+        const label = document.getElementById('progress-text');
+        const percentLabel = document.getElementById('progress-percent');
+
+        if (panel && panel.classList.contains('hidden')) {
+            panel.classList.remove('hidden');
+        }
+
+        if (bar) bar.style.width = `${percent}%`;
+        if (label) label.innerText = text;
+        if (percentLabel) percentLabel.innerText = `${percent}%`;
+    },
+
+    /**
+     * Oculta la barra de progreso
+     */
+    hideProgress() {
+        const panel = document.getElementById('ai-progress-panel');
+        if (panel) {
+            setTimeout(() => {
+                panel.classList.add('hidden');
+            }, 1000); // Pequeño delay para que se vea el 100%
+        }
     }
 };

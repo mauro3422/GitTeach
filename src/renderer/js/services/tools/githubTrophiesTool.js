@@ -13,8 +13,22 @@ export class GitHubTrophiesTool extends BaseTool {
 
     async execute(params, username) {
         const theme = params.theme || 'flat';
-        const markdown = `[![Trophies](https://github-profile-trophy.vercel.app/?username=${username}&theme=${theme}&no-frame=true&no-bg=true&margin-w=4&t=${Date.now()})](https://github.com/ryo-ma/github-profile-trophy)`;
+        const url = `https://github-profile-trophy-kappa.vercel.app/?username=${username}&theme=${theme}&no-frame=true&no-bg=true&margin-w=4&t=${Date.now()}`;
 
-        return { success: true, content: markdown, details: "Trofeos insertados." };
+        // Verificar disponibilidad
+        const isUp = await this.isWidgetAvailable(url);
+
+        let markdown;
+        if (isUp) {
+            markdown = `[![Trophies](${url})](https://github.com/ryo-ma/github-profile-trophy)`;
+        } else {
+            markdown = `![Trophies Unavailable](https://img.shields.io/badge/Trophies-Service_Unavailable-red?style=flat-square&logo=github)`;
+        }
+
+        return {
+            success: true,
+            content: markdown,
+            details: isUp ? "Trofeos insertados." : "Servicio de Trofeos no disponible (fallback activado)."
+        };
     }
 }

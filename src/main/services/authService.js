@@ -5,9 +5,29 @@ const fs = require('fs');
 const path = require('path');
 const githubClient = require('./githubClient');
 
-const CLIENT_ID = 'Ov23liHOkbOazRex4DCI';
-const CLIENT_SECRET = '3d69b5853f0e1089fda660e580ebd27a12a923d0';
+// Cargar credenciales desde .env (NUNCA hardcodear secrets)
+function loadEnv() {
+    const envPath = path.join(__dirname, '../../../.env');
+    if (fs.existsSync(envPath)) {
+        const content = fs.readFileSync(envPath, 'utf8');
+        content.split('\n').forEach(line => {
+            const [key, ...valueParts] = line.split('=');
+            if (key && valueParts.length) {
+                process.env[key.trim()] = valueParts.join('=').trim();
+            }
+        });
+    }
+}
+loadEnv();
+
+const CLIENT_ID = process.env.GITHUB_CLIENT_ID || 'Ov23liHOkbOazRex4DCI';
+const CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
 const REDIRECT_URI = 'http://localhost:3000/callback';
+
+// Validar que tenemos el secret
+if (!CLIENT_SECRET) {
+    console.error('[AuthService] ERROR: GITHUB_CLIENT_SECRET not found in .env file!');
+}
 
 class AuthService {
     constructor() {

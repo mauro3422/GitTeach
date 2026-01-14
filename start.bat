@@ -31,7 +31,7 @@ taskkill /F /IM llama-server.exe /T 2>nul
 taskkill /F /IM electron.exe /T 2>nul
 echo.
 echo [2/2] Iniciando Brain...
-start "GitTeach Brain (LFM 2.5)" /MIN server\llama-server.exe --model "models\LFM2.5-1.2B-Instruct-Q8_0.gguf" --port 8000 --host 0.0.0.0 --n-gpu-layers 999 --ctx-size 8192 --chat-template chatml
+start "GitTeach Brain (LFM 2.5)" /MIN server\llama-server.exe --model "models\LFM2.5-1.2B-Instruct-Q8_0.gguf" --port 8000 --host 0.0.0.0 --n-gpu-layers 999 --ctx-size 81920 --parallel 4 --chat-template chatml
 timeout /t 3 /nobreak >nul
 echo.
 echo [3/3] Iniciando App...
@@ -47,7 +47,7 @@ goto MENU
 :SERVER_ONLY
 echo.
 echo Iniciando Solo Server...
-start "GitTeach Brain (LFM 2.5)" server\llama-server.exe --model "models\LFM2.5-1.2B-Instruct-Q8_0.gguf" --port 8000 --host 0.0.0.0 --n-gpu-layers 999 --ctx-size 8192 --chat-template chatml
+start "GitTeach Brain (LFM 2.5)" server\llama-server.exe --model "models\LFM2.5-1.2B-Instruct-Q8_0.gguf" --port 8000 --host 0.0.0.0 --n-gpu-layers 999 --ctx-size 81920 --parallel 4 --chat-template chatml
 goto MENU
 
 :KILL_ALL

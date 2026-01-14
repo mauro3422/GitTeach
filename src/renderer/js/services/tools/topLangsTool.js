@@ -13,7 +13,7 @@ export class TopLangsTool extends BaseTool {
 
     async execute(params, username) {
         const theme = params.theme || 'tokyonight';
-        const markdown = `![Top Langs](http://github-profile-summary-cards.vercel.app/api/cards/repos-per-language?username=${username}&theme=${theme}&t=${Date.now()})`;
+        const markdown = `![Top Langs](https://github-profile-summary-cards.vercel.app/api/cards/repos-per-language?username=${username}&theme=${theme}&t=${Date.now()})`;
 
         return {
             success: true,

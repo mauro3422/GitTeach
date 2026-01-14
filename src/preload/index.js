@@ -24,3 +24,17 @@ contextBridge.exposeInMainWorld('systemInfo', {
     chrome: () => process.versions.chrome,
     electron: () => process.versions.electron,
 });
+
+// API de Cache para análisis incremental
+contextBridge.exposeInMainWorld('cacheAPI', {
+    getRepo: (owner, repo) => ipcRenderer.invoke('cache:get-repo', { owner, repo }),
+    setRepo: (owner, repo, data) => ipcRenderer.invoke('cache:set-repo', { owner, repo, data }),
+    needsUpdate: (owner, repo, filePath, sha) => ipcRenderer.invoke('cache:needs-update', { owner, repo, filePath, sha }),
+    setFileSummary: (owner, repo, filePath, sha, summary, content) =>
+        ipcRenderer.invoke('cache:set-file-summary', { owner, repo, filePath, sha, summary, content }),
+    getFileSummary: (owner, repo, filePath) => ipcRenderer.invoke('cache:get-file-summary', { owner, repo, filePath }),
+    hasRepoChanged: (owner, repo, treeSha) => ipcRenderer.invoke('cache:has-repo-changed', { owner, repo, treeSha }),
+    setRepoTreeSha: (owner, repo, treeSha) => ipcRenderer.invoke('cache:set-repo-tree-sha', { owner, repo, treeSha }),
+    getStats: () => ipcRenderer.invoke('cache:get-stats'),
+    clear: () => ipcRenderer.invoke('cache:clear')
+});

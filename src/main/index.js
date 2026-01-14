@@ -6,11 +6,10 @@ const path = require('node:path');
 const authService = require('./services/authService');
 const profileService = require('./services/profileService');
 const repoService = require('./services/repoService');
+const cacheService = require('./services/cacheService');
 
-// --- OPTIMIZACIÓN GPU PARA AGENTES PARALELOS ---
-// Configuramos el entorno para que Ollama permita múltiples slots (Workers)
-process.env.OLLAMA_NUM_PARALLEL = "4"; // Permite hasta 4 inferencias simultáneas
-process.env.OLLAMA_MAX_LOADED_MODELS = "2"; // Permite tener el modelo de visión y chat cargados
+// --- NOTA: El modelo LFM 2.5 corre via llama-server.exe (llama.cpp) ---
+// Endpoint: http://localhost:8000/v1/chat/completions
 
 // --- MANEJADORES IPC ---
 
@@ -104,6 +103,56 @@ ipcMain.handle('github:create-workflow', async (event, { username, content }) =>
     }
 });
 
+// --- FILE CONTENT (Faltaba este handler!) ---
+ipcMain.handle('github:get-file-content', async (event, { owner, repo, path }) => {
+    try {
+        return await repoService.getFileContent(owner, repo, path);
+    } catch (error) {
+        return { error: error.message };
+    }
+});
+
+// --- CACHE SERVICE HANDLERS ---
+ipcMain.handle('cache:get-repo', async (event, { owner, repo }) => {
+    return cacheService.getRepoCache(owner, repo);
+});
+
+ipcMain.handle('cache:set-repo', async (event, { owner, repo, data }) => {
+    cacheService.setRepoCache(owner, repo, data);
+    return { success: true };
+});
+
+ipcMain.handle('cache:needs-update', async (event, { owner, repo, filePath, sha }) => {
+    return cacheService.needsUpdate(owner, repo, filePath, sha);
+});
+
+ipcMain.handle('cache:set-file-summary', async (event, { owner, repo, filePath, sha, summary, content }) => {
+    cacheService.setFileSummary(owner, repo, filePath, sha, summary, content);
+    return { success: true };
+});
+
+ipcMain.handle('cache:get-file-summary', async (event, { owner, repo, filePath }) => {
+    return cacheService.getFileSummary(owner, repo, filePath);
+});
+
+ipcMain.handle('cache:has-repo-changed', async (event, { owner, repo, treeSha }) => {
+    return cacheService.hasRepoChanged(owner, repo, treeSha);
+});
+
+ipcMain.handle('cache:set-repo-tree-sha', async (event, { owner, repo, treeSha }) => {
+    cacheService.setRepoTreeSha(owner, repo, treeSha);
+    return { success: true };
+});
+
+ipcMain.handle('cache:get-stats', async () => {
+    return cacheService.getStats();
+});
+
+ipcMain.handle('cache:clear', async () => {
+    cacheService.clearCache();
+    return { success: true };
+});
+
 // --- DEV TOOLS & LOGGING ---
 
 ipcMain.on('dev:export-prompt', (event, prompt) => {
@@ -142,8 +191,10 @@ function createWindow() {
     win.setMenuBarVisibility(false);
     win.loadFile(path.join(__dirname, '../renderer/index.html'));
 
-    // DEBUG: Abrir consola para ver errores del Renderer
-    win.webContents.openDevTools({ mode: 'detach' });
+    // DEBUG: Solo abrir DevTools en desarrollo
+    if (process.env.NODE_ENV !== 'production') {
+        win.webContents.openDevTools({ mode: 'detach' });
+    }
 }
 
 app.whenReady().then(() => {

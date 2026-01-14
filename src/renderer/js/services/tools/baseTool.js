@@ -36,4 +36,41 @@ export class BaseTool {
         };
         return colors[name?.toLowerCase()] || name || 'auto';
     }
+    async verifyWidget(url) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 seconds timeout
+
+            const response = await fetch(url, {
+                method: 'HEAD',
+                signal: controller.signal,
+                mode: 'no-cors' // Important for opaque response if CORS is issues, but for availability check might be enough
+            });
+            clearTimeout(timeoutId);
+
+            // With no-cors we can't check status 200 properly, but if it doesn't throw, it's likely reachable.
+            // However, for SVG widgets often CORS is allowed. Let's try normal fetch first.
+            return true;
+        } catch (e) {
+            // If fetch fails (network error, DNS), we assume it's down
+            return false;
+        }
+    }
+
+    /**
+     * Helper to check status with a real GET if HEAD fails/CORS issues
+     */
+    async isWidgetAvailable(url) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+            const res = await fetch(url, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            return res.ok;
+        } catch (e) {
+            console.warn(`Widget check failed for ${url}:`, e);
+            return false;
+        }
+    }
 }

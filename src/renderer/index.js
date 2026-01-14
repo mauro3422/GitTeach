@@ -58,9 +58,9 @@ AuthView.init(async () => {
     DropdownComponent.init('btn-user-menu', 'user-dropdown');
 
     // --- ANÁLISIS AGÉNTICO EN SEGUNDO PLANO ---
-    const username = DashboardView.currentUsername || 'mauro3422';
+    const username = DashboardView.currentUsername || 'User';
 
-    if (username) {
+    if (username && username !== 'User') {
         const analyzer = new ProfileAnalyzer();
         const { AIService } = await import('./js/services/aiService.js');
 
@@ -68,28 +68,75 @@ AuthView.init(async () => {
         ChatComponent.showInsight(`¡Hola **${username}**! 👋 Soy tu Director de Arte. He empezado a analizar tus repositorios para conocerte mejor.`);
 
         // 2. Ejecutar análisis con feedback en tiempo real
-        analyzer.analyze(username, (msg) => {
-            ChatComponent.showProactiveStep(msg);
+        analyzer.analyze(username, (data) => {
+            // Manejo inteligente de notificaciones
+            if (typeof data === 'object' && data.type === 'Progreso') {
+                ChatComponent.updateProgress(data.percent, data.message);
+            } else if (typeof data === 'string') {
+                ChatComponent.showProactiveStep(data);
+            } else if (data && data.message) {
+                // Solo mostrar logs importantes en el chat
+                if (data.type === 'Inventario inicializado' || data.type === 'Error') {
+                    ChatComponent.showProactiveStep(`🎯 ${data.type}: ${data.message}`);
+                }
+            }
         }).then(results => {
+            ChatComponent.hideProgress(); // Ocultar barra al finalizar
             if (results) {
-                // 3. Persistencia de memoria enriquecida en el chat
-                // Pasamos no solo el resumen, sino hallazgos específicos de arquitectura
-                const repoFacts = results.deepScan.map(s =>
-                    `- Repo ${s.repo}: Detectada estructura ${s.structure}.`
-                ).join('\n');
+                // 3. Construir contexto RICO para el chat
+                // Incluir lenguajes, estructura de repos, y snippets de código
+                const langList = results.mainLangs.length > 0
+                    ? results.mainLangs.join(', ')
+                    : 'varios lenguajes';
 
-                const context = `El usuario ${username} es experto en ${results.mainLangs.join(', ')}.\n` +
-                    `Hallazgos de Arquitectura Reales:\n${repoFact}\n` +
-                    `Análisis de Expertos: ${results.summary}`;
+                // Construir detalles de cada repo con resúmenes de IA
+                const repoDetails = results.deepScan.map(s => {
+                    let detail = `### ${s.repo}\n- Estructura: ${s.structure}`;
+                    if (Array.isArray(s.auditedSnippets) && s.auditedSnippets.length > 0) {
+                        // Priorizar resúmenes de IA sobre snippets crudos
+                        const summaries = s.auditedSnippets.slice(0, 5).map(f => {
+                            if (f.aiSummary) {
+                                return `  - ${f.file}: ${f.aiSummary}`;
+                            }
+                            return `  - ${f.file}`;
+                        }).join('\n');
+                        detail += `\n- Archivos:\n${summaries}`;
+                    }
+                    return detail;
+                }).join('\n\n');
+
+                // Contexto estructurado con límite de tamaño
+                const context = `PERFIL: ${username}
+LENGUAJES: ${langList}
+RESUMEN: ${results.summary}
+
+REPOSITORIOS ANALIZADOS:
+${repoDetails.substring(0, 4000)}`; // Limitar a ~4K chars
 
                 AIService.setSessionContext(context);
 
-                // 4. Feedback final del ciclo con resumen técnico real
+                // 4. Feedback final con conocimiento real
                 setTimeout(() => {
-                    ChatComponent.showInsight(`✨ He terminado mi auditoría técnica.`);
-                    ChatComponent.showInsight(`**Resumen de Experto:** ${results.summary}`);
-                    ChatComponent.showInsight(`Basándome en tu código, he activado sugerencias personalizadas en tu Galería de Widgets. ¿Qué te gustaría hacer ahora?`);
-                }, 1000);
+                    const failedCount = results.failedFiles || 0;
+                    if (failedCount > 0) {
+                        ChatComponent.showInsight(`✨ **¡Análisis completado!** (con ${failedCount} archivos omitidos por error)`);
+                    } else {
+                        ChatComponent.showInsight(`✨ **¡Análisis completado!**`);
+                    }
+
+                    // Mostrar lo que aprendió
+                    if (results.mainLangs.length > 0) {
+                        ChatComponent.showInsight(`📊 Veo que trabajas principalmente con **${langList}**.`);
+                    }
+
+                    if (results.deepScan.length > 0) {
+                        const topRepo = results.deepScan[0];
+                        ChatComponent.showInsight(`📂 Tu proyecto más activo parece ser **${topRepo.repo}**.`);
+                    }
+
+                    ChatComponent.showInsight(`💡 ${results.summary}`);
+                    ChatComponent.showInsight(`¿En qué te gustaría que te ayude? Puedo sugerirte widgets, mejorar tu bio, o analizar un proyecto específico.`);
+                }, 500);
             }
         });
     }

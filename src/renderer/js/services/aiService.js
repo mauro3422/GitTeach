@@ -30,12 +30,26 @@ export const AIService = {
 
             let intent = 'chat';
             try {
-                const cleanJson = routerResponse.replace(/^```json/, '').replace(/```$/, '').trim();
-                const data = JSON.parse(cleanJson);
-                intent = data.tool || 'chat';
+                // Forzar modo chat si el usuario pregunta "¿qué sabes de mí?" o similar
+                if (input.toLowerCase().includes("sabes de mi") ||
+                    input.toLowerCase().includes("analizaste") ||
+                    input.toLowerCase().includes("quien soy") ||
+                    input.toLowerCase().includes("mi perfil")) {
+                    intent = 'chat';
+                } else {
+                    intent = data.tool || 'chat';
+                }
             } catch (e) {
                 console.warn("[AIService] Router Fallback", e);
-                intent = routerResponse.trim().toLowerCase();
+                // Solo aceptar comandos conocidos, sino es chat
+                const inputLower = input.toLowerCase();
+                if (inputLower.includes("sabes de mi") || inputLower.includes("quien soy")) {
+                    intent = 'chat';
+                } else {
+                    const possibleIntent = routerResponse.trim().toLowerCase();
+                    const knownTools = ToolRegistry.tools.map(t => t.id.toLowerCase());
+                    intent = knownTools.includes(possibleIntent) ? possibleIntent : 'chat';
+                }
             }
 
             if (window.githubAPI?.logToTerminal) {
@@ -47,7 +61,30 @@ export const AIService = {
 
             // --- CASO CHAT (Sin Herramienta) ---
             if (intent === 'chat' || intent.includes('chat')) {
-                const chatPrompt = "Eres un experto en GitHub amigable. Responde brevemente en español.";
+                // Prompt mejorado: contexto PRIMERO, instrucciones claras
+                let chatPrompt;
+
+                if (this.currentSessionContext && this.currentSessionContext.length > 50) {
+                    // Tenemos contexto real - construir prompt rico y OBLIGATORIO
+                    chatPrompt = `# MANDATO CRÍTICO: USA EL CONTEXTO PROPORCIONADO ABAJO
+Tú eres Antigravity (Director de Arte), un experto técnico. 
+TU ÚNICA FUENTE DE VERDAD sobre el usuario es el bloque "INFORMACIÓN ANALIZADA". 
+
+## INFORMACIÓN ANALIZADA SOBRE ${username.toUpperCase()}:
+${this.currentSessionContext}
+
+## REGLAS DE RESPUESTA:
+1. SIEMPRE menciona al menos un repositorio específico o un archivo del contexto.
+2. SIEMPRE confirma los lenguajes que viste en los resúmenes.
+3. NO digas "no tengo información específica sobre ti". Mentira: TIENES el contexto arriba.
+4. Responde en español, técnico y directo.`;
+                } else {
+                    // Sin contexto - prompt básico
+                    chatPrompt = `Eres un asistente de GitHub llamado "Director de Arte".
+Tu trabajo es ayudar al desarrollador ${username || 'el usuario'} a mejorar su perfil.
+Responde en español, amigablemente. Si no tienes información sobre el usuario, díselo honestamente.`;
+                }
+
                 const chatReply = await this.callAI(chatPrompt, input, 0.7);
                 return { action: "chat", message: chatReply };
             }

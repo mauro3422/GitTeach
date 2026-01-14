@@ -15,7 +15,7 @@ import { ContributionSnakeTool } from './tools/contributionSnakeTool.js';
 import { ConfigureSnakeWorkflowTool } from './tools/configureSnakeWorkflowTool.js';
 import { SocialConnectTool } from './tools/socialConnectTool.js';
 import { ActivityGraphTool } from './tools/activityGraphTool.js';
-import { AutoBioTool } from './tools/autoBioTool.js';
+// AutoBioTool eliminado - redundante con el contexto del chat
 import { SkillsTool } from './tools/skillsTool.js';
 import { ThemeManagerTool } from './tools/themeManagerTool.js';
 import { ProjectShowcaseTool } from './tools/projectShowcaseTool.js';
@@ -35,7 +35,7 @@ const activeTools = [
     new ConfigureSnakeWorkflowTool(),
     new SocialConnectTool(),
     new ActivityGraphTool(),
-    new AutoBioTool(),
+    // AutoBioTool eliminado - el chat ya tiene el contexto de los repos
     new SkillsTool(),
     new ThemeManagerTool(),
     new ProjectShowcaseTool(),

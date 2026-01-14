@@ -13,7 +13,7 @@ export class GithubStatsTool extends BaseTool {
 
     async execute(params, username) {
         const theme = params.theme || 'tokyonight';
-        const markdown = `![GitHub Stats](http://github-profile-summary-cards.vercel.app/api/cards/profile-details?username=${username}&theme=${theme}&t=${Date.now()})`;
+        const markdown = `![GitHub Stats](https://github-profile-summary-cards.vercel.app/api/cards/profile-details?username=${username}&theme=${theme}&t=${Date.now()})`;
 
         return {
             success: true,

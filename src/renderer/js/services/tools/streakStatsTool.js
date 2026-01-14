@@ -13,8 +13,22 @@ export class StreakStatsTool extends BaseTool {
 
     async execute(params, username) {
         const theme = params.theme || 'default';
-        const markdown = `[![GitHub Streak](https://streak-stats.demolab.com/?user=${username}&theme=${theme}&t=${Date.now()})](https://git.io/streak-stats)`;
+        const url = `https://streak-stats.demolab.com/?user=${username}&theme=${theme}&t=${Date.now()}`;
 
-        return { success: true, content: markdown, details: "Racha (streak) insertada." };
+        // Verificar disponibilidad (3s timeout)
+        const isUp = await this.isWidgetAvailable(url);
+
+        let markdown;
+        if (isUp) {
+            markdown = `[![GitHub Streak](${url})](https://git.io/streak-stats)`;
+        } else {
+            markdown = `![Streak Stats Unavailable](https://img.shields.io/badge/Streak_Stats-Temporarily_Unavailable-inactive?style=flat-square&logo=github)`;
+        }
+
+        return {
+            success: true,
+            content: markdown,
+            details: isUp ? "Racha (streak) insertada." : "Servicio Streak Stats no disponible (fallback activado)."
+        };
     }
 }
