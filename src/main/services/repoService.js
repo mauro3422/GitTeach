@@ -3,7 +3,7 @@ const githubClient = require('./githubClient');
 
 class RepoService {
     async listUserRepos() {
-        return await githubClient.request({ url: '/user/repos?sort=updated&per_page=10' });
+        return await githubClient.request({ url: '/user/repos?sort=updated&per_page=100' });
     }
 
     async getFileContent(owner, repo, path) {
@@ -78,6 +78,34 @@ class RepoService {
                 sha: sha
             }
         });
+    }
+
+    /**
+     * Obtiene los commits de un usuario específico en un repo
+     * Útil para detectar contribuciones en forks
+     */
+    async getUserCommits(owner, repo, author) {
+        try {
+            return await githubClient.request({
+                url: `/repos/${owner}/${repo}/commits?author=${author}&per_page=5`
+            });
+        } catch (e) {
+            console.warn(`[RepoService] Error fetching commits for ${author} in ${repo}: ${e.message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Obtiene el diff de un commit para ver qué archivos cambió
+     */
+    async getCommitDiff(owner, repo, sha) {
+        try {
+            return await githubClient.request({
+                url: `/repos/${owner}/${repo}/commits/${sha}`
+            });
+        } catch (e) {
+            return null;
+        }
     }
 }
 

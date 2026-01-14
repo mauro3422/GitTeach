@@ -1,7 +1,10 @@
 /**
  * CoordinatorAgent - Orquesta los workers y verifica completitud del análisis
  * Mantiene inventario de repos/archivos y asigna tareas a workers
+ * UPDATED: Usa Logger centralizado
  */
+import { Logger } from '../utils/logger.js';
+
 export class CoordinatorAgent {
     constructor() {
         this.inventory = {
@@ -225,11 +228,9 @@ export class CoordinatorAgent {
         if (this.onProgress) {
             this.onProgress({ type, message, ...extra });
         }
-        if (window?.githubAPI?.logToTerminal) {
-            // Solo loguear en terminal si NO es update de progreso para evitar spam
-            if (type !== 'Progreso') {
-                window.githubAPI.logToTerminal(`🎯 ${log}`);
-            }
+        // Solo loguear en terminal si NO es update de progreso para evitar spam
+        if (type !== 'Progreso') {
+            Logger.info('Coordinator', `${type}: ${message}`);
         }
     }
 

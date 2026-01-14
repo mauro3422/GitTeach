@@ -24,3 +24,10 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Test outputs
+*_output.txt
+*_results.txt
+*_log.txt
+context_dump.md
+dna_test_output.json

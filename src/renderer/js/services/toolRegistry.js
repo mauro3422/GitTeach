@@ -20,6 +20,8 @@ import { SkillsTool } from './tools/skillsTool.js';
 import { ThemeManagerTool } from './tools/themeManagerTool.js';
 import { ProjectShowcaseTool } from './tools/projectShowcaseTool.js';
 import { ReadabilityAuditorTool } from './tools/readabilityAuditorTool.js';
+import { ReadFileTool } from './tools/readFileTool.js';
+import { QueryMemoryTool } from './tools/queryMemoryTool.js';
 
 const activeTools = [
     new GithubStatsTool(),
@@ -39,7 +41,9 @@ const activeTools = [
     new SkillsTool(),
     new ThemeManagerTool(),
     new ProjectShowcaseTool(),
-    new ReadabilityAuditorTool()
+    new ReadabilityAuditorTool(),
+    new ReadFileTool(),
+    new QueryMemoryTool()
 ];
 
 export const ToolRegistry = {

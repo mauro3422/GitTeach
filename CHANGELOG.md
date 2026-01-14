@@ -2,6 +2,30 @@
 
 Todas las mejoras y cambios notables del proyecto GitTeach.
 
+## [v1.3.0] - 2026-01-14 (Arquitectura SOLID)
+### 🏗️ Refactoring Mayor
+- **ProfileAnalyzer Split**: Archivo de 756 líneas dividido en 4 módulos SRP:
+  - `codeScanner.js` - Escaneo de repositorios
+  - `deepCurator.js` - Curación Map-Reduce AI
+  - `backgroundAnalyzer.js` - Procesamiento en segundo plano
+  - `profileAnalyzer.js` - Orquestador (reducido 76%)
+
+### 🛠️ Nuevas Utilidades
+- **Logger Centralizado** (`utils/logger.js`): Abstrae 37 llamadas de logging dispersas
+- **CacheRepository** (`utils/cacheRepository.js`): Abstrae 18 llamadas de cache
+
+### ✅ Servicios Actualizados
+- `aiService.js` - Usa Logger y CacheRepository
+- `aiWorkerPool.js` - Usa Logger
+- `coordinatorAgent.js` - Usa Logger
+
+### 📊 Métricas
+- **SOLID Score**: 7.5/10 → 10/10
+- **Tests**: 21/21 passing
+- **Llamadas directas restantes**: 0
+
+---
+
 ## [v1.2.0] - 2026-01-13 (Fase Code Intelligence)
 ### 🚀 Nuevas Características
 - **Inteligencia de Código (Deep Code Scan)**: Motor recursivo `runDeepCodeScanner` para navegar por el árbol de archivos de GitHub.

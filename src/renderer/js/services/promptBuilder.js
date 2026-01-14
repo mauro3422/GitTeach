@@ -25,6 +25,7 @@ Tasks:
 1. Analyze the user request.
 2. Match it to a tool ID from the catalog.
 3. If no match, use "chat".
+4. CRITICAL: If the user mentions a specific file path or extension (e.g., .py, .js, .cpp, .json, .md), prioritize "read_file" over "read_repo".
 
 CATALOG:
 ${toolDescriptions}
@@ -32,11 +33,11 @@ ${toolDescriptions}
 EXAMPLES:
 ${trainingData}
 
-User: "Hola"
-JSON: {"tool": "chat"}
+User: "Qué hay en el archivo setup.py de giteach?"
+JSON: {"tool": "read_file"}
 
-User: "Hazme un café"
-JSON: {"tool": "chat"}
+User: "Analiza el código de main.js"
+JSON: {"tool": "read_file"}
 
 User: "Logo vectorial"
 JSON: {"tool": "chat"}

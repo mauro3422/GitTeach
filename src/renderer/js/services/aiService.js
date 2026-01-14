@@ -1,7 +1,11 @@
 /**
  * AIService - Centraliza la inteligencia y el procesamiento de intenciones.
  * Sigue el principio de Responsabilidad Única (SOLID).
+ * UPDATED: Usa Logger y CacheRepository centralizados
  */
+import { Logger } from '../utils/logger.js';
+import { CacheRepository } from '../utils/cacheRepository.js';
+
 export const AIService = {
     currentSessionContext: "", // Memoria de lo aprendido en el escaneo profundo
 
@@ -10,7 +14,7 @@ export const AIService = {
      */
     setSessionContext(context) {
         this.currentSessionContext = context;
-        console.log("[AIService] Contexto de sesión actualizado.");
+        Logger.info('AIService', 'Contexto de sesión actualizado.');
     },
     /**
      * Procesa la entrada del usuario usando LFM 2.5 local.
@@ -19,9 +23,51 @@ export const AIService = {
      */
     async processIntent(input, username) {
         try {
+            // --- DETECCIÓN DE EVENTOS DE SISTEMA (PROACTIVIDAD) ---
+            if (input.startsWith("SYSTEM_EVENT:")) {
+                const eventType = input.replace("SYSTEM_EVENT:", "").trim();
+
+                if (eventType === "DEEP_MEMORY_READY_ACKNOWLEDGE") {
+                    // Prompt especial: La IA acaba de recibir un "cerebro nuevo".
+                    // Debe reaccionar a ello.
+                    const reactionPrompt = `
+# SYSTEM UPDATE: MEMORIA PROFUNDA SINCRONIZADA
+Acabas de recibir un análisis masivo del código de ${username}.
+Tu nueva memoria contiene:
+${this.currentSessionContext || "Datos insuficientes"}
+
+## TU TAREA:
+No saludes de nuevo. Simplemente lanza un "Insight" o comentario interesante sobre lo que acabas de descubrir.
+Ejemplos:
+- "Vaya, no sabía que usabas X patrón en el proyecto Y."
+- "Veo que te gusta mucho Python, pero tu estructura de carpetas en C++ es muy limpia."
+- "Interesante mezcla de tecnologías en [Repo]."
+
+Sé breve, natural y directo. Sorprende al usuario con tu proactividad.`;
+
+                    const response = await this.callAI(reactionPrompt, "Genera tu insight ahora based on the above system update.", 0.7); // Temperatura media para creatividad
+                    return { message: response, tool: 'chat' };
+                }
+
+                return { message: "Evento de sistema desconocido.", tool: 'chat' };
+            }
+
+            // 1. Identificar intenciones con Llama local
             const { ToolRegistry } = await import('./toolRegistry.js');
             const { PromptBuilder } = await import('./promptBuilder.js');
-            const { AIToolbox } = await import('./aiToolbox.js'); // Importar Toolbox para ejecución interna
+            const { AIToolbox } = await import('./aiToolbox.js');
+            const { ProfileAnalyzer } = await import('./profileAnalyzer.js');
+            const { ChatComponent } = await import('../components/chatComponent.js');
+
+            // --- AUTO-CARGA DE MEMORIA PERSISTENTE ---
+            if (!this.currentSessionContext) {
+                const dna = await CacheRepository.getDeveloperDNA(username);
+                if (dna) {
+                    const analyzer = new ProfileAnalyzer();
+                    this.currentSessionContext = analyzer.getFreshContext(username, dna);
+                    Logger.info('AIService', 'Memoria profunda recuperada del cache.');
+                }
+            }
 
             // --- PASO 1: ROUTER (Identificar Intención) ---
             const routerPrompt = PromptBuilder.getRouterPrompt(ToolRegistry.tools) +
@@ -30,14 +76,24 @@ export const AIService = {
 
             let intent = 'chat';
             try {
-                // Forzar modo chat si el usuario pregunta "¿qué sabes de mí?" o similar
-                if (input.toLowerCase().includes("sabes de mi") ||
-                    input.toLowerCase().includes("analizaste") ||
-                    input.toLowerCase().includes("quien soy") ||
-                    input.toLowerCase().includes("mi perfil")) {
+                const data = JSON.parse(routerResponse.match(/\{[\s\S]*\}/)?.[0] || '{}');
+
+                // CRÍTICO: No forzar chat si se nombra un repositorio específico o archivo
+                // Solo forzar si es una pregunta de identidad GENÉRICA.
+                const isGenericIdentity = (input.toLowerCase().includes("quien soy") || input.toLowerCase().includes("mi perfil")) &&
+                    !input.toLowerCase().includes("/");
+
+                if (isGenericIdentity) {
                     intent = 'chat';
                 } else {
                     intent = data.tool || 'chat';
+
+                    // CORRECCIÓN PROACTIVA: Si el router se confunde y elige read_repo para un archivo específico
+                    const hasFileExtension = /\.(py|js|cpp|h|json|md|html|css|txt)$/i.test(input);
+                    const hasPath = input.includes("/") || input.includes("\\");
+                    if (intent === 'read_repo' && (hasFileExtension || hasPath) && !input.toLowerCase().includes("readme")) {
+                        intent = 'read_file';
+                    }
                 }
             } catch (e) {
                 console.warn("[AIService] Router Fallback", e);
@@ -52,12 +108,7 @@ export const AIService = {
                 }
             }
 
-            if (window.githubAPI?.logToTerminal) {
-                window.githubAPI.logToTerminal(`\n--- 🤖 AI ROUTER ---`);
-                window.githubAPI.logToTerminal(`📥 USER INPUT: "${input}"`);
-                window.githubAPI.logToTerminal(`🎯 INTENT: "${intent}"`);
-                window.githubAPI.logToTerminal(`--------------------\n`);
-            }
+            Logger.ai('ROUTER', `INPUT: "${input.substring(0, 50)}..." → INTENT: "${intent}"`);
 
             // --- CASO CHAT (Sin Herramienta) ---
             if (intent === 'chat' || intent.includes('chat')) {
@@ -65,19 +116,26 @@ export const AIService = {
                 let chatPrompt;
 
                 if (this.currentSessionContext && this.currentSessionContext.length > 50) {
-                    // Tenemos contexto real - construir prompt rico y OBLIGATORIO
-                    chatPrompt = `# MANDATO CRÍTICO: USA EL CONTEXTO PROPORCIONADO ABAJO
-Tú eres Antigravity (Director de Arte), un experto técnico. 
-TU ÚNICA FUENTE DE VERDAD sobre el usuario es el bloque "INFORMACIÓN ANALIZADA". 
+                    // Tenemos contexto real - construir prompt rico pero con instrucciones de "LATENCIA"
+                    chatPrompt = `# ROL: DIRECTOR DE ARTE TÉCNICO
+Tú eres el Director de Arte, un mentor técnico senior para el usuario ${username}.
 
-## INFORMACIÓN ANALIZADA SOBRE ${username.toUpperCase()}:
+## 🧠 MEMORIA LATENTE (IMPORTANTE)
+Tienes acceso a un análisis profundo del código del usuario (ver abajo), PERO NO DEBES SOLTARLO DE GOLPE.
+Imagina que conoces al usuario de toda la vida. Usa esta información como **contexto de fondo** para entender su nivel y estilo, pero:
+1. **Saluda normal**: "Hola Mauro, ¿qué tal?", no "Hola Mauro, veo que usas React".
+2. **Sé reactivo**: Solo menciona detalles técnicos si el usuario pregunta o si es relevante para el tema actual.
+3. **No seas robótico**: No digas "Basado en mi análisis de tu archivo X...". Di "Por cierto, en ese proyecto de React que tienes...".
+
+## INFORMACIÓN ANALIZADA (TU CONTEXTO MENTAL):
 ${this.currentSessionContext}
 
-## REGLAS DE RESPUESTA:
-1. SIEMPRE menciona al menos un repositorio específico o un archivo del contexto.
-2. SIEMPRE confirma los lenguajes que viste en los resúmenes.
-3. NO digas "no tengo información específica sobre ti". Mentira: TIENES el contexto arriba.
-4. Responde en español, técnico y directo.`;
+## MODOS DE RESPUESTA
+- Si el usuario saluda ("Hola"): Responde casual, quizás preguntando en qué proyecto está trabajando hoy.
+- Si preguna "¿Quién soy?": Ahí sí, usa la memoria y dale un perfil detallado.
+- Si pregunta algo técnico: Responde como experto, usando tu conocimiento de su stack (ej: si pregunta por UI, sugiere algo compatible con su estilo de CSS detectado).
+
+Responde en español, tono profesional pero cercano, minimalista y directo al grano.`;
                 } else {
                     // Sin contexto - prompt básico
                     chatPrompt = `Eres un asistente de GitHub llamado "Director de Arte".
@@ -85,7 +143,7 @@ Tu trabajo es ayudar al desarrollador ${username || 'el usuario'} a mejorar su p
 Responde en español, amigablemente. Si no tienes información sobre el usuario, díselo honestamente.`;
                 }
 
-                const chatReply = await this.callAI(chatPrompt, input, 0.7);
+                const chatReply = await this.callAI(chatPrompt, input, 0.2); // Temperatura baja para veracidad
                 return { action: "chat", message: chatReply };
             }
 
@@ -96,23 +154,29 @@ Responde en español, amigablemente. Si no tienes información sobre el usuario,
             const constructorPrompt = PromptBuilder.getConstructorPrompt(tool);
             const jsonResponse = await this.callAI(constructorPrompt, input, 0.0); // Temp 0 para precisión JSON
 
-            if (window.githubAPI?.logToTerminal) {
-                window.githubAPI.logToTerminal(`🤖 RAW AI RESPONSE: ${jsonResponse}`);
-            }
+            Logger.debug('AI', `RAW RESPONSE: ${jsonResponse.substring(0, 100)}...`);
 
             let parsedParams = {};
 
             try {
-                const cleanJson = jsonResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-                const parsed = JSON.parse(cleanJson);
-                parsedParams = parsed.params || {};
+                let cleanJson = jsonResponse.replace(/```json/g, '').replace(/```/g, '').trim();
 
-                if (window.githubAPI?.logToTerminal) {
-                    window.githubAPI.logToTerminal(`\n--- 🏗️ AI CONSTRUCTOR ---`);
-                    window.githubAPI.logToTerminal(`🛠️ TOOL: ${tool.name}`);
-                    window.githubAPI.logToTerminal(`📝 PARSED PARAMS: ${JSON.stringify(parsedParams, null, 2)}`);
-                    window.githubAPI.logToTerminal(`------------------------\n`);
+                // Intento 1: Parse directo del string limpio
+                let parsed;
+                try {
+                    parsed = JSON.parse(cleanJson);
+                } catch {
+                    // Intento 2: Extraer JSON con Regex (más tolerante)
+                    const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        parsed = JSON.parse(jsonMatch[0]);
+                    } else {
+                        throw new Error("No JSON found after regex fallback");
+                    }
                 }
+                parsedParams = parsed.params || parsed || {};
+
+                Logger.ai('CONSTRUCTOR', `TOOL: ${tool.name} | PARAMS: ${JSON.stringify(parsedParams)}`);
             } catch (e) {
                 console.error("JSON Parse Error", e);
                 parsedParams = {};
@@ -120,6 +184,11 @@ Responde en español, amigablemente. Si no tienes información sobre el usuario,
 
             // --- PASO 3: EJECUCIÓN (Acción Real) ---
             let executionResult = { success: false, details: "Herramienta no reconocida." };
+
+            // Notificación visual de uso de herramienta
+            if (ChatComponent) {
+                ChatComponent.showProactiveStep(`Investigando: **${tool.name}**...`);
+            }
 
             if (tool && typeof tool.execute === 'function') {
                 executionResult = await tool.execute(parsedParams, username);
@@ -131,9 +200,7 @@ Responde en español, amigablemente. Si no tienes información sobre el usuario,
             }
 
             // Log de observación
-            if (window.githubAPI?.logToTerminal) {
-                window.githubAPI.logToTerminal(`👁️ OBSERVACIÓN: ${executionResult.details} (Success: ${executionResult.success})`);
-            }
+            Logger.info('OBSERVATION', `${executionResult.details} (Success: ${executionResult.success})`);
 
             // --- PASO 4: RESPONDEDOR (Ciclo Cerrado) ---
             // La IA recibe la confirmación real de la ejecución y genera la respuesta final.

@@ -4,9 +4,9 @@ export class ReadRepoTool extends BaseTool {
     constructor() {
         super(
             'read_repo',
-            'Leer Repositorio (README)',
-            'Lee el contenido del README.md de un repositorio específico para analizarlo.',
-            ["Lee el repo de giteach", "Analiza mi proyecto intro-electron", "Qué hace el repo test?"],
+            'Leer README (Información General)',
+            'Lee ÚNICAMENTE el archivo README.md del repositorio. Úsala solo para entender qué hace un proyecto de forma general.',
+            ["Lee el readme de giteach", "De qué trata el proyecto intro-electron?", "Información general de test"],
             {
                 repo: 'Name of the repository to read',
                 owner: 'Owner username (optional, defaults to current user)'

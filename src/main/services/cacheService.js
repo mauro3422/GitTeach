@@ -135,10 +135,30 @@ class CacheService {
     }
 
     /**
+     * Guarda el ADN del desarrollador (síntesis profunda)
+     */
+    setDeveloperDNA(username, dna) {
+        if (!this.cache.users) this.cache.users = {};
+        this.cache.users[username] = {
+            dna: dna,
+            updatedAt: new Date().toISOString()
+        };
+        this.saveCache();
+    }
+
+    /**
+     * Obtiene el ADN del desarrollador si existe
+     */
+    getDeveloperDNA(username) {
+        if (!this.cache.users || !this.cache.users[username]) return null;
+        return this.cache.users[username].dna;
+    }
+
+    /**
      * Limpia el cache (para debug/reset)
      */
     clearCache() {
-        this.cache = { repos: {}, lastGlobalUpdate: null };
+        this.cache = { repos: {}, users: {}, lastGlobalUpdate: null };
         this.saveCache();
     }
 }

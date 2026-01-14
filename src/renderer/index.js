@@ -72,6 +72,19 @@ AuthView.init(async () => {
             // Manejo inteligente de notificaciones
             if (typeof data === 'object' && data.type === 'Progreso') {
                 ChatComponent.updateProgress(data.percent, data.message);
+            } else if (data && data.type === 'DeepMemoryReady') {
+            } else if (data && data.type === 'DeepMemoryReady') {
+                // FASE 12: Proactividad Real.
+                // En lugar de un mensaje pre-cocinado, le decimos a la IA: "Ya tienes la memoria, di algo."
+                // Usamos un prefijo especial que el AI Service puede interceptar o simplemente procesar como prompt de sistema.
+
+                // Pequeño delay para que la UI respire
+                setTimeout(() => {
+                    AIService.processIntent("SYSTEM_EVENT: DEEP_MEMORY_READY_ACKNOWLEDGE", username).then(response => {
+                        // La respuesta vendrá natural del LLM
+                        ChatComponent.addMessage(response.message, 'ai');
+                    });
+                }, 1000);
             } else if (typeof data === 'string') {
                 ChatComponent.showProactiveStep(data);
             } else if (data && data.message) {

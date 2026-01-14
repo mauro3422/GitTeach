@@ -103,6 +103,23 @@ ipcMain.handle('github:create-workflow', async (event, { username, content }) =>
     }
 });
 
+// --- COMMIT HANDLERS (Forense de Forks) ---
+ipcMain.handle('github:get-user-commits', async (event, { owner, repo, author }) => {
+    try {
+        return await repoService.getUserCommits(owner, repo, author);
+    } catch (error) {
+        return [];
+    }
+});
+
+ipcMain.handle('github:get-commit-diff', async (event, { owner, repo, sha }) => {
+    try {
+        return await repoService.getCommitDiff(owner, repo, sha);
+    } catch (error) {
+        return { error: error.message };
+    }
+});
+
 // --- FILE CONTENT (Faltaba este handler!) ---
 ipcMain.handle('github:get-file-content', async (event, { owner, repo, path }) => {
     try {
@@ -150,6 +167,15 @@ ipcMain.handle('cache:get-stats', async () => {
 
 ipcMain.handle('cache:clear', async () => {
     cacheService.clearCache();
+    return { success: true };
+});
+
+ipcMain.handle('cache:get-developer-dna', async (event, username) => {
+    return cacheService.getDeveloperDNA(username);
+});
+
+ipcMain.handle('cache:set-developer-dna', async (event, { username, dna }) => {
+    cacheService.setDeveloperDNA(username, dna);
     return { success: true };
 });
 

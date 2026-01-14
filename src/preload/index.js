@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('githubAPI', {
     getFileContent: (owner, repo, path) => ipcRenderer.invoke('github:get-file-content', { owner, repo, path }),
     checkAuth: () => ipcRenderer.invoke('github:check-auth'),
     createWorkflow: (username, content) => ipcRenderer.invoke('github:create-workflow', { username, content }),
+    getUserCommits: (owner, repo, author) => ipcRenderer.invoke('github:get-user-commits', { owner, repo, author }),
+    getCommitDiff: (owner, repo, sha) => ipcRenderer.invoke('github:get-commit-diff', { owner, repo, sha }),
     exportPrompt: (prompt) => ipcRenderer.send('dev:export-prompt', prompt),
     logToTerminal: (msg) => ipcRenderer.send('app:log', msg)
 });
@@ -36,5 +38,7 @@ contextBridge.exposeInMainWorld('cacheAPI', {
     hasRepoChanged: (owner, repo, treeSha) => ipcRenderer.invoke('cache:has-repo-changed', { owner, repo, treeSha }),
     setRepoTreeSha: (owner, repo, treeSha) => ipcRenderer.invoke('cache:set-repo-tree-sha', { owner, repo, treeSha }),
     getStats: () => ipcRenderer.invoke('cache:get-stats'),
-    clear: () => ipcRenderer.invoke('cache:clear')
+    clear: () => ipcRenderer.invoke('cache:clear'),
+    getDeveloperDNA: (username) => ipcRenderer.invoke('cache:get-developer-dna', username),
+    setDeveloperDNA: (username, dna) => ipcRenderer.invoke('cache:set-developer-dna', { username, dna })
 });

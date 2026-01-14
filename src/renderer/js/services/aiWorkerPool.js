@@ -1,6 +1,7 @@
 /**
  * AIWorkerPool - Gestiona N workers de IA que procesan archivos en paralelo
  * Usa los slots del llama-server para concurrencia real en GPU
+ * UPDATED: Usa Logger centralizado
  * 
  * SOLID Principles:
  * - S: Solo gestiona la cola de trabajos y workers
@@ -9,6 +10,7 @@
  * - I: Interface mínima (enqueue, processAll)
  * - D: Depende de AIService via inyección
  */
+import { Logger } from '../utils/logger.js';
 
 export class AIWorkerPool {
     constructor(workerCount = 4) {
@@ -74,25 +76,18 @@ export class AIWorkerPool {
      * Worker individual: toma items de la cola y los procesa
      */
     async runWorker(workerId, aiService) {
-        const workerLog = (msg) => {
-            if (window?.githubAPI?.logToTerminal) {
-                window.githubAPI.logToTerminal(`🔧 [Worker ${workerId}] ${msg}`);
-            }
-            console.log(`🔧 [Worker ${workerId}] ${msg}`);
-        };
-
-        workerLog('Iniciando...');
+        Logger.worker(workerId, 'Iniciando...');
 
         while (true) {
             // Tomar siguiente item de la cola
             const item = this.getNextItem();
             if (!item) {
-                workerLog('Cola vacía, terminando');
+                Logger.worker(workerId, 'Cola vacía, terminando');
                 break;
             }
 
             item.status = 'processing';
-            workerLog(`Procesando: ${item.repo}/${item.path}`);
+            Logger.worker(workerId, `Procesando: ${item.repo}/${item.path}`);
 
             try {
                 // Llamar a la IA para resumir el archivo
@@ -124,7 +119,7 @@ export class AIWorkerPool {
                 }
 
             } catch (error) {
-                workerLog(`Error: ${error.message}`);
+                Logger.worker(workerId, `Error: ${error.message}`);
                 item.status = 'failed';
                 item.error = error.message;
                 this.processedCount++;
