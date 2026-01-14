@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const githubClient = require('./githubClient');
 
-// Cargar credenciales desde .env (NUNCA hardcodear secrets)
+// Load credentials from .env (NEVER hardcode secrets)
 function loadEnv() {
     const envPath = path.join(__dirname, '../../../.env');
     if (fs.existsSync(envPath)) {
@@ -20,11 +20,14 @@ function loadEnv() {
 }
 loadEnv();
 
-const CLIENT_ID = process.env.GITHUB_CLIENT_ID || 'Ov23liHOkbOazRex4DCI';
+const CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
 const REDIRECT_URI = 'http://localhost:3000/callback';
 
-// Validar que tenemos el secret
+// Validate OAuth credentials
+if (!CLIENT_ID) {
+    console.error('[AuthService] ERROR: GITHUB_CLIENT_ID not found in .env file!');
+}
 if (!CLIENT_SECRET) {
     console.error('[AuthService] ERROR: GITHUB_CLIENT_SECRET not found in .env file!');
 }
@@ -37,7 +40,7 @@ class AuthService {
 
     async login() {
         return new Promise((resolve, reject) => {
-            console.log('[AuthService] Iniciando flujo OAuth...');
+            console.log('[AuthService] Starting OAuth flow...');
             if (this.server) this.server.close();
 
             this.server = http.createServer(async (req, res) => {
@@ -55,7 +58,7 @@ class AuthService {
             }).listen(3000);
 
             const authUrl = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&scope=user,repo,workflow`;
-            console.log('[AuthService] Abriendo URL externa:', authUrl);
+            console.log('[AuthService] Opening external URL:', authUrl);
             shell.openExternal(authUrl).catch(err => {
                 console.error('[AuthService] Error abriendo external URL:', err);
                 reject(err);
@@ -76,7 +79,7 @@ class AuthService {
     }
 
     async checkAuth() {
-        console.log('[AuthService] Verificando sesión guardada...');
+        console.log('[AuthService] Verifying saved session...');
         console.log('[AuthService] Token Path:', this.tokenPath);
 
         let token;
@@ -88,11 +91,11 @@ class AuthService {
         }
 
         if (!token) {
-            console.log('[AuthService] No se encontró token en disco.');
+            console.log('[AuthService] No token found on disk.');
             return null;
         }
 
-        console.log('[AuthService] Token cargado de disco, validando con GitHub...');
+        console.log('[AuthService] Token loaded from disk, validating with GitHub...');
         githubClient.setToken(token);
         try {
             const profileService = require('./profileService');
@@ -101,15 +104,15 @@ class AuthService {
             console.log('[AuthService] getUserData returned:', user ? user.login : 'NULL');
 
             if (user && !user.error) {
-                console.log('[AuthService] Sesión válida para:', user.login);
+                console.log('[AuthService] Valid session for:', user.login);
                 return user;
             }
-            console.warn('[AuthService] Token expirado o inválido response:', user);
+            console.warn('[AuthService] Token expired or invalid response:', user);
             return null;
         } catch (e) {
-            console.error('[AuthService] Error al validar sesión:', e.message);
-            // Si falla la validación, tal vez el token es vijeo, lo borramos?
-            // Dejamost que el usuario decida reloguearse.
+            console.error('[AuthService] Error validating session:', e.message);
+            // If validation fails, maybe the token is old?
+            // Let the user decide to re-login.
             return { error: e.message };
         }
     }

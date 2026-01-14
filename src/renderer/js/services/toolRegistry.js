@@ -1,6 +1,6 @@
 /**
- * ToolRegistry - El catálogo maestro de herramientas.
- * Centraliza la carga de herramientas desacopladas (SOLID).
+ * ToolRegistry - The master catalog of tools.
+ * Centralizes decoupled tool loading (SOLID).
  */
 import { GithubStatsTool } from './tools/githubStatsTool.js';
 import { WelcomeHeaderTool } from './tools/welcomeHeaderTool.js';
@@ -15,7 +15,6 @@ import { ContributionSnakeTool } from './tools/contributionSnakeTool.js';
 import { ConfigureSnakeWorkflowTool } from './tools/configureSnakeWorkflowTool.js';
 import { SocialConnectTool } from './tools/socialConnectTool.js';
 import { ActivityGraphTool } from './tools/activityGraphTool.js';
-// AutoBioTool eliminado - redundante con el contexto del chat
 import { SkillsTool } from './tools/skillsTool.js';
 import { ThemeManagerTool } from './tools/themeManagerTool.js';
 import { ProjectShowcaseTool } from './tools/projectShowcaseTool.js';
@@ -37,7 +36,6 @@ const activeTools = [
     new ConfigureSnakeWorkflowTool(),
     new SocialConnectTool(),
     new ActivityGraphTool(),
-    // AutoBioTool eliminado - el chat ya tiene el contexto de los repos
     new SkillsTool(),
     new ThemeManagerTool(),
     new ProjectShowcaseTool(),
@@ -52,7 +50,7 @@ export const ToolRegistry = {
     getAIInstructions() {
         return this.tools.map(t => {
             const params = Object.keys(t.schema).length > 0
-                ? ` (Parámetros: ${JSON.stringify(t.schema)})`
+                ? ` (Parameters: ${JSON.stringify(t.schema)})`
                 : '';
             return `- ${t.id}: ${t.description}${params}`;
         }).join('\n');
@@ -62,3 +60,4 @@ export const ToolRegistry = {
         return this.tools.find(t => t.id === id) || null;
     }
 };
+

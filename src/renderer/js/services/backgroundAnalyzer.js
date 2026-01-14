@@ -1,7 +1,7 @@
 /**
- * BackgroundAnalyzer - Análisis en segundo plano
- * Extraído de ProfileAnalyzer para cumplir SRP
- * UPDATED: Usa Logger y CacheRepository centralizados
+ * BackgroundAnalyzer - Background analysis
+ * Extracted from ProfileAnalyzer to comply with SRP
+ * UPDATED: Uses centralized Logger and CacheRepository
  */
 import { AIService } from './aiService.js';
 import { DeepCurator } from './deepCurator.js';
@@ -15,16 +15,17 @@ export class BackgroundAnalyzer {
     }
 
     /**
-     * Análisis en segundo plano - sigue aprendiendo mientras el usuario trabaja
-     * Retorna Promise para que tests puedan esperarlo
+     * Background analysis - keeps learning while the user works
+     * Returns Promise so tests can wait for it
      */
     async startBackgroundAnalysis(username, initialFindings, onStep = null) {
-        Logger.background('Iniciando análisis profundo en segundo plano...');
+        if (window.AI_OFFLINE) return null; // CRITICAL: Stop here if offline
+        Logger.background('Starting deep background analysis...');
 
-        // Pequeña pausa para no bloquear el render inicial
+        // Small pause to avoid blocking initial render
         await new Promise(r => setTimeout(r, 100));
 
-        // Obtener archivos pendientes del coordinator
+        // Get pending files from coordinator
         const pendingBatches = [];
         let batch;
         while ((batch = this.coordinator.getNextBatch(20, true)).length > 0) {
@@ -32,22 +33,29 @@ export class BackgroundAnalyzer {
         }
 
         if (pendingBatches.length === 0) {
-            Logger.success('BACKGROUND', 'Sin archivos pendientes. Cobertura completa.');
+            Logger.success('BACKGROUND', 'No pending files. Full coverage.');
             return null;
         }
 
-        // Procesar todas los batches pendientes
+        // Process all pending batches
         for (const fileBatch of pendingBatches) {
+            // SILENCE & PAUSE: If AI is offline, wait or stop logging
+            if (window.AI_OFFLINE) {
+                console.log("[Background] Brain disconnected. Fast-forwarding logs to silence...");
+                await new Promise(r => setTimeout(r, 2000)); // Sleep 2s and check again
+                continue;
+            }
+
             await Promise.all(fileBatch.map(async (fileInfo) => {
                 try {
-                    // Verificar cache
+                    // Check cache
                     const cached = await CacheRepository.getFileSummary(username, fileInfo.repo, fileInfo.path);
                     if (cached) {
                         this.coordinator.markCompleted(fileInfo.repo, fileInfo.path, cached.summary);
                         return;
                     }
 
-                    // Descargar archivo
+                    // Download file
                     const contentRes = await window.githubAPI.getFileContent(username, fileInfo.repo, fileInfo.path);
                     if (contentRes && contentRes.content) {
                         const rawContent = atob(contentRes.content.replace(/\n/g, ''));
@@ -61,7 +69,7 @@ export class BackgroundAnalyzer {
                             console.warn("AI Fidelity Error:", err);
                         }
 
-                        // Guardar en cache con el resumen REAL
+                        // Save in cache with REAL summary
                         await CacheRepository.setFileSummary(
                             username, fileInfo.repo, fileInfo.path,
                             contentRes.sha, aiSummary, snippet
@@ -74,29 +82,29 @@ export class BackgroundAnalyzer {
                 }
             }));
 
-            // Pequeña pausa entre batches para no saturar
+            // Small pause between batches to avoid saturation
             await new Promise(r => setTimeout(r, 50));
         }
 
         const finalStats = this.coordinator.getStats();
-        Logger.success('BACKGROUND', `Análisis completo: ${finalStats.analyzed}/${finalStats.totalFiles} (${finalStats.progress}%)`);
-        Logger.dna('Refrescando memoria del Director de Arte con conocimiento profundo...');
+        Logger.success('BACKGROUND', `Analysis complete: ${finalStats.analyzed}/${finalStats.totalFiles} (${finalStats.progress}%)`);
+        Logger.dna('Refreshing Art Director memory with deep knowledge...');
 
         // Deep Curation (Map-Reduce)
-        Logger.dna(`Iniciando Deep Curation (Map-Reduce) de ${finalStats.totalFiles} archivos...`);
+        Logger.dna(`Starting Deep Curation (Map-Reduce) of ${finalStats.totalFiles} files...`);
 
         const deepMemory = await this.deepCurator.runDeepCurator(username, this.coordinator);
 
-        // Persistencia: Guardar el nuevo ADN en el cache
+        // Persistence: Save new DNA in cache
         const saved = await CacheRepository.setDeveloperDNA(username, deepMemory);
         if (saved) {
-            Logger.metabolic(`ADN actualizado y persistido para ${username}.`);
+            Logger.metabolic(`DNA updated and persisted for ${username}.`);
         }
 
         if (onStep) {
             onStep({
                 type: 'DeepMemoryReady',
-                message: '🧠 Memoria profunda sincronizada.',
+                message: '🧠 Deep memory synchronized.',
                 data: deepMemory
             });
         }

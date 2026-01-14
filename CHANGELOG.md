@@ -2,6 +2,23 @@
 
 Todas las mejoras y cambios notables del proyecto GitTeach.
 
+## [v1.6.0] - 2026-01-14 (Operación Silencio Total)
+### 🔇 Silencio de Consola (Zero Noise)
+- **Health Check en Main Process**: Se ha movido la detección de la IA al proceso de fondo (Node.js). Se eliminaron el 100% de los errores `net::ERR_CONNECTION_REFUSED` de la consola del navegador.
+- **Cortafuegos de Logger**: El sistema de logs ahora bloquea automáticamente cualquier ruido de análisis o workers si la IA está offline.
+- **Aborto Preventivo**: El analizador y el escáner se detienen antes de iniciar peticiones si no hay cerebro disponible, ahorrando ancho de banda y CPU.
+
+### 🖼️ Resiliencia de Widgets (Full Visibility)
+- **Triple-Jump Bridge**: Puente IPC avanzado que intenta cargar widgets en 3 etapas: Identidad GitHub → Navegador Limpio → Proxy Weserv.
+- **Migración a Mirrors**: Implementación de servidores alternativos (`sigma-five`, `alpha`) para saltar los bloqueos 503 de Vercel/GitHub.
+- **Diagnóstico Automatizado**: Script `diagnostic_widgets.js` para validar la visibilidad de la galería sin intervención humana.
+
+### 🐛 Correcciones
+- **Capsule Render**: Corrección del endpoint `/render` a `/api` para compatibilidad con la nueva API.
+- **AI Status Dot**: Mejora visual y lógica del indicador de conexión.
+
+---
+
 ## [v1.3.0] - 2026-01-14 (Arquitectura SOLID)
 ### 🏗️ Refactoring Mayor
 - **ProfileAnalyzer Split**: Archivo de 756 líneas dividido en 4 módulos SRP:

@@ -1,7 +1,7 @@
 /**
- * CoordinatorAgent - Orquesta los workers y verifica completitud del análisis
- * Mantiene inventario de repos/archivos y asigna tareas a workers
- * UPDATED: Usa Logger centralizado
+ * CoordinatorAgent - Orchestrates workers and verifies analysis completion
+ * Maintains inventory of repos/files and assigns tasks to workers
+ * UPDATED: Uses centralized Logger
  */
 import { Logger } from '../utils/logger.js';
 
@@ -16,11 +16,11 @@ export class CoordinatorAgent {
             failedFiles: []
         };
         this.onProgress = null;
-        this.workerCount = 4; // Workers paralelos
+        this.workerCount = 4; // Parallel workers
     }
 
     /**
-     * Inicializa el inventario con la lista de repos
+     * Initializes inventory with repo list
      */
     initInventory(repos) {
         this.inventory.repos = repos.map(r => ({
@@ -31,11 +31,11 @@ export class CoordinatorAgent {
             status: 'pending',
             treeSha: null
         }));
-        this.report('Inventario inicializado', `${repos.length} repos detectados`);
+        this.report('Inventory initialized', `${repos.length} repos detected`);
     }
 
     /**
-     * Registra los archivos de un repo
+     * Registers files from a repo
      */
     registerRepoFiles(repoName, tree, treeSha) {
         const repo = this.inventory.repos.find(r => r.name === repoName);
@@ -51,20 +51,20 @@ export class CoordinatorAgent {
             priority: this.calculatePriority(node.path)
         }));
 
-        // Ordenar por prioridad (archivos importantes primero)
+        // Sort by priority (important files first)
         repo.files.sort((a, b) => b.priority - a.priority);
 
         this.inventory.totalFiles += repo.files.filter(f => f.type === 'blob').length;
-        this.report('Repo escaneado', `${repoName}: ${repo.files.length} archivos`);
+        this.report('Repo scanned', `${repoName}: ${repo.files.length} files`);
     }
 
     /**
-     * Calcula prioridad de un archivo (mayor = más importante)
+     * Calculates file priority (higher = more important)
      */
     calculatePriority(filePath) {
         const lowerPath = filePath.toLowerCase();
 
-        // Archivos de alta prioridad
+        // High priority files
         if (lowerPath.includes('readme')) return 100;
         if (lowerPath.includes('package.json')) return 95;
         if (lowerPath.includes('cargo.toml')) return 95;
@@ -76,7 +76,7 @@ export class CoordinatorAgent {
         if (lowerPath.includes('changelog')) return 80;
         if (lowerPath.includes('config')) return 75;
 
-        // Archivos de código
+        // Code files
         if (lowerPath.endsWith('.py')) return 60;
         if (lowerPath.endsWith('.js')) return 60;
         if (lowerPath.endsWith('.ts')) return 60;
@@ -84,14 +84,14 @@ export class CoordinatorAgent {
         if (lowerPath.endsWith('.rs')) return 60;
         if (lowerPath.endsWith('.go')) return 60;
 
-        // Documentación
+        // Documentation
         if (lowerPath.endsWith('.md')) return 50;
 
-        // Configuración
+        // Configuration
         if (lowerPath.endsWith('.json')) return 40;
         if (lowerPath.endsWith('.yaml') || lowerPath.endsWith('.yml')) return 40;
 
-        // Menor prioridad
+        // Lower priority
         if (lowerPath.includes('node_modules')) return 0;
         if (lowerPath.includes('.lock')) return 5;
         if (lowerPath.includes('dist/')) return 5;
@@ -100,7 +100,7 @@ export class CoordinatorAgent {
     }
 
     /**
-     * Obtiene los próximos archivos a procesar para un worker
+     * Gets next files to process for a worker
      */
     getNextBatch(batchSize = 5, ignorePriority = false) {
         const batch = [];
@@ -129,7 +129,7 @@ export class CoordinatorAgent {
     }
 
     /**
-     * Marca un archivo como completado
+     * Marks a file as completed
      */
     markCompleted(repoName, filePath, summary) {
         const repo = this.inventory.repos.find(r => r.name === repoName);
@@ -143,16 +143,16 @@ export class CoordinatorAgent {
             this.inventory.completedFiles.push({ repo: repoName, path: filePath });
         }
 
-        // Reportar progreso
+        // Report progress
         const progress = this.inventory.totalFiles > 0
             ? Math.round((this.inventory.analyzedFiles / this.inventory.totalFiles) * 100)
             : 0;
 
-        this.report('Progreso', `Analizando... ${this.inventory.analyzedFiles}/${this.inventory.totalFiles}`, { percent: progress });
+        this.report('Progress', `Analyzing... ${this.inventory.analyzedFiles}/${this.inventory.totalFiles}`, { percent: progress });
     }
 
     /**
-     * Marca un archivo como fallido
+     * Marks a file as failed
      */
     markFailed(repoName, filePath, error) {
         const repo = this.inventory.repos.find(r => r.name === repoName);
@@ -164,32 +164,32 @@ export class CoordinatorAgent {
             file.error = error;
             this.inventory.failedFiles.push({ repo: repoName, path: filePath, error });
             this.inventory.analyzedFiles++;
-            // Reportar progreso también en fallo para que la barra no se congele
+            // Report progress also on failure so the bar doesn't freeze
             const progress = this.inventory.totalFiles > 0
                 ? Math.round((this.inventory.analyzedFiles / this.inventory.totalFiles) * 100)
                 : 0;
 
-            this.report('Progreso', `Analizando... ${this.inventory.analyzedFiles}/${this.inventory.totalFiles}`, { percent: progress });
+            this.report('Progress', `Analyzing... ${this.inventory.analyzedFiles}/${this.inventory.totalFiles}`, { percent: progress });
         }
     }
 
     /**
-     * Obtiene resúmenes filtrados para el chat (Top 10 por repo para ahorrar contexto)
+     * Gets filtered summaries for chat (Top 10 per repo to save context)
      */
     getSummaryForChat() {
         return this.getSummaryByFilter({ limitPerRepo: 10, minPriority: 60 });
     }
 
     /**
-     * Obtiene el 100% de los resúmenes de los workers (Sin filtros)
-     * Usado para la Curación Profunda (Map-Reduce) en segundo plano.
+     * Gets 100% of worker summaries (No filters)
+     * Used for Deep Curation (Map-Reduce) in background.
      */
     getAllSummaries() {
         return this.getSummaryByFilter({ limitPerRepo: 9999, minPriority: 0 });
     }
 
     /**
-     * Motor genérico de extracción de resúmenes.
+     * Generic summary extraction engine.
      */
     getSummaryByFilter({ limitPerRepo, minPriority }) {
         const summaries = [];
@@ -213,29 +213,32 @@ export class CoordinatorAgent {
     }
 
     /**
-     * Verifica si todo el inventario fue procesado
+     * Checks if entire inventory was processed
      */
     isComplete() {
         return this.inventory.analyzedFiles >= this.inventory.totalFiles;
     }
 
     /**
-     * Reporta estado (para logging/UI)
+     * Reports status (for logging/UI)
      */
     report(type, message, extra = {}) {
+        // --- CORTAFUEGOS DE SILENCIO (v14.0) ---
+        if (window.AI_OFFLINE) return;
+
         const log = `[Coordinator] ${type}: ${message}`;
         console.log(log);
         if (this.onProgress) {
             this.onProgress({ type, message, ...extra });
         }
-        // Solo loguear en terminal si NO es update de progreso para evitar spam
-        if (type !== 'Progreso') {
+        // Only log to terminal if NOT a progress update to avoid spam
+        if (type !== 'Progress' && type !== 'Progreso') {
             Logger.info('Coordinator', `${type}: ${message}`);
         }
     }
 
     /**
-     * Obtiene estadísticas actuales
+     * Gets current statistics
      */
     getStats() {
         return {

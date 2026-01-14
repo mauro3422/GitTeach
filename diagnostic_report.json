@@ -1,0 +1,118 @@
+[
+    {
+        "name": "github_stats",
+        "url": "https://github-readme-stats.vercel.app/api?username=mauro3422&show_icons=true&theme=tokyonight&hide_rank=true&hide_title=true",
+        "stages": [
+            {
+                "mode": "github",
+                "status": 503,
+                "ok": false
+            },
+            {
+                "mode": "clean",
+                "status": 503,
+                "ok": false
+            },
+            {
+                "mode": "weserv",
+                "status": 404,
+                "ok": false
+            }
+        ]
+    },
+    {
+        "name": "top_langs",
+        "url": "https://github-readme-stats.vercel.app/api/top-langs/?username=mauro3422&layout=compact&theme=tokyonight&hide_title=true",
+        "stages": [
+            {
+                "mode": "github",
+                "status": 503,
+                "ok": false
+            },
+            {
+                "mode": "clean",
+                "status": 503,
+                "ok": false
+            },
+            {
+                "mode": "weserv",
+                "status": 404,
+                "ok": false
+            }
+        ]
+    },
+    {
+        "name": "github_trophies",
+        "url": "https://github-profile-trophy.vercel.app/?username=mauro3422&theme=tokyonight&margin-w=5",
+        "stages": [
+            {
+                "mode": "github",
+                "status": 503,
+                "ok": false
+            },
+            {
+                "mode": "clean",
+                "status": 503,
+                "ok": false
+            },
+            {
+                "mode": "weserv",
+                "status": 404,
+                "ok": false
+            }
+        ]
+    },
+    {
+        "name": "streak_stats",
+        "url": "https://github-readme-streak-stats.herokuapp.com/?user=mauro3422&theme=tokyonight&hide_border=true",
+        "stages": [
+            {
+                "mode": "github",
+                "status": 200,
+                "ok": true
+            }
+        ]
+    },
+    {
+        "name": "welcome_header",
+        "url": "https://capsule-render.vercel.app/render?type=wave&color=auto&height=120&text=GitTeach&fontSize=50",
+        "stages": [
+            {
+                "mode": "github",
+                "status": 404,
+                "ok": false
+            },
+            {
+                "mode": "clean",
+                "status": 404,
+                "ok": false
+            },
+            {
+                "mode": "weserv",
+                "status": 404,
+                "ok": false
+            }
+        ]
+    },
+    {
+        "name": "project_showcase",
+        "url": "https://github-readme-stats.vercel.app/api/pin/?username=mauro3422&repo=mauro3422&theme=tokyonight",
+        "stages": [
+            {
+                "mode": "github",
+                "status": 503,
+                "ok": false
+            },
+            {
+                "mode": "clean",
+                "status": 503,
+                "ok": false
+            },
+            {
+                "mode": "weserv",
+                "status": 404,
+                "ok": false
+            }
+        ]
+    }
+]

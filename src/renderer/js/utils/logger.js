@@ -1,6 +1,6 @@
 /**
- * Logger - Servicio centralizado de logging
- * Abstrae las llamadas a window.githubAPI.logToTerminal
+ * Logger - Centralized logging service
+ * Abstracts calls to window.githubAPI.logToTerminal
  */
 
 const LOG_LEVELS = {
@@ -10,7 +10,7 @@ const LOG_LEVELS = {
     ERROR: 3
 };
 
-// Icons por categoría
+// Icons by category
 const ICONS = {
     SCAN: '🔍',
     DOWNLOAD: '📥',
@@ -37,24 +37,36 @@ class LoggerService {
     }
 
     /**
-     * Habilitar/deshabilitar logging
+     * Enable/disable logging
      */
     setEnabled(enabled) {
         this.enabled = enabled;
     }
 
     /**
-     * Establecer nivel mínimo de log
+     * Set minimum log level
      */
     setMinLevel(level) {
         this.minLevel = LOG_LEVELS[level] || LOG_LEVELS.DEBUG;
     }
 
     /**
-     * Log interno - envía al terminal si está disponible
+     * Internal log - sends to terminal if available
      */
     _log(level, tag, message, icon = null) {
         if (!this.enabled || level < this.minLevel) return;
+
+        // --- CORTAFUEGOS DE SILENCIO (v15.0) ---
+        // Si la IA está offline, silenciamos ruidos de análisis, pero dejamos pasar errores y estados de IA
+        const isNoise = [
+            'SCAN', 'DOWNLOAD', 'CACHE', 'PROGRESS', 'FORK', 'BACKGROUND',
+            'THEMATIC MAPPER', 'REDUCER', 'METABOLIC', 'ANALYZER', 'WARNING',
+            'AIService', 'Coordinator'
+        ].includes(tag);
+
+        if (window.AI_OFFLINE && isNoise && level < LOG_LEVELS.ERROR) {
+            return;
+        }
 
         const iconStr = icon || ICONS[tag] || '📝';
         const formattedMessage = `${iconStr} [${tag}] ${message}`;
@@ -74,7 +86,7 @@ class LoggerService {
         }
     }
 
-    // --- Métodos de conveniencia ---
+    // --- Convenience methods ---
 
     debug(tag, message) {
         this._log(LOG_LEVELS.DEBUG, tag, message);
@@ -96,7 +108,7 @@ class LoggerService {
         this._log(LOG_LEVELS.INFO, tag, message, ICONS.SUCCESS);
     }
 
-    // --- Métodos específicos por contexto ---
+    // --- Context-specific methods ---
 
     scan(message) {
         this.info('SCAN', message);

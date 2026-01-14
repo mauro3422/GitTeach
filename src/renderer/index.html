@@ -14,69 +14,98 @@
     <link rel="stylesheet" href="style/components/chat.css">
     <link rel="stylesheet" href="style/components/widgets.css">
     <link rel="stylesheet" href="style/components/progress.css">
+    <link rel="stylesheet" href="style/components/sidebar.css">
 </head>
 
 <body>
 
     <!-- VISTA 1: LOGIN -->
-    <div id="login-view" class="auth-container">
-        <div class="auth-card">
-            <div class="logo">🎓</div>
-            <h1>GitTeach</h1>
-            <p>El puente inteligente entre tú y tu código.</p>
+    <div id="login-view" class="auth-layout auth-container container">
+        <div class="auth-vertical-stack">
+            <header class="auth-header">
+                <h1 class="logo-text">Git<span>Teach</span></h1>
+                <p class="subtitle">Tu Director de Arte para el perfil de GitHub</p>
+            </header>
 
-            <!-- Estado 1: Invitado -->
-            <div id="auth-guest" class="auth-state">
-                <button id="btn-login" class="github-btn">Iniciar flujo OAuth</button>
-            </div>
+            <section id="auth-guest" class="auth-card guest-mode">
+                <div class="card-icon logo">🔑</div>
+                <h2>Bienvenido</h2>
+                <p>Conecta tu cuenta para empezar la magia de la IA.</p>
+                <button id="btn-login" class="github-btn btn-primary pulse-animation">
+                    Iniciar flujo OAuth
+                </button>
+            </section>
 
-            <!-- Estado 2: Usuario Recurrente -->
-            <div id="auth-returning" class="auth-state hidden">
-                <div id="user-profile-clickable" class="user-profile-card">
-                    <div id="auth-user-avatar" class="user-avatar-large pulse-animation"></div>
-                    <h2 id="auth-user-name" style="margin: 10px 0;">Usuario</h2>
-                    <span class="continue-hint">Continuar sesión</span>
+            <section id="auth-returning" class="auth-card returning-mode hidden">
+                <div id="user-profile-clickable" class="user-profile-card ripple">
+                    <div id="auth-user-avatar" class="user-avatar user-avatar-large"></div>
+                    <div class="user-details">
+                        <span class="welcome-back">Bienvenido de nuevo,</span>
+                        <h3 id="auth-user-name" class="user-name">Usuario</h3>
+                        <span class="continue-hint">Haz clic para continuar ➜</span>
+                    </div>
                 </div>
-                <a href="#" id="link-change-account"
-                    style="display: block; margin-top: 20px; color: var(--text-muted); font-size: 0.85rem; text-decoration: none;">Usar
-                    otra cuenta</a>
-            </div>
+                <div class="auth-footer">
+                    <a href="#" id="link-change-account" class="change-account-link">Usar otra cuenta</a>
+                </div>
+            </section>
         </div>
     </div>
 
-    <!-- VISTA 2: DASHBOARD (IA + EDITOR + WIDGETS) -->
     <!-- VISTA 2: DASHBOARD (WIDGETS + EDITOR + IA) -->
     <div id="dashboard-view" class="dashboard-layout hidden">
-        <!-- Columna 1: Widgets de Stats (Izquierda) -->
-        <aside class="widgets-panel">
-            <h3 style="margin-top: 0;">📊 Insights</h3>
+        <!-- Activity Bar (VSCode Style) -->
+        <nav class="activity-bar">
+            <div class="nav-item active" data-tab="insights" title="Insights">📊</div>
+            <div class="nav-item" data-tab="gallery" title="Galería de Widgets">✨</div>
+            <div class="nav-item" data-tab="inbox" title="Inbox">📥</div>
+            <div class="nav-item" data-tab="settings" title="Configuración">⚙️</div>
+        </nav>
 
-            <div class="user-mini-card-wrapper">
-                <div class="user-info-group">
-                    <div id="user-avatar" class="user-avatar-small"></div>
-                    <span id="user-name" class="user-name-text">Usuario</span>
+        <!-- Columna 1: Panel Desplegable -->
+        <aside id="sidebar-panel" class="sidebar-panel">
+            <div class="sidebar-header">
+                <h3 id="sidebar-title" style="margin: 0;">📊 Insights</h3>
+            </div>
+
+            <div class="sidebar-content">
+                <div id="sidebar-content-dynamic">
+                    <!-- Contenido dinámico aquí -->
+                    <div id="insights-panel">
+                        <div class="user-mini-card-wrapper">
+                            <div class="user-info-group">
+                                <div id="user-avatar" class="user-avatar-small"></div>
+                                <span id="user-name" class="user-name-text">Usuario</span>
+                            </div>
+                            <button id="btn-user-menu" class="icon-btn" title="Opciones de cuenta">⋮</button>
+
+                            <div id="user-dropdown" class="dropdown-menu hidden">
+                                <div class="dropdown-header">Mi Cuenta</div>
+                                <a href="#" class="dropdown-item">⚙️ Ajustes</a>
+                                <a href="#" class="dropdown-item">📊 Métricas Extra</a>
+                                <div class="dropdown-divider"></div>
+                                <a href="#" id="menu-logout" class="dropdown-item danger">🚪 Salir</a>
+                            </div>
+                        </div>
+
+                        <div class="widget-card">
+                            <h4>GitHub Score</h4>
+                            <div class="value">A+</div>
+                        </div>
+
+                        <div class="widget-card">
+                            <h4>Repositorios</h4>
+                            <div class="value" id="repo-count">-</div>
+                        </div>
+                    </div>
+
+                    <div id="gallery-panel" class="hidden">
+                        <div id="widgets-grid" class="widgets-grid">
+                            <!-- WidgetCards injectadas por JS -->
+                        </div>
+                    </div>
                 </div>
-                <button id="btn-user-menu" class="icon-btn" title="Opciones de cuenta">⋮</button>
-
-                <div id="user-dropdown" class="dropdown-menu hidden">
-                    <div class="dropdown-header">Mi Cuenta</div>
-                    <a href="#" class="dropdown-item">⚙️ Ajustes</a>
-                    <a href="#" class="dropdown-item">📊 Métricas Extra</a>
-                    <div class="dropdown-divider"></div>
-                    <a href="#" id="menu-logout" class="dropdown-item danger">🚪 Salir</a>
-                </div>
             </div>
-
-            <div class="widget-card">
-                <h4>GitHub Score</h4>
-                <div class="value">A+</div>
-            </div>
-
-            <div class="widget-card">
-                <h4>Repositorios</h4>
-                <div class="value" id="repo-count">-</div>
-            </div>
-
         </aside>
 
         <!-- Divisor Izquierdo -->
@@ -94,19 +123,17 @@
                 <div class="tabs-switcher">
                     <button id="btn-show-editor" class="tab-btn active">Editor</button>
                     <button id="btn-show-preview" class="tab-btn">Vista Previa</button>
-                    <button id="btn-show-gallery" class="tab-btn">✨ Galería</button>
                 </div>
             </header>
-            <div id="editor-container" class="editor-content-wrapper">
-                <textarea id="readme-editor" class="editor-area"
-                    placeholder="# Cargando tu README de perfil..."></textarea>
-            </div>
-            <div id="preview-container" class="preview-area hidden">
-                <!-- El contenido renderizado irá aquí -->
-            </div>
-            <div id="gallery-container" class="gallery-area hidden" style="height: 100%;">
-                <div id="widgets-grid" class="widgets-grid">
-                    <!-- WidgetCards injectadas por JS -->
+            <div id="editor-viewport" class="view-group-viewport">
+                <div id="editor-sliding-container" class="view-group-container secondary">
+                    <div id="editor-container" class="view-item">
+                        <textarea id="readme-editor" class="editor-area"
+                            placeholder="# Cargando tu README de perfil..."></textarea>
+                    </div>
+                    <div id="preview-container" class="view-item">
+                        <!-- El contenido renderizado irá aquí -->
+                    </div>
                 </div>
             </div>
         </main>

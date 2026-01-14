@@ -52,21 +52,31 @@ export class ProfileAnalyzer {
                 this.runAuditorAgent(username)
             ]);
 
-            // Fase 2: Escaneo profundo de código
-            const allFindings = await this.codeScanner.scan(username, repos, onStep);
-            const codeInsights = this.codeScanner.curateFindings(allFindings);
+            // Fase 2: Escaneo profundo de código (SOLO SI HAY IA)
+            let allFindings = [];
+            let codeInsights = [];
+
+            if (!window.AI_OFFLINE) {
+                allFindings = await this.codeScanner.scan(username, repos, onStep);
+                codeInsights = this.codeScanner.curateFindings(allFindings);
+            } else {
+                Logger.info('ANALYZER', 'IA Offline. Saltando escaneo profundo para evitar ruido.');
+            }
 
             // Fase 3: Procesamiento de lenguajes
             const langData = this.processLanguages(repos);
 
-            // Validación de datos reales
+            // Validación de datos reales (SOLO SI HAY IA)
             const hasRealData = codeInsights && codeInsights.length > 0;
-            if (!hasRealData) {
+            if (!hasRealData && !window.AI_OFFLINE) {
                 Logger.warn('WARNING', 'No se pudo extraer código real. Los Workers reportan fallos de acceso.');
             }
 
             // Fase 4: AI Insights
-            const aiInsight = await this.deepCurator.getAIInsights(username, langData, codeInsights, hasRealData);
+            let aiInsight = { summary: "IA Offline. Encienda su servidor para obtener insights.", suggestions: [] };
+            if (!window.AI_OFFLINE) {
+                aiInsight = await this.deepCurator.getAIInsights(username, langData, codeInsights, hasRealData);
+            }
 
             // Guardar resultados
             this.results = {

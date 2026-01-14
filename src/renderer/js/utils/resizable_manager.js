@@ -37,23 +37,25 @@ export class ResizableManager {
         const containerWidth = window.innerWidth;
         const x = e.clientX;
 
-        // Recuperamos el template actual del grid
+        // Recuperamos el template actual del grid (Rail[0] Sidebar[1] Resizer[2] Main[3] Resizer[4] Chat[5])
         const columns = this.layout.style.gridTemplateColumns
             ? this.layout.style.gridTemplateColumns.split(' ')
-            : ['280px', '4px', '1fr', '4px', '350px'];
+            : ['60px', '280px', '4px', '1fr', '4px', '350px'];
 
         if (this.currentResizer === 'left') {
-            // Ajustar panel izquierdo (min 150px, max 450px)
-            const newWidth = Math.max(150, Math.min(450, x));
-            columns[0] = `${newWidth}px`;
+            // Ajustar el Sidebar (Columna 1) - Rail es Columna 0
+            const sidebarWidth = x - 60; // Descontamos el rail
+            const newWidth = Math.max(200, Math.min(600, sidebarWidth));
+            columns[1] = `${newWidth}px`;
         } else if (this.currentResizer === 'right') {
-            // Ajustar panel derecho (min 150px, max 550px)
+            // Ajustar panel derecho (Columna 5)
             const distFromRight = containerWidth - x;
             const newWidth = Math.max(150, Math.min(550, distFromRight));
-            columns[4] = `${newWidth}px`;
+            columns[5] = `${newWidth}px`;
         }
 
         this.layout.style.gridTemplateColumns = columns.join(' ');
+
     }
 
     stopResizing() {

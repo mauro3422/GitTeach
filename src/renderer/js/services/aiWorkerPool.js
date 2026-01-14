@@ -23,6 +23,9 @@ export class AIWorkerPool {
         this.isProcessing = false;
         this.processedCount = 0;
         this.totalQueued = 0;
+
+        // NEW: Track summaries per repo for cumulative context
+        this.repoContexts = new Map();
     }
 
     /**
@@ -65,11 +68,35 @@ export class AIWorkerPool {
             workers.push(this.runWorker(i + 1, aiService));
         }
 
-        // Esperar a que todos los workers terminen
+        // Wait for all workers to finish
         await Promise.all(workers);
 
         this.isProcessing = false;
         return this.results;
+    }
+
+    /**
+     * Get cumulative context for a repo (previous file summaries)
+     * Limits to last 5 files to avoid context overflow
+     */
+    getRepoContext(repoName) {
+        const files = this.repoContexts.get(repoName) || [];
+        if (files.length === 0) return '';
+
+        const recent = files.slice(-5); // Last 5 files max
+        return recent.map(f => `- ${f.path}: ${f.summary}`).join('\n');
+    }
+
+    /**
+     * Add file summary to repo context
+     */
+    addToRepoContext(repoName, filePath, summary) {
+        if (!this.repoContexts.has(repoName)) {
+            this.repoContexts.set(repoName, []);
+        }
+        // Keep short summary for context (max 80 chars)
+        const shortSummary = summary.substring(0, 80).split('\n')[0];
+        this.repoContexts.get(repoName).push({ path: filePath, summary: shortSummary });
     }
 
     /**
@@ -102,8 +129,12 @@ export class AIWorkerPool {
                     workerId: workerId
                 });
 
-                // Notificar progreso
+                // Notify progress
                 this.processedCount++;
+
+                // Add to repo context for future files
+                this.addToRepoContext(item.repo, item.path, summary);
+
                 if (this.onFileProcessed) {
                     this.onFileProcessed(item.repo, item.path, summary);
                 }
@@ -140,27 +171,41 @@ export class AIWorkerPool {
     }
 
     /**
-     * Llama a la IA para resumir un archivo
-     * Prompt optimizado para respuestas cortas (~50 tokens)
+     * Call AI to summarize a file
+     * Includes repo context from previously analyzed files for better understanding
      */
     async summarizeWithAI(aiService, item) {
-        const snippet = item.content.substring(0, 1000); // Limitar input
+        const snippet = item.content.substring(0, 1000); // Limit input
+        const repoContext = this.getRepoContext(item.repo);
 
-        const systemPrompt = `Eres un ANALISTA DE TALENTO TÉCNICO. Tus resúmenes serán usados para construir un PORTAFOLIO DE DESARROLLADOR.
-Tu meta es identificar FORTALEZAS y PATRONES en el código analizado.
+        const systemPrompt = `You are a TECHNICAL TALENT ANALYST. Your summaries will be used to build a DEVELOPER PORTFOLIO.
+Your goal is to identify STRENGTHS and PATTERNS in the analyzed code.
 
-Para cada archivo, responde en una sola línea concisa:
-1. ¿Qué hace el código? (Funcionalidad)
-2. ¿Qué FORTALEZA demuestra? (ej: "Dominio de concurrencia", "SOLID", "Optimización")
-3. ¿Es material de PORTAFOLIO? (ej: "Lógica compleja", "Arquitectura limpia")
+For each file, respond in a single concise line:
+1. What does the code do? (Functionality)
+2. What STRENGTH does it demonstrate? (e.g.: "Concurrency mastery", "SOLID", "Optimization")
+3. Is it PORTFOLIO material? (e.g.: "Complex logic", "Clean architecture")
 
-RESPUESTA CORTA (Máx 40 palabras): [Resumen] + [Fortaleza] + [Impacto]`;
+SHORT RESPONSE (Max 40 words): [Summary] + [Strength] + [Impact]`;
 
-        const userPrompt = `Archivo: ${item.repo}/${item.path}
+        // Include repo context if available
+        let userPrompt = '';
+        if (repoContext) {
+            userPrompt = `REPO CONTEXT (previously analyzed files):
+${repoContext}
+
+CURRENT FILE: ${item.repo}/${item.path}
 \`\`\`
 ${snippet}
 \`\`\`
-Resume fortalezas y patrones del código:`;
+Analyze this file considering its relationship to the above context:`;
+        } else {
+            userPrompt = `File: ${item.repo}/${item.path}
+\`\`\`
+${snippet}
+\`\`\`
+Summarize strengths and patterns:`;
+        }
 
         return await aiService.callAI(systemPrompt, userPrompt, 0.0);
     }
@@ -181,12 +226,13 @@ Resume fortalezas y patrones del código:`;
     }
 
     /**
-     * Limpia la cola
+     * Clear queue and contexts
      */
     clear() {
         this.queue = [];
         this.results = [];
         this.processedCount = 0;
         this.totalQueued = 0;
+        this.repoContexts.clear();
     }
 }

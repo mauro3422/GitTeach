@@ -8,21 +8,12 @@ import { DropdownComponent } from './js/components/dropdownComponent.js';
 import { WidgetGallery } from './js/components/widgetGallery.js';
 import { ProfileAnalyzer } from './js/services/profileAnalyzer.js';
 
+import { EditorComponent } from './js/components/editorComponent.js';
+
 // DOM Elements
 const views = {
     login: document.getElementById('login-view'),
     dashboard: document.getElementById('dashboard-view')
-};
-
-const editorTabs = {
-    editor: document.getElementById('btn-show-editor'),
-    preview: document.getElementById('btn-show-preview'),
-    gallery: document.getElementById('btn-show-gallery'), // New Tab
-    containers: {
-        editor: document.getElementById('editor-container'),
-        preview: document.getElementById('preview-container'),
-        gallery: document.getElementById('gallery-container') // New Container
-    }
 };
 
 function showView(viewName) {
@@ -36,7 +27,7 @@ function showView(viewName) {
         }
     };
 
-    // Usamos View Transition API para un efecto cinematográfico
+    // Use View Transition API for cinematic effect
     if (document.startViewTransition) {
         document.startViewTransition(updateDOM);
     } else {
@@ -44,69 +35,74 @@ function showView(viewName) {
     }
 }
 
-// Inicialización de módulos
+// Module initialization
 AuthView.init(async () => {
-    // 1. Mostrar dashboard inmediatamente para feedback instantáneo
+    // 1. Show dashboard immediately for instant feedback
     showView('dashboard');
 
-    // 2. Cargar datos en segundo plano
+    // 2. Load data in background
     await DashboardView.updateUserInfo();
     ChatComponent.init();
+    EditorComponent.init(); // Modularized
+
+    // Import modular components dynamically
+    const { SidebarManager } = await import('./js/components/sidebar_manager.js');
+    SidebarManager.init();
 
     const resizable = new ResizableManager('dashboard-view');
     resizable.init();
+
     DropdownComponent.init('btn-user-menu', 'user-dropdown');
 
-    // --- ANÁLISIS AGÉNTICO EN SEGUNDO PLANO ---
+    // --- AGENTIC ANALYSIS IN BACKGROUND ---
     const username = DashboardView.currentUsername || 'User';
 
     if (username && username !== 'User') {
         const analyzer = new ProfileAnalyzer();
         const { AIService } = await import('./js/services/aiService.js');
 
-        // 1. Saludo Proactivo
+        // 1. Proactive greeting
         ChatComponent.showInsight(`¡Hola **${username}**! 👋 Soy tu Director de Arte. He empezado a analizar tus repositorios para conocerte mejor.`);
 
-        // 2. Ejecutar análisis con feedback en tiempo real
+        // 2. Execute analysis with real-time feedback
         analyzer.analyze(username, (data) => {
-            // Manejo inteligente de notificaciones
+            // Smart notification handling
             if (typeof data === 'object' && data.type === 'Progreso') {
                 ChatComponent.updateProgress(data.percent, data.message);
             } else if (data && data.type === 'DeepMemoryReady') {
-            } else if (data && data.type === 'DeepMemoryReady') {
-                // FASE 12: Proactividad Real.
-                // En lugar de un mensaje pre-cocinado, le decimos a la IA: "Ya tienes la memoria, di algo."
-                // Usamos un prefijo especial que el AI Service puede interceptar o simplemente procesar como prompt de sistema.
+                // PHASE 12: Real Proactivity.
+                // Instead of pre-cooked message, we tell AI: "You have the memory, say something."
+                // We use a special prefix that AIService can intercept or process as system prompt.
 
-                // Pequeño delay para que la UI respire
+                // Small delay to let UI breathe
                 setTimeout(() => {
                     AIService.processIntent("SYSTEM_EVENT: DEEP_MEMORY_READY_ACKNOWLEDGE", username).then(response => {
-                        // La respuesta vendrá natural del LLM
+                        // Response comes naturally from LLM
                         ChatComponent.addMessage(response.message, 'ai');
                     });
                 }, 1000);
             } else if (typeof data === 'string') {
                 ChatComponent.showProactiveStep(data);
             } else if (data && data.message) {
-                // Solo mostrar logs importantes en el chat
+                // Only show important logs in chat
                 if (data.type === 'Inventario inicializado' || data.type === 'Error') {
                     ChatComponent.showProactiveStep(`🎯 ${data.type}: ${data.message}`);
                 }
             }
         }).then(results => {
-            ChatComponent.hideProgress(); // Ocultar barra al finalizar
+            ChatComponent.hideProgress(); // Hide bar when finished
             if (results) {
-                // 3. Construir contexto RICO para el chat
-                // Incluir lenguajes, estructura de repos, y snippets de código
+                // 3. Build RICH context for chat
+                // Include languages, repo structure, and code snippets
                 const langList = results.mainLangs.length > 0
                     ? results.mainLangs.join(', ')
                     : 'varios lenguajes';
 
-                // Construir detalles de cada repo con resúmenes de IA
+                // Build details for each repo with AI summaries
                 const repoDetails = results.deepScan.map(s => {
                     let detail = `### ${s.repo}\n- Estructura: ${s.structure}`;
                     if (Array.isArray(s.auditedSnippets) && s.auditedSnippets.length > 0) {
-                        // Priorizar resúmenes de IA sobre snippets crudos
+                        // Prioritize AI summaries over raw snippets
                         const summaries = s.auditedSnippets.slice(0, 5).map(f => {
                             if (f.aiSummary) {
                                 return `  - ${f.file}: ${f.aiSummary}`;
@@ -118,17 +114,10 @@ AuthView.init(async () => {
                     return detail;
                 }).join('\n\n');
 
-                // Contexto estructurado con límite de tamaño
-                const context = `PERFIL: ${username}
-LENGUAJES: ${langList}
-RESUMEN: ${results.summary}
+                // NOTE: Context is already being set by ProfileAnalyzer internally
+                // via the DeepMemoryReady callback. Don't override here.
 
-REPOSITORIOS ANALIZADOS:
-${repoDetails.substring(0, 4000)}`; // Limitar a ~4K chars
-
-                AIService.setSessionContext(context);
-
-                // 4. Feedback final con conocimiento real
+                // 4. Final feedback with real knowledge
                 setTimeout(() => {
                     const failedCount = results.failedFiles || 0;
                     if (failedCount > 0) {
@@ -137,7 +126,7 @@ ${repoDetails.substring(0, 4000)}`; // Limitar a ~4K chars
                         ChatComponent.showInsight(`✨ **¡Análisis completado!**`);
                     }
 
-                    // Mostrar lo que aprendió
+                    // Show what it learned
                     if (results.mainLangs.length > 0) {
                         ChatComponent.showInsight(`📊 Veo que trabajas principalmente con **${langList}**.`);
                     }
@@ -155,20 +144,19 @@ ${repoDetails.substring(0, 4000)}`; // Limitar a ~4K chars
     }
 });
 
-// Logout desde el menú
-// Logout desde el menú
+// Logout from menu
 document.addEventListener('click', async (e) => {
     const logoutBtn = e.target.closest('#menu-logout');
     if (logoutBtn) {
         e.preventDefault();
         console.log("Logout triggered");
 
-        // 1. Borrar token en backend
+        // 1. Clear token in backend
         await window.githubAPI.logout();
 
-        // 2. Resetear UI Check
-        // Lo más seguro es recargar la app para limpiar estado en memoria
-        // pero si queremos fluidez:
+        // 2. Reset UI
+        // Safest is to reload app to clear in-memory state
+        // but for fluidity:
         AuthView.showGuestState();
         showView('login');
 
@@ -179,12 +167,12 @@ document.addEventListener('click', async (e) => {
 
 DashboardView.init();
 
-// Verificación inicial de sesión
+// Initial session verification
 async function checkInitialSession() {
-    console.log('[App] Iniciando verificación de sesión...');
-    showView('login'); // Mostrar login base inmediatamente
+    console.log('[App] Starting session verification...');
+    showView('login'); // Show base login immediately
 
-    // Inicializar lógica del editor (Markdown Preview)
+    // Initialize editor logic (Markdown Preview)
     initEditor();
 
     try {
@@ -192,13 +180,13 @@ async function checkInitialSession() {
         console.log('[App] Resultado checkAuth:', user);
 
         if (user && !user.error) {
-            console.log('[App] Usuario detectado, mostrando perfil persistente.');
+            console.log('[App] User detected, showing persistent profile.');
             AuthView.showReturningUser(user);
         } else {
-            console.log('[App] No hay sesión activa o token inválido.');
+            console.log('[App] No active session or invalid token.');
         }
     } catch (error) {
-        console.error('[App] Error crítico en checkInitialSession:', error);
+        console.error('[App] Critical error in checkInitialSession:', error);
     }
 }
 
@@ -214,6 +202,13 @@ function initEditor() {
 
     if (!editor || !preview) return;
 
+    // Mapping for tabs
+    const editorTabs = {
+        editor: document.getElementById('btn-show-editor'),
+        preview: document.getElementById('btn-show-preview'),
+        gallery: document.getElementById('btn-show-gallery')
+    };
+
     // 1. Renderizado en tiempo real (Live Preview)
     const render = () => {
         const text = editor.value;
@@ -228,24 +223,25 @@ function initEditor() {
     render();
 
     // --- TABS DEL EDITOR ---
+    const slidingContainer = document.getElementById('editor-sliding-container');
+
     function switchTab(activeTab) {
-        // Reset classes
+        // Reset classes for the buttons
         Object.values(editorTabs).forEach(el => {
             if (el instanceof HTMLElement) el.classList.remove('active');
         });
-        Object.values(editorTabs.containers).forEach(el => el.classList.add('hidden'));
 
-        // Activate selected
+        // Sliding logic instead of .hidden
         if (activeTab === 'editor') {
             editorTabs.editor.classList.add('active');
-            editorTabs.containers.editor.classList.remove('hidden');
+            if (slidingContainer) slidingContainer.style.transform = 'translateX(0%)';
         } else if (activeTab === 'preview') {
             editorTabs.preview.classList.add('active');
-            editorTabs.containers.preview.classList.remove('hidden');
+            if (slidingContainer) slidingContainer.style.transform = 'translateX(-33.333%)';
             render(); // Activar renderizado
         } else if (activeTab === 'gallery') {
             editorTabs.gallery.classList.add('active');
-            editorTabs.containers.gallery.classList.remove('hidden');
+            if (slidingContainer) slidingContainer.style.transform = 'translateX(-66.666%)';
             WidgetGallery.init(); // Cargar widgets
         }
     }

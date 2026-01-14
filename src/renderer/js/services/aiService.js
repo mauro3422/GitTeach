@@ -1,85 +1,88 @@
 /**
- * AIService - Centraliza la inteligencia y el procesamiento de intenciones.
- * Sigue el principio de Responsabilidad Única (SOLID).
- * UPDATED: Usa Logger y CacheRepository centralizados
+ * AIService - Centralizes AI intelligence and intent processing.
+ * Follows Single Responsibility Principle (SOLID).
+ * UPDATED: Uses centralized Logger and CacheRepository
  */
 import { Logger } from '../utils/logger.js';
 import { CacheRepository } from '../utils/cacheRepository.js';
+import { ToolRegistry } from './toolRegistry.js';
+import { PromptBuilder } from './promptBuilder.js';
+import { AIToolbox } from './aiToolbox.js';
+import { ProfileAnalyzer } from './profileAnalyzer.js';
+import { ChatComponent } from '../components/chatComponent.js';
+
+// Initial state: Silent until proven otherwise
+window.AI_OFFLINE = true;
 
 export const AIService = {
-    currentSessionContext: "", // Memoria de lo aprendido en el escaneo profundo
+    currentSessionContext: "", // Memory of deep scan findings
 
     /**
-     * Actualiza el contexto de la sesión con los hallazgos de los workers.
+     * Updates session context with worker findings.
      */
     setSessionContext(context) {
         this.currentSessionContext = context;
-        Logger.info('AIService', 'Contexto de sesión actualizado.');
+        Logger.info('AIService', 'Session context updated.');
     },
     /**
-     * Procesa la entrada del usuario usando LFM 2.5 local.
+     * Processes user input using local LFM 2.5.
      * @param {string} input 
      * @returns {Promise<{action: string, toolId: string, message: string}>}
      */
     async processIntent(input, username) {
         try {
-            // --- DETECCIÓN DE EVENTOS DE SISTEMA (PROACTIVIDAD) ---
+            // --- SYSTEM EVENTS DETECTION (PROACTIVITY) ---
             if (input.startsWith("SYSTEM_EVENT:")) {
                 const eventType = input.replace("SYSTEM_EVENT:", "").trim();
 
                 if (eventType === "DEEP_MEMORY_READY_ACKNOWLEDGE") {
-                    // Prompt especial: La IA acaba de recibir un "cerebro nuevo".
-                    // Debe reaccionar a ello.
+                    // Special prompt: AI just received a "new brain".
+                    // Must react to it.
                     const reactionPrompt = `
-# SYSTEM UPDATE: MEMORIA PROFUNDA SINCRONIZADA
-Acabas de recibir un análisis masivo del código de ${username}.
-Tu nueva memoria contiene:
-${this.currentSessionContext || "Datos insuficientes"}
+# SYSTEM UPDATE: DEEP MEMORY SYNCHRONIZED
+You just received a massive code analysis from ${username}.
+Your new memory contains:
+${this.currentSessionContext || "Insufficient data"}
 
-## TU TAREA:
-No saludes de nuevo. Simplemente lanza un "Insight" o comentario interesante sobre lo que acabas de descubrir.
-Ejemplos:
-- "Vaya, no sabía que usabas X patrón en el proyecto Y."
-- "Veo que te gusta mucho Python, pero tu estructura de carpetas en C++ es muy limpia."
-- "Interesante mezcla de tecnologías en [Repo]."
+## YOUR TASK:
+Don't greet again. Simply launch an "Insight" or interesting comment about what you just discovered.
+Examples:
+- "Wow, I didn't know you used X pattern in project Y."
+- "I see you really like Python, but your C++ folder structure is very clean."
+- "Interesting mix of technologies in [Repo]."
 
-Sé breve, natural y directo. Sorprende al usuario con tu proactividad.`;
+Be brief, natural and direct. Surprise the user with your proactivity.`;
 
-                    const response = await this.callAI(reactionPrompt, "Genera tu insight ahora based on the above system update.", 0.7); // Temperatura media para creatividad
+                    const response = await this.callAI(reactionPrompt, "Generate your insight now based on the above system update.", 0.7);
                     return { message: response, tool: 'chat' };
                 }
 
-                return { message: "Evento de sistema desconocido.", tool: 'chat' };
+                return { message: "Unknown system event.", tool: 'chat' };
             }
 
-            // 1. Identificar intenciones con Llama local
-            const { ToolRegistry } = await import('./toolRegistry.js');
-            const { PromptBuilder } = await import('./promptBuilder.js');
-            const { AIToolbox } = await import('./aiToolbox.js');
-            const { ProfileAnalyzer } = await import('./profileAnalyzer.js');
-            const { ChatComponent } = await import('../components/chatComponent.js');
-
-            // --- AUTO-CARGA DE MEMORIA PERSISTENTE ---
+            // --- AUTO-LOAD PERSISTENT MEMORY ---
             if (!this.currentSessionContext) {
                 const dna = await CacheRepository.getDeveloperDNA(username);
                 if (dna) {
                     const analyzer = new ProfileAnalyzer();
                     this.currentSessionContext = analyzer.getFreshContext(username, dna);
-                    Logger.info('AIService', 'Memoria profunda recuperada del cache.');
+                    Logger.info('AIService', 'Deep memory recovered from cache.');
+                } else {
+                    Logger.warn('AIService', `No DNA found for ${username}. Running without context.`);
                 }
             }
 
-            // --- PASO 1: ROUTER (Identificar Intención) ---
+            // --- STEP 1: ROUTER (Identify Intent) ---
             const routerPrompt = PromptBuilder.getRouterPrompt(ToolRegistry.tools) +
-                (this.currentSessionContext ? `\nCONTEXTO ACTUAL: ${this.currentSessionContext}` : "");
+                (this.currentSessionContext ? `\nCURRENT CONTEXT: ${this.currentSessionContext}` : "");
             const routerResponse = await this.callAI(routerPrompt, input, 0.0);
 
             let intent = 'chat';
             try {
                 const data = JSON.parse(routerResponse.match(/\{[\s\S]*\}/)?.[0] || '{}');
 
-                // CRÍTICO: No forzar chat si se nombra un repositorio específico o archivo
-                // Solo forzar si es una pregunta de identidad GENÉRICA.
+                // CRITICAL: Don't force chat if a specific repository or file is named
+                // Only force if it's a GENERIC identity question.
                 const isGenericIdentity = (input.toLowerCase().includes("quien soy") || input.toLowerCase().includes("mi perfil")) &&
                     !input.toLowerCase().includes("/");
 
@@ -88,7 +91,7 @@ Sé breve, natural y directo. Sorprende al usuario con tu proactividad.`;
                 } else {
                     intent = data.tool || 'chat';
 
-                    // CORRECCIÓN PROACTIVA: Si el router se confunde y elige read_repo para un archivo específico
+                    // PROACTIVE CORRECTION: If router gets confused and chooses read_repo for a specific file
                     const hasFileExtension = /\.(py|js|cpp|h|json|md|html|css|txt)$/i.test(input);
                     const hasPath = input.includes("/") || input.includes("\\");
                     if (intent === 'read_repo' && (hasFileExtension || hasPath) && !input.toLowerCase().includes("readme")) {
@@ -97,7 +100,7 @@ Sé breve, natural y directo. Sorprende al usuario con tu proactividad.`;
                 }
             } catch (e) {
                 console.warn("[AIService] Router Fallback", e);
-                // Solo aceptar comandos conocidos, sino es chat
+                // Only accept known commands, otherwise it's chat
                 const inputLower = input.toLowerCase();
                 if (inputLower.includes("sabes de mi") || inputLower.includes("quien soy")) {
                     intent = 'chat';
@@ -110,13 +113,13 @@ Sé breve, natural y directo. Sorprende al usuario con tu proactividad.`;
 
             Logger.ai('ROUTER', `INPUT: "${input.substring(0, 50)}..." → INTENT: "${intent}"`);
 
-            // --- CASO CHAT (Sin Herramienta) ---
+            // --- CHAT CASE (No Tool) ---
             if (intent === 'chat' || intent.includes('chat')) {
-                // Prompt mejorado: contexto PRIMERO, instrucciones claras
+                // Improved prompt: context FIRST, clear instructions
                 let chatPrompt;
 
                 if (this.currentSessionContext && this.currentSessionContext.length > 50) {
-                    // Tenemos contexto real - construir prompt rico pero con instrucciones de "LATENCIA"
+                    // We have real context - build rich prompt with "LATENCY" instructions
                     chatPrompt = `# ROL: DIRECTOR DE ARTE TÉCNICO
 Tú eres el Director de Arte, un mentor técnico senior para el usuario ${username}.
 
@@ -137,22 +140,22 @@ ${this.currentSessionContext}
 
 Responde en español, tono profesional pero cercano, minimalista y directo al grano.`;
                 } else {
-                    // Sin contexto - prompt básico
+                    // No context - basic prompt
                     chatPrompt = `Eres un asistente de GitHub llamado "Director de Arte".
 Tu trabajo es ayudar al desarrollador ${username || 'el usuario'} a mejorar su perfil.
 Responde en español, amigablemente. Si no tienes información sobre el usuario, díselo honestamente.`;
                 }
 
-                const chatReply = await this.callAI(chatPrompt, input, 0.2); // Temperatura baja para veracidad
+                const chatReply = await this.callAI(chatPrompt, input, 0.2); // Low temperature for accuracy
                 return { action: "chat", message: chatReply };
             }
 
-            // --- PASO 2: CONSTRUCTOR (Extraer Parámetros) ---
+            // --- STEP 2: CONSTRUCTOR (Extract Parameters) ---
             const tool = ToolRegistry.getById(intent);
-            if (!tool) return { action: "chat", message: "No reconozco el comando: " + intent };
+            if (!tool) return { action: "chat", message: "Command not recognized: " + intent };
 
             const constructorPrompt = PromptBuilder.getConstructorPrompt(tool);
-            const jsonResponse = await this.callAI(constructorPrompt, input, 0.0); // Temp 0 para precisión JSON
+            const jsonResponse = await this.callAI(constructorPrompt, input, 0.0); // Temp 0 for JSON precision
 
             Logger.debug('AI', `RAW RESPONSE: ${jsonResponse.substring(0, 100)}...`);
 
@@ -161,12 +164,12 @@ Responde en español, amigablemente. Si no tienes información sobre el usuario,
             try {
                 let cleanJson = jsonResponse.replace(/```json/g, '').replace(/```/g, '').trim();
 
-                // Intento 1: Parse directo del string limpio
+                // Attempt 1: Direct parse of clean string
                 let parsed;
                 try {
                     parsed = JSON.parse(cleanJson);
                 } catch {
-                    // Intento 2: Extraer JSON con Regex (más tolerante)
+                    // Attempt 2: Extract JSON with Regex (more tolerant)
                     const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
                     if (jsonMatch) {
                         parsed = JSON.parse(jsonMatch[0]);
@@ -182,52 +185,54 @@ Responde en español, amigablemente. Si no tienes información sobre el usuario,
                 parsedParams = {};
             }
 
-            // --- PASO 3: EJECUCIÓN (Acción Real) ---
-            let executionResult = { success: false, details: "Herramienta no reconocida." };
+            // --- STEP 3: EXECUTION (Real Action) ---
+            let executionResult = { success: false, details: "Tool not recognized." };
 
-            // Notificación visual de uso de herramienta
+            // Visual notification of tool usage
             if (ChatComponent) {
-                ChatComponent.showProactiveStep(`Investigando: **${tool.name}**...`);
+                ChatComponent.showProactiveStep(`Investigating: **${tool.name}**...`);
             }
 
             if (tool && typeof tool.execute === 'function') {
                 executionResult = await tool.execute(parsedParams, username);
 
-                // Si la herramienta genera contenido Markdown, lo insertamos en el editor
+                // If the tool generates Markdown content, insert it into the editor
                 if (executionResult.success && executionResult.content) {
                     AIToolbox.applyContent(executionResult.content);
                 }
             }
 
-            // Log de observación
+            // Observation log
             Logger.info('OBSERVATION', `${executionResult.details} (Success: ${executionResult.success})`);
 
-            // --- PASO 4: RESPONDEDOR (Ciclo Cerrado) ---
-            // La IA recibe la confirmación real de la ejecución y genera la respuesta final.
+            // --- STEP 4: RESPONDER (Closed Loop) ---
+            // AI receives real execution confirmation and generates final response.
             const responsePrompt = PromptBuilder.getPostActionPrompt(tool.name, executionResult, input);
             const finalMessage = await this.callAI(responsePrompt, input, 0.7);
 
             return {
-                action: "chat", // Ya se ejecutó, esto es solo información
+                action: "chat", // Already executed, this is just information
                 message: finalMessage
             };
 
         } catch (error) {
             console.error("Error AI Details:", error);
-            return { action: "chat", message: `Error técnico: ${error.message || error}` };
+            return { action: "chat", message: `Technical error: ${error.message || error}` };
         }
     },
 
     async callAI(systemPrompt, userMessage, temperature) {
-        // --- CONFIGURACIÓN LOCAL LFM 2.5 (Restaurada) ---
-        const ENDPOINT = 'http://localhost:8000/v1/chat/completions';
+        // --- LOCAL LFM 2.5 CONFIGURATION ---
+        // Configurable endpoint via window.AI_CONFIG or default value
+        const DEFAULT_ENDPOINT = 'http://localhost:8000/v1/chat/completions';
+        const ENDPOINT = window.AI_CONFIG?.endpoint || DEFAULT_ENDPOINT;
 
         try {
             const response = await fetch(ENDPOINT, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    model: "lfm2.5", // Nombre del modelo local
+                    model: "lfm2.5", // Local model name
                     messages: [
                         { role: "system", content: systemPrompt },
                         { role: "user", content: userMessage }
@@ -242,12 +247,46 @@ Responde en español, amigablemente. Si no tienes información sobre el usuario,
             }
 
             const data = await response.json();
+            this.setAIStatus(true); // Connected
             return data.choices[0].message.content;
 
         } catch (error) {
+            this.setAIStatus(false); // Disconnected
             console.error("Critical AI Error:", error);
             throw error;
         }
-    }
+    },
 
+    /**
+     * Updates AI status UI (The dot)
+     */
+    setAIStatus(isOnline) {
+        window.AI_OFFLINE = !isOnline;
+        const dot = document.querySelector('.status-dot');
+        if (dot) {
+            if (isOnline) {
+                dot.classList.remove('disconnected');
+            } else {
+                dot.classList.add('disconnected');
+            }
+        }
+    },
+
+    /**
+     * Start listening for AI status updates from Main process
+     */
+    startHealthCheck() {
+        // Request initial status
+        window.utilsAPI.checkAIHealth().then(isOnline => this.setAIStatus(isOnline));
+
+        // Listen for periodic updates
+        if (window.githubAPI?.onAIStatusChange) {
+            window.githubAPI.onAIStatusChange((event, isOnline) => {
+                this.setAIStatus(isOnline);
+            });
+        }
+    }
 };
+
+// Start listening
+AIService.startHealthCheck();

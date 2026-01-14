@@ -8,6 +8,11 @@ export const ChatComponent = {
         this.container = document.getElementById('chat-messages');
         this.input = document.getElementById('chat-input-box');
 
+        if (!this.container || !this.input) {
+            console.error('[ChatComponent] Required DOM elements not found');
+            return;
+        }
+
         this.input.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && this.input.value.trim() && !this.isProcessing) {
                 this.sendMessage(this.input.value.trim());
@@ -42,7 +47,7 @@ export const ChatComponent = {
     },
 
     sendMessage(text) {
-        console.log("[ChatComponent] Enviando mensaje:", text);
+        console.log("[ChatComponent] Sending message:", text);
         if (window.githubAPI?.logToTerminal) window.githubAPI.logToTerminal(`💬 Chat Input: ${text}`);
 
         this.addMessage(text, 'user');
@@ -107,12 +112,14 @@ export const ChatComponent = {
     },
 
     /**
-     * Muestra un paso del proceso agéntico (ej. "Analizando repo X")
+     * Shows an agentic process step (e.g. "Analyzing repo X")
      */
     showProactiveStep(message) {
         if (!this.container) return;
         const bubble = document.createElement('div');
         bubble.className = 'chat-bubble ai proactive';
+        bubble.style.borderLeft = '3px solid var(--accent)';
+        bubble.style.boxShadow = 'var(--border-glow)';
         bubble.innerHTML = `<span class="bot-icon">🧵</span> ${message}`;
         this.container.appendChild(bubble);
         this.scrollToBottom();
@@ -131,7 +138,7 @@ export const ChatComponent = {
     },
 
     /**
-     * Actualiza la barra de progreso discreta
+     * Updates the discrete progress bar
      */
     updateProgress(percent, text) {
         const panel = document.getElementById('ai-progress-panel');
@@ -149,14 +156,14 @@ export const ChatComponent = {
     },
 
     /**
-     * Oculta la barra de progreso
+     * Hides the progress bar
      */
     hideProgress() {
         const panel = document.getElementById('ai-progress-panel');
         if (panel) {
             setTimeout(() => {
                 panel.classList.add('hidden');
-            }, 1000); // Pequeño delay para que se vea el 100%
+            }, 1000); // Small delay to show 100%
         }
     }
 };

@@ -1,80 +1,86 @@
 /**
- * DeepCurator - Motor de Curación Profunda (Map-Reduce) y AI Insights
- * Extraído de ProfileAnalyzer para cumplir SRP
- * UPDATED: Usa Logger centralizado
+ * DeepCurator - Deep Curation Engine (Map-Reduce) and AI Insights
+ * Extracted from ProfileAnalyzer to comply with SRP
+ * UPDATED: Uses centralized Logger
  */
 import { AIService } from './aiService.js';
 import { Logger } from '../utils/logger.js';
 
 export class DeepCurator {
     /**
-     * Motor de Curación Profunda (Map-Reduce):
-     * Toma el 100% de los resúmenes y los reduce a una memoria densa.
+     * Deep Curation Engine (Map-Reduce):
+     * Takes 100% of summaries and reduces them to dense memory.
      */
     async runDeepCurator(username, coordinator) {
         const allSummariesString = coordinator.getAllSummaries();
         const allSummaries = allSummariesString.split('\n').filter(s => s.trim().length > 0);
 
-        // --- FASE 1: MAPEO TEMÁTICO (En paralelo) ---
-        Logger.mapper('Iniciando 3 capas de análisis especializado...');
+        // --- PHASE 1: THEMATIC MAPPING (Parallel) ---
+        Logger.mapper('Starting 3 specialized analysis layers...');
 
         const thematicPrompts = {
-            architecture: `Eres el ARQUITECTO DE SOFTWARE. Analiza estos 20 archivos y extrae:
-                1. Patrones de diseño (DI, Factory, Singleton, etc).
-                2. Nivel de cumplimiento de SOLID.
-                3. Estructura de carpetas y modularidad.
-                Respuesta técnica y concisa.`,
+            architecture: `You are the SOFTWARE ARCHITECT. Analyze these 40 files and extract:
+                1. Design patterns (DI, Factory, Singleton, etc).
+                2. SOLID compliance level.
+                3. Folder structure and modularity.
+                Technical and concise response.`,
 
-            habits: `Eres el MENTOR DE CÓDIGO. Analiza estos 20 archivos y extrae:
-                1. Consistencia en Naming (variables/funciones).
-                2. Manejo de errores y casos de borde.
-                3. Calidad de comentarios y legibilidad.
-                Respuesta técnica y concisa.`,
+            habits: `You are the CODE MENTOR. Analyze these 40 files and extract:
+                1. Naming consistency (variables/functions).
+                2. Error handling and edge cases.
+                3. Comment quality and readability.
+                Technical and concise response.`,
 
-            stack: `Eres el EXPERTO EN STACK. Analiza estos 20 archivos y extrae:
-                1. Uso avanzado de frameworks/librerías.
-                2. Optimizaciones de performance y concurrencia.
-                3. Manejo de dependencias y APIs externas.
-                Respuesta técnica y concisa.`
+            stack: `You are the STACK EXPERT. Analyze these 40 files and extract:
+                1. Advanced framework/library usage.
+                2. Performance and concurrency optimizations.
+                3. Dependency and external API handling.
+                Technical and concise response.`
         };
 
         const thematicAnalyses = await Promise.all(Object.entries(thematicPrompts).map(async ([key, systemPrompt]) => {
-            const shuffled = allSummaries.sort(() => 0.5 - Math.random());
-            const batchSample = shuffled.slice(0, 40).join('\n');
+            // Priority-based sampling instead of random
+            const priorityFiles = allSummaries
+                .filter(s => s.includes('main.') || s.includes('index.') || s.includes('app.') || s.includes('config'))
+                .slice(0, 15);
+            const otherFiles = allSummaries
+                .filter(s => !priorityFiles.includes(s))
+                .slice(0, 25);
+            const batchSample = [...priorityFiles, ...otherFiles].join('\n');
 
             try {
-                return await AIService.callAI(`Mapper:${key}`, `${systemPrompt}\n\nARCHIVOS:\n${batchSample}`, 0.1);
+                return await AIService.callAI(`Mapper:${key}`, `${systemPrompt}\n\nFILES:\n${batchSample}`, 0.1);
             } catch (e) {
-                return `Error en mapper ${key}`;
+                return `Error in mapper ${key}`;
             }
         }));
 
-        // --- FASE 2: REDUCE (Sintetizar ADN del Desarrollador) ---
-        Logger.reducer('Sintetizando ADN del Desarrollador (Developer DNA)...');
+        // --- PHASE 2: REDUCE (Synthesize Developer DNA) ---
+        Logger.reducer('Synthesizing Developer DNA...');
 
-        const reducePrompt = `ERES EL REDUCTOR DE INTELIGENCIA TÉCNICA. Tienes los resultados de 3 mappers especializados sobre el código de ${username}.
+        const reducePrompt = `YOU ARE THE TECHNICAL INTELLIGENCE REDUCER. You have results from 3 specialized mappers on ${username}'s code.
         
-        EVIDENCIAS:
-        ARQUITECTURA: ${thematicAnalyses[0]}
-        HÁBITOS: ${thematicAnalyses[1]}
+        EVIDENCE:
+        ARCHITECTURE: ${thematicAnalyses[0]}
+        HABITS: ${thematicAnalyses[1]}
         STACK & PERFORMANCE: ${thematicAnalyses[2]}
         
-        TU MISIÓN: Generar el "DEVELOPER DNA" estruturando los hallazgos de forma REALISTA y TÉCNICA.
+        YOUR MISSION: Generate the "DEVELOPER DNA" structuring findings REALISTICALLY and TECHNICALLY.
         
-        REGLAS DE ORO:
-        1. NO INVENTES NOMBRES DE PROYECTOS (Ej: No digas "Proyecto X" si no está en el código).
-        2. NO USES TÉRMINOS COMO "Máximo" o "Gravity" a menos que sean constantes reales del código.
-        3. Mantén un tono profesional y basado 100% en las evidencias de los mappers.
+        GOLDEN RULES:
+        1. DO NOT INVENT PROJECT NAMES (e.g., Don't say "Project X" if not in the code).
+        2. DO NOT USE TERMS LIKE "Maximum" or "Gravity" unless they are real constants from the code.
+        3. Maintain professional tone 100% based on mapper evidence.
         
-        RESPONDE ÚNICAMENTE CON UN JSON VÁLIDO CON ESTE FORMATO:
+        RESPOND ONLY WITH VALID JSON IN THIS FORMAT:
         {
-          "bio": "Resumen narrativo de 3-4 frases que destaca fortalezas únicas.",
+          "bio": "3-4 sentence narrative summary highlighting unique strengths.",
           "traits": [
-            { "name": "Arquitectura", "score": 0-100, "details": "Breve detalle del patrón detectado" },
-            { "name": "Hábitos", "score": 0-100, "details": "Breve detalle sobre calidad/naming" },
-            { "name": "Tecnología", "score": 0-100, "details": "Breve detalle sobre stack/performance" }
+            { "name": "Architecture", "score": 0-100, "details": "Brief detail of detected pattern" },
+            { "name": "Habits", "score": 0-100, "details": "Brief detail on quality/naming" },
+            { "name": "Technology", "score": 0-100, "details": "Brief detail on stack/performance" }
           ],
-          "verdict": "Senior/Mid/Junior + Especialidad"
+          "verdict": "Senior/Mid/Junior + Specialty"
         }`;
 
         const rawResponse = await AIService.callAI("Reducer DNA", reducePrompt, 0.1);
@@ -85,12 +91,12 @@ export class DeepCurator {
             return dna;
         } catch (e) {
             console.warn("Error parsing DNA JSON, returning raw", e);
-            return { bio: rawResponse, traits: [], verdict: "Analizado" };
+            return { bio: rawResponse, traits: [], verdict: "Analyzed" };
         }
     }
 
     /**
-     * Genera insights de IA basados en los hallazgos del escaneo
+     * Generates AI insights based on scan findings
      */
     async getAIInsights(username, langs, codeInsights, hasRealData) {
         let prompt = "";
@@ -98,52 +104,52 @@ export class DeepCurator {
         const isRateLimited = codeInsights && codeInsights.some(f => f.error === "Rate Limit");
 
         if (isRateLimited) {
-            prompt = `¡NOTICIA IMPORTANTE! El sistema ha alcanzado el Límite de Tasa de GitHub (Rate Limit).
-            Explícale al usuario con total honestidad que los Workers han sido bloqueados temporalmente por GitHub.
-            Dile que no puedes analizar el código real en este momento para evitar alucinaciones.
-            Sugiérele esperar unos minutos o usar un Personal Access Token si está disponible.
-            Genera un JSON con este formato:
-            { "summary": "Límite de API de GitHub alcanzado temporalmente.", "suggestions": ["github_stats"] }`;
+            prompt = `IMPORTANT NOTICE! The system has reached GitHub's Rate Limit.
+            Explain honestly to the user that Workers have been temporarily blocked by GitHub.
+            Tell them you cannot analyze real code at this moment to avoid hallucinations.
+            Suggest waiting a few minutes or using a Personal Access Token if available.
+            Generate a JSON with this format:
+            { "summary": "GitHub API rate limit temporarily reached.", "suggestions": ["github_stats"] }`;
         } else if (!hasRealData) {
-            prompt = `¡ATENCIÓN! No he podido acceder al código real de los repositorios de ${username} (Errores de conexión o permisos).
-            Dile al usuario de forma honesta que has analizado su lista de repositorios y lenguajes (${langs.join(', ')}), 
-            pero que no has podido "bucear" en su código para una auditoría profunda. 
-            Pregúntale si tiene el token de GitHub configurado correctamente.
-            Genera un JSON con este formato:
-            { "summary": "No pude analizar tu código a fondo por falta de acceso.", "suggestions": ["github_stats"] }`;
+            prompt = `ATTENTION! I couldn't access the real code from ${username}'s repositories (Connection or permission errors).
+            Honestly tell the user that you analyzed their repository and language list (${langs.join(', ')}), 
+            but couldn't "dive" into their code for a deep audit. 
+            Ask if they have the GitHub token configured correctly.
+            Generate a JSON with this format:
+            { "summary": "Couldn't analyze your code deeply due to lack of access.", "suggestions": ["github_stats"] }`;
         } else {
             const structuredFindings = codeInsights.map(f => {
-                const files = f.auditedSnippets && f.auditedSnippets !== "Sin Acceso"
-                    ? f.auditedSnippets.map(s => `- ${s.file}: ${s.aiSummary || "Analizado"}`).join('\n')
-                    : "Archivos analizados sin resumen específico.";
+                const files = f.auditedSnippets && f.auditedSnippets !== "No Access"
+                    ? f.auditedSnippets.map(s => `- ${s.file}: ${s.aiSummary || "Analyzed"}`).join('\n')
+                    : "Files analyzed without specific summary.";
                 return `### REPO: ${f.repo}\n${files}`;
             }).join('\n\n');
 
-            prompt = `Eres un CURADOR TÉCNICO DE ÉLITE. Tu meta es transformar el código analizado por los Workers en un PERFIL DE IMPACTO para ${username}.
+            prompt = `You are an ELITE TECHNICAL CURATOR. Your goal is to transform Worker-analyzed code into an IMPACT PROFILE for ${username}.
             
-            DATOS CRUDOS POR REPOSITORIO (ESTRICTAMENTE VERACES):
+            RAW DATA BY REPOSITORY (STRICTLY TRUTHFUL):
             ${structuredFindings}
             
-            INSTRUCCIONES DE CURACIÓN:
-            1. **IDENTIDAD TÉCNICA**: Basándote en todos los repositorios, define la esencia del desarrollador.
-            2. **EVIDENCIA FORENSE (CRÍTICO)**: NO uses frases vacías. Si dices que sabe Python, cita el archivo donde lo viste.
-            3. **DETECTAR PROYECTOS REALES**: Separa lo que es tarea escolar de lo que es un Engine de Juegos real o una librería.
+            CURATION INSTRUCTIONS:
+            1. **TECHNICAL IDENTITY**: Based on all repositories, define the developer's essence.
+            2. **FORENSIC EVIDENCE (CRITICAL)**: DON'T use empty phrases. If you say they know Python, cite the file where you saw it.
+            3. **DETECT REAL PROJECTS**: Separate school assignments from real Game Engines or libraries.
 
-            REGLAS DE FORMATO (JSON ÚNICAMENTE):
+            FORMAT RULES (JSON ONLY):
             {
-              "bio": "Resumen narrativo de 3-4 frases que destaca fortalezas únicas.",
+              "bio": "3-4 sentence narrative summary highlighting unique strengths.",
               "traits": [
-                { "name": "Arquitectura", "score": 0-100, "details": "Breve detalle del patrón detectado" },
-                { "name": "Hábitos", "score": 0-100, "details": "Breve detalle sobre calidad/naming" },
-                { "name": "Tecnología", "score": 0-100, "details": "Breve detalle sobre stack/performance" }
+                { "name": "Architecture", "score": 0-100, "details": "Brief detail of detected pattern" },
+                { "name": "Habits", "score": 0-100, "details": "Brief detail on quality/naming" },
+                { "name": "Technology", "score": 0-100, "details": "Brief detail on stack/performance" }
               ],
               "key_evidences": [
-                 { "file": "path/al/archivo", "snippet": "Fragmento breve del código", "insight": "Por qué esto demuestra skill" }
+                 { "file": "path/to/file", "snippet": "Brief code fragment", "insight": "Why this demonstrates skill" }
               ],
-              "verdict": "Senior/Mid/Junior + Especialidad"
+              "verdict": "Senior/Mid/Junior + Specialty"
             }
             
-            Responde SIEMPRE en ESPAÑOL y basa tus afirmaciones SOLAMENTE en los datos de los mappers.`;
+            Always respond based ONLY on mapper data.`;
         }
 
         try {
@@ -175,34 +181,34 @@ export class DeepCurator {
     }
 
     /**
-     * Genera un resumen técnico denso ("Con Chicha") usando la IA local.
+     * Generates a dense technical summary ("With Substance") using local AI.
      */
     async generateHighFidelitySummary(repo, path, usageSnippet) {
-        const systemPrompt = `Eres un ANALISTA TÉCNICO DE ÉLITE.
-Tu misión es identificar el PROPÓSITO y la CALIDAD del código analizado para construir un perfil profesional.
+        const systemPrompt = `You are an ELITE TECHNICAL ANALYST.
+Your mission is to identify the PURPOSE and QUALITY of analyzed code for building a professional profile.
 
-OBJETIVOS DE ANÁLISIS:
-1. IDENTIFICAR DOMINIO: ¿Qué es esto? (Lógica de Negocio, UI, Script, Configuración, Motor de Juego, Análisis de Datos, etc.).
-2. DETECTAR PATRONES: ¿Qué estructuras usa? (Singleton, Factory, Recursividad, Async/Await, Manejo de Errores).
-3. EVALUAR COMPLEJIDAD: ¿Es código boilerplate o demuestra ingeniería real?
-4. EXTRAER EVIDENCIA: Cita la función o variable clave que demuestra la habilidad.
+ANALYSIS OBJECTIVES:
+1. IDENTIFY DOMAIN: What is this? (Business Logic, UI, Script, Configuration, Game Engine, Data Analysis, etc.).
+2. DETECT PATTERNS: What structures are used? (Singleton, Factory, Recursion, Async/Await, Error Handling).
+3. EVALUATE COMPLEXITY: Is it boilerplate code or does it demonstrate real engineering?
+4. EXTRACT EVIDENCE: Cite the key function or variable that demonstrates the skill.
 
-NO INTERPRETES DE MÁS. Si es un archivo de configuración simple, dilo.
-Si es un algoritmo complejo, destácalo.
+DON'T OVER-INTERPRET. If it's a simple config file, say so.
+If it's a complex algorithm, highlight it.
 
-FORMATO RESPUESTA (Texto plano, 1 línea densa):
-[DOMINIO] <Descripción Técnica> | Evidencia: <Fragmento_Clave>`;
+RESPONSE FORMAT (Plain text, 1 dense line):
+[DOMAIN] <Technical Description> | Evidence: <Key_Fragment>`;
 
-        const userPrompt = `Analiza este archivo de ${repo}: ${path}
+        const userPrompt = `Analyze this file from ${repo}: ${path}
 \`\`\`
 ${usageSnippet.substring(0, 1000)}
 \`\`\`
-Dime qué demuestra sobre el desarrollador:`;
+Tell me what it demonstrates about the developer:`;
 
         try {
             return await AIService.callAI(systemPrompt, userPrompt, 0.1);
         } catch (e) {
-            return `Análisis fallido: ${e.message}`;
+            return `Analysis failed: ${e.message}`;
         }
     }
 }

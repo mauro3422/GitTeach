@@ -1,8 +1,8 @@
 .widgets-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 20px;
-    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 12px;
     overflow-y: auto;
     scrollbar-width: none;
 }
@@ -13,30 +13,34 @@
 
 /* Card Style & Layout */
 .widget-card-item {
-    background: #161b22;
-    border: 1px solid var(--border-color);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
     border-radius: 12px;
     padding: 0;
     display: flex;
     flex-direction: column;
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     overflow: hidden;
     position: relative;
+    box-shadow: var(--glass-shadow);
 }
 
 .widget-card-item:hover {
-    transform: translateY(-5px);
+    transform: translateY(-3px) scale(1.02);
     border-color: var(--accent);
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--border-glow);
 }
 
 .widget-preview-container {
     width: 100%;
-    height: 140px;
-    background: #0d1117;
+    height: 100px;
+    /* Reduced height for sidebar */
+    background: rgba(1, 4, 9, 0.4);
     position: relative;
     overflow: hidden;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--glass-border);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -74,21 +78,28 @@
 }
 
 .widget-info {
-    padding: 15px;
+    padding: 12px;
     flex: 1;
 }
 
 .widget-info h4 {
-    margin: 0 0 5px 0;
-    color: var(--text-color);
-    font-size: 1.1rem;
+    margin: 0 0 4px 0;
+    color: var(--text-main);
+    font-size: 0.95rem;
+    /* Smaller font */
+    font-weight: 600;
 }
 
 .widget-info p {
     margin: 0;
     color: var(--text-muted);
-    font-size: 0.9rem;
+    font-size: 0.8rem;
+    /* Smaller font */
     line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .widget-actions {

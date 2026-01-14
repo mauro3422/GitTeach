@@ -1,11 +1,11 @@
 /**
- * CacheRepository - Capa de abstracción para operaciones de cache
- * Abstrae las llamadas a window.cacheAPI
+ * CacheRepository - Abstraction layer for cache operations
+ * Abstracts calls to window.cacheAPI
  */
 
 class CacheRepositoryService {
     /**
-     * Verifica si el cache está disponible
+     * Checks if cache is available
      */
     isAvailable() {
         return !!window.cacheAPI;
@@ -16,7 +16,7 @@ class CacheRepositoryService {
     // ==========================================
 
     /**
-     * Obtiene el resumen de un archivo desde cache
+     * Gets file summary from cache
      * @returns {Promise<{summary: string, contentSnippet: string}|null>}
      */
     async getFileSummary(username, repo, path) {
@@ -30,7 +30,7 @@ class CacheRepositoryService {
     }
 
     /**
-     * Guarda el resumen de un archivo en cache
+     * Saves file summary to cache
      */
     async setFileSummary(username, repo, path, sha, summary, contentSnippet) {
         if (!this.isAvailable()) return false;
@@ -44,7 +44,7 @@ class CacheRepositoryService {
     }
 
     /**
-     * Verifica si un archivo necesita actualización
+     * Checks if a file needs update
      */
     async needsUpdate(username, repo, path, currentSha) {
         if (!this.isAvailable()) return true;
@@ -60,7 +60,7 @@ class CacheRepositoryService {
     // ==========================================
 
     /**
-     * Verifica si el árbol del repo cambió
+     * Checks if repo tree changed
      */
     async hasRepoChanged(username, repo, currentTreeSha) {
         if (!this.isAvailable()) return true;
@@ -72,7 +72,7 @@ class CacheRepositoryService {
     }
 
     /**
-     * Guarda el SHA del árbol del repo
+     * Saves repo tree SHA
      */
     async setRepoTreeSha(username, repo, treeSha) {
         if (!this.isAvailable()) return false;
@@ -90,7 +90,7 @@ class CacheRepositoryService {
     // ==========================================
 
     /**
-     * Obtiene el ADN del desarrollador desde cache
+     * Gets developer DNA from cache
      */
     async getDeveloperDNA(username) {
         if (!this.isAvailable()) return null;
@@ -103,7 +103,7 @@ class CacheRepositoryService {
     }
 
     /**
-     * Guarda el ADN del desarrollador en cache
+     * Saves developer DNA to cache
      */
     async setDeveloperDNA(username, dna) {
         if (!this.isAvailable()) return false;
@@ -121,7 +121,7 @@ class CacheRepositoryService {
     // ==========================================
 
     /**
-     * Obtiene estadísticas del cache
+     * Gets cache statistics
      */
     async getStats() {
         if (!this.isAvailable()) return null;
@@ -137,9 +137,9 @@ class CacheRepositoryService {
     // ==========================================
 
     /**
-     * Intenta obtener archivo de cache, si no existe lo guarda después del callback
+     * Tries to get file from cache, saves after callback if not found
      * @param {Object} params - {username, repo, path, sha}
-     * @param {Function} fetchFn - Función async que obtiene el contenido si no está en cache
+     * @param {Function} fetchFn - Async function to get content if not in cache
      * @returns {Promise<{summary: string, content: string, fromCache: boolean}>}
      */
     async getOrFetch(params, fetchFn) {

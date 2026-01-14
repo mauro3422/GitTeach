@@ -1,7 +1,17 @@
-/* Design System & Global Classes */
 :root {
     --user-avatar-size: 32px;
     --dropdown-z-index: 100;
+
+    /* Global Glassmorphism Tokens */
+    --glass-bg: rgba(22, 27, 34, 0.4);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-blur: blur(20px);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+
+    /* Color Palette Sync with Login */
+    --accent: #238636;
+    --accent-hover: #2ea043;
+    --border-glow: 0 0 15px rgba(35, 134, 54, 0.2);
 }
 
 /* Cleanup for index.html inline styles */

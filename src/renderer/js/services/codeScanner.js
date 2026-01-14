@@ -1,16 +1,21 @@
 /**
- * CodeScanner - Escaneo profundo de código de repositorios
- * Extraído de ProfileAnalyzer para cumplir SRP
- * UPDATED: Usa Logger y CacheRepository centralizados
+ * CodeScanner - Deep code scanning of repositories
+ * Extracted from ProfileAnalyzer to comply with SRP
+ * UPDATED: Uses centralized Logger and CacheRepository
  */
 import { Logger } from '../utils/logger.js';
 import { CacheRepository } from '../utils/cacheRepository.js';
 
+// Configuration constants
+const MAX_ANCHORS_PER_REPO = 50;
+const MAX_WORKER_QUEUE_SIZE = 200;
+const MAX_CODE_SNIPPET_LENGTH = 1500;
+
 /**
- * Motor de Escaneo de Código Profundo con Cache (Recursivo)
- * - Analiza TODOS los repos (no solo 5)
- * - Usa cache para evitar re-descargas
- * - Procesa más archivos por repo (10 en lugar de 3)
+ * Deep Code Scanning Engine with Cache (Recursive)
+ * - Analyzes ALL repos (not just 5)
+ * - Uses cache to avoid re-downloads
+ * - Processes more files per repo (10 instead of 3)
  */
 export class CodeScanner {
     constructor(coordinator, workerPool) {
@@ -19,14 +24,14 @@ export class CodeScanner {
     }
 
     /**
-     * Escanea todos los repositorios del usuario
+     * Scans all user repositories
      * @param {string} username 
      * @param {Array} repos 
      * @param {Function} onStep 
-     * @returns {Promise<Array>} Hallazgos curados
+     * @returns {Promise<Array>} Curated findings
      */
     async scan(username, repos, onStep = null) {
-        // Inicializar coordinator con todos los repos
+        // Initialize coordinator with all repos
         this.coordinator.initInventory(repos);
         this.coordinator.onProgress = (data) => {
             if (onStep) onStep(data);
@@ -35,33 +40,33 @@ export class CodeScanner {
         const targetRepos = repos;
         const allFindings = [];
 
-        // Procesar en batches paralelos
+        // Process in parallel batches
         await Promise.all(targetRepos.map(async (repo, index) => {
             if (onStep) {
                 const stats = this.coordinator.getStats();
-                onStep({ type: 'Progreso', percent: stats.progress, message: `Rastreando ${repo.name}...` });
+                onStep({ type: 'Progreso', percent: stats.progress, message: `Scanning ${repo.name}...` });
             }
 
             try {
                 const { treeFiles, treeSha } = await this.getRepoTree(username, repo, onStep, allFindings);
                 if (!treeFiles || treeFiles.length === 0) return;
 
-                // Registrar archivos en el coordinator
+                // Register files in coordinator
                 this.coordinator.registerRepoFiles(repo.name, treeFiles, treeSha);
 
-                // Verificar si el repo cambió desde última vez (cache)
+                // Check if repo changed since last time (cache)
                 const needsFullScan = await CacheRepository.hasRepoChanged(username, repo.name, treeSha);
                 if (!needsFullScan) {
-                    Logger.cache(`${repo.name} - Usando datos cacheados`, true);
+                    Logger.cache(`${repo.name} - Using cached data`, true);
                 }
 
-                // Identificar archivos "Ancla" (Arquitectura)
+                // Identify "Anchor" files (Architecture)
                 const anchors = this.identifyAnchorFiles(treeFiles);
 
-                // Auditoría de archivos ancla (máximo 50 por repo)
-                const repoAudit = await this.auditFiles(username, repo.name, anchors.slice(0, 50), needsFullScan, onStep);
+                // Audit anchor files (max 50 per repo)
+                const repoAudit = await this.auditFiles(username, repo.name, anchors.slice(0, MAX_ANCHORS_PER_REPO), needsFullScan, onStep);
 
-                // Guardar tree SHA en cache
+                // Save tree SHA in cache
                 await CacheRepository.setRepoTreeSha(username, repo.name, treeSha);
 
                 allFindings.push({
@@ -89,24 +94,24 @@ export class CodeScanner {
     }
 
     /**
-     * Obtiene el árbol de archivos de un repo (propio o fork)
+     * Gets the file tree of a repo (own or fork)
      */
     async getRepoTree(username, repo, onStep, allFindings) {
         let treeFiles = [];
         let treeSha = 'unknown';
 
         if (repo.fork) {
-            // Si es fork, solo analizamos SI el usuario contribuyó
-            Logger.fork(`Investigando contribuciones en ${repo.name}...`);
+            // If fork, only analyze IF user contributed
+            Logger.fork(`Investigating contributions in ${repo.name}...`);
 
             const userCommits = await window.githubAPI.getUserCommits(username, repo.name, username);
 
             if (!userCommits || userCommits.length === 0) {
-                Logger.info('FORK IGNORED', `Sin contribuciones en ${repo.name}. Saltando.`);
+                Logger.info('FORK IGNORED', `No contributions in ${repo.name}. Skipping.`);
                 return { treeFiles: [], treeSha: null };
             }
 
-            // Extraer archivos modificados en los commits
+            // Extract modified files from commits
             const uniqueFiles = new Set();
             for (const commit of userCommits) {
                 const diff = await window.githubAPI.getCommitDiff(username, repo.name, commit.sha);
@@ -121,14 +126,14 @@ export class CodeScanner {
             }
             treeSha = `patch_group_${userCommits[0].sha}`;
 
-            Logger.fork(`${treeFiles.length} archivos modificados encontrados en ${repo.name}.`, true);
+            Logger.fork(`${treeFiles.length} modified files found in ${repo.name}.`, true);
 
         } else {
-            // Repositorio propio: Análisis completo
+            // Own repository: Full analysis
             const treeData = await window.githubAPI.getRepoTree(username, repo.name, true);
 
             if (treeData && treeData.message && treeData.message.includes("rate limit")) {
-                onStep({ type: 'Error', message: `Base de datos bloqueada temporalmente (Rate Limit).` });
+                onStep({ type: 'Error', message: `Database temporarily blocked (Rate Limit).` });
                 allFindings.push({ repo: repo.name, error: "Rate Limit" });
                 return { treeFiles: [], treeSha: null };
             }
@@ -142,11 +147,11 @@ export class CodeScanner {
     }
 
     /**
-     * Audita una lista de archivos, descargando contenido y guardando en cache
+     * Audits a list of files, downloading content and saving to cache
      */
     async auditFiles(username, repoName, files, needsFullScan, onStep) {
         return await Promise.all(files.map(async (file) => {
-            // Verificar cache primero
+            // Check cache first
             if (!needsFullScan) {
                 const needsUpdate = await CacheRepository.needsUpdate(username, repoName, file.path, file.sha);
                 if (!needsUpdate) {
@@ -160,14 +165,14 @@ export class CodeScanner {
 
             if (onStep) {
                 const stats = this.coordinator.getStats();
-                onStep({ type: 'Progreso', percent: stats.progress, message: `Descargando ${file.path}...` });
+                onStep({ type: 'Progreso', percent: stats.progress, message: `Downloading ${file.path}...` });
             }
 
             const contentRes = await window.githubAPI.getFileContent(username, repoName, file.path);
             if (contentRes && contentRes.content) {
-                const codeSnippet = atob(contentRes.content.replace(/\n/g, '')).substring(0, 1500);
+                const codeSnippet = atob(contentRes.content.replace(/\n/g, '')).substring(0, MAX_CODE_SNIPPET_LENGTH);
 
-                // Guardar en cache
+                // Save to cache
                 await CacheRepository.setFileSummary(
                     username, repoName, file.path,
                     contentRes.sha,
@@ -175,8 +180,8 @@ export class CodeScanner {
                     codeSnippet
                 );
 
-                // Encolar para procesamiento IA
-                if (this.workerPool.totalQueued < 200) {
+                // Enqueue for AI processing
+                if (this.workerPool.totalQueued < MAX_WORKER_QUEUE_SIZE) {
                     this.workerPool.enqueue(repoName, file.path, codeSnippet, contentRes.sha);
                 }
 
@@ -188,7 +193,7 @@ export class CodeScanner {
     }
 
     /**
-     * Identifica archivos "ancla" relevantes para el análisis
+     * Identifies relevant "anchor" files for analysis
      */
     identifyAnchorFiles(tree) {
         const extensions = [
@@ -209,7 +214,7 @@ export class CodeScanner {
     }
 
     /**
-     * Cura los hallazgos para la IA principal
+     * Curates findings for the main AI
      */
     curateFindings(findings) {
         if (findings.length === 0) return [];
@@ -217,12 +222,12 @@ export class CodeScanner {
         return findings.map(f => ({
             repo: f.repo,
             error: f.error || null,
-            structure: f.techStack ? (f.techStack.length > 0 ? f.techStack.slice(0, 10).join(', ') : "Estructura no accesible") : "N/A",
+            structure: f.techStack ? (f.techStack.length > 0 ? f.techStack.slice(0, 10).join(', ') : "Structure not accessible") : "N/A",
             auditedSnippets: f.auditedFiles ? (f.auditedFiles.length > 0 ? f.auditedFiles.map(af => ({
                 file: af.path,
                 content: af.snippet?.substring(0, 300) || '',
                 aiSummary: af.aiSummary || null
-            })) : "Sin Acceso") : "Error de Lectura"
+            })) : "No Access") : "Read Error"
         }));
     }
 }

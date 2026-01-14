@@ -17,7 +17,8 @@ contextBridge.exposeInMainWorld('githubAPI', {
     getUserCommits: (owner, repo, author) => ipcRenderer.invoke('github:get-user-commits', { owner, repo, author }),
     getCommitDiff: (owner, repo, sha) => ipcRenderer.invoke('github:get-commit-diff', { owner, repo, sha }),
     exportPrompt: (prompt) => ipcRenderer.send('dev:export-prompt', prompt),
-    logToTerminal: (msg) => ipcRenderer.send('app:log', msg)
+    logToTerminal: (msg) => ipcRenderer.send('app:log', msg),
+    onAIStatusChange: (callback) => ipcRenderer.on('ai:status-change', callback)
 });
 
 // Información básica del sistema si hace falta
@@ -42,3 +43,11 @@ contextBridge.exposeInMainWorld('cacheAPI', {
     getDeveloperDNA: (username) => ipcRenderer.invoke('cache:get-developer-dna', username),
     setDeveloperDNA: (username, dna) => ipcRenderer.invoke('cache:set-developer-dna', { username, dna })
 });
+
+// Bridge de utilidad para bypass de red
+contextBridge.exposeInMainWorld('utilsAPI', {
+    getImageBase64: (url) => ipcRenderer.invoke('utils:get-image-base64', url),
+    checkAIHealth: () => ipcRenderer.invoke('utils:check-ai-health')
+});
+
+// Información básica del sistema si hace falta

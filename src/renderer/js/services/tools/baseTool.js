@@ -1,6 +1,6 @@
 /**
- * BaseTool - Interfaz base para todas las herramientas de la IA.
- * Sigue el principio de Responsabilidad Única y Segregación de Interfaces.
+ * BaseTool - Base interface for all AI tools.
+ * Follows Single Responsibility and Interface Segregation principles.
  */
 export class BaseTool {
     constructor(id, name, description, examples = [], schema = {}) {
@@ -12,17 +12,17 @@ export class BaseTool {
     }
 
     /**
-     * Lógica de ejecución de la herramienta.
-     * @param {Object} params - Parámetros extraídos por la IA.
-     * @param {string} username - Usuario actual.
+     * Tool execution logic.
+     * @param {Object} params - Parameters extracted by AI.
+     * @param {string} username - Current user.
      * @returns {Promise<{success: boolean, details: string}>}
      */
     async execute(params, username) {
-        throw new Error("El método execute() debe ser implementado por la subclase.");
+        throw new Error("The execute() method must be implemented by the subclass.");
     }
 
     /**
-     * Helper para obtener colores normalizados.
+     * Helper to get normalized colors.
      */
     getColor(name) {
         const colors = {
@@ -36,29 +36,12 @@ export class BaseTool {
         };
         return colors[name?.toLowerCase()] || name || 'auto';
     }
-    async verifyWidget(url) {
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 seconds timeout
-
-            const response = await fetch(url, {
-                method: 'HEAD',
-                signal: controller.signal,
-                mode: 'no-cors' // Important for opaque response if CORS is issues, but for availability check might be enough
-            });
-            clearTimeout(timeoutId);
-
-            // With no-cors we can't check status 200 properly, but if it doesn't throw, it's likely reachable.
-            // However, for SVG widgets often CORS is allowed. Let's try normal fetch first.
-            return true;
-        } catch (e) {
-            // If fetch fails (network error, DNS), we assume it's down
-            return false;
-        }
-    }
 
     /**
-     * Helper to check status with a real GET if HEAD fails/CORS issues
+     * Check if a widget URL is available.
+     * Uses GET request with timeout for reliability.
+     * @param {string} url - Widget URL to check
+     * @returns {Promise<boolean>} - True if available
      */
     async isWidgetAvailable(url) {
         try {

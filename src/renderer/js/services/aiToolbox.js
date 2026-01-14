@@ -1,10 +1,10 @@
 /**
- * AIToolbox - Ayudante para la manipulación de la interfaz y utilidades.
- * Ahora desacoplado de la lógica de las herramientas (SOLID).
+ * AIToolbox - UI manipulation and utility helper.
+ * Now decoupled from tool logic (SOLID).
  */
 export const AIToolbox = {
     /**
-     * Inserta contenido markdown al inicio del editor.
+     * Inserts markdown content at the beginning of the editor.
      * @param {string} content 
      */
     applyContent(content) {
@@ -14,21 +14,21 @@ export const AIToolbox = {
         const currentContent = editor.value;
         editor.value = content + '\n\n' + currentContent;
 
-        // Notificar al sistema del cambio
+        // Notify the system of the change
         editor.dispatchEvent(new Event('input'));
         return true;
     },
 
     /**
-     * Reemplaza el contenido completo (Edición de IA)
+     * Replaces the entire content (AI Edition)
      * @param {string} newContent 
      */
     applyMagicEdit(newContent) {
         const editor = document.getElementById('readme-editor');
-        if (!editor) return { success: false, details: "Editor no encontrado." };
+        if (!editor) return { success: false, details: "Editor not found." };
 
         editor.value = newContent;
         editor.dispatchEvent(new Event('input'));
-        return { success: true, details: "Contenido reemplazado completamente." };
+        return { success: true, details: "Content replaced completely." };
     }
 };
