@@ -13,6 +13,7 @@ import { AIWorkerPool } from './aiWorkerPool.js';
 import { CodeScanner } from './codeScanner.js';
 import { DeepCurator } from './deepCurator.js';
 import { BackgroundAnalyzer } from './backgroundAnalyzer.js';
+import { MetabolicAgent } from './metabolicAgent.js';
 import { Logger } from '../utils/logger.js';
 import { CacheRepository } from '../utils/cacheRepository.js';
 
@@ -36,6 +37,7 @@ export class ProfileAnalyzer {
         // Specialized modules
         this.codeScanner = new CodeScanner(this.coordinator, this.workerPool);
         this.deepCurator = new DeepCurator();
+        this.metabolicAgent = new MetabolicAgent();
         // INJECT: Pass debugLogger to BackgroundAnalyzer to capture its "workers"
         this.backgroundAnalyzer = new BackgroundAnalyzer(this.coordinator, this.deepCurator, debugLogger);
     }
@@ -122,25 +124,39 @@ export class ProfileAnalyzer {
                 ]);
 
                 Logger.dna('Ejecutando SÍNTESIS FINAL del Curador...');
-                const deepMemory = await this.deepCurator.runDeepCurator(username, this.coordinator);
+                const newCuration = await this.deepCurator.runDeepCurator(username, this.coordinator);
+
+                // --- DIGESTIÓN METABÓLICA (Nuevo Agente) ---
+                const oldDNA = await CacheRepository.getDeveloperDNA(username);
+                const { finalDNA, report, isSignificant } = this.metabolicAgent.digest(oldDNA, newCuration);
 
                 // --- PERSISTENCIA DEL ADN ---
-                await CacheRepository.setDeveloperDNA(username, deepMemory);
-                Logger.success('ANALYZER', '🧬 ADN del Programador guardado en memoria persistente.');
+                await CacheRepository.setDeveloperDNA(username, finalDNA);
+                Logger.success('ANALYZER', '🧬 ADN del Programador actualizado y digerido.');
 
-                // Actualizar contexto final
-                const freshContext = this.getFreshContext(username, deepMemory);
+                // Actualizar contexto final en el Chat
+                const freshContext = this.getFreshContext(username, finalDNA);
                 AIService.setSessionContext(freshContext);
+
+                // Solo si el cambio es significativo, disparamos una reacción REACTIVA
+                if (isSignificant && report.milestone !== 'INITIAL_SYNTHESIS') {
+                    const metabolicPrompt = this.metabolicAgent.generateMetabolicPrompt(report, username);
+                    setTimeout(async () => {
+                        const response = await AIService.processIntent(metabolicPrompt, username);
+                        const { ChatComponent } = await import('../components/chatComponent.js');
+                        ChatComponent.addMessage(response.message, 'ai');
+                    }, 2000);
+                }
 
                 if (onStep) {
                     onStep({
                         type: 'DeepMemoryReady',
-                        message: '🧠 Memoria profunda sincronizada al 100%.',
-                        data: deepMemory
+                        message: isSignificant ? '🧠 ¡Tu ADN ha evolucionado!' : '🧠 Memoria sincronizada.',
+                        data: finalDNA
                     });
                 }
 
-                return deepMemory;
+                return finalDNA;
             })();
 
             return this.results;

@@ -184,7 +184,9 @@ async function startTracer() {
     console.log('\n--- PHASE 3: MAIN AGENT VALIDATION ---');
     const questions = [
         "¿Quién soy según lo que has analizado en mis archivos reales?",
-        "¿Cuáles son mis 3 patrones técnicos más fuertes detectados?"
+        "¿Cuáles son mis 3 patrones técnicos más fuertes detectados? Cita archivos reales.",
+        "¿Encontraste alguna anomalía o algo curioso en mi código? Sé específico.",
+        "¿Cómo ha evolucionado mi estilo de programación según lo que ves en estos repositorios?"
     ];
 
     for (const q of questions) {

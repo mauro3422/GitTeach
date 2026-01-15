@@ -54,6 +54,12 @@ Ejemplo: "Bienvenido, ${username}. He encendido los motores de análisis; estoy 
                     return { message: response, tool: 'chat' };
                 }
 
+                if (eventType === "DNA_EVOLUTION_DETECTED") {
+                    const evolutionPrompt = `${input}\n\nUsted es el Director de Arte Técnico. Su memoria acaba de actualizarse con nuevos hallazgos. Comente de forma breve y perspicaz sobre la evolución detectada.`;
+                    const response = await this.callAI(evolutionPrompt, "Veo cambios en mi ADN.", 0.7);
+                    return { message: response, tool: 'chat' };
+                }
+
                 if (eventType === "DEEP_MEMORY_READY_ACKNOWLEDGE") {
                     // Special prompt: AI just received a "new brain".
                     // Must react to it.
