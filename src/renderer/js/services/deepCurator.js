@@ -5,94 +5,248 @@
  */
 import { AIService } from './aiService.js';
 import { Logger } from '../utils/logger.js';
+import { DebugLogger } from '../utils/debugLogger.js';
 
 export class DeepCurator {
     /**
      * Deep Curation Engine (Map-Reduce):
      * Takes 100% of summaries and reduces them to dense memory.
+     * UPDATED: Now uses "Funnel of Truth" logic (Deduplication + Rarity Filter).
      */
     async runDeepCurator(username, coordinator) {
-        const allSummariesString = coordinator.getAllSummaries();
-        const allSummaries = allSummariesString.split('\n').filter(s => s.trim().length > 0);
+        // Step 1: Get Raw Rich Data (JSON Objects)
+        const rawFindings = coordinator.getAllRichSummaries();
+
+        if (!rawFindings || rawFindings.length === 0) {
+            Logger.info('DeepCurator', 'No findings available for curation.');
+            return null;
+        }
+
+        // Step 2: Curate (Deduplicate + Filter + Weighting + Referencing)
+        const curationResult = this.curateInsights(rawFindings);
+        const { validInsights, anomalies, stats, traceability_map } = curationResult;
+
+        Logger.reducer(`Curación completada: ${rawFindings.length} -> ${validInsights.length} insights únicos.`);
+        Logger.reducer(`Diversidad: ${stats.repoCount} repositorios, ${stats.topStrengths.slice(0, 3).map(s => s.name).join(', ')} predominantes.`);
+
+        if (anomalies.length > 0) {
+            Logger.warn('DeepCurator', `Detectadas ${anomalies.length} anomalías de integridad.`);
+        }
+
+        const validInsightsResponse = validInsights.map(i => {
+            const anomalyPrefix = i.params.insight.includes('INTEGRITY ANOMALY') ? '[⚠️ INTEGRITY ANOMALY] ' : '';
+            const weightPrefix = i.weight > 1 ? `[x${i.weight} CONFIRMED] ` : '';
+            return `[${i.repo}/${i.file}]: ${weightPrefix}${anomalyPrefix}${i.params.insight} | Evidence: ${i.params.evidence || 'N/A'} (Strength: ${i.params.technical_strength})`;
+        }).join('\n');
 
         // --- PHASE 1: THEMATIC MAPPING (Parallel) ---
-        Logger.mapper('Starting 3 specialized analysis layers...');
+        // We use the Curated List for the mapping to avoid noise.
+        Logger.mapper('Ejecutando 3 capas de análisis técnico profundo...');
 
         const thematicPrompts = {
-            architecture: `You are the SOFTWARE ARCHITECT. Analyze these 40 files and extract:
-                1. Design patterns (DI, Factory, Singleton, etc).
-                2. SOLID compliance level.
-                3. Folder structure and modularity.
-                Technical and concise response.`,
+            architecture: `YOU ARE THE ELITE SYSTEM ARCHITECT. Your goal is to extract the ARCHITECTURAL DNA of ${username}.
+            
+            Analyze these CURATED file insights (with their real code EVIDENCE) and identify:
+            1. RECURRING PATTERNS: Specific implementations (e.g., "Custom IPC Bridge", "Centralized State").
+            2. DOMAIN SPECIALIZATION: Distinguish between Business Systems, Game Engines, and Science Simulations.
+            3. STRUCTURAL RIGOR: Cite files that serve as "Anchors" (controllers, managers).
+            
+            STRICT RULE: Every claim MUST cite at least one file path and reference the provided evidence.`,
 
-            habits: `You are the CODE MENTOR. Analyze these 40 files and extract:
-                1. Naming consistency (variables/functions).
-                2. Error handling and edge cases.
-                3. Comment quality and readability.
-                Technical and concise response.`,
+            habits: `YOU ARE THE SENIOR CODE QUALITY AUDITOR. Analyze these files and extract ${username}'s CODING HABITS:
+            
+            1. LANGUAGE INTEGRITY: If you see "INTEGRITY ANOMALY" tags, comment on the developer's language-switching or potential mismatch issues.
+            2. ROBUSTNESS: How are edge cases handled in the evidence snippets?
+            3. EVOLUTION: Can you see a shift from "Scripter" (single files) to "Architect" (modular systems)?
+            
+            STRICT RULE: Cite real file paths and code fragments for every habit detected.`,
 
-            stack: `You are the STACK EXPERT. Analyze these 40 files and extract:
-                1. Advanced framework/library usage.
-                2. Performance and concurrency optimizations.
-                3. Dependency and external API handling.
-                Technical and concise response.`
+            stack: `YOU ARE THE FULL-STACK PERFORMANCE EXPERT. Map the TECHNICAL STACK of ${username}:
+            
+            1. ADVANCED USAGE: Detect "Vulkan", "GPU acceleration", "Scientific formulas", "Medical data structures".
+            2. PERFORMANCE: Cite optimizations like O(1) algorithms, caching, or parallelization found in evidence.
+            3. TOOLING: Mention build scripts (e.g., ps1, yml) and automation.
+            
+            STRICT RULE: Be extremely technical. Use provided evidence snippets to back up your stack analysis.`
         };
 
-        const thematicAnalyses = await Promise.all(Object.entries(thematicPrompts).map(async ([key, systemPrompt]) => {
-            // Priority-based sampling instead of random
-            const priorityFiles = allSummaries
-                .filter(s => s.includes('main.') || s.includes('index.') || s.includes('app.') || s.includes('config'))
-                .slice(0, 15);
-            const otherFiles = allSummaries
-                .filter(s => !priorityFiles.includes(s))
-                .slice(0, 25);
-            const batchSample = [...priorityFiles, ...otherFiles].join('\n');
-
+        const thematicAnalyses = [];
+        for (const [key, systemPrompt] of Object.entries(thematicPrompts)) {
             try {
-                return await AIService.callAI(`Mapper:${key}`, `${systemPrompt}\n\nFILES:\n${batchSample}`, 0.1);
+                Logger.mapper(`Analizando capa: ${key}...`);
+                const result = await AIService.callAI(`Curator Mapper: ${key}`, `${systemPrompt}\n\nCURATED INSIGHTS:\n${validInsightsResponse}`, 0.1);
+                thematicAnalyses.push(result);
             } catch (e) {
-                return `Error in mapper ${key}`;
+                Logger.error('DeepCurator', `Error en mapper ${key}: ${e.message}`);
+                thematicAnalyses.push(`Error in mapper ${key}: ${e.message}`);
             }
-        }));
+        }
+
+        // Debug logging
+        DebugLogger.logCurator('mapper_results', {
+            architecture: thematicAnalyses[0],
+            habits: thematicAnalyses[1],
+            stack: thematicAnalyses[2],
+            originalCount: rawFindings.length,
+            curatedCount: validInsights.length,
+            anomalies: anomalies,
+            stats: stats
+        });
 
         // --- PHASE 2: REDUCE (Synthesize Developer DNA) ---
-        Logger.reducer('Synthesizing Developer DNA...');
+        Logger.reducer('Sintetizando ADN de Desarrollador con ALTA FIDELIDAD...');
 
-        const reducePrompt = `YOU ARE THE TECHNICAL INTELLIGENCE REDUCER. You have results from 3 specialized mappers on ${username}'s code.
+        const reducePrompt = `YOU ARE THE TECHNICAL INTELLIGENCE REDUCER. Synthesize the final DEVELOPER DNA of ${username}.
         
-        EVIDENCE:
-        ARCHITECTURE: ${thematicAnalyses[0]}
-        HABITS: ${thematicAnalyses[1]}
-        STACK & PERFORMANCE: ${thematicAnalyses[2]}
+        SPECIALIST REPORTS:
+        - ARCHITECTURE: ${thematicAnalyses[0]}
+        - HABITS: ${thematicAnalyses[1]}
+        - STACK & TECH: ${thematicAnalyses[2]}
+
+        ANOMALIES DETECTED:
+        ${anomalies.map(a => `- ${a.file}: ${a.params?.insight || 'Anomaly detected'}`).join('\n')}
         
-        YOUR MISSION: Generate the "DEVELOPER DNA" structuring findings REALISTICALLY and TECHNICALLY.
-        
-        GOLDEN RULES:
-        1. DO NOT INVENT PROJECT NAMES (e.g., Don't say "Project X" if not in the code).
-        2. DO NOT USE TERMS LIKE "Maximum" or "Gravity" unless they are real constants from the code.
-        3. Maintain professional tone 100% based on mapper evidence.
-        
-        RESPOND ONLY WITH VALID JSON IN THIS FORMAT:
+        STATISTICAL EVIDENCE:
+        - Repositories Analyzed: ${stats.repoCount}
+        - Top Technical Patterns (by volume): ${stats.topStrengths.map(s => `${s.name} (${s.count} files)`).join(', ')}
+        - Anomalies Detected: ${anomalies.length}
+
+        REFINEMENT RULES:
+        1. BIO: Write a real 5-sentence technical summary. DO NOT copy placeholders.
+        2. TRAITS: Use actual scores (0-100) and cite real files from the reports.
+        3. HEALTH: Mention if anomalies (like ObraSocialData.js) were found.
+
+        STRICT SCHEMA RULE (Output ONLY valid JSON):
         {
-          "bio": "3-4 sentence narrative summary highlighting unique strengths.",
+          "bio": "A single, dense technical biography paragraph.",
           "traits": [
-            { "name": "Architecture", "score": 0-100, "details": "Brief detail of detected pattern" },
-            { "name": "Habits", "score": 0-100, "details": "Brief detail on quality/naming" },
-            { "name": "Technology", "score": 0-100, "details": "Brief detail on stack/performance" }
+            { "name": "Architecture", "score": 85, "details": "Summary focusing on the weighted patterns.", "evidence": "file1, file2" }
           ],
-          "verdict": "Senior/Mid/Junior + Specialty"
-        }`;
+          "signature_files": ["top_representative_file1", "top_representative_file2"],
+          "code_health": { "integrity_score": 90, "anomalies_found": true, "details": "Detailed anomaly report if any." },
+          "verdict": "A dynamic technical title (e.g., 'Senior Graphics Architect', 'Backend Security Specialist') based on findings."
+        }
+        
+        INSTRUCTIONS:
+        - DO NOT COPY the placeholder 'Developer Level + Specialization'. Generate a real title.
+        - Base the 'score' on both depth of insights and 'statistical volume' from the evidence.
+        - The 'details' MUST cite at least one confirmed pattern (from the statistical evidence above).
+        - Signature files should be those that represent the developer's strongest patterns.`;
 
-        const rawResponse = await AIService.callAI("Reducer DNA", reducePrompt, 0.1);
+        const rawResponse = await AIService.callAI("Reducer Refiner", reducePrompt, 0.1);
 
         try {
             const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
             const dna = JSON.parse(jsonMatch[0]);
+
+            // INJECT HIDDEN METADATA: Traceability Map
+            // This is for future reference and won't clutter the initial chat response
+            dna.traceability_map = traceability_map;
+
+            // Debug logging
+            DebugLogger.logCurator('final_dna_synthesis', dna);
+
             return dna;
         } catch (e) {
             console.warn("Error parsing DNA JSON, returning raw", e);
-            return { bio: rawResponse, traits: [], verdict: "Analyzed" };
+            const fallbackDna = { bio: rawResponse, traits: [], verdict: "Analyzed (Parsing Error)" };
+
+            // Still inject metadata into fallback if possible
+            fallbackDna.traceability_map = traceability_map;
+            DebugLogger.logCurator('final_dna_synthesis', fallbackDna);
+
+            return fallbackDna;
         }
+    }
+
+    /**
+     * "The Funnel of Truth"
+     * Filters, deduplicates, and ranks insights.
+     */
+    curateInsights(findings) {
+        const validInsights = [];
+        const anomalies = [];
+        const seenTokens = [];
+        const traceability_map = {}; // Maps technical concepts to their sources
+
+        const stats = {
+            repoCount: new Set(findings.map(f => f.repo)).size,
+            strengths: {}
+        };
+
+        // Rarity Tiers
+        const TIER_S = ['ast', 'compiler', 'memory', 'mutex', 'shader', 'gpu', 'dockerfile', 'protobuf', 'websocket', 'optimization', 'algorithm', 'security', 'auth', 'oauth', 'ipc'];
+
+        for (const finding of findings) {
+            // 1. Anomaly Check
+            const insightTextRaw = finding.params?.insight || "";
+            if (finding.tool === 'anomaly' || insightTextRaw.includes('INTEGRITY ANOMALY') || insightTextRaw.includes('⚠️')) {
+                anomalies.push(finding);
+            }
+
+            if (!finding.params || !finding.params.insight) continue;
+
+            // Tracking Volume for Weighting
+            const strength = finding.params.technical_strength || 'General';
+            stats.strengths[strength] = (stats.strengths[strength] || 0) + 1;
+
+            const insightText = (finding.params.insight + " " + strength).toLowerCase();
+            const tokens = new Set(insightText.split(/\W+/).filter(t => t.length > 3));
+
+            // 2. Echo Detection (Deduplication)
+            let isEcho = false;
+            const lookback = seenTokens.slice(-10);
+
+            for (let i = 0; i < lookback.length; i++) {
+                const otherTokens = lookback[i];
+                const intersection = new Set([...tokens].filter(x => otherTokens.has(x)));
+                const union = new Set([...tokens, ...otherTokens]);
+                const jaccard = intersection.size / union.size;
+
+                if (jaccard > 0.65) {
+                    isEcho = true;
+                    break;
+                }
+            }
+
+            // Reference Tracking: Always track where this "concept" comes from
+            const sourceRef = {
+                repo: finding.repo,
+                file: finding.file,
+                summary: insightTextRaw // Inclusion of the worker's summary as requested
+            };
+
+            if (!traceability_map[strength]) traceability_map[strength] = [];
+
+            // Limit refs per strength to avoid massive JSON
+            if (traceability_map[strength].length < 15) {
+                // Deduplicate refs
+                if (!traceability_map[strength].some(r => r.file === sourceRef.file)) {
+                    traceability_map[strength].push(sourceRef);
+                }
+            }
+
+            if (isEcho) {
+                const prev = validInsights.find(v => v.params.insight.toLowerCase().includes(insightTextRaw.substring(0, 20).toLowerCase()));
+                if (prev) {
+                    prev.weight = (prev.weight || 1) + 1;
+                }
+
+                const isTierS = TIER_S.some(t => insightText.includes(t));
+                if (!isTierS) continue;
+            }
+
+            finding.weight = 1;
+            seenTokens.push(tokens);
+            validInsights.push(finding);
+        }
+
+        // Finalize stats
+        stats.topStrengths = Object.entries(stats.strengths)
+            .sort((a, b) => b[1] - a[1])
+            .map(([name, count]) => ({ name, count }));
+
+        return { validInsights, anomalies, stats, traceability_map };
     }
 
     /**
@@ -184,26 +338,30 @@ export class DeepCurator {
      * Generates a dense technical summary ("With Substance") using local AI.
      */
     async generateHighFidelitySummary(repo, path, usageSnippet) {
-        const systemPrompt = `You are an ELITE TECHNICAL ANALYST.
-Your mission is to identify the PURPOSE and QUALITY of analyzed code for building a professional profile.
+        // EVIDENCE-FIRST PROMPT: Forces model to extract real code BEFORE classifying
+        const systemPrompt = `You analyze code files for developer profiling.
 
-ANALYSIS OBJECTIVES:
-1. IDENTIFY DOMAIN: What is this? (Business Logic, UI, Script, Configuration, Game Engine, Data Analysis, etc.).
-2. DETECT PATTERNS: What structures are used? (Singleton, Factory, Recursion, Async/Await, Error Handling).
-3. EVALUATE COMPLEXITY: Is it boilerplate code or does it demonstrate real engineering?
-4. EXTRACT EVIDENCE: Cite the key function or variable that demonstrates the skill.
+STEP 1: Extract the most important function, class, or variable name from the code.
+STEP 2: Based on that evidence, classify the domain.
 
-DON'T OVER-INTERPRET. If it's a simple config file, say so.
-If it's a complex algorithm, highlight it.
+OUTPUT FORMAT (exactly one line):
+[DOMAIN] Brief description | Evidence: <paste_actual_code_fragment>
 
-RESPONSE FORMAT (Plain text, 1 dense line):
-[DOMAIN] <Technical Description> | Evidence: <Key_Fragment>`;
+DOMAIN OPTIONS: UI, Backend, Business, System, Game, Script, Data, Science, DevOps, Config
 
-        const userPrompt = `Analyze this file from ${repo}: ${path}
+IMPORTANT:
+- The evidence MUST be copied from the actual code shown below.
+- STRICT RULE: Do not classify as "Game" unless it mentions game engines (Unity, Godot), sprites, or gameplay loops. 
+- Administrative, Medical, or Management code is "Business" or "System", NOT "Game".
+- Science or Physics simulations are "Science", NOT "Game".
+- If code is empty or under 50 characters, output: SKIP
+- Never invent function names. Only cite what exists in the code.`;
+
+        const userPrompt = `File: ${repo}/${path}
 \`\`\`
 ${usageSnippet.substring(0, 1000)}
 \`\`\`
-Tell me what it demonstrates about the developer:`;
+Analyze:`;
 
         try {
             return await AIService.callAI(systemPrompt, userPrompt, 0.1);

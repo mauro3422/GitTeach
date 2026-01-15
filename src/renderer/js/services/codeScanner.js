@@ -5,11 +5,12 @@
  */
 import { Logger } from '../utils/logger.js';
 import { CacheRepository } from '../utils/cacheRepository.js';
+import { DebugLogger } from '../utils/debugLogger.js';
 
 // Configuration constants
-const MAX_ANCHORS_PER_REPO = 50;
-const MAX_WORKER_QUEUE_SIZE = 200;
-const MAX_CODE_SNIPPET_LENGTH = 1500;
+const MAX_ANCHORS_PER_REPO = 50000; // Definitely lifted
+const MAX_WORKER_QUEUE_SIZE = 50000; // Definitely lifted
+const MAX_CODE_SNIPPET_LENGTH = 3000;
 
 /**
  * Deep Code Scanning Engine with Cache (Recursive)
@@ -151,15 +152,15 @@ export class CodeScanner {
      */
     async auditFiles(username, repoName, files, needsFullScan, onStep) {
         return await Promise.all(files.map(async (file) => {
-            // Check cache first
-            if (!needsFullScan) {
-                const needsUpdate = await CacheRepository.needsUpdate(username, repoName, file.path, file.sha);
-                if (!needsUpdate) {
-                    const cached = await CacheRepository.getFileSummary(username, repoName, file.path);
-                    if (cached) {
-                        this.coordinator.markCompleted(repoName, file.path, cached.summary);
-                        return { path: file.path, snippet: cached.contentSnippet || '', fromCache: true };
-                    }
+            // Check cache first - SHA verification is now ALWAYS active (Cache-First)
+            const needsUpdate = await CacheRepository.needsUpdate(username, repoName, file.path, file.sha);
+            if (!needsUpdate) {
+                const cached = await CacheRepository.getFileSummary(username, repoName, file.path);
+                if (cached) {
+                    this.coordinator.markCompleted(repoName, file.path, cached.summary);
+                    // NEW: Log cache hit for visibility
+                    DebugLogger.logCacheHit(repoName, file.path, cached.summary);
+                    return { path: file.path, snippet: cached.contentSnippet || '', fromCache: true };
                 }
             }
 
@@ -193,23 +194,62 @@ export class CodeScanner {
     }
 
     /**
-     * Identifies relevant "anchor" files for analysis
+     * Identifies relevant files for analysis - BROADENED for 100% coverage
      */
     identifyAnchorFiles(tree) {
-        const extensions = [
-            '.json', '.cpp', '.hpp', '.c', '.h', '.js', '.py', '.java', '.rs', '.go',
-            '.rb', '.php', '.cs', '.ts', '.tsx', '.vue', '.svelte', '.sh', '.md', '.yml', '.yaml'
+        // FILTER V3: Strict exclusions based on "Anti-Smoke" audit
+        const excludeExtensions = [
+            // Media
+            '.png', '.jpg', '.jpeg', '.gif', '.svg', '.mp4', '.ico',
+            // Documents/Archives
+            '.pdf', '.zip', '.tar', '.gz', '.rar',
+            // Executables/Binary
+            '.exe', '.dll', '.bin', '.so', '.dylib', '.class', '.o', '.obj',
+            // Fonts (CRITICAL source of hallucinations)
+            '.ttf', '.otf', '.woff', '.woff2', '.eot',
+            // Engine/Config Noise
+            '.import', '.lock', '.meta', '.map', '.min.js', '.min.css'
         ];
-        const specificFiles = [
-            'Dockerfile', 'Makefile', 'CMakeLists.txt', 'requirements.txt', 'package.json', 'go.mod'
-        ];
+
+        // Folders that contain noise/demos, not architecture
+        const noiseDirs = ['/demo/', '/examples/', '/test/', '/tests/', '/spec/', '/vendor/', '/node_modules/', '/dist/', '/build/', '/coverage/'];
 
         return tree.filter(node => {
             if (node.type !== 'blob') return false;
             const lowerPath = node.path.toLowerCase();
-            const hasExt = extensions.some(ext => lowerPath.endsWith(ext));
-            const isSpecific = specificFiles.some(file => lowerPath.endsWith(file.toLowerCase()));
-            return hasExt || isSpecific;
+
+            // 1. Extension Filter
+            const isExcludedExt = excludeExtensions.some(ext => lowerPath.endsWith(ext));
+            if (isExcludedExt) return false;
+
+            // 2. Hidden Files
+            if (lowerPath.includes('/.') || lowerPath.startsWith('.')) return false;
+
+            // 3. Smart Path Filter (Token-based)
+            const pathTokens = lowerPath.split(/[\\/]/); // Split by / or \
+            const filename = pathTokens[pathTokens.length - 1];
+
+            // Critical: "Assets" folder logic
+            // Only allow assets if they are documentation
+            // Critical: "Assets" folder logic
+            // FILTER V4: Draconian Assets Policy
+            // Only allow README.md in assets. Block licenses, txts, etc inside assets as they are usually noise.
+            if (pathTokens.includes('assets') || pathTokens.includes('static') || pathTokens.includes('public')) {
+                if (filename.toLowerCase() !== 'readme.md') return false;
+            }
+
+            // Critical: "Demo" / "Test" / "Vendor" logic
+            // Block if ANY part of the path contains these words
+            const toxicTokens = ['demo', 'example', 'test', 'spec', 'vendor', 'node_modules', 'dist', 'build', 'coverage', 'mock', 'fixture', 'icomoon'];
+
+            const hasToxicToken = pathTokens.some(token => {
+                // Exact match of folder name OR filename starting with token
+                return toxicTokens.some(toxic => token === toxic || token.startsWith(toxic + '-') || token.endsWith('-' + toxic) || filename.startsWith(toxic));
+            });
+
+            if (hasToxicToken) return false;
+
+            return true;
         });
     }
 

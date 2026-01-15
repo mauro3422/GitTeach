@@ -2,6 +2,22 @@
 
 Todas las mejoras y cambios notables del proyecto GitTeach.
 
+## [v1.7.0] - 2026-01-15 (Fidelidad y Trazabilidad Extrema)
+### 🧬 Traceability Map (Memoria Forense)
+- **Mapa de Referencia Cruzada**: El ADN del desarrollador ahora incluye una metadata oculta con el hilo conductor de cada hallazgo.
+- **Worker Snippets**: Se guardan los resúmenes y fragmentos de evidencia de los workers directamente en la memoria persistente.
+- **Detección de Ecos**: Ponderación de rasgos basada en la frecuencia de confirmación entre diferentes repositorios.
+
+### 🎭 Protocolo de Reacción Cinematográfica
+- **Initial Greeting AI**: El saludo inicial ya no es estático; el Director de Arte saluda al usuario de forma reactiva mientras arranca los motores de análisis.
+- **Deep Memory Acknowledge**: Una vez que el ADN está sintetizado, la IA interviene proactivamente para comentar sus descubrimientos ("¡Vaya, veo que usas Vulkan en ese proyecto!").
+- **Flujo ReAct Natural**: Eliminación de mensajes de estado genéricos para priorizar la voz de la IA.
+
+### 🛡️ Fidelidad y Exactitud (Evidence-First)
+- **Cognitive Vaccine**: Actualización drástica de los prompts de los Workers y Curadores para evitar la copia de ejemplos del sistema.
+- **Validación de Integridad**: Implementación de `validateLanguageIntegrity` en el `FileClassifier` para detectar anomalías (ej: Python en .js).
+- **Reductor Dinámico**: Generación de veredictos y títulos técnicos únicos basados en datos reales, eliminando los placeholders.
+
 ## [v1.6.0] - 2026-01-14 (Operación Silencio Total)
 ### 🔇 Silencio de Consola (Zero Noise)
 - **Health Check en Main Process**: Se ha movido la detección de la IA al proceso de fondo (Node.js). Se eliminaron el 100% de los errores `net::ERR_CONNECTION_REFUSED` de la consola del navegador.

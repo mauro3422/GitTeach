@@ -131,7 +131,7 @@ export class CoordinatorAgent {
     /**
      * Marks a file as completed
      */
-    markCompleted(repoName, filePath, summary) {
+    markCompleted(repoName, filePath, summary, rawData = null) {
         const repo = this.inventory.repos.find(r => r.name === repoName);
         if (!repo) return;
 
@@ -139,6 +139,7 @@ export class CoordinatorAgent {
         if (file) {
             file.status = 'completed';
             file.summary = summary;
+            file.rawData = rawData; // Store rich JSON data
             this.inventory.analyzedFiles++;
             this.inventory.completedFiles.push({ repo: repoName, path: filePath });
         }
@@ -186,6 +187,39 @@ export class CoordinatorAgent {
      */
     getAllSummaries() {
         return this.getSummaryByFilter({ limitPerRepo: 9999, minPriority: 0 });
+    }
+
+    /**
+     * Gets 100% of raw worker data objects (For Deep Curator)
+     * FALLBACK: If rawData is missing, reconstructs it from summary to prevent Curator starvation.
+     */
+    getAllRichSummaries() {
+        const findings = [];
+        for (const repo of this.inventory.repos) {
+            const completed = repo.files.filter(f => f.status === 'completed');
+            completed.forEach(f => {
+                if (f.rawData) {
+                    findings.push({
+                        repo: repo.name,
+                        file: f.path,
+                        ...f.rawData
+                    });
+                } else if (f.summary) {
+                    // SHIM: Reconstruct object from flat text to save the cycle
+                    findings.push({
+                        repo: repo.name,
+                        file: f.path,
+                        tool: 'analysis',
+                        params: {
+                            insight: f.summary.substring(0, 50) + '...', // Best effort
+                            technical_strength: 'Extracted from raw text',
+                            impact: 'Unknown'
+                        }
+                    });
+                }
+            });
+        }
+        return findings;
     }
 
     /**

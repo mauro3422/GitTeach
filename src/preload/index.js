@@ -50,4 +50,13 @@ contextBridge.exposeInMainWorld('utilsAPI', {
     checkAIHealth: () => ipcRenderer.invoke('utils:check-ai-health')
 });
 
+// Debug API para análisis de flujo IA
+contextBridge.exposeInMainWorld('debugAPI', {
+    createSession: (sessionId) => ipcRenderer.invoke('debug:create-session', sessionId),
+    appendLog: (sessionId, folder, filename, content) =>
+        ipcRenderer.invoke('debug:append-log', { sessionId, folder, filename, content }),
+    getSessionsPath: () => ipcRenderer.invoke('debug:get-sessions-path'),
+    listSessions: () => ipcRenderer.invoke('debug:list-sessions')
+});
+
 // Información básica del sistema si hace falta

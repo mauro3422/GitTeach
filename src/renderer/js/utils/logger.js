@@ -64,7 +64,7 @@ class LoggerService {
             'AIService', 'Coordinator'
         ].includes(tag);
 
-        if (window.AI_OFFLINE && isNoise && level < LOG_LEVELS.ERROR) {
+        if (typeof window !== 'undefined' && window.AI_OFFLINE && isNoise && level < LOG_LEVELS.ERROR) {
             return;
         }
 
@@ -72,7 +72,7 @@ class LoggerService {
         const formattedMessage = `${iconStr} [${tag}] ${message}`;
 
         // Enviar a terminal de Electron si está disponible
-        if (window.githubAPI?.logToTerminal) {
+        if (typeof window !== 'undefined' && window.githubAPI?.logToTerminal) {
             window.githubAPI.logToTerminal(formattedMessage);
         }
 

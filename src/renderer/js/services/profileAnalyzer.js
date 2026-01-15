@@ -17,7 +17,7 @@ import { Logger } from '../utils/logger.js';
 import { CacheRepository } from '../utils/cacheRepository.js';
 
 export class ProfileAnalyzer {
-    constructor() {
+    constructor(debugLogger = null) {
         this.results = {
             mainLangs: [],
             topRepos: [],
@@ -29,12 +29,15 @@ export class ProfileAnalyzer {
 
         // Core components
         this.coordinator = new CoordinatorAgent();
-        this.workerPool = new AIWorkerPool(4);
+        // INJECT: Pass debugLogger to WorkerPool so it uses the one with FS access (from Tracer)
+        // REVERT: Back to 4 workers as per user request (issues were due to zombie processes, not concurrency count)
+        this.workerPool = new AIWorkerPool(4, this.coordinator, debugLogger);
 
         // Specialized modules
         this.codeScanner = new CodeScanner(this.coordinator, this.workerPool);
         this.deepCurator = new DeepCurator();
-        this.backgroundAnalyzer = new BackgroundAnalyzer(this.coordinator, this.deepCurator);
+        // INJECT: Pass debugLogger to BackgroundAnalyzer to capture its "workers"
+        this.backgroundAnalyzer = new BackgroundAnalyzer(this.coordinator, this.deepCurator, debugLogger);
     }
 
     async analyze(username, onStep = null) {
@@ -47,8 +50,8 @@ export class ProfileAnalyzer {
 
             // Fase 1: Obtener datos en paralelo
             const [repos, readmeData, audit] = await Promise.all([
-                window.githubAPI.listRepos(),
-                window.githubAPI.getProfileReadme(username),
+                (typeof window !== 'undefined' && window.githubAPI) ? window.githubAPI.listRepos() : Promise.resolve([]),
+                (typeof window !== 'undefined' && window.githubAPI) ? window.githubAPI.getProfileReadme(username) : Promise.resolve(''),
                 this.runAuditorAgent(username)
             ]);
 
@@ -56,11 +59,11 @@ export class ProfileAnalyzer {
             let allFindings = [];
             let codeInsights = [];
 
-            if (!window.AI_OFFLINE) {
+            if (typeof window !== 'undefined' && !window.AI_OFFLINE) {
                 allFindings = await this.codeScanner.scan(username, repos, onStep);
                 codeInsights = this.codeScanner.curateFindings(allFindings);
             } else {
-                Logger.info('ANALYZER', 'IA Offline. Saltando escaneo profundo para evitar ruido.');
+                Logger.info('ANALYZER', 'IA Offline o Entorno Mock. Saltando escaneo profundo.');
             }
 
             // Fase 3: Procesamiento de lenguajes
@@ -68,13 +71,13 @@ export class ProfileAnalyzer {
 
             // Validación de datos reales (SOLO SI HAY IA)
             const hasRealData = codeInsights && codeInsights.length > 0;
-            if (!hasRealData && !window.AI_OFFLINE) {
+            if (!hasRealData && typeof window !== 'undefined' && !window.AI_OFFLINE) {
                 Logger.warn('WARNING', 'No se pudo extraer código real. Los Workers reportan fallos de acceso.');
             }
 
             // Fase 4: AI Insights
             let aiInsight = { summary: "IA Offline. Encienda su servidor para obtener insights.", suggestions: [] };
-            if (!window.AI_OFFLINE) {
+            if (typeof window !== 'undefined' && !window.AI_OFFLINE) {
                 aiInsight = await this.deepCurator.getAIInsights(username, langData, codeInsights, hasRealData);
             }
 
@@ -100,21 +103,45 @@ export class ProfileAnalyzer {
             // Fase 5: Procesamiento de workers en background
             this.startWorkerProcessing(onStep);
 
-            // Fase 6: Análisis en segundo plano
+            // Fase 6: Análisis en segundo plano (Descargas y Cache)
             this.backgroundPromise = this.backgroundAnalyzer.startBackgroundAnalysis(username, allFindings, (data) => {
-                if (data.type === 'DeepMemoryReady') {
-                    // Refrescar contexto con memoria profunda
-                    const freshContext = this.getFreshContext(username, data.data);
-                    AIService.setSessionContext(freshContext);
+                if (data.type === 'Progreso') {
+                    // Si el background analyzer termina de descargar algo,
+                    // el WorkerPool lo pescará automáticamente en el próximo getNextItem.
                 }
                 if (onStep) onStep(data);
             });
 
-            // Promesa de inteligencia completa
-            this.fullIntelligencePromise = Promise.all([
-                this.backgroundPromise,
-                this.aiWorkersPromise || Promise.resolve()
-            ]);
+            // Fase 7: Inteligencia Incremental (Pulse Curation)
+            // Ejecutamos una curación final al terminar todo
+            this.fullIntelligencePromise = (async () => {
+                // Esperar a que el background analyzer (descagas) y los workers terminen
+                await Promise.all([
+                    this.backgroundPromise,
+                    this.aiWorkersPromise || Promise.resolve()
+                ]);
+
+                Logger.dna('Ejecutando SÍNTESIS FINAL del Curador...');
+                const deepMemory = await this.deepCurator.runDeepCurator(username, this.coordinator);
+
+                // --- PERSISTENCIA DEL ADN ---
+                await CacheRepository.setDeveloperDNA(username, deepMemory);
+                Logger.success('ANALYZER', '🧬 ADN del Programador guardado en memoria persistente.');
+
+                // Actualizar contexto final
+                const freshContext = this.getFreshContext(username, deepMemory);
+                AIService.setSessionContext(freshContext);
+
+                if (onStep) {
+                    onStep({
+                        type: 'DeepMemoryReady',
+                        message: '🧠 Memoria profunda sincronizada al 100%.',
+                        data: deepMemory
+                    });
+                }
+
+                return deepMemory;
+            })();
 
             return this.results;
 

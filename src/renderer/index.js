@@ -61,8 +61,10 @@ AuthView.init(async () => {
         const analyzer = new ProfileAnalyzer();
         const { AIService } = await import('./js/services/aiService.js');
 
-        // 1. Proactive greeting
-        ChatComponent.showInsight(`¡Hola **${username}**! 👋 Soy tu Director de Arte. He empezado a analizar tus repositorios para conocerte mejor.`);
+        // 1. Proactive greeting (NATURAL via AI)
+        AIService.processIntent("SYSTEM_EVENT: INITIAL_GREETING", username).then(response => {
+            ChatComponent.addMessage(response.message, 'ai');
+        });
 
         // 2. Execute analysis with real-time feedback
         analyzer.analyze(username, (data) => {
@@ -117,27 +119,12 @@ AuthView.init(async () => {
                 // NOTE: Context is already being set by ProfileAnalyzer internally
                 // via the DeepMemoryReady callback. Don't override here.
 
-                // 4. Final feedback with real knowledge
+                // 4. Final feedback (Simplified to let the AI Deep Memory shine)
                 setTimeout(() => {
                     const failedCount = results.failedFiles || 0;
                     if (failedCount > 0) {
-                        ChatComponent.showInsight(`✨ **¡Análisis completado!** (con ${failedCount} archivos omitidos por error)`);
-                    } else {
-                        ChatComponent.showInsight(`✨ **¡Análisis completado!**`);
+                        Logger.warn('ANALYZER', `Análisis completado con ${failedCount} fallos de lectura.`);
                     }
-
-                    // Show what it learned
-                    if (results.mainLangs.length > 0) {
-                        ChatComponent.showInsight(`📊 Veo que trabajas principalmente con **${langList}**.`);
-                    }
-
-                    if (results.deepScan.length > 0) {
-                        const topRepo = results.deepScan[0];
-                        ChatComponent.showInsight(`📂 Tu proyecto más activo parece ser **${topRepo.repo}**.`);
-                    }
-
-                    ChatComponent.showInsight(`💡 ${results.summary}`);
-                    ChatComponent.showInsight(`¿En qué te gustaría que te ayude? Puedo sugerirte widgets, mejorar tu bio, o analizar un proyecto específico.`);
                 }, 500);
             }
         });

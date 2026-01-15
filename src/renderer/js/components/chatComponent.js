@@ -1,4 +1,6 @@
 // src/renderer/js/components/chatComponent.js
+import { DebugLogger } from '../utils/debugLogger.js';
+
 export const ChatComponent = {
     container: null,
     input: null,
@@ -50,6 +52,9 @@ export const ChatComponent = {
         console.log("[ChatComponent] Sending message:", text);
         if (window.githubAPI?.logToTerminal) window.githubAPI.logToTerminal(`💬 Chat Input: ${text}`);
 
+        // Debug logging - capture user input
+        DebugLogger.logChat('user', text);
+
         this.addMessage(text, 'user');
         this.processAIResponse(text);
     },
@@ -94,6 +99,10 @@ export const ChatComponent = {
             // La "Acción" ya se ejecutó dentro del servicio (Ciclo Cerrado).
             // Solo mostramos el mensaje final del AI Report.
             console.log("[ChatComponent] Respuesta AI recibida:", intent.message);
+
+            // Debug logging - capture AI response
+            DebugLogger.logChat('ai', intent.message);
+
             this.addMessage(intent.message, 'ai');
         } catch (error) {
             console.error("[ChatComponent] Error procesando AI:", error);

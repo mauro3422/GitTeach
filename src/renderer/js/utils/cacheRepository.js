@@ -2,6 +2,7 @@
  * CacheRepository - Abstraction layer for cache operations
  * Abstracts calls to window.cacheAPI
  */
+import { DebugLogger } from './debugLogger.js';
 
 class CacheRepositoryService {
     /**
@@ -161,6 +162,22 @@ class CacheRepositoryService {
         }
 
         return { ...result, fromCache: false };
+    }
+
+    // ==========================================
+    // DEBUG LOGGING
+    // ==========================================
+
+    /**
+     * Snapshots current cache state for debug logging
+     */
+    async snapshotForDebug() {
+        const stats = await this.getStats();
+        DebugLogger.logMemory(stats, {
+            timestamp: new Date().toISOString(),
+            cacheAvailable: this.isAvailable()
+        });
+        return stats;
     }
 }
 

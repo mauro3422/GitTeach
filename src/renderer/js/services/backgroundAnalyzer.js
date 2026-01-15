@@ -8,10 +8,14 @@ import { DeepCurator } from './deepCurator.js';
 import { Logger } from '../utils/logger.js';
 import { CacheRepository } from '../utils/cacheRepository.js';
 
+import { DebugLogger } from '../utils/debugLogger.js';
+import { FileClassifier } from '../utils/fileClassifier.js';
+
 export class BackgroundAnalyzer {
-    constructor(coordinator, deepCurator = null) {
+    constructor(coordinator, deepCurator = null, debugLogger = null) {
         this.coordinator = coordinator;
         this.deepCurator = deepCurator || new DeepCurator();
+        this.debugLogger = debugLogger || DebugLogger; // INJECTION
     }
 
     /**
@@ -28,7 +32,8 @@ export class BackgroundAnalyzer {
         // Get pending files from coordinator
         const pendingBatches = [];
         let batch;
-        while ((batch = this.coordinator.getNextBatch(20, true)).length > 0) {
+        // STABILITY FIX: Reduced batch from 20 to 2 to prevent AI Server Saturation
+        while ((batch = this.coordinator.getNextBatch(2, true)).length > 0) {
             pendingBatches.push(batch);
         }
 
@@ -61,6 +66,18 @@ export class BackgroundAnalyzer {
                         const rawContent = atob(contentRes.content.replace(/\n/g, ''));
                         const snippet = rawContent.substring(0, 2000);
 
+                        // PRE-FILTER: Use FileClassifier instead of inline logic
+                        const skipCheck = FileClassifier.shouldSkip(fileInfo.path, snippet);
+                        if (skipCheck.skip) {
+                            this.coordinator.markCompleted(fileInfo.repo, fileInfo.path, `SKIP: ${skipCheck.reason}`);
+                            this.debugLogger.logWorker('BACKGROUND', {
+                                input: { repo: fileInfo.repo, path: fileInfo.path },
+                                prompt: 'PRE-FILTERED',
+                                output: `SKIP: ${skipCheck.reason}`
+                            });
+                            return;
+                        }
+
                         // HIGH FIDELITY ANALYSIS
                         let aiSummary = `Code in ${fileInfo.repo}`;
                         try {
@@ -76,6 +93,15 @@ export class BackgroundAnalyzer {
                         );
 
                         this.coordinator.markCompleted(fileInfo.repo, fileInfo.path, aiSummary);
+
+                        // LOGGING: Capture background worker results
+                        // Use constant ID to avoid filesystem errors with paths
+                        this.debugLogger.logWorker('BACKGROUND', {
+                            input: { repo: fileInfo.repo, path: fileInfo.path },
+                            prompt: "BACKGROUND_FIDELITY_GENERATION",
+                            output: aiSummary
+                        });
+
                     }
                 } catch (e) {
                     this.coordinator.markFailed(fileInfo.repo, fileInfo.path, e.message);
@@ -88,27 +114,7 @@ export class BackgroundAnalyzer {
 
         const finalStats = this.coordinator.getStats();
         Logger.success('BACKGROUND', `Analysis complete: ${finalStats.analyzed}/${finalStats.totalFiles} (${finalStats.progress}%)`);
-        Logger.dna('Refreshing Art Director memory with deep knowledge...');
 
-        // Deep Curation (Map-Reduce)
-        Logger.dna(`Starting Deep Curation (Map-Reduce) of ${finalStats.totalFiles} files...`);
-
-        const deepMemory = await this.deepCurator.runDeepCurator(username, this.coordinator);
-
-        // Persistence: Save new DNA in cache
-        const saved = await CacheRepository.setDeveloperDNA(username, deepMemory);
-        if (saved) {
-            Logger.metabolic(`DNA updated and persisted for ${username}.`);
-        }
-
-        if (onStep) {
-            onStep({
-                type: 'DeepMemoryReady',
-                message: '🧠 Deep memory synchronized.',
-                data: deepMemory
-            });
-        }
-
-        return deepMemory;
+        return null; // Deep curation is now managed by ProfileAnalyzer heartbeat
     }
 }

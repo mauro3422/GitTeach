@@ -12,7 +12,9 @@ import { ProfileAnalyzer } from './profileAnalyzer.js';
 import { ChatComponent } from '../components/chatComponent.js';
 
 // Initial state: Silent until proven otherwise
-window.AI_OFFLINE = true;
+if (typeof window !== 'undefined') {
+    window.AI_OFFLINE = true;
+}
 
 export const AIService = {
     currentSessionContext: "", // Memory of deep scan findings
@@ -35,23 +37,42 @@ export const AIService = {
             if (input.startsWith("SYSTEM_EVENT:")) {
                 const eventType = input.replace("SYSTEM_EVENT:", "").trim();
 
+                if (eventType === "INITIAL_GREETING") {
+                    const greetingPrompt = `
+# SYSTEM EVENT: USER LOGIN
+El usuario ${username} acaba de iniciar sesión. 
+Usted es el Director de Arte Técnico.
+
+## TAREA:
+1. Salude de forma cinematográfica y profesional.
+2. Infórmele que ha comenzado un escaneo profundo de sus repositorios para construir su ADN técnico.
+3. Use un tono que inspire confianza y curiosidad.
+4. Sea breve (máximo 2-3 líneas).
+
+Ejemplo: "Bienvenido, ${username}. He encendido los motores de análisis; estoy rastreando tus repositorios ahora mismo para mapear tu ADN como desarrollador. Dame un momento para procesar el panorama completo."`;
+                    const response = await this.callAI(greetingPrompt, "¡Hola! Acabo de entrar.", 0.7);
+                    return { message: response, tool: 'chat' };
+                }
+
                 if (eventType === "DEEP_MEMORY_READY_ACKNOWLEDGE") {
                     // Special prompt: AI just received a "new brain".
                     // Must react to it.
                     const reactionPrompt = `
 # SYSTEM UPDATE: DEEP MEMORY SYNCHRONIZED
-You just received a massive code analysis from ${username}.
-Your new memory contains:
+Usted acaba de recibir una sincronización profunda del ADN de ${username}.
+Su memoria ahora contiene una biografía técnica, rasgos de arquitectura, hábitos y stack detectados al 100%.
+
+## CONTEXTO RECIBIDO:
 ${this.currentSessionContext || "Insufficient data"}
 
-## YOUR TASK:
-Don't greet again. Simply launch an "Insight" or interesting comment about what you just discovered.
-Examples:
-- "Wow, I didn't know you used X pattern in project Y."
-- "I see you really like Python, but your C++ folder structure is very clean."
-- "Interesting mix of technologies in [Repo]."
+## INSTRUCCIONES DE REACCIÓN (PROTOCOLO DIRECTOR DE ARTE):
+1. **NO saludes de nuevo**. El usuario ya está hablando con usted.
+2. **"EFECTO DESCUBRIMIENTO"**: Lance un comentario proactivo en tono "Oh, vaya... acabo de procesar el panorama completo de tus repositorios y veo cosas muy interesantes...".
+3. **DETAIL HUNTER**: Mencione un rasgo específico de alta puntuación o una anomalía detectada (ej: el Python en archivos .js) de forma natural.
+4. **PERSONALIDAD**: Mantenga su rol de Director de Arte Senior, mentor y observador.
+5. **BREVEDAD**: Sea impactante pero breve (máximo 4 líneas).
 
-Be brief, natural and direct. Surprise the user with your proactivity.`;
+Ejemplo: "Increíble, acabo de terminar el mapa completo y me ha sorprendido la arquitectura de X... aunque ese script en Python dentro de un .js me ha hecho levantar una ceja. ¿Me cuentas más de eso?"`;
 
                     const response = await this.callAI(reactionPrompt, "Generate your insight now based on the above system update.", 0.7);
                     return { message: response, tool: 'chat' };
@@ -225,21 +246,32 @@ Responde en español, amigablemente. Si no tienes información sobre el usuario,
         // --- LOCAL LFM 2.5 CONFIGURATION ---
         // Configurable endpoint via window.AI_CONFIG or default value
         const DEFAULT_ENDPOINT = 'http://localhost:8000/v1/chat/completions';
-        const ENDPOINT = window.AI_CONFIG?.endpoint || DEFAULT_ENDPOINT;
+        const ENDPOINT = (typeof window !== 'undefined' && window.AI_CONFIG?.endpoint) || DEFAULT_ENDPOINT;
 
         try {
+            console.log(`[AIService] Calling AI... (Temp: ${temperature})`);
+
+            // TIMEOUT HANDLING
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+
             const response = await fetch(ENDPOINT, {
+                signal: controller.signal,
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    model: "lfm2.5", // Local model name
+                    model: "lfm2.5",
                     messages: [
                         { role: "system", content: systemPrompt },
                         { role: "user", content: userMessage }
                     ],
-                    temperature: temperature
+                    temperature: temperature,
+                    n_predict: 4096
                 })
             });
+            clearTimeout(timeoutId);
+
+            console.log(`[AIService] Response Status: ${response.status}`);
 
             if (!response.ok) {
                 const err = await response.text();
@@ -261,13 +293,17 @@ Responde en español, amigablemente. Si no tienes información sobre el usuario,
      * Updates AI status UI (The dot)
      */
     setAIStatus(isOnline) {
-        window.AI_OFFLINE = !isOnline;
-        const dot = document.querySelector('.status-dot');
-        if (dot) {
-            if (isOnline) {
-                dot.classList.remove('disconnected');
-            } else {
-                dot.classList.add('disconnected');
+        if (typeof window !== 'undefined') {
+            window.AI_OFFLINE = !isOnline;
+        }
+        if (typeof document !== 'undefined') {
+            const dot = document.querySelector('.status-dot');
+            if (dot) {
+                if (isOnline) {
+                    dot.classList.remove('disconnected');
+                } else {
+                    dot.classList.add('disconnected');
+                }
             }
         }
     },
@@ -276,6 +312,8 @@ Responde en español, amigablemente. Si no tienes información sobre el usuario,
      * Start listening for AI status updates from Main process
      */
     startHealthCheck() {
+        if (typeof window === 'undefined') return;
+
         // Request initial status
         window.utilsAPI.checkAIHealth().then(isOnline => this.setAIStatus(isOnline));
 
