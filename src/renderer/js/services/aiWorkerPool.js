@@ -247,7 +247,7 @@ export class AIWorkerPool {
             }
 
             // Audit logging
-            CacheRepository.setWorkerAudit(workerId, {
+            CacheRepository.appendWorkerLog(workerId, {
                 timestamp: new Date().toISOString(),
                 repo: item.repo,
                 path: item.path,

@@ -2,19 +2,24 @@
 // Entry Point: Clean orchestrator for the Electron main process.
 // This file ONLY handles app lifecycle and delegates IPC/Services to dedicated modules.
 
-const { app, BrowserWindow, ipcMain } = require('electron');
-const path = require('node:path');
+import { app, BrowserWindow, ipcMain } from 'electron';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// ESM dirname shim
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // --- Services ---
-const firewallService = require('./services/firewallService');
-const aiMonitorService = require('./services/aiMonitorService');
+import firewallService from './services/firewallService.js';
+import aiMonitorService from './services/aiMonitorService.js';
 
 // --- IPC Handlers ---
-const authHandler = require('./handlers/authHandler');
-const dataHandler = require('./handlers/dataHandler');
-const cacheHandler = require('./handlers/cacheHandler');
-const utilsHandler = require('./handlers/utilsHandler');
-const debugHandler = require('./handlers/debugHandler');
+import authHandler from './handlers/authHandler.js';
+import dataHandler from './handlers/dataHandler.js';
+import cacheHandler from './handlers/cacheHandler.js';
+import utilsHandler from './handlers/utilsHandler.js';
+import debugHandler from './handlers/debugHandler.js';
 
 // --- NOTE: LFM 2.5 model runs via llama-server.exe (llama.cpp) ---
 // Endpoint: http://localhost:8000/v1/chat/completions

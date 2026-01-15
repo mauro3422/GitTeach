@@ -1,5 +1,5 @@
 // src/main/services/profileService.js
-const githubClient = require('./githubClient');
+import githubClient from './githubClient.js';
 
 class ProfileService {
     async getUserData() {
@@ -35,4 +35,4 @@ class ProfileService {
     }
 }
 
-module.exports = new ProfileService();
+export default new ProfileService();

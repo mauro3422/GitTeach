@@ -1,9 +1,13 @@
-const { shell, app } = require('electron');
-const http = require('http');
-const url = require('url');
-const fs = require('fs');
-const path = require('path');
-const githubClient = require('./githubClient');
+import { shell, app } from 'electron';
+import http from 'http';
+import url from 'url';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'node:url';
+import githubClient from './githubClient.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load credentials from .env (NEVER hardcode secrets)
 function loadEnv() {
@@ -98,7 +102,8 @@ class AuthService {
         console.log('[AuthService] Token loaded from disk, validating with GitHub...');
         githubClient.setToken(token);
         try {
-            const profileService = require('./profileService');
+            // Dynamic import to avoid circular dependency if any
+            const profileService = (await import('./profileService.js')).default;
             console.log('[AuthService] Calling profileService.getUserData()...');
             const user = await profileService.getUserData();
             console.log('[AuthService] getUserData returned:', user ? user.login : 'NULL');
@@ -111,8 +116,6 @@ class AuthService {
             return null;
         } catch (e) {
             console.error('[AuthService] Error validating session:', e.message);
-            // If validation fails, maybe the token is old?
-            // Let the user decide to re-login.
             return { error: e.message };
         }
     }
@@ -139,4 +142,4 @@ class AuthService {
     }
 }
 
-module.exports = new AuthService();
+export default new AuthService();

@@ -1,5 +1,5 @@
 // src/main/services/githubClient.js
-const { net } = require('electron');
+import { net } from 'electron';
 
 class GithubClient {
     constructor() {
@@ -59,4 +59,4 @@ class GithubClient {
     }
 }
 
-module.exports = new GithubClient();
+export default new GithubClient();

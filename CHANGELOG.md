@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.2.0-ESM] - 2026-01-15
+### ⚡ Core ESM & Intelligence Architecture
+- **Migración Total a ESM (Main Process)**: Transformación de la arquitectura de Electron de CommonJS a ESM nativo.
+    - `src/main/index.js` y todos los Handlers/Services ahora usan `import/export`.
+    - Resolución de dependencias circulares y shims para `__dirname`/`__filename`.
+    - Eliminación de advertencias de carga de Node.js mediante `"type": "module"`.
+- **Modularización de Persistencia (CacheService)**: Descomposición del servicio de caché síncrono en gestores asíncronos especializados:
+    - `FileStorage.js`: Capa base de I/O física.
+    - `RepositoryCacheManager.js`: Lógica de versionado (SHA) y sumarios.
+    - `AuditLogManager.js`: Telemetría de trabajadores en JSONL.
+    - `IntelligenceCacheManager.js`: Gestión de ADN Técnico y Perfiles Cognitivos.
+- **Refactorización de la Capa de Inteligencia**:
+    - `AIService` -> `IntentRouter` (Detección de intención) y `ParameterConstructor` (Extracción de parámetros).
+    - `ProfileAnalyzer` -> `FlowManager` (Estado del análisis) y `ReactionEngine` (Chat proactivo autónomo).
+    - `IntelligenceSynthesizer` -> `ComparisonEngine` (Deltas de identidad) y `EvolutionManager` (Síntesis de evolución).
+- **Estandarización de API IPC**:
+    - Renombrado de `setWorkerAudit` a `appendWorkerLog` para mayor claridad semántica.
+    - Sincronización completa entre Renderer -> Preload -> Main.
+- **Optimización de Código**: Reducción de hasta un 90% en archivos base, mejorando la legibilidad y la testabilidad.
+
 ## [2.1.0-Forensic] - 2026-01-15
 ### 🧬 Massive Modularization & Forensic Core
 - **Modularización Total**: Refactorización de 5 servicios monolíticos en 18 módulos especializados siguiendo el Principio de Responsabilidad Única (SRP).

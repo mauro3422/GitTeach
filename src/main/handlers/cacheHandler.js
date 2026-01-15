@@ -1,13 +1,13 @@
 // src/main/handlers/cacheHandler.js
 // Handler: IPC bridge for cache-related events.
 
-const cacheService = require('../services/cacheService');
+import cacheService from '../services/cacheService.js';
 
 /**
  * Registers all cache-related IPC handlers.
  * @param {Electron.IpcMain} ipcMain - The ipcMain instance.
  */
-function register(ipcMain) {
+export function register(ipcMain) {
     ipcMain.handle('cache:get-repo', async (event, { owner, repo }) => {
         try {
             return cacheService.getRepoCache(owner, repo);
@@ -127,4 +127,4 @@ function register(ipcMain) {
     console.log('[Handlers] ✅ cacheHandler registered.');
 }
 
-module.exports = { register };
+export default { register };

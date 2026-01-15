@@ -1,14 +1,14 @@
 // src/main/handlers/dataHandler.js
 // Handler: IPC bridge for profile, repository, and commit data.
 
-const profileService = require('../services/profileService');
-const repoService = require('../services/repoService');
+import profileService from '../services/profileService.js';
+import repoService from '../services/repoService.js';
 
 /**
  * Registers all data-related IPC handlers.
  * @param {Electron.IpcMain} ipcMain - The ipcMain instance.
  */
-function register(ipcMain) {
+export function register(ipcMain) {
     // --- Profile ---
     ipcMain.handle('github:get-user', async () => {
         try {
@@ -105,4 +105,4 @@ function register(ipcMain) {
     console.log('[Handlers] ✅ dataHandler registered.');
 }
 
-module.exports = { register };
+export default { register };

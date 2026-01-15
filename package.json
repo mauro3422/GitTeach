@@ -1,9 +1,13 @@
 {
     "name": "giteach",
     "version": "1.0.0",
+    "type": "module",
     "main": "src/main/index.js",
     "scripts": {
         "start": "electron ."
+    },
+    "dependencies": {
+        "node-fetch": "^3.3.2"
     },
     "devDependencies": {
         "electron": "^39.2.7"

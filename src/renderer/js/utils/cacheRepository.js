@@ -187,25 +187,13 @@ class CacheRepositoryService {
     /**
      * Appends a finding to a specific worker audit (JSONL)
      */
-    async setWorkerAudit(workerId, finding) {
+    async appendWorkerLog(workerId, logEntry) {
         if (!this.isAvailable()) return false;
         try {
-            await window.cacheAPI.setWorkerAudit(workerId, finding);
+            await window.cacheAPI.appendWorkerLog(workerId, logEntry);
             return true;
         } catch (e) {
             return false;
-        }
-    }
-
-    /**
-     * Gets full audit trail for a worker
-     */
-    async getWorkerAudit(workerId) {
-        if (!this.isAvailable()) return null;
-        try {
-            return await window.cacheAPI.getWorkerAudit(workerId);
-        } catch (e) {
-            return null;
         }
     }
 

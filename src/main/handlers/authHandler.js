@@ -1,13 +1,13 @@
 // src/main/handlers/authHandler.js
 // Handler: IPC bridge for authentication events.
 
-const authService = require('../services/authService');
+import authService from '../services/authService.js';
 
 /**
  * Registers all authentication-related IPC handlers.
  * @param {Electron.IpcMain} ipcMain - The ipcMain instance.
  */
-function register(ipcMain) {
+export function register(ipcMain) {
     ipcMain.handle('github:login', async () => {
         try {
             return await authService.login();
@@ -33,4 +33,4 @@ function register(ipcMain) {
     console.log('[Handlers] ✅ authHandler registered.');
 }
 
-module.exports = { register };
+export default { register };

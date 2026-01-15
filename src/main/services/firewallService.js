@@ -1,13 +1,13 @@
 // src/main/services/firewallService.js
 // Service: Intercepts outgoing requests to spoof headers for anti-bot bypass.
 
-const { session } = require('electron');
+import { session } from 'electron';
 
 /**
  * Initializes the network interceptor.
  * Spoofs Origin, Referer, and User-Agent for requests to Vercel, Heroku, and GitHub user content.
  */
-function init() {
+export function init() {
     console.log('[Firewall] Initializing network interceptor...');
     session.defaultSession.webRequest.onBeforeSendHeaders(
         { urls: ['https://*.vercel.app/*', 'https://*.herokuapp.com/*', 'https://*.githubusercontent.com/*'] },
@@ -35,4 +35,4 @@ function init() {
     console.log('[Firewall] ✅ Interceptor active.');
 }
 
-module.exports = { init };
+export default { init };

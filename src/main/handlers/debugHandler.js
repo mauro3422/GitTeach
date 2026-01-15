@@ -1,9 +1,9 @@
 // src/main/handlers/debugHandler.js
 // Handler: IPC bridge for debug logging (AI flow analysis)
 
-const path = require('node:path');
-const fs = require('fs');
-const { app } = require('electron');
+import path from 'node:path';
+import fs from 'fs';
+import { app } from 'electron';
 
 // Debug sessions base directory
 const DEBUG_BASE_DIR = path.join(app.getPath('userData'), 'debug_sessions');
@@ -21,7 +21,7 @@ function ensureDir(dirPath) {
  * Registers all debug-related IPC handlers.
  * @param {Electron.IpcMain} ipcMain - The ipcMain instance.
  */
-function register(ipcMain) {
+export function register(ipcMain) {
 
     // --- Create Debug Session ---
     ipcMain.handle('debug:create-session', async (event, sessionId) => {
@@ -85,4 +85,4 @@ function register(ipcMain) {
     console.log('[Handlers] ✅ debugHandler registered.');
 }
 
-module.exports = { register };
+export default { register };

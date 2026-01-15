@@ -94,7 +94,7 @@ export class BackgroundAnalyzer {
                         this.coordinator.markCompleted(fileInfo.repo, fileInfo.path, aiSummary);
 
                         // AUDIT LOGGING: Persist finding to background worker JSONL
-                        CacheRepository.setWorkerAudit('BACKGROUND', {
+                        CacheRepository.appendWorkerLog('BACKGROUND', {
                             timestamp: new Date().toISOString(),
                             repo: fileInfo.repo,
                             path: fileInfo.path,

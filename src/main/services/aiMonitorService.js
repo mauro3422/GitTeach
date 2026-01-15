@@ -1,7 +1,7 @@
 // src/main/services/aiMonitorService.js
 // Service: Monitors the local AI server (llama.cpp) health status.
 
-const { BrowserWindow } = require('electron');
+import { BrowserWindow } from 'electron';
 
 let lastAIStatus = false;
 let intervalId = null;
@@ -11,7 +11,7 @@ let intervalId = null;
  * If the status changes, broadcasts an 'ai:status-change' event to all windows.
  * @returns {Promise<boolean>} True if server is online, false otherwise.
  */
-async function performHealthCheck() {
+export async function performHealthCheck() {
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 1000);
@@ -50,7 +50,7 @@ function broadcastStatus(status) {
  * Starts the periodic health check monitor.
  * @param {number} intervalMs - The interval in milliseconds. Default: 8000.
  */
-function startMonitor(intervalMs = 8000) {
+export function startMonitor(intervalMs = 8000) {
     if (intervalId) return; // Already running
     console.log('[AIMonitor] Starting periodic health check...');
     intervalId = setInterval(performHealthCheck, intervalMs);
@@ -59,7 +59,7 @@ function startMonitor(intervalMs = 8000) {
 /**
  * Stops the periodic health check monitor.
  */
-function stopMonitor() {
+export function stopMonitor() {
     if (intervalId) {
         clearInterval(intervalId);
         intervalId = null;
@@ -67,7 +67,7 @@ function stopMonitor() {
     }
 }
 
-module.exports = {
+export default {
     performHealthCheck,
     startMonitor,
     stopMonitor

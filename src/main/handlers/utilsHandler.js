@@ -1,16 +1,20 @@
 // src/main/handlers/utilsHandler.js
 // Handler: IPC bridge for utility events (images, AI, logging, dev tools).
 
-const path = require('node:path');
-const fs = require('fs');
-const widgetBridgeService = require('../services/widgetBridgeService');
-const aiMonitorService = require('../services/aiMonitorService');
+import path from 'node:path';
+import fs from 'fs';
+import { fileURLToPath } from 'node:url';
+import widgetBridgeService from '../services/widgetBridgeService.js';
+import aiMonitorService from '../services/aiMonitorService.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Registers all utility-related IPC handlers.
  * @param {Electron.IpcMain} ipcMain - The ipcMain instance.
  */
-function register(ipcMain) {
+export function register(ipcMain) {
     // --- Widget Bridge ---
     ipcMain.handle('utils:get-image-base64', async (event, url) => {
         return await widgetBridgeService.getImageAsBase64(url);
@@ -41,4 +45,4 @@ function register(ipcMain) {
     console.log('[Handlers] ✅ utilsHandler registered.');
 }
 
-module.exports = { register };
+export default { register };

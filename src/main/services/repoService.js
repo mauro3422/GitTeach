@@ -1,5 +1,5 @@
 // src/main/services/repoService.js
-const githubClient = require('./githubClient');
+import githubClient from './githubClient.js';
 
 class RepoService {
     async listUserRepos() {
@@ -109,4 +109,4 @@ class RepoService {
     }
 }
 
-module.exports = new RepoService();
+export default new RepoService();
