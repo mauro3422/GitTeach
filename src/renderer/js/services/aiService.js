@@ -1,7 +1,7 @@
 /**
  * AIService - Centralizes AI intelligence and intent processing.
  * Follows Single Responsibility Principle (SOLID).
- * UPDATED: Uses centralized Logger and CacheRepository
+ * REFACTORED: Delegates to SystemEventHandler and ChatPromptBuilder
  */
 import { Logger } from '../utils/logger.js';
 import { CacheRepository } from '../utils/cacheRepository.js';
@@ -9,6 +9,8 @@ import { ToolRegistry } from './toolRegistry.js';
 import { PromptBuilder } from './promptBuilder.js';
 import { AIToolbox } from './aiToolbox.js';
 import { ChatComponent } from '../components/chatComponent.js';
+import { SystemEventHandler } from './ai/SystemEventHandler.js';
+import { ChatPromptBuilder } from './ai/ChatPromptBuilder.js';
 
 // Initial state: Silent until proven otherwise
 if (typeof window !== 'undefined') {
@@ -17,6 +19,7 @@ if (typeof window !== 'undefined') {
 
 export const AIService = {
     currentSessionContext: "", // Memory of deep scan findings
+    _hasLoggedOnline: false, // Throttle: only log AI status once
 
     /**
      * Updates session context with worker findings.
@@ -33,84 +36,14 @@ export const AIService = {
     async processIntent(input, username) {
         try {
             // --- SYSTEM EVENTS DETECTION (PROACTIVITY) ---
-            if (input.startsWith("SYSTEM_EVENT:")) {
-                const eventType = input.replace("SYSTEM_EVENT:", "").trim();
-
-                if (eventType === "INITIAL_GREETING") {
-                    const greetingPrompt = `
-# SYSTEM EVENT: USER LOGIN
-El usuario ${username} acaba de iniciar sesión. 
-Usted es el Director de Arte Técnico.
-
-## TAREA:
-1. Salude de forma cinematográfica y profesional.
-2. Infórmele que ha comenzado un escaneo profundo de sus repositorios para construir su ADN técnico.
-3. Use un tono que inspire confianza y curiosidad.
-4. Sea breve (máximo 2-3 líneas).
-
-Ejemplo: "Bienvenido, ${username}. He encendido los motores de análisis; estoy rastreando tus repositorios ahora mismo para mapear tu ADN como desarrollador. Dame un momento para procesar el panorama completo."`;
-                    const response = await this.callAI(greetingPrompt, "¡Hola! Acabo de entrar.", 0.7, null);
-                    return { message: response, tool: 'chat' };
-                }
-
-                if (eventType === "DNA_EVOLUTION_DETECTED") {
-                    const evolutionPrompt = `
-# SYSTEM EVENT: ARCHITECTURAL DNA EVOLVED
-Usted es el Director de Arte Técnico. Su base de conocimiento técnico acaba de detectar un salto cualitativo en el perfil de ${username}.
-Su memoria de "Developer DNA" se ha actualizado con nuevos hallazgos técnicos.
-
-## CONTEXTO DE EVOLUCIÓN:
-${input.replace("SYSTEM_EVENT:DNA_EVOLUTION_DETECTED", "")}
-
-## INSTRUCCIONES:
-1. Reaccione como un Mentor Senior que nota que su pupilo ha desbloqueado una nueva rama de especialización.
-2. Sea técnico y perspicaz (ej: si pasó de Web a C++, comente sobre el paso de lenguajes de alto nivel a control de memoria).
-3. Mantenga el tono cinematográfico y profesional.
-4. Máximo 3-4 líneas.`;
-                    const response = await this.callAI(evolutionPrompt, "Comenta brevemente sobre los nuevos cambios arquitectónicos detectados en mi ADN técnico.", 0.7);
-                    return { message: response, tool: 'chat' };
-                }
-
-                if (eventType === "DEEP_MEMORY_READY_ACKNOWLEDGE") {
-                    // Special prompt: AI just received a "new brain".
-                    // Must react to it.
-                    const reactionPrompt = `
-# SYSTEM UPDATE: DEEP MEMORY SYNCHRONIZED
-Usted acaba de recibir una sincronización profunda del ADN de ${username}.
-Su memoria ahora contiene una biografía técnica, rasgos de arquitectura, hábitos y stack detectados al 100%.
-
-## CONTEXTO RECIBIDO:
-${this.currentSessionContext || "Insufficient data"}
-
-## INSTRUCCIONES DE REACCIÓN (PROTOCOLO DIRECTOR DE ARTE):
-1. **NO saludes de nuevo**. El usuario ya está hablando con usted.
-2. **"EFECTO DESCUBRIMIENTO"**: Lance un comentario proactivo en tono "Oh, vaya... acabo de procesar el panorama completo de tus repositorios y veo cosas muy interesantes...".
-3. **DETAIL HUNTER**: Mencione un rasgo específico de alta puntuación o una anomalía detectada (ej: el Python en archivos .js) de forma natural.
-4. **PERSONALIDAD**: Mantenga su rol de Director de Arte Senior, mentor y observador.
-5. **BREVEDAD**: Sea impactante pero breve (máximo 4 líneas).
-
-Ejemplo: "Increíble, acabo de terminar el mapa completo y me ha sorprendido la arquitectura de X... aunque ese script en Python dentro de un .js me ha hecho levantar una ceja. ¿Me cuentas más de eso?"`;
-
-                    const response = await this.callAI(reactionPrompt, "Generate your insight now based on the above system update.", 0.7);
-                    return { message: response, tool: 'chat' };
-                }
-
-                // Generic System Event (e.g., Streaming Updates)
-                const genericPrompt = `
-# SYSTEM NOTIFICATION (In-stream data)
-The background analysis system has detected new patterns:
-"${input.replace("SYSTEM_EVENT:", "").trim()}"
-
-CONTEXT: This information is appended to your current knowledge of the user. It is NOT a reset.
-INSTRUCTIONS:
-1. MAINTAIN your main persona (Art Director / Technical Mentor). NEVER say "I am the Memory Agent".
-2. Acknowledge the finding as something you just spotted in their files.
-3. Make a brief, insightful comment about the detected area (e.g., "Ah, I see you also touch C++... interesting").
-4. Be natural, as if you were reviewing the code in real-time alongside the user.
-5. REPLY IN SPANISH.`;
-
-                const response = await this.callAI(genericPrompt, "React to the new technical finding while maintaining your role.", 0.4);
-                return { message: response, tool: 'chat' };
+            // Delegate to SystemEventHandler module
+            if (SystemEventHandler.isSystemEvent(input)) {
+                return await SystemEventHandler.handle(
+                    input,
+                    username,
+                    this.currentSessionContext,
+                    this.callAI.bind(this)
+                );
             }
 
             // --- AUTO-LOAD PERSISTENT MEMORY ---
@@ -168,40 +101,9 @@ INSTRUCTIONS:
 
             // --- CHAT CASE (No Tool) ---
             if (intent === 'chat' || intent.includes('chat')) {
-                // Improved prompt: context FIRST, clear instructions
-                let chatPrompt;
-
-                if (this.currentSessionContext && this.currentSessionContext.length > 50) {
-                    // We have real context - build rich prompt with "LATENCY" instructions
-                    chatPrompt = `# ROL: DIRECTOR DE ARTE TÉCNICO
-Tú eres el Director de Arte, un mentor técnico senior para el usuario ${username}. 
-Tu conocimiento se basa en la ** Arquitectura de Guía Determinística** y la ** Ponderación de Evidencias **.
-
-## 🧠 MEMORIA JERÁRQUICA TÉCNICA
-Tienes acceso a la Identidad Técnica del usuario y a un mapa de evidencias detalladas.
-1. ** PONDERACIÓN **: Fíjate en los porcentajes de confianza en la Identidad Técnica.Habla con seguridad sobre lo que tiene puntuación > 80 %.
-2. ** EVIDENCIA **: Cita archivos reales(ej: "Veo que en app.js manejas el estado de forma...") para demostrar que REALMENTE conoces su código.
-3. ** EXPLORACIÓN DETALLADA **: Si el resumen de identidad es insuficiente para responder algo específico, ** USA LA HERRAMIENTA \`query_memory\`**. Tienes miles de resúmenes de archivos (Worker Findings) en el cache que no están en este resumen inicial para ahorrar espacio. No adivines; busca evidencias en el cache.
-4. **TONO CINEMÁTICO**: No eres un bot de ayuda. Eres un mentor que admira o desafía el rigor técnico del usuario.
-5. **NO SALUDES ROBÓTICAMENTE**: El usuario ya está en sesión. Ve directo al grano o haz comentarios técnicos proactivos sobre lo que has "descubierto" en su perfil.
-
-## IDENTIDAD TÉCNICA (SÍNTESIS):
-${this.currentSessionContext}
-
-## PROTOCOLO DE RESPUESTA:
-- Si el usuario dice "Hola": Haz un comentario sobre un hallazgo técnico relevante detectado.
-- Si pregunta "¿Quién soy?": Resume su perfil usando los pesos estadísticos. 
-- Si necesitas más detalle del que ves aquí: **Ejecuta \`query_memory\` con un término técnico.**
-
-Responde en español, tono profesional, minimalista y con alta "chicha" técnica.`;
-                } else {
-                    // No context - basic prompt
-                    chatPrompt = `Eres un asistente de GitHub llamado "Director de Arte".
-Tu trabajo es ayudar al desarrollador ${username || 'el usuario'} a mejorar su perfil.
-Responde en español, amigablemente. Si no tienes información sobre el usuario, díselo honestamente.`;
-                }
-
-                const chatReply = await this.callAI(chatPrompt, input, 0.2); // Low temperature for accuracy
+                // Delegate to ChatPromptBuilder
+                const chatPrompt = ChatPromptBuilder.build(username, this.currentSessionContext);
+                const chatReply = await this.callAI(chatPrompt, input, 0.2);
                 return { action: "chat", message: chatReply };
             }
 
@@ -282,7 +184,8 @@ Responde en español, amigablemente. Si no tienes información sobre el usuario,
         const ENDPOINT = (typeof window !== 'undefined' && window.AI_CONFIG?.endpoint) || DEFAULT_ENDPOINT;
 
         try {
-            console.log(`[AIService] Calling AI... (Temp: ${temperature}, Format: ${format})`);
+            // NOISE REDUCTION: Silent operation, only log errors or first success
+            // console.log(`[AIService] Calling AI... (Temp: ${temperature}, Format: ${format})`);
 
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s for complex synthesis
@@ -313,7 +216,13 @@ Responde en español, amigablemente. Si no tienes información sobre el usuario,
             });
             clearTimeout(timeoutId);
 
-            console.log(`[AIService] Response Status: ${response.status}`);
+            // NOISE REDUCTION: Only log status on first success or on error
+            if (!response.ok) {
+                console.error(`[AIService] ❌ Response ERROR: ${response.status}`);
+            } else if (!this._hasLoggedOnline) {
+                console.log(`[AIService] ✅ AI Server ONLINE (Status: ${response.status})`);
+                this._hasLoggedOnline = true;
+            }
 
             if (!response.ok) {
                 const err = await response.text();
@@ -326,7 +235,8 @@ Responde en español, amigablemente. Si no tienes información sobre el usuario,
 
         } catch (error) {
             this.setAIStatus(false); // Disconnected
-            console.error("Critical AI Error:", error);
+            this._hasLoggedOnline = false; // Reset so next success will log
+            console.error("[AIService] ❌ Critical AI Error:", error.message || error);
             throw error;
         }
     },

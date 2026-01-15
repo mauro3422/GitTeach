@@ -6,6 +6,7 @@
  * - CodeScanner: Escaneo de repositorios y archivos
  * - DeepCurator: Curación Map-Reduce y AI Insights
  * - BackgroundAnalyzer: Análisis en segundo plano
+ * - ContextBuilder: Construcción del contexto de sesión
  */
 import { AIService } from './aiService.js';
 import { CoordinatorAgent } from './coordinatorAgent.js';
@@ -17,6 +18,7 @@ import { IntelligenceSynthesizer } from './intelligenceSynthesizer.js';
 import { Logger } from '../utils/logger.js';
 import { CacheRepository } from '../utils/cacheRepository.js';
 import { DebugLogger } from '../utils/debugLogger.js';
+import { ContextBuilder } from './analyzer/ContextBuilder.js';
 
 export class ProfileAnalyzer {
     constructor(debugLogger = null) {
@@ -300,75 +302,16 @@ export class ProfileAnalyzer {
     /**
      * Obtiene el contexto más reciente incluyendo todos los resúmenes de archivos
      * Se debe llamar después de que el background analysis o los workers terminen.
+     * Delegado a ContextBuilder module.
      */
     getFreshContext(username, technicalIdentity, cognitiveProfile = null, curationEvidence = null) {
-        if (!this.results) return "";
-
-        const langList = (this.results.mainLangs && this.results.mainLangs.length > 0)
-            ? this.results.mainLangs.join(', ')
-            : 'varios lenguajes';
-
-        // ATOMS: Quick summaries (Only top priority if no map is available)
-        const quickSummaries = !curationEvidence ? this.coordinator.getSummaryForChat() : null;
-
-        let identityString = "";
-        if (typeof technicalIdentity === 'object' && technicalIdentity !== null) {
-            identityString = `BIOGRAFÍA: ${technicalIdentity.bio}\n`;
-            identityString += `VEREDICTO: ${technicalIdentity.verdict}\n`;
-            if (Array.isArray(technicalIdentity.traits)) {
-                identityString += "RASGOS TÉCNICOS (IDENTIDAD TÉCNICA):\n";
-                technicalIdentity.traits.forEach(t => {
-                    identityString += `- [${t.name} | Confianza: ${t.score}%]\n`;
-                    identityString += `  Detalle: ${t.details}\n`;
-                    if (t.evidence) identityString += `  Fuentes Core: ${t.evidence}\n`;
-                });
-            }
-        } else {
-            identityString = technicalIdentity || "Generando identidad técnica...";
-        }
-
-        // MOLECULES: Curation Evidence (Atomic evidence for the chat)
-        let evidenceString = "";
-        if (curationEvidence) {
-            evidenceString = "🔍 EVIDENCIAS TÉCNICAS (MAPA DE TRAZABILIDAD):\n";
-            Object.entries(curationEvidence).forEach(([strength, refs]) => {
-                evidenceString += `### DOMINIO: ${strength}\n`;
-                refs.slice(0, 5).forEach(r => {
-                    evidenceString += `- [${r.repo}/${r.file}]: ${r.summary}\n`;
-                });
-            });
-        }
-
-        if (cognitiveProfile) {
-            return `# 🧠 PERFIL COGNITIVO DEL USUARIO: ${username}
-**TITLE**: ${cognitiveProfile.title}
-**DOMAIN**: ${cognitiveProfile.domain}
-**LANGUAGES**: ${cognitiveProfile.core_languages.join(', ')}
-**CORE PATTERNS**: ${cognitiveProfile.patterns.join(', ')}
-
-## 🧬 IDENTIDAD TÉCNICA SINTETIZADA
-${identityString}
-
-${evidenceString}
-
-## 🔍 CACHE DE HALLAZGOS TÉCNICOS (WORKER FINDINGS)
-${quickSummaries?.slice(0, 500) || "Evidencias curadas en el mapa superior."}...
-
----
-**FIN DEL CONTEXTO DE INTELIGENCIA**`;
-        }
-
-        return `# 🧠 MEMORIA PROFUNDA: DIRECTOR DE ARTE
-**USUARIO**: ${username}
-**STACK DETECTADO**: ${langList}
-
-## 📄 RESUMEN BIOGRÁFICO (CURADO)
-${this.results.summary || "Sintetizando perfil..."}
-
-## 🧬 IDENTIDAD TÉCNICA (SÍNTESIS MAP-REDUCE 100%)
-${identityString}
-
----
-**FIN DEL CONTEXTO DE INTELIGENCIA**`;
+        return ContextBuilder.build(
+            username,
+            this.results,
+            technicalIdentity,
+            cognitiveProfile,
+            curationEvidence,
+            () => this.coordinator.getSummaryForChat()
+        );
     }
 }

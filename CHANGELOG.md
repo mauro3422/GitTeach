@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.1.0-Forensic] - 2026-01-15
+### 🧬 Massive Modularization & Forensic Core
+- **Modularización Total**: Refactorización de 5 servicios monolíticos en 18 módulos especializados siguiendo el Principio de Responsabilidad Única (SRP).
+    - `AIWorkerPool` -> `QueueManager`, `RepoContextManager`, `WorkerPromptBuilder`.
+    - `DeepCurator` -> `ThematicMapper`, `InsightsCurator`, `DNASynthesizer`.
+    - `AIService` -> `SystemEventHandler`, `ChatPromptBuilder`.
+    - `ProfileAnalyzer` -> `ContextBuilder`.
+    - `ultimate_multitier_tracer` -> Modularizado como `Tracer Engine` (7 módulos).
+- **Tracer Engine v2.1 (Forensic Edition)**:
+    - **Regla 10x10**: Optimización de velocidad limitando a 10 repos y 10 archivos/repo (~5x más rápido).
+    - **Metabolic Delta**: Captura de estado "Before/After" del DNA técnico.
+    - **Raw AI Logging**: Interceptación de `fetch` para guardar tráfico crudo en `chat/raw_stream.jsonl`.
+    - **Resiliencia**: Flush periódico de `SUMMARY.json`.
+    - **Integrity Audit**: Validación automática de artefactos JSON generados.
+- **Limpieza de Logs**: Silenciado de logs redundantes en `AIService`, `CoordinatorAgent` y `DebugLogger`.
+
 Todas las mejoras y cambios notables del proyecto GitTeach.
 ## [v1.9.0] - 2026-01-15 (Streaming Intelligence & Standardized Personas)
 ### 🌊 Autonomous Streaming Chat

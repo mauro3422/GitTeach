@@ -91,9 +91,10 @@ class DebugLoggerService {
      * @param {Object} data - { input, prompt, output, error? }
      */
     async logWorker(workerId, data) {
-        console.error(`[DebugLogger] logWorker ENTER: Worker ${workerId}, Enabled: ${this.enabled}, Path: ${this.sessionPath}`);
+        // SILENCED: was console.error but this is not an error, just verbose logging
+        // console.error(`[DebugLogger] logWorker ENTER: Worker ${workerId}...`);
         if (!this.enabled || !this.sessionPath) {
-            console.error('[DebugLogger] SKIPPING: Not enabled or path missing');
+            // Silent skip - no need to log every skip
             return;
         }
 
