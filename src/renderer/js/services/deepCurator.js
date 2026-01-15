@@ -96,67 +96,191 @@ export class DeepCurator {
         // --- PHASE 2: REDUCE (Synthesize Developer DNA) ---
         Logger.reducer('Sintetizando ADN de Desarrollador con ALTA FIDELIDAD...');
 
-        const reducePrompt = `YOU ARE THE TECHNICAL INTELLIGENCE REDUCER. Synthesize the final DEVELOPER DNA of ${username}.
-        
-        SPECIALIST REPORTS:
-        - ARCHITECTURE: ${thematicAnalyses[0]}
-        - HABITS: ${thematicAnalyses[1]}
-        - STACK & TECH: ${thematicAnalyses[2]}
+        // 1. Define the Schema (Strict Grammar constraint for LFM2)
+        const dnaSchema = {
+            type: "object",
+            properties: {
+                bio: { type: "string" },
+                traits: {
+                    type: "array",
+                    items: {
+                        type: "object",
+                        properties: {
+                            name: { type: "string" },
+                            score: { type: "integer" },
+                            details: { type: "string" },
+                            evidence: { type: "string" }
+                        },
+                        required: ["name", "score", "details", "evidence"]
+                    }
+                },
+                signature_files: { type: "array", items: { type: "string" } },
+                code_health: {
+                    type: "object",
+                    properties: {
+                        integrity_score: { type: "integer" },
+                        anomalies_found: { type: "boolean" },
+                        details: { type: "string" }
+                    },
+                    required: ["integrity_score", "anomalies_found", "details"]
+                },
+                verdict: { type: "string" }
+            },
+            required: ["bio", "traits", "signature_files", "code_health", "verdict"]
+        };
 
-        ANOMALIES DETECTED:
-        ${anomalies.map(a => `- ${a.file}: ${a.params?.insight || 'Anomaly detected'}`).join('\n')}
-        
-        STATISTICAL EVIDENCE:
-        - Repositories Analyzed: ${stats.repoCount}
-        - Top Technical Patterns (by volume): ${stats.topStrengths.map(s => `${s.name} (${s.count} files)`).join(', ')}
-        - Anomalies Detected: ${anomalies.length}
+        // 2. LFM2 OPTIMIZATION: XML Fencing and Step-Based Extraction
+        const reducePrompt = `YOU ARE THE TECHNICAL INTELLIGENCE REDUCER.
+Your goal is to synthesize the final technical identity of <user>${username}</user>.
 
-        REFINEMENT RULES:
-        1. BIO: Write a real 5-sentence technical summary. DO NOT copy placeholders.
-        2. TRAITS: Use actual scores (0-100) and cite real files from the reports.
-        3. HEALTH: Mention if anomalies (like ObraSocialData.js) were found.
+<specialist_reports>
+  <architecture>${thematicAnalyses[0]}</architecture>
+  <habits>${thematicAnalyses[1]}</habits>
+  <stack_tech>${thematicAnalyses[2]}</stack_tech>
+</specialist_reports>
 
-        STRICT SCHEMA RULE (Output ONLY valid JSON):
-        {
-          "bio": "A single, dense technical biography paragraph.",
-          "traits": [
-            { "name": "Architecture", "score": 85, "details": "Summary focusing on the weighted patterns.", "evidence": "file1, file2" }
-          ],
-          "signature_files": ["top_representative_file1", "top_representative_file2"],
-          "code_health": { "integrity_score": 90, "anomalies_found": true, "details": "Detailed anomaly report if any." },
-          "verdict": "A dynamic technical title (e.g., 'Senior Graphics Architect', 'Backend Security Specialist') based on findings."
-        }
-        
-        INSTRUCTIONS:
-        - DO NOT COPY the placeholder 'Developer Level + Specialization'. Generate a real title.
-        - Base the 'score' on both depth of insights and 'statistical volume' from the evidence.
-        - The 'details' MUST cite at least one confirmed pattern (from the statistical evidence above).
-        - Signature files should be those that represent the developer's strongest patterns.`;
+<statistical_volume>
+  - Total Files: ${rawFindings.length}
+  - Analyzed Files: ${validInsights.length}
+  - Repositories: ${stats.repoCount}
+  - Top Patterns: ${stats.topStrengths.map(s => `${s.name} (${s.count})`).join(', ')}
+</statistical_volume>
 
-        const rawResponse = await AIService.callAI("Reducer Refiner", reducePrompt, 0.1);
+<cognitive_vaccines>
+- DO NOT invent code that is not in the reports.
+- DO NOT use generic descriptions like "experienced developer". 
+- CITE specific files (e.g., sketch-ui/app.js) for every trait.
+</cognitive_vaccines>
+
+ANALYTICAL STEPS:
+1. Examine <specialist_reports> to find the "Soul" of the code (e.g., custom rendering, medical data).
+2. Rank the 5 most dominant technical domains (e.g., "Systems Architecture", "Performance", "UI/UX"). 
+3. Assign scores (0-100) based on the depth of implementation shown in the reports.
+4. Formulate a dense, 5-sentence biography citing specific files.
+5. Output EXACTLY the requested JSON schema.
+
+STRICT RULE: NO MARKDOWN. NO INTRO. START WITH '{'.`;
+
+        const rawResponse = await AIService.callAI(reducePrompt, "GENERATE TECHNICAL DNA OBJECT NOW.", 0.1, 'json_object', dnaSchema);
 
         try {
-            const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
-            const dna = JSON.parse(jsonMatch[0]);
+            // STEP 1: Multi-pass cleaning for JSON extraction
+            let cleanResponse = rawResponse;
 
-            // INJECT HIDDEN METADATA: Traceability Map
-            // This is for future reference and won't clutter the initial chat response
-            dna.traceability_map = traceability_map;
+            // Remove markdown code blocks if present
+            if (cleanResponse.includes("```json")) {
+                cleanResponse = cleanResponse.split("```json")[1].split("```")[0];
+            } else if (cleanResponse.includes("```")) {
+                cleanResponse = cleanResponse.split("```")[1].split("```")[0];
+            }
+
+            const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) {
+                console.error("[DeepCurator] STRICT FAIL: No JSON found. Raw response start:", rawResponse.substring(0, 200));
+                throw new Error("No JSON object found in AI response");
+            }
+
+            let jsonData = jsonMatch[0];
+
+            // STEP 2: Pre-parsing cleanup (Fix common AI mistakes)
+            // Fix unescaped newlines in JSON strings (common AI error)
+            jsonData = jsonData.replace(/\n/g, ' ').replace(/\r/g, ' ');
+            // Attempt to fix trailing commas (valid in JS, invalid in JSON)
+            jsonData = jsonData.replace(/,\s*([\}\]])/g, '$1');
+
+            const dna = JSON.parse(jsonData);
 
             // Debug logging
             DebugLogger.logCurator('final_dna_synthesis', dna);
 
-            return dna;
+            // RETURN SEPARATED: dna (Nucleus) and traceability_map (Atoms/Evidences)
+            return { dna, traceability_map };
         } catch (e) {
-            console.warn("Error parsing DNA JSON, returning raw", e);
-            const fallbackDna = { bio: rawResponse, traits: [], verdict: "Analyzed (Parsing Error)" };
+            Logger.error('DeepCurator', `JSON Parsing failed: ${e.message}`);
+            // Log the raw response so we can see what the AI actually said
+            console.warn("[DeepCurator] RAW AI OUTPUT (FOR DEBUGGING):", rawResponse);
 
-            // Still inject metadata into fallback if possible
-            fallbackDna.traceability_map = traceability_map;
+            // FALLBACK 2.0: Try to "rescue" the bio at least, even if JSON is broken
+            let rescuedBio = "DNA synthesized (partial parse). " + (rawResponse.substring(0, 500));
+            if (rescuedBio) {
+                const cleanBio = rescuedBio.replace(/\*\*/g, '').replace(/###/g, '').trim();
+                rescuedBio = cleanBio;
+            }
+
+            const fallbackDna = {
+                bio: rescuedBio,
+                traits: this._generateTraitsFromMap(traceability_map, rawResponse), // Advanced rescue
+                verdict: this._extractVerdict(rawResponse),
+                parsing_error: true,
+                raw_error: e.message
+            };
+
             DebugLogger.logCurator('final_dna_synthesis', fallbackDna);
 
-            return fallbackDna;
+            return { dna: fallbackDna, traceability_map };
         }
+    }
+
+    /**
+     * Extracts a dynamic title from raw text if JSON fails.
+     * @private
+     */
+    _extractVerdict(text) {
+        // Try to find "verdict": "..." or a similar pattern in raw text
+        const verdictMatch = text.match(/"verdict":\s*"(.*?)"/);
+        if (verdictMatch) return verdictMatch[1];
+
+        // Try to find Markdown title
+        const mdTitle = text.match(/# (.*)/) || text.match(/\*\*Verdict\*\*:\s*(.*)/i);
+        if (mdTitle) return mdTitle[1].replace(/\*/g, '').trim();
+
+        return "Technical Developer (DNA Curated)";
+    }
+
+    /**
+     * Advanced Rescue: If AI fails JSON but provides Markdown, 
+     * this tries to extract the AI's real thoughts before using mathematical fallback.
+     * @private
+     */
+    _rescueTraitsFromMarkdown(text) {
+        const traits = [];
+        // Look for patterns like "1. Name: score - details" or "**Name**: details"
+        const lines = text.split('\n');
+        for (const line of lines) {
+            const match = line.match(/^\d*\.?\s?\*?\*?(Architecture|Habits|Stack|Game Engines|Science|UI|Performance|DevOps)\*?\*?[:\-]\s*(.*)/i);
+            if (match && traits.length < 5) {
+                traits.push({
+                    name: match[1],
+                    score: 80, // Nominal score for rescued traits
+                    details: match[2].substring(0, 150),
+                    evidence: "Extracted from report"
+                });
+            }
+        }
+        return traits.length > 0 ? traits : null;
+    }
+
+    /**
+     * Generates basic traits based on the statistical volume of the mapping.
+     * Guaranteed substance even if AI fails.
+     * @private
+     */
+    _generateTraitsFromMap(map, rawResponse = null) {
+        // First try to rescue from markdown if available
+        if (rawResponse) {
+            const rescued = this._rescueTraitsFromMarkdown(rawResponse);
+            if (rescued) return rescued;
+        }
+
+        return Object.entries(map)
+            .sort((a, b) => b[1].length - a[1].length)
+            .slice(0, 5)
+            .map(([strength, refs]) => ({
+                name: strength,
+                score: Math.min(60 + (refs.length * 5), 95),
+                details: `Detected as a recurring pattern across ${refs.length} files.`,
+                evidence: refs.slice(0, 2).map(r => r.file).join(', ')
+            }));
     }
 
     /**

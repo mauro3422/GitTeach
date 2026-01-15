@@ -11,6 +11,7 @@
  * - D: Depende de AIService via inyección
  */
 import { Logger } from '../utils/logger.js';
+import { CacheRepository } from '../utils/cacheRepository.js';
 import { DebugLogger } from '../utils/debugLogger.js';
 import { FileClassifier } from '../utils/fileClassifier.js';
 
@@ -265,6 +266,15 @@ Preserve architectural patterns, key file roles, and technical evidence.`;
                     if (this.coordinator) {
                         this.coordinator.markCompleted(item.repo, item.path, summary, parsed || null);
                     }
+
+                    // AUDIT LOGGING: Persist finding to specific worker JSONL (Audit Trail)
+                    CacheRepository.setWorkerAudit(workerId, {
+                        timestamp: new Date().toISOString(),
+                        repo: item.repo,
+                        path: item.path,
+                        summary: summary,
+                        classification: parsed?.params?.technical_strength || 'General'
+                    });
                 });
 
                 // Debug logging - capture worker I/O with FULL PROMPT

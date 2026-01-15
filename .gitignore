@@ -31,3 +31,19 @@ Thumbs.db
 *_log.txt
 context_dump.md
 dna_test_output.json
+
+# Tracer & Debug Artifacts
+logs/
+*.log
+*.jsonl
+debug_trace.txt
+audit_results.txt
+diagnostic_report.json
+mirror_report.json
+full_audit.log
+fresh_tracer.log
+metabolic_*.log
+persist_test*.log
+hierarchy_final_test.log
+parsing_*.log
+ultimate_*.log

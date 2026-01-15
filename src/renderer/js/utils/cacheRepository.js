@@ -87,33 +87,125 @@ class CacheRepositoryService {
     }
 
     // ==========================================
-    // DEVELOPER DNA
+    // TECHNICAL IDENTITY
     // ==========================================
 
     /**
-     * Gets developer DNA from cache
+     * Gets technical identity (deep synthesis) from cache
      */
-    async getDeveloperDNA(username) {
+    async getTechnicalIdentity(username) {
         if (!this.isAvailable()) return null;
         try {
-            return await window.cacheAPI.getDeveloperDNA(username);
+            return await window.cacheAPI.getTechnicalIdentity(username);
         } catch (e) {
-            console.warn('[CacheRepository] Error getting developer DNA:', e);
+            console.warn('[CacheRepository] Error getting technical identity:', e);
             return null;
         }
     }
 
     /**
-     * Saves developer DNA to cache
+     * Saves technical identity (deep synthesis) to cache
      */
-    async setDeveloperDNA(username, dna) {
+    async setTechnicalIdentity(username, identity) {
         if (!this.isAvailable()) return false;
         try {
-            await window.cacheAPI.setDeveloperDNA(username, dna);
+            await window.cacheAPI.setTechnicalIdentity(username, identity);
             return true;
         } catch (e) {
-            console.warn('[CacheRepository] Error setting developer DNA:', e);
+            console.warn('[CacheRepository] Error setting technical identity:', e);
             return false;
+        }
+    }
+
+    /**
+     * Gets technical findings (traceability map) from cache
+     */
+    async getTechnicalFindings(username) {
+        if (!this.isAvailable()) return null;
+        try {
+            return await window.cacheAPI.getTechnicalFindings(username);
+        } catch (e) {
+            console.warn('[CacheRepository] Error getting technical findings:', e);
+            return null;
+        }
+    }
+
+    /**
+     * Saves technical findings (traceability map) to cache
+     */
+    async setTechnicalFindings(username, findings) {
+        if (!this.isAvailable()) return false;
+        try {
+            await window.cacheAPI.setTechnicalFindings(username, findings);
+            return true;
+        } catch (e) {
+            console.warn('[CacheRepository] Error setting technical findings:', e);
+            return false;
+        }
+    }
+
+    // ==========================================
+    // COGNITIVE PROFILE (Master Memory)
+    // ==========================================
+
+    /**
+     * Gets the CognitiveProfile (master user profile) from cache
+     */
+    async getCognitiveProfile(username) {
+        if (!this.isAvailable()) return null;
+        try {
+            return await window.cacheAPI.getCognitiveProfile(username);
+        } catch (e) {
+            console.warn('[CacheRepository] Error getting CognitiveProfile:', e);
+            return null;
+        }
+    }
+
+    /**
+     * Saves the CognitiveProfile (master user profile) to cache
+     */
+    async setCognitiveProfile(username, profile) {
+        if (!this.isAvailable()) return false;
+        try {
+            await window.cacheAPI.setCognitiveProfile(username, {
+                ...profile,
+                username,
+                lastUpdated: new Date().toISOString()
+            });
+            console.log('[CacheRepository] Cognitive Profile updated:', profile.title);
+            return true;
+        } catch (e) {
+            console.warn('[CacheRepository] Error setting CognitiveProfile:', e);
+            return false;
+        }
+    }
+
+    // ==========================================
+    // WORKER AUDIT (Tracer Hub)
+    // ==========================================
+
+    /**
+     * Appends a finding to a specific worker audit (JSONL)
+     */
+    async setWorkerAudit(workerId, finding) {
+        if (!this.isAvailable()) return false;
+        try {
+            await window.cacheAPI.setWorkerAudit(workerId, finding);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /**
+     * Gets full audit trail for a worker
+     */
+    async getWorkerAudit(workerId) {
+        if (!this.isAvailable()) return null;
+        try {
+            return await window.cacheAPI.getWorkerAudit(workerId);
+        } catch (e) {
+            return null;
         }
     }
 

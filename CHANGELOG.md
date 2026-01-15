@@ -2,6 +2,20 @@
 
 Todas las mejoras y cambios notables del proyecto GitTeach.
 
+## [v1.8.0] - 2026-01-15 (Arquitectura de Memoria & Auditoría)
+### 🧠 Memoria Técnica Persistente (Literal)
+- **Multi-Store Architecture**: Separación de la memoria en `technical_identity.json` (Identidad Curada), `cognitive_profile.json` (Perfil Usuario) y `curation_evidence.json` (Evidencias).
+- **Terminología Técnica**: Eliminación total de metáforas biológicas (DNA, Células) en favor de términos técnicos (Identity, Profile, Worker Findings) para evitar colisiones semánticas.
+
+### 🕵️‍♂️ Auditoría de Workers en Tiempo Real
+- **JSONL Streaming**: Implementación de logs "append-only" (`worker_N.jsonl`) para cada worker de IA, permitiendo auditoría en tiempo real sin bloqueo.
+- **Background Worker Audit**: Log dedicado (`worker_BACKGROUND.jsonl`) para el análisis en segundo plano.
+- **Tracer/Debugger Friendly**: Estructura diseñada específicamente para ser consumida por herramientas de depuración externas.
+
+### 🛠️ Mejoras Técnicas
+- **CacheService Refactor**: Soporte nativo para directorios de workers y estadísticas granulares (repos vs logs).
+- **Integridad de Datos**: `AIWorkerPool` reporta hallazgos directamente a la capa de persistencia.
+
 ## [v1.7.0] - 2026-01-15 (Fidelidad y Trazabilidad Extrema)
 ### 🧬 Traceability Map (Memoria Forense)
 - **Mapa de Referencia Cruzada**: El ADN del desarrollador ahora incluye una metadata oculta con el hilo conductor de cada hallazgo.

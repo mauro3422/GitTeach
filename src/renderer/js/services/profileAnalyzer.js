@@ -37,7 +37,7 @@ export class ProfileAnalyzer {
         // Specialized modules
         this.codeScanner = new CodeScanner(this.coordinator, this.workerPool);
         this.deepCurator = new DeepCurator();
-        this.metabolicAgent = new MetabolicAgent();
+        this.metabolicAgent = new MetabolicAgent(null, debugLogger);
         // INJECT: Pass debugLogger to BackgroundAnalyzer to capture its "workers"
         this.backgroundAnalyzer = new BackgroundAnalyzer(this.coordinator, this.deepCurator, debugLogger);
     }
@@ -47,10 +47,18 @@ export class ProfileAnalyzer {
         this.isAnalyzing = true;
 
         try {
-            // Obtener ADN cacheado si existe
-            const cachedDNA = await CacheRepository.getDeveloperDNA(username);
+            // Get cached Technical Identity if exists
+            const cachedIdentity = await CacheRepository.getTechnicalIdentity(username);
+            const cachedFindings = await CacheRepository.getTechnicalFindings(username);
 
-            // Fase 1: Obtener datos en paralelo
+            // Load Cognitive Profile from disk (if exists) - this is the "master memory"
+            const savedProfile = await this.metabolicAgent.loadFromDisk(username);
+            if (savedProfile) {
+                Logger.success('ANALYZER', `Loaded previous Cognitive Profile: ${savedProfile.title}`);
+            }
+
+            // Inject initial context with cached findings if they exist
+            AIService.setSessionContext(this.getFreshContext(username, cachedIdentity, savedProfile, cachedFindings));
             const [repos, readmeData, audit] = await Promise.all([
                 (typeof window !== 'undefined' && window.githubAPI) ? window.githubAPI.listRepos() : Promise.resolve([]),
                 (typeof window !== 'undefined' && window.githubAPI) ? window.githubAPI.getProfileReadme(username) : Promise.resolve(''),
@@ -96,7 +104,7 @@ export class ProfileAnalyzer {
             };
 
             // Inyectar contexto inicial
-            AIService.setSessionContext(this.getFreshContext(username, cachedDNA));
+            AIService.setSessionContext(this.getFreshContext(username, cachedIdentity, savedProfile, cachedFindings));
 
             if (this.results.audit && this.results.audit.score < 50) {
                 Logger.warn('AUDIT', `Tu README podría mejorar (Score: ${this.results.audit.score})`);
@@ -123,19 +131,29 @@ export class ProfileAnalyzer {
                     this.aiWorkersPromise || Promise.resolve()
                 ]);
 
-                Logger.dna('Ejecutando SÍNTESIS FINAL del Curador...');
-                const newCuration = await this.deepCurator.runDeepCurator(username, this.coordinator);
+                Logger.reducer('Ejecutando SÍNTESIS FINAL del Curador...');
+                const curationResult = await this.deepCurator.runDeepCurator(username, this.coordinator);
 
-                // --- DIGESTIÓN METABÓLICA (Nuevo Agente) ---
-                const oldDNA = await CacheRepository.getDeveloperDNA(username);
-                const { finalDNA, report, isSignificant } = this.metabolicAgent.digest(oldDNA, newCuration);
+                if (!curationResult) return null;
 
-                // --- PERSISTENCIA DEL ADN ---
-                await CacheRepository.setDeveloperDNA(username, finalDNA);
-                Logger.success('ANALYZER', '🧬 ADN del Programador actualizado y digerido.');
+                const { dna: newIdentity, traceability_map: freshMap } = curationResult;
+
+                // --- DIGESTIÓN METABÓLICA ---
+                const oldIdentity = await CacheRepository.getTechnicalIdentity(username);
+                const { finalDNA: processedIdentity, report, isSignificant } = await this.metabolicAgent.digest(oldIdentity, newIdentity);
+
+                // --- PERSISTENCIA DE LA IDENTIDAD TÉCNICA ---
+                await CacheRepository.setTechnicalIdentity(username, processedIdentity);
+
+                // --- PERSISTENCIA DE EVIDENCIAS TÉCNICAS (Mapa de Trazabilidad) ---
+                if (freshMap) {
+                    await CacheRepository.setTechnicalFindings(username, freshMap);
+                }
+
+                Logger.success('ANALYZER', '🧬 Identidad Técnica y Evidencias actualizadas de forma persistente.');
 
                 // Actualizar contexto final en el Chat
-                const freshContext = this.getFreshContext(username, finalDNA);
+                const freshContext = this.getFreshContext(username, processedIdentity, this.metabolicAgent.technicalProfile, freshMap);
                 AIService.setSessionContext(freshContext);
 
                 // Solo si el cambio es significativo, disparamos una reacción REACTIVA
@@ -151,12 +169,12 @@ export class ProfileAnalyzer {
                 if (onStep) {
                     onStep({
                         type: 'DeepMemoryReady',
-                        message: isSignificant ? '🧠 ¡Tu ADN ha evolucionado!' : '🧠 Memoria sincronizada.',
-                        data: finalDNA
+                        message: isSignificant ? '🧠 ¡Tu identidad técnica ha evolucionado!' : '🧠 Memoria sincronizada.',
+                        data: processedIdentity
                     });
                 }
 
-                return finalDNA;
+                return processedIdentity;
             })();
 
             return this.results;
@@ -223,27 +241,61 @@ export class ProfileAnalyzer {
      * Obtiene el contexto más reciente incluyendo todos los resúmenes de archivos
      * Se debe llamar después de que el background analysis o los workers terminen.
      */
-    getFreshContext(username, deepMemory) {
+    getFreshContext(username, technicalIdentity, cognitiveProfile = null, curationEvidence = null) {
         if (!this.results) return "";
 
         const langList = (this.results.mainLangs && this.results.mainLangs.length > 0)
             ? this.results.mainLangs.join(', ')
             : 'varios lenguajes';
 
-        const quickSummaries = this.coordinator.getSummaryForChat();
+        // ATOMS: Quick summaries (Only top priority if no map is available)
+        const quickSummaries = !curationEvidence ? this.coordinator.getSummaryForChat() : null;
 
-        let deepMemoryString = "";
-        if (typeof deepMemory === 'object' && deepMemory !== null) {
-            deepMemoryString = `BIOGRAFÍA: ${deepMemory.bio}\n`;
-            deepMemoryString += `VEREDICTO: ${deepMemory.verdict}\n`;
-            if (Array.isArray(deepMemory.traits)) {
-                deepMemoryString += "RASGOS DETECTADOS:\n";
-                deepMemory.traits.forEach(t => {
-                    deepMemoryString += `- [${t.name} ${t.score}%]: ${t.details}\n`;
+        let identityString = "";
+        if (typeof technicalIdentity === 'object' && technicalIdentity !== null) {
+            identityString = `BIOGRAFÍA: ${technicalIdentity.bio}\n`;
+            identityString += `VEREDICTO: ${technicalIdentity.verdict}\n`;
+            if (Array.isArray(technicalIdentity.traits)) {
+                identityString += "RASGOS TÉCNICOS (IDENTIDAD TÉCNICA):\n";
+                technicalIdentity.traits.forEach(t => {
+                    identityString += `- [${t.name} | Confianza: ${t.score}%]\n`;
+                    identityString += `  Detalle: ${t.details}\n`;
+                    if (t.evidence) identityString += `  Fuentes Core: ${t.evidence}\n`;
                 });
             }
         } else {
-            deepMemoryString = deepMemory || "Generando síntesis profunda... usa los resúmenes rápidos por ahora.";
+            identityString = technicalIdentity || "Generando identidad técnica...";
+        }
+
+        // MOLECULES: Curation Evidence (Atomic evidence for the chat)
+        let evidenceString = "";
+        if (curationEvidence) {
+            evidenceString = "🔍 EVIDENCIAS TÉCNICAS (MAPA DE TRAZABILIDAD):\n";
+            Object.entries(curationEvidence).forEach(([strength, refs]) => {
+                evidenceString += `### DOMINIO: ${strength}\n`;
+                refs.slice(0, 5).forEach(r => {
+                    evidenceString += `- [${r.repo}/${r.file}]: ${r.summary}\n`;
+                });
+            });
+        }
+
+        if (cognitiveProfile) {
+            return `# 🧠 PERFIL COGNITIVO DEL USUARIO: ${username}
+**TITLE**: ${cognitiveProfile.title}
+**DOMAIN**: ${cognitiveProfile.domain}
+**LANGUAGES**: ${cognitiveProfile.core_languages.join(', ')}
+**CORE PATTERNS**: ${cognitiveProfile.patterns.join(', ')}
+
+## 🧬 IDENTIDAD TÉCNICA SINTETIZADA
+${identityString}
+
+${evidenceString}
+
+## 🔍 CACHE DE HALLAZGOS TÉCNICOS (WORKER FINDINGS)
+${quickSummaries?.slice(0, 500) || "Evidencias curadas en el mapa superior."}...
+
+---
+**FIN DEL CONTEXTO DE INTELIGENCIA**`;
         }
 
         return `# 🧠 MEMORIA PROFUNDA: DIRECTOR DE ARTE
@@ -253,13 +305,8 @@ export class ProfileAnalyzer {
 ## 📄 RESUMEN BIOGRÁFICO (CURADO)
 ${this.results.summary || "Sintetizando perfil..."}
 
-## 🧬 ADN TÉCNICO (SÍNTESIS MAP-REDUCE 100%)
-> [!NOTE]
-> Esta sección representa el conocimiento profundo extraído de todos tus repositorios.
-${deepMemoryString}
-
-## 🔍 EVIDENCIAS TÉCNICAS RECIENTES (DETALLE POR REPO)
-${quickSummaries || "Espere por favor, analizando repositorios..."}
+## 🧬 IDENTIDAD TÉCNICA (SÍNTESIS MAP-REDUCE 100%)
+${identityString}
 
 ---
 **FIN DEL CONTEXTO DE INTELIGENCIA**`;

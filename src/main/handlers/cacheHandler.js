@@ -68,17 +68,60 @@ function register(ipcMain) {
         return { success: true };
     });
 
-    ipcMain.handle('cache:get-developer-dna', async (event, username) => {
+    ipcMain.handle('cache:get-technical-identity', async (event, username) => {
         try {
-            return cacheService.getDeveloperDNA(username);
+            return cacheService.getTechnicalIdentity(username);
         } catch (error) {
             return null;
         }
     });
 
-    ipcMain.handle('cache:set-developer-dna', async (event, { username, dna }) => {
-        cacheService.setDeveloperDNA(username, dna);
+    ipcMain.handle('cache:set-technical-identity', async (event, { username, identity }) => {
+        cacheService.setTechnicalIdentity(username, identity);
         return { success: true };
+    });
+
+    ipcMain.handle('cache:get-technical-findings', async (event, username) => {
+        try {
+            return cacheService.getTechnicalFindings(username);
+        } catch (error) {
+            return null;
+        }
+    });
+
+    ipcMain.handle('cache:set-technical-findings', async (event, { username, findings }) => {
+        cacheService.setTechnicalFindings(username, findings);
+        return { success: true };
+    });
+
+    // Cognitive Profile (Master Memory) handlers
+    ipcMain.handle('cache:get-cognitive-profile', async (event, username) => {
+        try {
+            return cacheService.getCognitiveProfile(username);
+        } catch (error) {
+            console.error('[CacheHandler] Error getting CognitiveProfile:', error);
+            return null;
+        }
+    });
+
+    ipcMain.handle('cache:set-cognitive-profile', async (event, { username, profile }) => {
+        try {
+            cacheService.setCognitiveProfile(username, profile);
+            return { success: true };
+        } catch (error) {
+            console.error('[CacheHandler] Error setting CognitiveProfile:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Worker Audit Handlers (JSONL)
+    ipcMain.handle('cache:set-worker-audit', async (event, { workerId, finding }) => {
+        cacheService.setWorkerAudit(workerId, finding);
+        return { success: true };
+    });
+
+    ipcMain.handle('cache:get-worker-audit', async (event, workerId) => {
+        return cacheService.getWorkerAudit(workerId);
     });
 
     console.log('[Handlers] ✅ cacheHandler registered.');

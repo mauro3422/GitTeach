@@ -8,7 +8,6 @@ import { CacheRepository } from '../utils/cacheRepository.js';
 import { ToolRegistry } from './toolRegistry.js';
 import { PromptBuilder } from './promptBuilder.js';
 import { AIToolbox } from './aiToolbox.js';
-import { ProfileAnalyzer } from './profileAnalyzer.js';
 import { ChatComponent } from '../components/chatComponent.js';
 
 // Initial state: Silent until proven otherwise
@@ -50,13 +49,25 @@ Usted es el Director de Arte Técnico.
 4. Sea breve (máximo 2-3 líneas).
 
 Ejemplo: "Bienvenido, ${username}. He encendido los motores de análisis; estoy rastreando tus repositorios ahora mismo para mapear tu ADN como desarrollador. Dame un momento para procesar el panorama completo."`;
-                    const response = await this.callAI(greetingPrompt, "¡Hola! Acabo de entrar.", 0.7);
+                    const response = await this.callAI(greetingPrompt, "¡Hola! Acabo de entrar.", 0.7, null);
                     return { message: response, tool: 'chat' };
                 }
 
                 if (eventType === "DNA_EVOLUTION_DETECTED") {
-                    const evolutionPrompt = `${input}\n\nUsted es el Director de Arte Técnico. Su memoria acaba de actualizarse con nuevos hallazgos. Comente de forma breve y perspicaz sobre la evolución detectada.`;
-                    const response = await this.callAI(evolutionPrompt, "Veo cambios en mi ADN.", 0.7);
+                    const evolutionPrompt = `
+# SYSTEM EVENT: ARCHITECTURAL DNA EVOLVED
+Usted es el Director de Arte Técnico. Su base de conocimiento técnico acaba de detectar un salto cualitativo en el perfil de ${username}.
+Su memoria de "Developer DNA" se ha actualizado con nuevos hallazgos técnicos.
+
+## CONTEXTO DE EVOLUCIÓN:
+${input.replace("SYSTEM_EVENT:DNA_EVOLUTION_DETECTED", "")}
+
+## INSTRUCCIONES:
+1. Reaccione como un Mentor Senior que nota que su pupilo ha desbloqueado una nueva rama de especialización.
+2. Sea técnico y perspicaz (ej: si pasó de Web a C++, comente sobre el paso de lenguajes de alto nivel a control de memoria).
+3. Mantenga el tono cinematográfico y profesional.
+4. Máximo 3-4 líneas.`;
+                    const response = await this.callAI(evolutionPrompt, "Comenta brevemente sobre los nuevos cambios arquitectónicos detectados en mi ADN técnico.", 0.7);
                     return { message: response, tool: 'chat' };
                 }
 
@@ -102,7 +113,7 @@ Ejemplo: "Increíble, acabo de terminar el mapa completo y me ha sorprendido la 
             // --- STEP 1: ROUTER (Identify Intent) ---
             const routerPrompt = PromptBuilder.getRouterPrompt(ToolRegistry.tools) +
                 (this.currentSessionContext ? `\nCURRENT CONTEXT: ${this.currentSessionContext}` : "");
-            const routerResponse = await this.callAI(routerPrompt, input, 0.0);
+            const routerResponse = await this.callAI(routerPrompt, input, 0.0, 'json_object');
 
             let intent = 'chat';
             try {
@@ -148,24 +159,26 @@ Ejemplo: "Increíble, acabo de terminar el mapa completo y me ha sorprendido la 
                 if (this.currentSessionContext && this.currentSessionContext.length > 50) {
                     // We have real context - build rich prompt with "LATENCY" instructions
                     chatPrompt = `# ROL: DIRECTOR DE ARTE TÉCNICO
-Tú eres el Director de Arte, un mentor técnico senior para el usuario ${username}.
+Tú eres el Director de Arte, un mentor técnico senior para el usuario ${username}. 
+Tu conocimiento se basa en la **Arquitectura de Guía Determinística** y la **Ponderación de Evidencias**.
 
-## 🧠 MEMORIA LATENTE (IMPORTANTE)
-Tienes acceso a un análisis profundo del código del usuario (ver abajo), PERO NO DEBES SOLTARLO DE GOLPE.
-Imagina que conoces al usuario de toda la vida. Usa esta información como **contexto de fondo** para entender su nivel y estilo, pero:
-1. **Saluda normal**: "Hola Mauro, ¿qué tal?", no "Hola Mauro, veo que usas React".
-2. **Sé reactivo**: Solo menciona detalles técnicos si el usuario pregunta o si es relevante para el tema actual.
-3. **No seas robótico**: No digas "Basado en mi análisis de tu archivo X...". Di "Por cierto, en ese proyecto de React que tienes...".
+## 🧠 MEMORIA JERÁRQUICA TÉCNICA
+Tienes acceso a la Identidad Técnica del usuario y a un mapa de evidencias detalladas.
+1. **PONDERACIÓN**: Fíjate en los porcentajes de confianza en la Identidad Técnica. Habla con seguridad sobre lo que tiene puntuación >80%.
+2. **EVIDENCIA**: Cita archivos reales (ej: "Veo que en app.js manejas el estado de forma...") para demostrar que REALMENTE conoces su código.
+3. **EXPLORACIÓN DETALLADA**: Si el resumen de identidad es insuficiente para responder algo específico, **USA LA HERRAMIENTA \`query_memory\`**. Tienes miles de resúmenes de archivos (Worker Findings) en el cache que no están en este resumen inicial para ahorrar espacio. No adivines; busca evidencias en el cache.
+4. **TONO CINEMÁTICO**: No eres un bot de ayuda. Eres un mentor que admira o desafía el rigor técnico del usuario.
+5. **NO SALUDES ROBÓTICAMENTE**: El usuario ya está en sesión. Ve directo al grano o haz comentarios técnicos proactivos sobre lo que has "descubierto" en su perfil.
 
-## INFORMACIÓN ANALIZADA (TU CONTEXTO MENTAL):
+## IDENTIDAD TÉCNICA (SÍNTESIS):
 ${this.currentSessionContext}
 
-## MODOS DE RESPUESTA
-- Si el usuario saluda ("Hola"): Responde casual, quizás preguntando en qué proyecto está trabajando hoy.
-- Si preguna "¿Quién soy?": Ahí sí, usa la memoria y dale un perfil detallado.
-- Si pregunta algo técnico: Responde como experto, usando tu conocimiento de su stack (ej: si pregunta por UI, sugiere algo compatible con su estilo de CSS detectado).
+## PROTOCOLO DE RESPUESTA:
+- Si el usuario dice "Hola": Haz un comentario sobre un hallazgo técnico relevante detectado.
+- Si pregunta "¿Quién soy?": Resume su perfil usando los pesos estadísticos. 
+- Si necesitas más detalle del que ves aquí: **Ejecuta \`query_memory\` con un término técnico.**
 
-Responde en español, tono profesional pero cercano, minimalista y directo al grano.`;
+Responde en español, tono profesional, minimalista y con alta "chicha" técnica.`;
                 } else {
                     // No context - basic prompt
                     chatPrompt = `Eres un asistente de GitHub llamado "Director de Arte".
@@ -182,7 +195,7 @@ Responde en español, amigablemente. Si no tienes información sobre el usuario,
             if (!tool) return { action: "chat", message: "Command not recognized: " + intent };
 
             const constructorPrompt = PromptBuilder.getConstructorPrompt(tool);
-            const jsonResponse = await this.callAI(constructorPrompt, input, 0.0); // Temp 0 for JSON precision
+            const jsonResponse = await this.callAI(constructorPrompt, input, 0.0, 'json_object'); // Temp 0 + Strict JSON
 
             Logger.debug('AI', `RAW RESPONSE: ${jsonResponse.substring(0, 100)}...`);
 
@@ -248,32 +261,40 @@ Responde en español, amigablemente. Si no tienes información sobre el usuario,
         }
     },
 
-    async callAI(systemPrompt, userMessage, temperature) {
+    async callAI(systemPrompt, userMessage, temperature, format = null, schema = null) {
         // --- LOCAL LFM 2.5 CONFIGURATION ---
-        // Configurable endpoint via window.AI_CONFIG or default value
         const DEFAULT_ENDPOINT = 'http://localhost:8000/v1/chat/completions';
         const ENDPOINT = (typeof window !== 'undefined' && window.AI_CONFIG?.endpoint) || DEFAULT_ENDPOINT;
 
         try {
-            console.log(`[AIService] Calling AI... (Temp: ${temperature})`);
+            console.log(`[AIService] Calling AI... (Temp: ${temperature}, Format: ${format})`);
 
-            // TIMEOUT HANDLING
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+            const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s for complex synthesis
+
+            const payload = {
+                model: "lfm2.5",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userMessage }
+                ],
+                temperature: temperature,
+                n_predict: 4096
+            };
+
+            // STRICT JSON ENFORCEMENT (If requested)
+            if (format === 'json_object') {
+                payload.response_format = { type: "json_object" };
+                if (schema) {
+                    payload.response_format.schema = schema;
+                }
+            }
 
             const response = await fetch(ENDPOINT, {
                 signal: controller.signal,
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model: "lfm2.5",
-                    messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: userMessage }
-                    ],
-                    temperature: temperature,
-                    n_predict: 4096
-                })
+                body: JSON.stringify(payload)
             });
             clearTimeout(timeoutId);
 

@@ -86,13 +86,21 @@ export class BackgroundAnalyzer {
                             console.warn("AI Fidelity Error:", err);
                         }
 
-                        // Save in cache with REAL summary
                         await CacheRepository.setFileSummary(
                             username, fileInfo.repo, fileInfo.path,
                             contentRes.sha, aiSummary, snippet
                         );
 
                         this.coordinator.markCompleted(fileInfo.repo, fileInfo.path, aiSummary);
+
+                        // AUDIT LOGGING: Persist finding to background worker JSONL
+                        CacheRepository.setWorkerAudit('BACKGROUND', {
+                            timestamp: new Date().toISOString(),
+                            repo: fileInfo.repo,
+                            path: fileInfo.path,
+                            summary: aiSummary,
+                            classification: "BACKGROUND_ANALYSIS"
+                        });
 
                         // LOGGING: Capture background worker results
                         // Use constant ID to avoid filesystem errors with paths

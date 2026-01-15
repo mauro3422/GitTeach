@@ -40,8 +40,16 @@ contextBridge.exposeInMainWorld('cacheAPI', {
     setRepoTreeSha: (owner, repo, treeSha) => ipcRenderer.invoke('cache:set-repo-tree-sha', { owner, repo, treeSha }),
     getStats: () => ipcRenderer.invoke('cache:get-stats'),
     clear: () => ipcRenderer.invoke('cache:clear'),
-    getDeveloperDNA: (username) => ipcRenderer.invoke('cache:get-developer-dna', username),
-    setDeveloperDNA: (username, dna) => ipcRenderer.invoke('cache:set-developer-dna', { username, dna })
+    getTechnicalIdentity: (username) => ipcRenderer.invoke('cache:get-technical-identity', username),
+    setTechnicalIdentity: (username, identity) => ipcRenderer.invoke('cache:set-technical-identity', { username, identity }),
+    getTechnicalFindings: (username) => ipcRenderer.invoke('cache:get-technical-findings', username),
+    setTechnicalFindings: (username, findings) => ipcRenderer.invoke('cache:set-technical-findings', { username, findings }),
+    // Cognitive Profile (Master Memory)
+    getCognitiveProfile: (username) => ipcRenderer.invoke('cache:get-cognitive-profile', username),
+    setCognitiveProfile: (username, profile) => ipcRenderer.invoke('cache:set-cognitive-profile', { username, profile }),
+    // Worker Audit (JSONL)
+    getWorkerAudit: (workerId) => ipcRenderer.invoke('cache:get-worker-audit', workerId),
+    setWorkerAudit: (workerId, finding) => ipcRenderer.invoke('cache:set-worker-audit', { workerId, finding })
 });
 
 // Bridge de utilidad para bypass de red

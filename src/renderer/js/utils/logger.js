@@ -21,13 +21,9 @@ const ICONS = {
     SUCCESS: '✅',
     WARNING: '⚠️',
     ERROR: '❌',
-    FORK: '🕵️',
-    DNA: '🧬',
-    MEMORY: '🧠',
-    PROGRESS: '📊',
-    MAPPER: '🏗️',
     REDUCER: '🧪',
-    METABOLIC: '💾'
+    IDENTITY: '🧬',
+    PROFILE: '🧠'
 };
 
 class LoggerService {
@@ -141,8 +137,8 @@ class LoggerService {
         this._log(LOG_LEVELS.INFO, verified ? 'FORK VERIFIED' : 'FORK CSI', message, icon);
     }
 
-    dna(message) {
-        this._log(LOG_LEVELS.INFO, 'DNA', message, ICONS.DNA);
+    identity(message) {
+        this._log(LOG_LEVELS.INFO, 'IDENTITY', message, ICONS.IDENTITY);
     }
 
     mapper(message) {
@@ -153,8 +149,8 @@ class LoggerService {
         this._log(LOG_LEVELS.INFO, 'REDUCER', message, ICONS.REDUCER);
     }
 
-    metabolic(message) {
-        this._log(LOG_LEVELS.INFO, 'METABOLIC', message, ICONS.METABOLIC);
+    profile(message) {
+        this._log(LOG_LEVELS.INFO, 'PROFILE', message, ICONS.PROFILE);
     }
 }
 
