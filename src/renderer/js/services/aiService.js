@@ -95,7 +95,22 @@ Ejemplo: "Increíble, acabo de terminar el mapa completo y me ha sorprendido la 
                     return { message: response, tool: 'chat' };
                 }
 
-                return { message: "Unknown system event.", tool: 'chat' };
+                // Generic System Event (e.g., Streaming Updates)
+                const genericPrompt = `
+# SYSTEM NOTIFICATION (In-stream data)
+The background analysis system has detected new patterns:
+"${input.replace("SYSTEM_EVENT:", "").trim()}"
+
+CONTEXT: This information is appended to your current knowledge of the user. It is NOT a reset.
+INSTRUCTIONS:
+1. MAINTAIN your main persona (Art Director / Technical Mentor). NEVER say "I am the Memory Agent".
+2. Acknowledge the finding as something you just spotted in their files.
+3. Make a brief, insightful comment about the detected area (e.g., "Ah, I see you also touch C++... interesting").
+4. Be natural, as if you were reviewing the code in real-time alongside the user.
+5. REPLY IN SPANISH.`;
+
+                const response = await this.callAI(genericPrompt, "React to the new technical finding while maintaining your role.", 0.4);
+                return { message: response, tool: 'chat' };
             }
 
             // --- AUTO-LOAD PERSISTENT MEMORY ---
@@ -106,13 +121,13 @@ Ejemplo: "Increíble, acabo de terminar el mapa completo y me ha sorprendido la 
                     this.currentSessionContext = analyzer.getFreshContext(username, dna);
                     Logger.info('AIService', 'Deep memory recovered from cache.');
                 } else {
-                    Logger.warn('AIService', `No DNA found for ${username}. Running without context.`);
+                    Logger.warn('AIService', `No DNA found for ${username}.Running without context.`);
                 }
             }
 
             // --- STEP 1: ROUTER (Identify Intent) ---
             const routerPrompt = PromptBuilder.getRouterPrompt(ToolRegistry.tools) +
-                (this.currentSessionContext ? `\nCURRENT CONTEXT: ${this.currentSessionContext}` : "");
+                (this.currentSessionContext ? `\nCURRENT CONTEXT: ${this.currentSessionContext} ` : "");
             const routerResponse = await this.callAI(routerPrompt, input, 0.0, 'json_object');
 
             let intent = 'chat';
@@ -160,13 +175,13 @@ Ejemplo: "Increíble, acabo de terminar el mapa completo y me ha sorprendido la 
                     // We have real context - build rich prompt with "LATENCY" instructions
                     chatPrompt = `# ROL: DIRECTOR DE ARTE TÉCNICO
 Tú eres el Director de Arte, un mentor técnico senior para el usuario ${username}. 
-Tu conocimiento se basa en la **Arquitectura de Guía Determinística** y la **Ponderación de Evidencias**.
+Tu conocimiento se basa en la ** Arquitectura de Guía Determinística** y la ** Ponderación de Evidencias **.
 
 ## 🧠 MEMORIA JERÁRQUICA TÉCNICA
 Tienes acceso a la Identidad Técnica del usuario y a un mapa de evidencias detalladas.
-1. **PONDERACIÓN**: Fíjate en los porcentajes de confianza en la Identidad Técnica. Habla con seguridad sobre lo que tiene puntuación >80%.
-2. **EVIDENCIA**: Cita archivos reales (ej: "Veo que en app.js manejas el estado de forma...") para demostrar que REALMENTE conoces su código.
-3. **EXPLORACIÓN DETALLADA**: Si el resumen de identidad es insuficiente para responder algo específico, **USA LA HERRAMIENTA \`query_memory\`**. Tienes miles de resúmenes de archivos (Worker Findings) en el cache que no están en este resumen inicial para ahorrar espacio. No adivines; busca evidencias en el cache.
+1. ** PONDERACIÓN **: Fíjate en los porcentajes de confianza en la Identidad Técnica.Habla con seguridad sobre lo que tiene puntuación > 80 %.
+2. ** EVIDENCIA **: Cita archivos reales(ej: "Veo que en app.js manejas el estado de forma...") para demostrar que REALMENTE conoces su código.
+3. ** EXPLORACIÓN DETALLADA **: Si el resumen de identidad es insuficiente para responder algo específico, ** USA LA HERRAMIENTA \`query_memory\`**. Tienes miles de resúmenes de archivos (Worker Findings) en el cache que no están en este resumen inicial para ahorrar espacio. No adivines; busca evidencias en el cache.
 4. **TONO CINEMÁTICO**: No eres un bot de ayuda. Eres un mentor que admira o desafía el rigor técnico del usuario.
 5. **NO SALUDES ROBÓTICAMENTE**: El usuario ya está en sesión. Ve directo al grano o haz comentarios técnicos proactivos sobre lo que has "descubierto" en su perfil.
 

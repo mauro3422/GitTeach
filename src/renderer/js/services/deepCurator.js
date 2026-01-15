@@ -8,6 +8,42 @@ import { Logger } from '../utils/logger.js';
 import { DebugLogger } from '../utils/debugLogger.js';
 
 export class DeepCurator {
+    constructor(debugLogger = null) {
+        this.debugLogger = debugLogger || DebugLogger;
+        // Internal state for streaming accumulation
+        this.accumulatedFindings = [];
+        this.traceabilityMap = {};
+    }
+
+    /**
+     * Incrementally processes a batch of findings
+     * Used in Streaming Map-Reduce pipeline (Slot 5)
+     */
+    incorporateBatch(batchFindings) {
+        if (!batchFindings || batchFindings.length === 0) return null;
+
+        this.accumulatedFindings.push(...batchFindings);
+
+        // Update traceability map on the fly
+        batchFindings.forEach(finding => {
+            const domain = finding.classification || 'General';
+            if (!this.traceabilityMap[domain]) {
+                this.traceabilityMap[domain] = [];
+            }
+            this.traceabilityMap[domain].push({
+                repo: finding.repo,
+                file: finding.path,
+                summary: finding.summary
+            });
+        });
+
+        // Return current state snapshot
+        return {
+            totalFindings: this.accumulatedFindings.length,
+            domains: Object.keys(this.traceabilityMap)
+        };
+    }
+
     /**
      * Deep Curation Engine (Map-Reduce):
      * Takes 100% of summaries and reduces them to dense memory.

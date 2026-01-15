@@ -56,17 +56,17 @@ RESPONSE FORMAT:
    * Genera el JSON final para una herramienta específica (Few-Shot).
    */
   getConstructorPrompt(tool) {
-    // Simplificación radical para modelo 1.2B
+    // Radical simplification for 1.2B model
     const fields = Object.keys(tool.schema).map(k => `- ${k} (${tool.schema[k]})`).join('\n');
 
-    return `Eres un Extractor de Parámetros experto para la herramienta "${tool.id}".
-Tu único trabajo es leer el texto del usuario y sacar los datos para llenar este JSON.
+    return `You are an Expert Parameter Extractor for the tool "${tool.id}".
+Your ONLY job is to extract data from the user input to fill this JSON.
 
-VARIABLES A EXTRAER:
+VARIABLES TO EXTRACT:
 ${fields}
 
-EJEMPLO 1:
-Input: "Pon un banner estilo shark color rojo"
+EXAMPLE 1:
+Input: "Put a red shark banner"
 JSON:
 {
   "action": "insert_banner",
@@ -75,59 +75,61 @@ JSON:
     "type": "shark",
     "color": "red"
   },
-  "message": "He aplicado el estilo shark en rojo."
+  "message": "Shark banner applied in red."
 }
 
-EJEMPLO 2:
-Input: "Texto: Hola Mundo, Tema: dark"
+EXAMPLE 2:
+Input: "Text: Hello World, Theme: dark"
 JSON:
 {
   "action": "insert_banner",
   "toolId": "${tool.id}",
   "params": {
-    "text": "Hola Mundo",
+    "text": "Hello World",
     "theme": "dark"
   },
-  "message": "Texto establecido con tema oscuro."
+  "message": "Text set with dark theme."
 }
 
-EJEMPLO 3:
-Input: "Configura snake_game"
+EXAMPLE 3:
+Input: "Configure snake_game"
 JSON:
 {
   "action": "insert_banner",
   "toolId": "configure_snake_workflow",
   "params": {},
-  "message": "Iniciando configuración del workflow de Snake."
+  "message": "Starting Snake workflow configuration."
 }
 
-TU TURNO (Usa el Input del Usuario):
-Responde SOLO con el JSON válido.
+YOUR TURN (Use User Input):
+Reply ONLY with the valid JSON.
 `;
   },
 
   /**
-   * Genera el prompt para el Agente Respondedor (ReAct - Observer Phase).
+   * Generates the prompt for the Responder Agent (ReAct - Observer Phase).
    * @param {string} toolName 
    * @param {Object} result { success, details }
    * @param {string} userRequest 
    */
   getPostActionPrompt(toolName, result, userRequest) {
-    return `Eres el Agente de Comunicación de GitTeach.
-Acabamos de ejecutar una acción técnica basada en la petición del usuario.
-Tu trabajo es reportar el resultado de forma natural y amigable en ESPAÑOL.
+    return `You are the Communication Agent for GitTeach.
+We just executed a technical action based on the user's request.
+Your job is to report the result accurately and naturally while maintaining the persona.
 
-CONTEXTO:
-- Petición del Usuario: "${userRequest}"
-- Herramienta Ejecutada: "${toolName}"
-- Resultado del Sistema: "${result.details}"
-- Estado: ${result.success ? "ÉXITO ✅" : "FALLO ❌"}
+CONTEXT:
+- User Request: "${userRequest}"
+- Tool Executed: "${toolName}"
+- System Result: "${result.details}"
+- Status: ${result.success ? "SUCCESS ✅" : "FAILURE ❌"}
 
-INSTRUCCIONES:
-1. Si fue ÉXITO: Confirma brevemente qué se hizo (repite los parámetros clave si es relevante).
-2. Si fue FALLO: Pide disculpas y explica el error claramente.
-3. NO menciones "JSON" ni detalles técnicos internos innecesarios.
-4. Sé conciso.
+INSTRUCTIONS:
+1. If SUCCESS: Briefly confirm what was done (mention key parameters or findings).
+2. If FAILURE: Apologize and explain the error clearly.
+3. DO NOT mention "JSON" or unnecessary internal technical details.
+4. If the result contains code or data, interpret it for the user.
+5. BE CONCISE.
+6. REPLY IN SPANISH.
 `;
   }
 };

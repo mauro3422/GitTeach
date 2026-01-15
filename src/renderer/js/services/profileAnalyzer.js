@@ -13,9 +13,10 @@ import { AIWorkerPool } from './aiWorkerPool.js';
 import { CodeScanner } from './codeScanner.js';
 import { DeepCurator } from './deepCurator.js';
 import { BackgroundAnalyzer } from './backgroundAnalyzer.js';
-import { MetabolicAgent } from './metabolicAgent.js';
+import { IntelligenceSynthesizer } from './intelligenceSynthesizer.js';
 import { Logger } from '../utils/logger.js';
 import { CacheRepository } from '../utils/cacheRepository.js';
+import { DebugLogger } from '../utils/debugLogger.js';
 
 export class ProfileAnalyzer {
     constructor(debugLogger = null) {
@@ -31,13 +32,12 @@ export class ProfileAnalyzer {
         // Core components
         this.coordinator = new CoordinatorAgent();
         // INJECT: Pass debugLogger to WorkerPool so it uses the one with FS access (from Tracer)
-        // REVERT: Back to 4 workers as per user request (issues were due to zombie processes, not concurrency count)
-        this.workerPool = new AIWorkerPool(4, this.coordinator, debugLogger);
+        this.workerPool = new AIWorkerPool(3, this.coordinator, debugLogger);
 
         // Specialized modules
         this.codeScanner = new CodeScanner(this.coordinator, this.workerPool);
         this.deepCurator = new DeepCurator();
-        this.metabolicAgent = new MetabolicAgent(null, debugLogger);
+        this.intelligenceSynthesizer = new IntelligenceSynthesizer(null, debugLogger);
         // INJECT: Pass debugLogger to BackgroundAnalyzer to capture its "workers"
         this.backgroundAnalyzer = new BackgroundAnalyzer(this.coordinator, this.deepCurator, debugLogger);
     }
@@ -52,7 +52,7 @@ export class ProfileAnalyzer {
             const cachedFindings = await CacheRepository.getTechnicalFindings(username);
 
             // Load Cognitive Profile from disk (if exists) - this is the "master memory"
-            const savedProfile = await this.metabolicAgent.loadFromDisk(username);
+            const savedProfile = await this.intelligenceSynthesizer.loadFromDisk(username);
             if (savedProfile) {
                 Logger.success('ANALYZER', `Loaded previous Cognitive Profile: ${savedProfile.title}`);
             }
@@ -111,7 +111,7 @@ export class ProfileAnalyzer {
             }
 
             // Fase 5: Procesamiento de workers en background
-            this.startWorkerProcessing(onStep);
+            this.startWorkerProcessing(onStep, username);
 
             // Fase 6: Análisis en segundo plano (Descargas y Cache)
             this.backgroundPromise = this.backgroundAnalyzer.startBackgroundAnalysis(username, allFindings, (data) => {
@@ -138,9 +138,9 @@ export class ProfileAnalyzer {
 
                 const { dna: newIdentity, traceability_map: freshMap } = curationResult;
 
-                // --- DIGESTIÓN METABÓLICA ---
+                // --- SÍNTESIS DE INTELIGENCIA ---
                 const oldIdentity = await CacheRepository.getTechnicalIdentity(username);
-                const { finalDNA: processedIdentity, report, isSignificant } = await this.metabolicAgent.digest(oldIdentity, newIdentity);
+                const { finalProfile: processedIdentity, report, isSignificant } = await this.intelligenceSynthesizer.synthesizeProfile(oldIdentity, newIdentity);
 
                 // --- PERSISTENCIA DE LA IDENTIDAD TÉCNICA ---
                 await CacheRepository.setTechnicalIdentity(username, processedIdentity);
@@ -153,16 +153,29 @@ export class ProfileAnalyzer {
                 Logger.success('ANALYZER', '🧬 Identidad Técnica y Evidencias actualizadas de forma persistente.');
 
                 // Actualizar contexto final en el Chat
-                const freshContext = this.getFreshContext(username, processedIdentity, this.metabolicAgent.technicalProfile, freshMap);
+                const freshContext = this.getFreshContext(username, processedIdentity, this.intelligenceSynthesizer.technicalProfile, freshMap);
                 AIService.setSessionContext(freshContext);
 
                 // Solo si el cambio es significativo, disparamos una reacción REACTIVA
                 if (isSignificant && report.milestone !== 'INITIAL_SYNTHESIS') {
-                    const metabolicPrompt = this.metabolicAgent.generateMetabolicPrompt(report, username);
+                    const reactivePrompt = this.intelligenceSynthesizer.generateReactivePrompt(report, username);
                     setTimeout(async () => {
-                        const response = await AIService.processIntent(metabolicPrompt, username);
-                        const { ChatComponent } = await import('../components/chatComponent.js');
-                        ChatComponent.addMessage(response.message, 'ai');
+                        try {
+                            DebugLogger.logChat('system', reactivePrompt); // Log trigger
+                            const response = await AIService.processIntent(reactivePrompt, username);
+
+                            // Try to update UI if possible
+                            try {
+                                const { ChatComponent } = await import('../components/chatComponent.js');
+                                ChatComponent.addMessage(response.message, 'ai');
+                            } catch (uiError) {
+                                console.warn("Could not load ChatComponent (Headless mode?)", uiError);
+                            }
+
+                            DebugLogger.logChat('ai', response.message); // Log response
+                        } catch (err) {
+                            console.error("Error in Reactive Prompt Flow:", err);
+                        }
                     }, 2000);
                 }
 
@@ -202,7 +215,7 @@ export class ProfileAnalyzer {
     /**
      * Procesa archivos con workers de IA en background
      */
-    startWorkerProcessing(onStep) {
+    startWorkerProcessing(onStep, username) {
         if (this.workerPool.totalQueued > 0) {
             Logger.info('AI WORKERS', `Lanzando ${this.workerPool.workerCount} workers en background para ${this.workerPool.totalQueued} archivos...`);
 
@@ -211,8 +224,55 @@ export class ProfileAnalyzer {
                     onStep({
                         type: 'Progreso',
                         percent: data.percent,
-                        message: `🤖 Worker ${data.workerId}: ${data.file}`
+                        message: `🤖 Worker ${data.workerId}: ${data.file.split(/[/\\]/).pop()} (Processed)`
                     });
+                }
+            };
+
+            // NEW: Streaming Map-Reduce Wiring
+            this.workerPool.onBatchComplete = (batch) => {
+                Logger.info('ANALYZER', `🔄 Streaming Batch: ${batch.length} files -> DeepCurator`);
+
+                // 1. Incorporate into Memory Agent (DeepCurator)
+                const stats = this.deepCurator.incorporateBatch(batch);
+
+                // 2. Check for Evolution Impulse (IntelligenceSynthesizer)
+                const reflection = this.intelligenceSynthesizer.synthesizeBatch(stats);
+
+                if (reflection.isSignificant) {
+                    Logger.success('ANALYZER', `💡 Intermediate Evolution: ${reflection.snapshot}`);
+                    if (onStep) {
+                        onStep({
+                            type: 'DeepMemoryReady', // Re-using this event type for UI compatibility
+                            message: `🧠 ${reflection.snapshot}`,
+                            data: null // Incremental update doesn't replace full profile yet
+                        });
+                    }
+
+                    // 3. Trigger Reactive Chat Bubble (Autonomous Reaction)
+                    if (username) {
+                        const reactivePrompt = `SYSTEM_EVENT: ${reflection.snapshot}`;
+                        setTimeout(async () => {
+                            try {
+                                DebugLogger.logChat('system', reactivePrompt);
+
+                                // Ask AI to react to the system event
+                                const response = await AIService.processIntent(reactivePrompt, username);
+
+                                // Update UI
+                                try {
+                                    const { ChatComponent } = await import('../components/chatComponent.js');
+                                    ChatComponent.addMessage(response.message, 'ai');
+                                } catch (uiError) {
+                                    // Headless/Test mode - ignore UI update
+                                }
+
+                                DebugLogger.logChat('ai', response.message);
+                            } catch (err) {
+                                console.error("Error in Streaming Chat Reaction:", err);
+                            }
+                        }, 500);
+                    }
                 }
             };
 

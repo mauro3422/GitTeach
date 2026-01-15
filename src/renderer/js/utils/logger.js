@@ -56,7 +56,7 @@ class LoggerService {
         // Si la IA está offline, silenciamos ruidos de análisis, pero dejamos pasar errores y estados de IA
         const isNoise = [
             'SCAN', 'DOWNLOAD', 'CACHE', 'PROGRESS', 'FORK', 'BACKGROUND',
-            'THEMATIC MAPPER', 'REDUCER', 'METABOLIC', 'ANALYZER', 'WARNING',
+            'THEMATIC MAPPER', 'REDUCER', 'SYNTHESIZER', 'ANALYZER', 'WARNING',
             'AIService', 'Coordinator'
         ].includes(tag);
 

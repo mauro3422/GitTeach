@@ -16,7 +16,7 @@ import { DebugLogger } from '../utils/debugLogger.js';
 import { FileClassifier } from '../utils/fileClassifier.js';
 
 export class AIWorkerPool {
-    constructor(workerCount = 4, coordinator = null, debugLogger = null) {
+    constructor(workerCount = 3, coordinator = null, debugLogger = null) {
         this.workerCount = workerCount;
         this.coordinator = coordinator; // NEW: Link to central movement
         this.debugLogger = debugLogger || DebugLogger; // INJECTION OR FALLBACK
@@ -27,6 +27,9 @@ export class AIWorkerPool {
         this.results = [];
         this.onProgress = null;
         this.onFileProcessed = null;
+        this.onBatchComplete = null; // NEW: Streaming callback
+        this.batchSize = 5; // Emit every 5 files
+        this.batchBuffer = []; // Temporary buffer
         this.isProcessing = false;
         this.processedCount = 0;
         this.totalQueued = 0;
@@ -77,6 +80,12 @@ export class AIWorkerPool {
 
         // Wait for all workers to finish
         await Promise.all(workers);
+
+        // NEW: Flush remaining buffer
+        if (this.onBatchComplete && this.batchBuffer.length > 0) {
+            this.onBatchComplete(this.batchBuffer);
+            this.batchBuffer = [];
+        }
 
         this.isProcessing = false;
         return this.results;
@@ -252,12 +261,24 @@ Preserve architectural patterns, key file roles, and technical evidence.`;
                 items.forEach(item => {
                     item.status = 'completed';
                     item.summary = summary; // Los batches comparten el insight técnico por ahora
-                    this.results.push({
+
+                    const resultItem = {
                         repo: item.repo,
                         path: item.path,
                         summary: summary,
-                        workerId: workerId
-                    });
+                        workerId: workerId,
+                        classification: parsed?.params?.technical_strength || 'General'
+                    };
+
+                    this.results.push(resultItem);
+
+                    // NEW: Streaming Buffer logic
+                    this.batchBuffer.push(resultItem);
+                    if (this.onBatchComplete && this.batchBuffer.length >= this.batchSize) {
+                        const batch = [...this.batchBuffer];
+                        this.batchBuffer = []; // Clear immediately
+                        this.onBatchComplete(batch);
+                    }
 
                     // Add to repo context for future files (Individual context enrichment)
                     this.addToRepoContext(item.repo, item.path, summary, aiService);

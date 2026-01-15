@@ -1,8 +1,23 @@
 # Changelog
 
 Todas las mejoras y cambios notables del proyecto GitTeach.
+## [v1.9.0] - 2026-01-15 (Streaming Intelligence & Standardized Personas)
+### 🌊 Autonomous Streaming Chat
+- **Real-Time Reactions**: El chat ahora reacciona en tiempo real a los descubrimientos de los workers (Map-Reduce Streaming) sin esperar a que termine todo el análisis.
+- **Event-Driven Architecture**: Implementación de `SYSTEM_EVENT` triggers desde `ProfileAnalyzer` directo al `AIService`.
 
-## [v1.8.0] - 2026-01-15 (Arquitectura de Memoria & Auditoría)
+### 🗣️ Standardized Prompt Engineering
+- **English Instructions / Spanish Output**: Estandarización total de los System Prompts (`PromptBuilder.js`, `AIService.js`).
+    - Instrucciones al Modelo: **INGLÉS** (Maximiza IQ y adherencia).
+    - Respuesta al Usuario: **ESPAÑOL** (Maximiza UX y Persona).
+- **Persona Consistency**: El Agente mantiene rigurosamente su rol de "Mentor Técnico / Director de Arte" incluso al recibir datos del sistema.
+
+### 🧪 The Ultimate Tracer (v2.0)
+- **Verificación Headless Completa**: Script `scripts/tools/ultimate_multitier_tracer.mjs` actualizado para validar flujos asíncronos complejos.
+- **Mocking Robusto**: Inyección completa de APIs (`mockCacheAPI`, `mockGithubAPI`) para simular persistencia y red.
+- **Documentación**: Nuevo manual técnico en `docs/TRACER_MANUAL.md`.
+
+
 ### 🧠 Memoria Técnica Persistente (Literal)
 - **Multi-Store Architecture**: Separación de la memoria en `technical_identity.json` (Identidad Curada), `cognitive_profile.json` (Perfil Usuario) y `curation_evidence.json` (Evidencias).
 - **Terminología Técnica**: Eliminación total de metáforas biológicas (DNA, Células) en favor de términos técnicos (Identity, Profile, Worker Findings) para evitar colisiones semánticas.

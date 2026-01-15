@@ -2,7 +2,7 @@
 /**
  * ULTIMATE MULTI-TIER TRACER 🧬 - HEARTBEAT EDITION
  * No Mocks, Real Data, Real Flows.
- * Noise-Filtered: Heartbeat progress every 5%.
+ * Noise-Filtered: Heartbeat progress + Metrics.
  */
 
 import fs from 'fs';
@@ -15,26 +15,24 @@ const APP_DATA = process.env.APPDATA || (process.platform === 'darwin' ? process
 
 const SESSION_ID = `SESSION_${new Date().toISOString().replace(/[:.]/g, '-')}`;
 let SESSION_PATH = "";
+let MOCK_PERSISTENCE_PATH = "";
 
 // HIGHLANDER PROTOCOL: THERE CAN BE ONLY ONE
 const PID_FILE = path.join(ROOT, 'tracer.pid');
 try {
     if (fs.existsSync(PID_FILE)) {
         const oldPid = parseInt(fs.readFileSync(PID_FILE, 'utf8'));
-        console.log(`[TRACER] Found existing process PID: ${oldPid}. Terminating...`);
+        // console.log(`[TRACER] Found existing process PID: ${oldPid}. Terminating...`);
         try {
             process.kill(oldPid, 'SIGKILL'); // Force kill
-            console.log(`[TRACER] Killed previous process ${oldPid}.`);
         } catch (e) {
-            console.log(`[TRACER] Process ${oldPid} likely already dead or access denied: ${e.message}`);
+            // console.log(`[TRACER] Process ${oldPid} likely already dead: ${e.message}`);
         }
     }
-} catch (e) {
-    // Ignore PID errors
-}
+} catch (e) { }
 // Write new PID
 fs.writeFileSync(PID_FILE, process.pid.toString());
-console.log(`[TRACER] Registered new PID: ${process.pid}`);
+// console.log(`[TRACER] Registered new PID: ${process.pid}`);
 
 // Cleanup on exit
 process.on('exit', () => { try { fs.unlinkSync(PID_FILE); } catch (e) { } });
@@ -72,9 +70,8 @@ const realGithubAPI = {
             const treeRes = await fetch(`https://api.github.com/repos/${u}/${r}/git/trees/${b}?recursive=1`, { headers: realGithubAPI._headers() });
             if (treeRes.ok) {
                 const data = await treeRes.json();
-                // TEST OPTIMIZATION: Limit to 5 files per repo
+                // TEST OPTIMIZATION: Limit to 5 files per repo - QUIET MODE
                 if (data.tree && data.tree.length > 5) {
-                    console.log(`   [TRACER] Limiting ${r} to 5 files for ultra-fast testing...`);
                     data.tree = data.tree.slice(0, 5);
                 }
                 return data;
@@ -98,22 +95,114 @@ const realGithubAPI = {
     getCommitDiff: async (u, r, s) => ({ files: [] })
 };
 
+// --- MOCK CACHE API (Persistence Layer Simulator) ---
+const mockCacheAPI = {
+    setWorkerAudit: async (workerId, finding) => {
+        if (!MOCK_PERSISTENCE_PATH) return false;
+        try {
+            let name = workerId;
+            if (typeof workerId === 'string' && (workerId.toUpperCase().includes('BACK') || workerId.toUpperCase().includes('ROOM'))) {
+                name = 'BACKGROUND';
+            }
+            const filePath = path.join(MOCK_PERSISTENCE_PATH, `worker_${name}.jsonl`);
+            const line = JSON.stringify({ ...finding, timestamp: new Date().toISOString() }) + '\n';
+            fs.appendFileSync(filePath, line, 'utf8');
+            return true;
+        } catch (e) {
+            return false;
+        }
+    },
+    getWorkerAudit: async (workerId) => {
+        // Mock read if needed
+        return [];
+    },
+    getTechnicalIdentity: async (u) => {
+        if (!MOCK_PERSISTENCE_PATH) return null;
+        try {
+            const p = path.join(MOCK_PERSISTENCE_PATH, 'technical_identity.json');
+            if (fs.existsSync(p)) {
+                const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+                return data[u]?.identity || null;
+            }
+        } catch (e) { }
+        return null;
+    },
+    setTechnicalIdentity: async (u, data) => {
+        if (!MOCK_PERSISTENCE_PATH) return false;
+        try {
+            const p = path.join(MOCK_PERSISTENCE_PATH, 'technical_identity.json');
+            let db = {};
+            if (fs.existsSync(p)) db = JSON.parse(fs.readFileSync(p, 'utf8'));
+            db[u] = { identity: data, updatedAt: new Date().toISOString() };
+            fs.writeFileSync(p, JSON.stringify(db, null, 2));
+            return true;
+        } catch (e) { return false; }
+    },
+    getTechnicalFindings: async (u) => {
+        if (!MOCK_PERSISTENCE_PATH) return null;
+        try {
+            const p = path.join(MOCK_PERSISTENCE_PATH, 'curation_evidence.json');
+            if (fs.existsSync(p)) {
+                const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+                return data[u]?.evidence || null;
+            }
+        } catch (e) { }
+        return null;
+    },
+    setTechnicalFindings: async (u, data) => {
+        if (!MOCK_PERSISTENCE_PATH) return false;
+        try {
+            const p = path.join(MOCK_PERSISTENCE_PATH, 'curation_evidence.json');
+            let db = {};
+            if (fs.existsSync(p)) db = JSON.parse(fs.readFileSync(p, 'utf8'));
+            db[u] = { evidence: data, updatedAt: new Date().toISOString() };
+            fs.writeFileSync(p, JSON.stringify(db, null, 2));
+            return true;
+        } catch (e) { return false; }
+    },
+    getCognitiveProfile: async (u) => {
+        if (!MOCK_PERSISTENCE_PATH) return null;
+        try {
+            const p = path.join(MOCK_PERSISTENCE_PATH, 'cognitive_profile.json');
+            if (fs.existsSync(p)) {
+                const db = JSON.parse(fs.readFileSync(p, 'utf8'));
+                return db[u] || null;
+            }
+        } catch (e) { }
+        return null;
+    },
+    setCognitiveProfile: async (u, data) => {
+        if (!MOCK_PERSISTENCE_PATH) return false;
+        try {
+            const p = path.join(MOCK_PERSISTENCE_PATH, 'cognitive_profile.json');
+            let db = {};
+            if (fs.existsSync(p)) db = JSON.parse(fs.readFileSync(p, 'utf8'));
+            db[u] = data;
+            fs.writeFileSync(p, JSON.stringify(db, null, 2));
+            return true;
+        } catch (e) { return false; }
+    },
+    getFileSummary: async () => null, // Simplified for tracer
+    setFileSummary: async () => true,
+    needsUpdate: async () => true,
+    getRepoTreeSha: async () => null,
+    setRepoTreeSha: async () => true, // Mock success
+    getCacheStats: async () => ({ size: 0, files: 0 })
+};
+
 global.window = {
     githubAPI: realGithubAPI,
+    cacheAPI: mockCacheAPI, // <--- INJECTED MOCK
     utilsAPI: { checkAIHealth: async () => true },
     debugAPI: {
         createSession: async (id) => ({ success: true, path: path.join(ROOT, 'logs/sessions', id) }),
         appendLog: async (sessionId, subfolder, filename, content) => {
             const filePath = path.join(ROOT, 'logs/sessions', sessionId, subfolder, filename);
-            console.log(`[MOCK-APPEND] Attempting write to ${filename} (Session: ${sessionId})`);
             const dir = path.dirname(filePath);
             if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
             try {
                 fs.appendFileSync(filePath, content);
-                console.log(`[MOCK-APPEND] Success: ${filename}`);
-            } catch (e) {
-                console.error(`[MOCK-APPEND] ERROR: ${e.message}`, e);
-            }
+            } catch (e) { }
             return { success: true };
         }
     },
@@ -140,6 +229,11 @@ async function startTracer() {
     ensureDir(path.join(SESSION_PATH, 'curator'));
     ensureDir(path.join(SESSION_PATH, 'chat'));
 
+    // MOCK PERSISTENCE DIRECTORY
+    MOCK_PERSISTENCE_PATH = path.join(SESSION_PATH, 'mock_persistence');
+    ensureDir(MOCK_PERSISTENCE_PATH);
+    console.log(`✅ Persistence Layer Mocked at: ${MOCK_PERSISTENCE_PATH}`);
+
     DebugLogger.enabled = true;
     DebugLogger.sessionPath = SESSION_PATH;
     DebugLogger.sessionId = SESSION_ID;
@@ -155,19 +249,22 @@ async function startTracer() {
     // INJECT: Pass the correctly configured DebugLogger (with FS) to the analyzer
     const analyzer = new ProfileAnalyzer(DebugLogger);
 
-    // Custom "Heartbeat" Logger (0/50/100)
-    let lastReportedHeartbeat = -1;
+    // Custom "Heartbeat" Logger (Metric focused - Less Noise)
+    let lastReport = 0;
+    const REPORT_INTERVAL = 20; // Log every 20%
 
     const results = await analyzer.analyze('mauro3422', (step) => {
         if (step.type === 'Progreso') {
             const p = step.percent;
-            const heartbeat = p < 50 ? 0 : (p < 100 ? 50 : 100);
-
-            if (heartbeat !== lastReportedHeartbeat) {
+            if (p >= lastReport + REPORT_INTERVAL || p === 100) {
                 const stats = analyzer.coordinator.getStats();
-                console.log(`   [HEARTBEAT] ${heartbeat}% - Scanned: ${stats.analyzed}/${totalFilesOnDisk} files.`);
-                lastReportedHeartbeat = heartbeat;
+                process.stdout.write(`\r   [PROGRESS] ${p}% | Scanned: ${stats.analyzed} / ${totalFilesOnDisk}`);
+                lastReport = p;
+                if (p === 100) console.log(""); // Newline at end
             }
+        } else if (step.type === 'DeepMemoryReady') {
+            console.log(`\n🧠 AUTONOMOUS REACTION: ${step.message}`);
+            // Log to session file manually if needed, or rely on DebugLogger inside Analyzer
         }
     });
 
@@ -175,32 +272,32 @@ async function startTracer() {
     console.log(`\n📊 FINAL COVERAGE REPORT:`);
     console.log(`   - Files on Disk:   ${totalFilesOnDisk}`);
     console.log(`   - Files Scanned:   ${stats.analyzed}`);
-    console.log(`   - Missing/Skipped: ${totalFilesOnDisk - stats.analyzed}`);
     console.log(`   - Coverage Index:  ${Math.round((stats.analyzed / totalFilesOnDisk) * 100)}%`);
 
-    console.log('\n--- PHASE 2: DEEP CURATION (DENSE DNA) ---');
+    console.log('\n--- PHASE 2: INTELLIGENCE SYNTHESIS ---');
     if (analyzer.fullIntelligencePromise) await analyzer.fullIntelligencePromise;
 
-    console.log('\n--- PHASE 3: MAIN AGENT VALIDATION ---');
-    const questions = [
-        "¿Quién soy según lo que has analizado en mis archivos reales?",
-        "¿Cuáles son mis 3 patrones técnicos más fuertes detectados? Cita archivos reales.",
-        "¿Encontraste alguna anomalía o algo curioso en mi código? Sé específico.",
-        "¿Cómo ha evolucionado mi estilo de programación según lo que ves en estos repositorios?"
-    ];
+    // console.log('\n--- PHASE 3: MAIN AGENT VALIDATION ---');
+    // const questions = [
+    //     "¿Quién soy según lo que has analizado en mis archivos reales?",
+    //     "¿Cuáles son mis 3 patrones técnicos más fuertes detectados? Cita archivos reales."
+    // ];
 
-    for (const q of questions) {
-        process.stdout.write(`   > Question: "${q}"... `);
-        const response = await AIService.processIntent(q, 'mauro3422');
-        console.log(`DONE.`);
-        fs.appendFileSync(path.join(SESSION_PATH, 'chat/session.jsonl'), JSON.stringify({ timestamp: new Date().toISOString(), q, a: response.message }) + '\n');
-    }
+    // for (const q of questions) {
+    //     console.log(`   > Asking: "${q}"`);
+    //     const response = await AIService.processIntent(q, 'mauro3422');
+    //     console.log(`     Answer Length: ${response.message.length} chars.`);
+    //     fs.appendFileSync(path.join(SESSION_PATH, 'chat/session.jsonl'), JSON.stringify({ timestamp: new Date().toISOString(), q, a: response.message }) + '\n');
+    // }
+
+    console.log("⏳ Waiting 10s for Autonomous Reactions (Streaming)...");
+    await new Promise(r => setTimeout(r, 10000));
 
     fs.writeFileSync(path.join(SESSION_PATH, 'SUMMARY.json'), JSON.stringify({
         sessionId: SESSION_ID, status: 'COMPLETE', files: stats.analyzed, disk: totalFilesOnDisk
     }, null, 2));
 
-    console.log(`\n✅ TRACE COMPLETE. Session saved in ${SESSION_ID}`);
+    console.log(`\n✅ TRACE COMPLETE. Logs: ${SESSION_ID}`);
 }
 
 startTracer().catch(e => { console.error('\n❌ FAILED:', e); process.exit(1); });

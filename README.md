@@ -4,6 +4,9 @@
 
 GitTeach es una aplicación de escritorio (Electron) diseñada para ayudar a los desarrolladores a gestionar sus perfiles de GitHub y mejorar sus habilidades mediante un asistente de IA local.
 
+- Scripts de verificación (`verify_agent_flow.py`, `live_analysis_test.py`) incluidos para desarrollo.
+- **[NUEVO]** `scripts/tools/ultimate_multitier_tracer.mjs`: Herramienta maestra de validación *headless* (Ver `docs/TRACER_MANUAL.md`).
+
 ## ✨ Características Principales
 
 *   **Autenticación con GitHub:** Login seguro y gestión de sesión persistente.

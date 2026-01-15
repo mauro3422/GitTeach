@@ -7,6 +7,7 @@ import { ResizableManager } from './js/utils/resizable_manager.js';
 import { DropdownComponent } from './js/components/dropdownComponent.js';
 import { WidgetGallery } from './js/components/widgetGallery.js';
 import { ProfileAnalyzer } from './js/services/profileAnalyzer.js';
+import { DebugLogger } from './js/utils/debugLogger.js';
 
 import { EditorComponent } from './js/components/editorComponent.js';
 
@@ -62,8 +63,12 @@ AuthView.init(async () => {
         const { AIService } = await import('./js/services/aiService.js');
 
         // 1. Proactive greeting (NATURAL via AI)
-        AIService.processIntent("SYSTEM_EVENT: INITIAL_GREETING", username).then(response => {
+        const greetingEvent = "SYSTEM_EVENT: INITIAL_GREETING";
+        DebugLogger.logChat('system', greetingEvent);
+
+        AIService.processIntent(greetingEvent, username).then(response => {
             ChatComponent.addMessage(response.message, 'ai');
+            DebugLogger.logChat('ai', response.message);
         });
 
         // 2. Execute analysis with real-time feedback
@@ -78,17 +83,21 @@ AuthView.init(async () => {
 
                 // Small delay to let UI breathe
                 setTimeout(() => {
-                    AIService.processIntent("SYSTEM_EVENT: DEEP_MEMORY_READY_ACKNOWLEDGE", username).then(response => {
+                    const sysEvent = "SYSTEM_EVENT: DEEP_MEMORY_READY_ACKNOWLEDGE";
+                    DebugLogger.logChat('system', sysEvent); // Log the trigger
+
+                    AIService.processIntent(sysEvent, username).then(response => {
                         // Response comes naturally from LLM
                         ChatComponent.addMessage(response.message, 'ai');
+                        DebugLogger.logChat('ai', response.message); // Log the response
                     });
                 }, 1000);
             } else if (typeof data === 'string') {
-                ChatComponent.showProactiveStep(data);
+                // Ignore raw strings to keep chat clean (progress bar handles them usually)
             } else if (data && data.message) {
-                // Only show important logs in chat
+                // Route important status updates to the progress bar, NOT the chat
                 if (data.type === 'Inventario inicializado' || data.type === 'Error') {
-                    ChatComponent.showProactiveStep(`🎯 ${data.type}: ${data.message}`);
+                    ChatComponent.updateProgress(null, `${data.type}: ${data.message}`);
                 }
             }
         }).then(results => {
