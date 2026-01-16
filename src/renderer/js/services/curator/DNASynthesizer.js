@@ -29,9 +29,10 @@ export class DNASynthesizer {
                             name: { type: "string" },
                             score: { type: "integer" },
                             details: { type: "string" },
-                            evidence: { type: "string" }
+                            evidence: { type: "string" },
+                            evidence_uids: { type: "array", items: { type: "string" } }
                         },
-                        required: ["name", "score", "details", "evidence"]
+                        required: ["name", "score", "details", "evidence", "evidence_uids"]
                     }
                 },
                 signature_files: { type: "array", items: { type: "string" } },
@@ -85,9 +86,10 @@ Your goal is to synthesize the final technical identity of <user>${username}</us
 ANALYTICAL STEPS:
 1. Examine <specialist_reports> to find the "Soul" of the code (e.g., custom rendering, medical data).
 2. Rank the 5 most dominant technical domains (e.g., "Systems Architecture", "Performance", "UI/UX"). 
-3. Assign scores (0-100) based on the depth of implementation shown in the reports.
-4. Formulate a dense, 5-sentence biography citing specific files.
-5. Output EXACTLY the requested JSON schema.
+3. Assign scores (1-100) based on the depth of implementation shown in the reports.
+4. For each trait, include an array of "evidence_uids" citing the [ID:mem_xxxx] tags from the reports.
+5. Formulate a dense, 5-sentence biography citing specific files.
+6. Output EXACTLY the requested JSON schema.
 
 STRICT RULE: NO MARKDOWN. NO INTRO. START WITH '{'.`;
     }
@@ -112,6 +114,11 @@ STRICT RULE: NO MARKDOWN. NO INTRO. START WITH '{'.`;
 
         try {
             const dna = this._parseResponse(rawResponse);
+
+            // Final Step: Technical Linking (Graph V3)
+            // Manually inject UIDs based on filename matching to bridge AI descriptions with real memory nodes
+            this._linkMemoryNodes(dna, traceabilityMap);
+
             return { dna, traceability_map: traceabilityMap };
         } catch (e) {
             Logger.error('DNASynthesizer', `JSON Parsing failed: ${e.message}`);
@@ -220,7 +227,44 @@ STRICT RULE: NO MARKDOWN. NO INTRO. START WITH '{'.`;
                 name: strength,
                 score: Math.min(60 + (refs.length * 5), 95),
                 details: `Detected as a recurring pattern across ${refs.length} files.`,
-                evidence: refs.slice(0, 2).map(r => r.file).join(', ')
+                evidence: refs.slice(0, 2).map(r => r.file).join(', '),
+                evidence_uids: refs.slice(0, 5).map(r => r.uid).filter(id => !!id)
             }));
+    }
+
+    /**
+     * Technical Linker - Bridges AI-synthesized traits with real MemoryNodes
+     * @private
+     */
+    _linkMemoryNodes(dna, traceabilityMap) {
+        if (!dna.traits || !traceabilityMap) return;
+
+        dna.traits.forEach(trait => {
+            // Priority 1: Keep only real UIDs if AI actually copied them correctly
+            const existingUids = (trait.evidence_uids || []).filter(id => id.startsWith('mem_'));
+            trait.evidence_uids = existingUids;
+
+            // Priority 2: Robust Search in trait text
+            const context = (trait.evidence || "") + " " + (trait.details || "");
+
+            Object.values(traceabilityMap).forEach(refs => {
+                refs.forEach(ref => {
+                    if (!ref.uid || !ref.file) return;
+
+                    // Match full path OR just the filename (basename)
+                    const fileName = ref.file.split(/[\\/]/).pop();
+                    const isMentioned = context.includes(ref.file) || (fileName && context.includes(fileName));
+
+                    if (isMentioned) {
+                        if (!trait.evidence_uids.includes(ref.uid)) {
+                            trait.evidence_uids.push(ref.uid);
+                        }
+                    }
+                });
+            });
+
+            // Limit to top 5 high-fidelity evidence links
+            trait.evidence_uids = trait.evidence_uids.slice(0, 5);
+        });
     }
 }

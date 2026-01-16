@@ -49,7 +49,7 @@ contextBridge.exposeInMainWorld('cacheAPI', {
     setCognitiveProfile: (username, profile) => ipcRenderer.invoke('cache:set-cognitive-profile', { username, profile }),
     // Worker Audit (JSONL)
     getWorkerAudit: (workerId) => ipcRenderer.invoke('cache:get-worker-audit', workerId),
-    setWorkerAudit: (workerId, finding) => ipcRenderer.invoke('cache:set-worker-audit', { workerId, finding })
+    appendWorkerLog: (workerId, finding) => ipcRenderer.invoke('cache:append-worker-log', { workerId, finding })
 });
 
 // Bridge de utilidad para bypass de red

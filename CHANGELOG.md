@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.3.0-Vector] - 2026-01-15
+### 🧠 Vector Identity & RAG Architecture
+- **Memory Agent Vectorial**: Implementación de `MemoryAgent.js` con búsqueda semántica basada en similitud coseno local.
+- **Dual Server Architecture**:
+    - **Brain**: LFM 2.5 (1.2B) en Puerto 8000 (GPU).
+    - **Memory**: Nomic Embeddings (v1.5) en Puerto 8001 (CPU Dedicada).
+    - Infraestructura optimizada para correr ambos modelos simultáneamente sin competir por VRAM.
+- **Auto-Provisioning**: El script `start.bat` ahora gestiona la descarga y verificación automática de modelos de embeddings (~274MB).
+- **RAG Local**: Capacidad de "Retrieval Augmented Generation" real, permitiendo a la IA citar su propia memoria técnica con precisión matemática.
+
 ## [2.2.0-ESM] - 2026-01-15
 ### ⚡ Core ESM & Intelligence Architecture
 - **Migración Total a ESM (Main Process)**: Transformación de la arquitectura de Electron de CommonJS a ESM nativo.

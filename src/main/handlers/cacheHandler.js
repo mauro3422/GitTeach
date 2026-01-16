@@ -115,7 +115,7 @@ export function register(ipcMain) {
     });
 
     // Worker Audit Handlers (JSONL)
-    ipcMain.handle('cache:set-worker-audit', async (event, { workerId, finding }) => {
+    ipcMain.handle('cache:append-worker-log', async (event, { workerId, finding }) => {
         cacheService.setWorkerAudit(workerId, finding);
         return { success: true };
     });

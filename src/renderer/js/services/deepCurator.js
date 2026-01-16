@@ -55,6 +55,7 @@ export class DeepCurator {
                 this.traceabilityMap[domain] = [];
             }
             this.traceabilityMap[domain].push({
+                uid: finding.uid || null,
                 repo: finding.repo,
                 file: finding.path,
                 summary: finding.summary
@@ -74,8 +75,11 @@ export class DeepCurator {
      * Uses "Funnel of Truth" logic (Deduplication + Rarity Filter).
      */
     async runDeepCurator(username, coordinator) {
-        // Step 1: Get Raw Rich Data (JSON Objects)
-        const rawFindings = coordinator.getAllRichSummaries();
+        // Step 1: Get Raw Rich Data
+        // PREFER internal accumulation (which has UIDs from MemoryManager) over Coordinator (which might be raw)
+        const rawFindings = this.accumulatedFindings.length > 0
+            ? this.accumulatedFindings
+            : coordinator.getAllRichSummaries();
 
         if (!rawFindings || rawFindings.length === 0) {
             Logger.info('DeepCurator', 'No findings available for curation.');

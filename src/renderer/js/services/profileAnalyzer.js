@@ -13,6 +13,7 @@ import { CacheRepository } from '../utils/cacheRepository.js';
 import { ContextBuilder } from './analyzer/ContextBuilder.js';
 import { FlowManager } from './analyzer/FlowManager.js';
 import { ReactionEngine } from './analyzer/ReactionEngine.js';
+import { memoryManager } from './memory/MemoryManager.js';
 
 export class ProfileAnalyzer {
     constructor(debugLogger = null) {
@@ -119,6 +120,15 @@ export class ProfileAnalyzer {
         };
 
         this.workerPool.onBatchComplete = (batch) => {
+            // Memory V3: Store findings in the decoupled MemoryManager
+            batch.forEach(finding => {
+                const node = memoryManager.storeFinding(finding);
+                // Attach the UID to the finding for later curation linking
+                finding.uid = node.uid;
+                // Fix: InsightsCurator expects 'file', AIWorkerPool provides 'path'
+                finding.file = finding.path;
+            });
+
             const stats = this.deepCurator.incorporateBatch(batch);
             const reflection = this.intelligenceSynthesizer.synthesizeBatch(stats);
             if (reflection.isSignificant) {

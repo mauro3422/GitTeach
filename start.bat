@@ -30,11 +30,24 @@ echo [1/2] Limpiando...
 taskkill /F /IM llama-server.exe /T 2>nul
 taskkill /F /IM electron.exe /T 2>nul
 echo.
-echo [2/2] Iniciando Brain...
+echo [2/4] Verificando modelos...
+if not exist "models" mkdir models
+if not exist "models\nomic-embed-text-v1.5.Q4_K_M.gguf" (
+    echo    - Descargando Nomic Embeddings ^(274MB^)...
+    curl -k --ssl-no-revoke -L -o "models\nomic-embed-text-v1.5.Q4_K_M.gguf" "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q4_K_M.gguf?download=true"
+)
+
+echo.
+echo [3/4] Iniciando Brain Stack...
+echo    - Chat Server (GPU: 8000)
 start "GitTeach Brain (LFM 2.5)" /MIN server\llama-server.exe --model "models\LFM2.5-1.2B-Instruct-Q8_0.gguf" --port 8000 --host 0.0.0.0 --n-gpu-layers 999 --ctx-size 81920 --parallel 4 --chat-template chatml
+
+echo    - Vector Server (CPU: 8001)
+start "GitTeach Vectors (Nomic)" /MIN server\llama-server.exe --model "models\nomic-embed-text-v1.5.Q4_K_M.gguf" --port 8001 --embedding -ngl 0 -c 2048 --parallel 1
+
 timeout /t 3 /nobreak >nul
 echo.
-echo [3/3] Iniciando App...
+echo [4/4] Iniciando App...
 npm start
 goto MENU
 
@@ -46,8 +59,20 @@ goto MENU
 
 :SERVER_ONLY
 echo.
-echo Iniciando Solo Server...
-start "GitTeach Brain (LFM 2.5)" server\llama-server.exe --model "models\LFM2.5-1.2B-Instruct-Q8_0.gguf" --port 8000 --host 0.0.0.0 --n-gpu-layers 999 --ctx-size 81920 --parallel 4 --chat-template chatml
+echo Iniciando Solo Server Stack (Chat + Vectors)...
+
+if not exist "models" mkdir models
+if not exist "models\nomic-embed-text-v1.5.Q4_K_M.gguf" (
+    echo    - Descargando Nomic Embeddings...
+    curl -k --ssl-no-revoke -L -o "models\nomic-embed-text-v1.5.Q4_K_M.gguf" "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q4_K_M.gguf?download=true"
+)
+
+start "GitTeach Brain (LFM 2.5)" /MIN server\llama-server.exe --model "models\LFM2.5-1.2B-Instruct-Q8_0.gguf" --port 8000 --host 0.0.0.0 --n-gpu-layers 999 --ctx-size 81920 --parallel 4 --chat-template chatml
+start "GitTeach Vectors (Nomic)" /MIN server\llama-server.exe --model "models\nomic-embed-text-v1.5.Q4_K_M.gguf" --port 8001 --embedding -ngl 0 -c 2048 --parallel 1
+
+echo.
+echo Servidores Iniciados. Presione una tecla para volver al menu...
+pause
 goto MENU
 
 :KILL_ALL

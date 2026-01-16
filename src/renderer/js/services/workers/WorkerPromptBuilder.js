@@ -18,18 +18,18 @@ export class WorkerPromptBuilder {
         return `You analyze code files for developer profiling.
 
 STEP 1: Extract the most important function, class, or variable name from the code.
-STEP 2: Based on that evidence, classify the domain.
+STEP 2: Based on that evidence, classify the domain and assign weights.
 
 OUTPUT FORMAT (exactly one line):
-[DOMAIN] Brief description | Evidence: <paste_actual_code_fragment>
+[DOMAIN] [CONFIDENCE:0.0-1.0] [COMPLEXITY:1-5] Description | Evidence: <paste_actual_code_fragment>
 
 DOMAIN OPTIONS: UI, Backend, Business, System, Game, Script, Data, Science, DevOps, Config
 
 IMPORTANT:
 - The evidence MUST be copied from the actual code shown below.
 - STRICT RULE: Do not classify as "Game" unless it mentions game engines (Unity, Godot), sprites, or gameplay loops. 
-- Administrative, Medical, or Management code is "Business" or "System", NOT "Game".
-- Science or Physics simulations are "Science", NOT "Game".
+- CONFIDENCE: How certain are you of this classification? (e.g. 0.9 if sure, 0.4 if guessing).
+- COMPLEXITY: 1 (basic) to 5 (extremely sophisticated/advanced pattern).
 - If code is empty or under 50 characters, output: SKIP
 - Never invent function names. Only cite what exists in the code.`;
     }
@@ -96,11 +96,14 @@ Tell me what it demonstrates about the developer:`;
         }
 
         // Try to extract structured data from plain text
-        // Format: [DOMAIN] Description | Evidence: fragment
-        const domainMatch = trimmed.match(/^\[([^\]]+)\]\s*(.*)$/s);
+        // Format: [DOMAIN] [CONF:0.XX] [COMP:X] Description | Evidence: fragment
+        const domainMatch = trimmed.match(/^\[([^\]]+)\]\s+\[CONF:([\d\.]+)\]\s+\[COMP:(\d+)\]\s+(.*)$/s);
+
         if (domainMatch) {
             const domain = domainMatch[1];
-            const rest = domainMatch[2];
+            const confidence = parseFloat(domainMatch[2]);
+            const complexity = parseInt(domainMatch[3]);
+            const rest = domainMatch[4];
             const evidenceMatch = rest.match(/\|\s*Evidence:\s*(.+)$/si);
             const description = evidenceMatch ? rest.replace(evidenceMatch[0], '').trim() : rest.trim();
             const evidence = evidenceMatch ? evidenceMatch[1].trim() : '';
@@ -110,7 +113,30 @@ Tell me what it demonstrates about the developer:`;
                 params: {
                     insight: description.substring(0, 100),
                     technical_strength: domain,
-                    impact: evidence || 'See analysis'
+                    impact: evidence || 'See analysis',
+                    confidence: isNaN(confidence) ? 0.7 : confidence,
+                    complexity: isNaN(complexity) ? 2 : complexity
+                }
+            };
+        }
+
+        // Fallback for old format or slightly broken format
+        const legacyMatch = trimmed.match(/^\[([^\]]+)\]\s*(.*)$/s);
+        if (legacyMatch) {
+            const domain = legacyMatch[1];
+            const rest = legacyMatch[2];
+            const evidenceMatch = rest.match(/\|\s*Evidence:\s*(.+)$/si);
+            const description = evidenceMatch ? rest.replace(evidenceMatch[0], '').trim() : rest.trim();
+            const evidence = evidenceMatch ? evidenceMatch[1].trim() : '';
+
+            return {
+                tool: 'analysis',
+                params: {
+                    insight: description.substring(0, 100),
+                    technical_strength: domain,
+                    impact: evidence || 'See analysis',
+                    confidence: 0.6,
+                    complexity: 2
                 }
             };
         }

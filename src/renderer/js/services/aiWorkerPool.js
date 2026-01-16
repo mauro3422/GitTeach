@@ -225,7 +225,8 @@ export class AIWorkerPool {
                 path: item.path,
                 summary: summary,
                 workerId: workerId,
-                classification: parsed?.params?.technical_strength || 'General'
+                classification: parsed?.params?.technical_strength || 'General',
+                params: parsed?.params || { insight: summary, technical_strength: 'General' }
             };
 
             this.results.push(resultItem);

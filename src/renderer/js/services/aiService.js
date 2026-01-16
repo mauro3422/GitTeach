@@ -110,6 +110,46 @@ export const AIService = {
         }
     },
 
+    async getEmbedding(text) {
+        let ENDPOINT;
+        if (typeof window !== 'undefined' && window.AI_CONFIG?.embeddingEndpoint) {
+            ENDPOINT = window.AI_CONFIG.embeddingEndpoint;
+        } else if (typeof window !== 'undefined' && window.AI_CONFIG?.endpoint) {
+            ENDPOINT = window.AI_CONFIG.endpoint.replace('/chat/completions', '/embeddings');
+        } else {
+            ENDPOINT = 'http://localhost:8000/v1/embeddings';
+        }
+
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout for embeddings
+
+            const payload = {
+                model: "lfm2.5", // Explicit model might be needed by some servers
+                input: text
+            };
+
+            const response = await fetch(ENDPOINT, {
+                signal: controller.signal,
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            clearTimeout(timeoutId);
+
+            if (!response.ok) throw new Error(`Status: ${response.status}`);
+
+            const data = await response.json();
+            if (data && data.data && data.data.length > 0) {
+                return data.data[0].embedding;
+            }
+            return null;
+        } catch (error) {
+            console.warn("[AIService] ⚠️ Embedding Error:", error.message);
+            return null; // Graceful fallback
+        }
+    },
+
     updateHealth(isOnline) {
         if (typeof window !== 'undefined') window.AI_OFFLINE = !isOnline;
         if (typeof document !== 'undefined') {

@@ -18,6 +18,9 @@ GitTeach es una aplicación de escritorio (Electron) diseñada para ayudar a los
 *   **Asistente de IA (Cerebro Local):**
     *   Motor: **LFM 2.5 (1.2B Parameters)** vía `llama.cpp`.
     *   **Arquitectura ReAct (Ciclo Cerrado):** La IA planifica, ejecuta herramientas reales y analiza los resultados antes de responder.
+    *   **Arquitectura Dual-Server**:
+        *   **Chat (GPU):** LFM 2.5 (1.2B) para razonamiento fluido.
+        *   **Vectores (CPU):** Nomic Embed Text v1.5 para memoria semántica de alta fidelidad.
     *   **Memoria Persistente y Auditable:** Sistema multi-fichero (`JSONL`) que recuerda tu identidad técnica entre sesiones y permite auditoría forense en tiempo real.
     *   **Analista de Código:** Capacidad para leer y analizar tus repositorios públicos.
 *   **Privacidad Total:** Todo corre en tu máquina (`localhost`), tus tokens y datos nunca salen a servidores de terceros (salvo GitHub API directa).
@@ -43,9 +46,10 @@ GitTeach es una aplicación de escritorio (Electron) diseñada para ayudar a los
 
 3.  **Ejecución:**
     ```bash
-    npm start
+    ```bash
+    start.bat
     ```
-    *Esto iniciará la App y el Servidor de IA automáticamente.*
+    *Usa el menú interactivo para iniciar la pila completa (App + Dual AI Servers) o gestionar los procesos individualmente.*
 
 ## 🤖 Comandos de IA
 

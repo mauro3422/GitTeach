@@ -70,8 +70,9 @@ export class InsightsCurator {
                 }
             }
 
-            // Reference Tracking
+            // Reference Tracking (Enhanced with UIDs for V3 Graph)
             const sourceRef = {
+                uid: finding.uid || finding.params?.uid || null,
                 repo: finding.repo,
                 file: finding.file,
                 summary: insightTextRaw
@@ -122,7 +123,8 @@ export class InsightsCurator {
         return validInsights.map(i => {
             const anomalyPrefix = i.params.insight.includes('INTEGRITY ANOMALY') ? '[⚠️ INTEGRITY ANOMALY] ' : '';
             const weightPrefix = i.weight > 1 ? `[x${i.weight} CONFIRMED] ` : '';
-            return `[${i.repo}/${i.file}]: ${weightPrefix}${anomalyPrefix}${i.params.insight} | Evidence: ${i.params.evidence || 'N/A'} (Strength: ${i.params.technical_strength})`;
+            const uidTag = i.uid ? `[ID:${i.uid}] ` : '';
+            return `${uidTag}[${i.repo}/${i.file}]: ${weightPrefix}${anomalyPrefix}${i.params.insight} | Evidence: ${i.params.evidence || 'N/A'} (Strength: ${i.params.technical_strength})`;
         }).join('\n');
     }
 }

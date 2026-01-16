@@ -12,7 +12,7 @@ import { MOCK_PERSISTENCE_PATH } from './TracerContext.js';
 export class PersistenceMock {
     static createAPI() {
         return {
-            setWorkerAudit: async (workerId, finding) => {
+            appendWorkerLog: async (workerId, finding) => {
                 try {
                     let name = workerId;
                     if (typeof workerId === 'string' && (workerId.toUpperCase().includes('BACK') || workerId.toUpperCase().includes('ROOM'))) {
@@ -26,6 +26,17 @@ export class PersistenceMock {
             },
             getWorkerAudit: async () => [],
             getTechnicalIdentity: async (u) => {
+                try {
+                    const p = path.join(MOCK_PERSISTENCE_PATH, 'technical_identity.json');
+                    if (fs.existsSync(p)) {
+                        const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+                        return data[u]?.identity || null;
+                    }
+                } catch (e) { }
+                return null;
+            },
+            getDeveloperDNA: async (u) => {
+                // Alias for technical identity to support legacy tools
                 try {
                     const p = path.join(MOCK_PERSISTENCE_PATH, 'technical_identity.json');
                     if (fs.existsSync(p)) {
@@ -90,7 +101,7 @@ export class PersistenceMock {
             needsUpdate: async () => true,
             getRepoTreeSha: async () => null,
             setRepoTreeSha: async () => true,
-            getCacheStats: async () => ({ size: 0, files: 0 })
+            getStats: async () => ({ repoCount: 0, fileCount: 0, auditEntries: 0 })
         };
     }
 }
