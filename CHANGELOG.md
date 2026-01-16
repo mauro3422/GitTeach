@@ -11,6 +11,12 @@
     - `scripts/verify_rag_flow.js`: Test de flujo completo (Real AI + Memory).
     - `scripts/verify_reasoning.js`: Test unitario aislado del protocolo de pensamiento (Zero dependencies).
 
+### ⚖️ Legal & Licensing
+- **Licencia AGPL-3.0**: Adopción de la licencia GNU Affero General Public License v3.0 para garantizar la libertad del software.
+- **Copyright Protection**: Headers de copyright explícitos en el núcleo del código.
+- **CLA**: Contributors License Agreement para proteger intelectualmente el proyecto y las contribuciones futuras.
+
+
 ## [2.3.0-Vector] - 2026-01-15
 ### 🧠 Vector Identity & RAG Architecture
 - **Memory Agent Vectorial**: Implementación de `MemoryAgent.js` con búsqueda semántica basada en similitud coseno local.

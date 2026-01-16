@@ -1,3 +1,15 @@
+/**
+ * GitTeach - AI-Powered GitHub Profile Generator
+ * Copyright (C) 2026 Mauro (mauro3422)
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * See LICENSE file for details.
+ */
+
 // src/main/index.js
 // Entry Point: Clean orchestrator for the Electron main process.
 // This file ONLY handles app lifecycle and delegates IPC/Services to dedicated modules.

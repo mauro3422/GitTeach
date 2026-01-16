@@ -1,4 +1,16 @@
 /**
+ * GitTeach - AI-Powered GitHub Profile Generator
+ * Copyright (C) 2026 Mauro (mauro3422)
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * See LICENSE file for details.
+ */
+
+/**
  * AIService - Centralizes AI intelligence and intent processing (Facade).
  * Now delegating to SystemEventHandler, ChatPromptBuilder, IntentRouter, and ParameterConstructor.
  */
@@ -33,11 +45,12 @@ export const AIService = {
                 return await SystemEventHandler.handle(input, username, this.currentSessionContext, this.callAI.bind(this));
             }
 
-            // 2. Intent Routing
-            const intent = await IntentRouter.route(input, this.currentSessionContext, this.callAI.bind(this));
+            // 2. Intent Routing (Smart RAG)
+            const routerResult = await IntentRouter.route(input, this.currentSessionContext, this.callAI.bind(this));
+            const { intent, searchTerms, memorySource, thought } = routerResult;
 
             // 3. Chat Flow
-            if (intent === 'chat' || intent.includes('chat')) {
+            if (intent === 'chat') {
                 const response = await this.callAI(ChatPromptBuilder.build(username, this.currentSessionContext), input, 0.2);
                 return { action: "chat", message: response };
             }
@@ -46,7 +59,18 @@ export const AIService = {
             const tool = ToolRegistry.getById(intent);
             if (!tool) return { action: "chat", message: `Command not recognized: ${intent}` };
 
-            const params = await ParameterConstructor.construct(input, tool, this.callAI.bind(this));
+            // Build params with Smart RAG fields
+            let params = await ParameterConstructor.construct(input, tool, this.callAI.bind(this));
+
+            // Inject Smart RAG params for query_memory tool
+            if (intent === 'query_memory') {
+                params = {
+                    ...params,
+                    query: params.query || input,
+                    searchTerms: searchTerms.length > 0 ? searchTerms : [input],
+                    memorySource: memorySource || 'curated'
+                };
+            }
 
             if (ChatComponent) ChatComponent.showProactiveStep(`Investigating: **${tool.name}**...`);
 
@@ -66,7 +90,7 @@ export const AIService = {
 
             // 5. Respondent Flow (Closed Loop)
             let responsePrompt;
-            if (tool.name === 'query_memory') {
+            if (tool.id === 'query_memory') {
                 // RAG Special Case: Use the Chat Persona to answer using the new context
                 responsePrompt = ChatPromptBuilder.build(username, this.currentSessionContext);
             } else {

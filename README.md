@@ -61,4 +61,16 @@ Habla con el asistente en el chat lateral:
 *   *"Genera una serpiente de contribuciones"*
 
 ---
+## 📄 License
+
+GitTeach is licensed under the **GNU Affero General Public License v3.0**.
+
+This means:
+- ✅ You can use, modify, and distribute this software freely
+- ✅ Commercial use is allowed
+- ⚠️ If you run a modified version as a service (SaaS), you MUST release your source code
+- ⚠️ Derivative works must use the same license
+
+See [LICENSE](LICENSE) for full details.
+
 *Desarrollado con ❤️ por mauro3422*
