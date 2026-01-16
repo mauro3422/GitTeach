@@ -245,6 +245,33 @@ class CacheRepositoryService {
         return false;
     }
 
+    /**
+     * Persists the consolidated blueprint for a specific repo
+     */
+    async persistRepoBlueprint(repoName, blueprint) {
+        if (!this.isAvailable()) return false;
+        try {
+            if (window.cacheAPI.persistRepoBlueprint) {
+                await window.cacheAPI.persistRepoBlueprint(repoName, blueprint);
+                return true;
+            }
+        } catch (e) { return false; }
+        return false;
+    }
+
+    /**
+     * Gets all persisted repo blueprints for holistic analysis
+     */
+    async getAllRepoBlueprints() {
+        if (!this.isAvailable()) return [];
+        try {
+            if (window.cacheAPI.getAllRepoBlueprints) {
+                return await window.cacheAPI.getAllRepoBlueprints();
+            }
+        } catch (e) { return []; }
+        return [];
+    }
+
     // ==========================================
     // CONVENIENCE METHODS
     // ==========================================

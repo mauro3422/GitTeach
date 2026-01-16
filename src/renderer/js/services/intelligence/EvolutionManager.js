@@ -39,6 +39,7 @@ export class EvolutionManager {
 
             return {
                 ...parsed,
+                thought: newDNA.thought, // Preserve high-level reasoning
                 traits: newDNA.traits,
                 anomalies: newDNA.anomalies,
                 code_health: newDNA.code_health, // Preserve Integrity Scores
@@ -54,6 +55,7 @@ export class EvolutionManager {
     static getInitialProfile(newDNA) {
         return {
             title: `Technical Profile (Initial)`,
+            thought: newDNA.thought, // Preserve high-level reasoning
             bio: newDNA.bio,
             core_languages: [],
             domain: "General Software Development",

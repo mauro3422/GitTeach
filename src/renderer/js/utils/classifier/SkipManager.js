@@ -34,14 +34,44 @@ export class SkipManager {
             return { skip: true, reason: 'Empty or near-empty file' };
         }
 
-        // 6. README validation
-        if (fileName === 'readme.md' || fileName === 'readme.txt') {
-            const isPlaceholder = (
-                trimmed.length < 100 ||
-                /^#\s*\w+\s*$/m.test(trimmed) ||
-                /todo|placeholder|coming soon|wip/i.test(trimmed)
+        // 6. README/Text/Documentation validation
+        const docKeywords = /design|guide|architecture|notes|plan|workflow|manual|specification|requirements|roadmap/i;
+        const lowFileName = fileName.toLowerCase();
+
+        if (ext === '.md' || ext === '.txt') {
+            // Essential documentation should NOT be skipped if it has content
+            const isEssentialDoc = (
+                lowFileName.includes('readme') ||
+                lowFileName.includes('design') ||
+                lowFileName.includes('architecture') ||
+                lowFileName.includes('changelog') ||
+                lowFileName.includes('roadmap')
             );
-            if (isPlaceholder) return { skip: true, reason: 'Placeholder README' };
+
+            if (isEssentialDoc && trimmed.length > 200) {
+                return { skip: false }; // Let it through for semantic analysis
+            }
+
+            const isPlaceholderOrReportOrNoise = (
+                trimmed.length < 150 ||
+                /^#\s*\w+\s*$/m.test(trimmed) ||
+                /todo|placeholder|coming soon|wip/i.test(trimmed) ||
+                /audit|report|summary|verification/i.test(fileName) || // Skip session logs/reports
+                filePath.toLowerCase().includes('/docs/') ||
+                filePath.toLowerCase().includes('/design/')
+            );
+
+            if (isPlaceholderOrReportOrNoise) return { skip: true, reason: 'Low-value documentation/Noise' };
+        }
+
+        // 6.5 JSON/Data Architecture validation
+        if (ext === '.json' || ext === '.yaml' || ext === '.yml') {
+            const isNontrivialData = trimmed.length > 500;
+            const isConfig = /package(-lock)?\.json|tsconfig\.json|composer\.json/i.test(fileName);
+
+            if (isNontrivialData && !isConfig) {
+                return { skip: false }; // Let it through for Information Architecture analysis
+            }
         }
 
         // 7. Auto-generated check

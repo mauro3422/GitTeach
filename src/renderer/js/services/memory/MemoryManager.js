@@ -32,8 +32,8 @@ export class MemoryManager {
             insight: finding.insight || finding.summary,
             evidence: finding.impact || finding.evidence,
             classification: finding.technical_strength || finding.classification,
-            confidence: finding.confidence || 0.7,
-            complexity: finding.complexity || 2,
+            confidence: finding.params?.confidence || finding.confidence || 0.7,
+            complexity: finding.params?.complexity || finding.complexity || 2,
             metadata: finding.metadata || {} // NEW: Captures SOLID, modularity, etc.
         });
 
@@ -79,7 +79,10 @@ export class MemoryManager {
         if (!this.repoIndexes.has(node.repo)) {
             this.repoIndexes.set(node.repo, []);
         }
-        this.repoIndexes.get(node.repo).push(node.uid);
+        const repoList = this.repoIndexes.get(node.repo);
+        if (!repoList.includes(node.uid)) {
+            repoList.push(node.uid);
+        }
 
         Logger.debug('MemoryManager', `Node stored: ${node.uid} [${node.classification}] in ${node.repo}`);
 

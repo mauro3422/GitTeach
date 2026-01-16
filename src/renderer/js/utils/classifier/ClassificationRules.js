@@ -13,7 +13,8 @@ export const BINARY_EXTENSIONS = new Set([
 
 export const NOISE_EXTENSIONS = new Set([
     '.log', '.lock', '.gitignore', '.gitattributes', '.editorconfig',
-    '.npmignore', '.dockerignore', '.prettierignore', '.eslintignore'
+    '.npmignore', '.dockerignore', '.prettierignore', '.eslintignore',
+    '.txt', '.env', '.jsonl'
 ]);
 
 export const NOISE_FILENAMES = new Set([
@@ -58,6 +59,7 @@ export const DOMAIN_PATTERNS = [
     { pattern: /hospital|patient|doctor|medicina|obra\s*social|ticket|billing|invoice|payroll|inventory/i, domain: 'Business/Management' },
     { pattern: /client|customer|member|appointment|reservation|booking/i, domain: 'Enterprise/Systems' },
 
-    // Configuration
-    { pattern: /^\s*\{[\s\S]*"name"\s*:[\s\S]*"version"\s*:/i, domain: 'Configuration', skipWorthy: true }
+    // Configuration & Meta
+    { pattern: /^\s*\{[\s\S]*"name"\s*:[\s\S]*"version"\s*:/i, domain: 'Configuration/Boilerplate', skipWorthy: true },
+    { pattern: /antigravity_cache_summary|session_report|AI_LOG/i, domain: 'Meta/Session', skipWorthy: true }
 ];

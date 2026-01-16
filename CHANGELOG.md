@@ -1,4 +1,32 @@
 # Changelog
+
+## [2.9.0-Streaming] - 2026-01-16
+### 🌊 True Streaming & Optimization
+- **True Streaming Architecture**: Implemented `onRepoComplete` event bridge between `Coordinator` and `DeepCurator` for instant findings processing.
+- **Partial/Threshold Streaming**: Added logic to trigger updates every 3 files (`onRepoBatchReady`), enabling "Living Identity".
+- **Critical Mass Gatekeeper**: Optimization that holds global synthesis until >2 repos are analyzed, saving massive compute resources.
+- **Holistic Metrics**: `VersatilityIndex`, `ConsistencyScore`, and `EvolutionRate` now calculate in real-time.
+- **Seniority Signals**: Implementation of Logic vs Knowledge tracking in `MetricRefinery`.
+
+## [2.8.0-SecurityAudit] - 2026-01-16
+### 🛡️ **Sistema de Seguridad Integral**
+- **Firewall Service**: Monitoreo completo de todas las comunicaciones HTTP/HTTPS con logging detallado.
+- **Process Isolation**: Separación estricta Main ↔ Renderer con validación IPC.
+- **Token Security**: Almacenamiento seguro de OAuth tokens en userData directory.
+- **Network Monitoring**: Control de dominios permitidos y detección de data leakage.
+
+### 📚 **Documentación Arquitectónica Completa**
+- **Nueva Estructura**: Carpeta `docs/architecture/` con documentación técnica exhaustiva.
+- **Diagramas Mermaid**: Arquitectura visual completa con secuencias y flujos de datos.
+- **README Actualizado**: Documentación completa de todas las features no documentadas.
+- **Manuales Técnicos**: Guías detalladas para cada módulo del sistema.
+
+### 🔍 **Sistema de Auditoría Forense**
+- **Tracer Engine v2.1**: Auditoría completa con metabolic deltas y raw traffic logging.
+- **Integrity Validation**: Detección automática de anomalías en datos generados.
+- **Multi-Tier Tracing**: Análisis de 7 capas diferentes del sistema.
+- **Real-Time Monitoring**: Logs JSONL streaming para workers y procesos.
+
 ## [2.7.0-RepoCentric] - 2026-01-16
 ### 📦 Repo-Centric Data Refactor
 - **Persistent Repo Structure**: Nueva jerarquía de almacenamiento en `mock_persistence/repos/[RepoName]`.

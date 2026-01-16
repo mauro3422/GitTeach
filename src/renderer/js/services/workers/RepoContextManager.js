@@ -100,6 +100,7 @@ Preserve architectural patterns, key file roles, and technical evidence.`;
         if (this.repoContexts.has(repoName)) {
             const ctx = this.repoContexts.get(repoName);
             ctx.recentFindings = [];
+            ctx.goldenKnowledge = ''; // DEEP PURGE: Prevent domain leakage
         }
     }
 

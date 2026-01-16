@@ -106,4 +106,18 @@ export class InventoryManager {
                 : 0
         };
     }
+
+    /**
+     * Checks if a specific repository has finished processing all files
+     */
+    isRepoComplete(repoName) {
+        const repo = this.data.repos.find(r => r.name === repoName);
+        if (!repo) return false;
+
+        // A repo is complete if it has files and NONE are pending or processing
+        const hasFiles = repo.files.length > 0;
+        const allDone = repo.files.every(f => f.status === 'completed' || f.status === 'failed' || f.status === 'skipped');
+
+        return hasFiles && allDone;
+    }
 }

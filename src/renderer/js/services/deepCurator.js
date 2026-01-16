@@ -21,7 +21,10 @@ import { ThematicMapper } from './curator/ThematicMapper.js';
 import { InsightsCurator } from './curator/InsightsCurator.js';
 import { DNASynthesizer } from './curator/DNASynthesizer.js';
 import { MetricRefinery } from './curator/MetricRefinery.js';
+import { RepoBlueprintSynthesizer } from './curator/RepoBlueprintSynthesizer.js';
+import { HolisticSynthesizer } from './curator/HolisticSynthesizer.js';
 import { AISlotPriorities } from './ai/AISlotManager.js';
+import { CacheRepository } from '../utils/cacheRepository.js';
 
 export class DeepCurator {
     constructor(debugLogger = null) {
@@ -31,6 +34,9 @@ export class DeepCurator {
         this.thematicMapper = new ThematicMapper();
         this.insightsCurator = new InsightsCurator();
         this.dnaSynthesizer = new DNASynthesizer();
+        this.dnaSynthesizer = new DNASynthesizer();
+        this.blueprintSynthesizer = new RepoBlueprintSynthesizer();
+        this.holisticSynthesizer = new HolisticSynthesizer();
 
         // Internal state for streaming accumulation
         this.accumulatedFindings = [];
@@ -99,6 +105,10 @@ export class DeepCurator {
             Logger.warn('DeepCurator', `Detected ${anomalies.length} integrity anomalies.`);
         }
 
+
+
+
+
         // Step 3: Format insights for AI consumption
         const validInsightsText = this.insightsCurator.formatInsightsAsText(validInsights);
 
@@ -111,6 +121,41 @@ export class DeepCurator {
         // NEW: Pass healthReport to mapper so it can be used in prompts
         const mapperResults = await this.thematicMapper.executeMapping(username, validInsightsText, healthReport);
         const thematicAnalyses = this.thematicMapper.formatForSynthesis(mapperResults);
+
+        // EXTRA STEP: Repository Blueprints (Repo-Centric Intelligence)
+        // Group findings by repo and generate individual projections
+        // NOW with INCREMENTAL UPDATES: We pass the global context so we can refine identity on the fly.
+        const newBlueprints = await this._generateRepoBlueprints(username, rawFindings, {
+            thematicAnalyses,
+            stats,
+            traceability_map,
+            rawCount: rawFindings.length,
+            curatedCount: validInsights.length,
+            healthReport
+        });
+
+        // EXTRA STEP: Holistic Synthesis (Meta-Layer)
+        // 1. Fetch History
+        const historicalBlueprints = await CacheRepository.getAllRepoBlueprints() || [];
+
+        // 2. Merge (New overrides Old)
+        const blueprintMap = new Map();
+        [...historicalBlueprints, ...newBlueprints].forEach(bp => {
+            if (bp && bp.repoName) {
+                blueprintMap.set(bp.repoName, bp);
+            }
+        });
+        const combinedBlueprints = Array.from(blueprintMap.values());
+
+        // 3. Calculate Global Metrics (Versatility, Consistency, Evolution)
+        const holisticMetrics = this.holisticSynthesizer.synthesize(combinedBlueprints);
+        Logger.reducer(`Holistic Metrics: Versatility=${holisticMetrics.versatility_index}, Evolution=${holisticMetrics.evolution_rate}`);
+
+        // Final consolidation (just to be sure everything is synced)
+        await this._refineGlobalIdentity(username, {
+            thematicAnalyses, stats, traceability_map,
+            rawCount: rawFindings.length, curatedCount: validInsights.length, healthReport
+        });
 
         // Debug logging
         DebugLogger.logCurator('mapper_results', {
@@ -132,7 +177,11 @@ export class DeepCurator {
             traceability_map,
             rawFindings.length,
             validInsights.length,
-            healthReport // NEW: Pass healthReport for deterministic scoring
+            traceability_map,
+            rawFindings.length,
+            validInsights.length,
+            healthReport, // NEW: Pass healthReport for deterministic scoring
+            holisticMetrics // NEW: Pass Holistic Metrics for global narrative
         );
 
         // Debug logging
@@ -235,6 +284,131 @@ export class DeepCurator {
     }
 
     /**
+     * Internal: Generates and persists a "Technical Projection" for each repo
+     * @private
+     * @returns {Promise<Array>} List of generated blueprints
+     */
+    async _generateRepoBlueprints(username, allFindings, globalContext = null) {
+        Logger.info('DeepCurator', 'Synthesizing individual Repository Blueprints...');
+
+        const reposMap = new Map();
+        allFindings.forEach(f => {
+            if (!reposMap.has(f.repo)) reposMap.set(f.repo, []);
+            reposMap.get(f.repo).push(f);
+        });
+
+        const generatedBlueprints = [];
+
+        const blueprintPromises = Array.from(reposMap.entries()).map(async ([repoName, findings]) => {
+            // 1. Curate findings for THIS repo (local deduplication)
+            const curation = this.insightsCurator.curate(findings);
+
+            // 2. Synthesize Blueprint
+            const blueprint = await this.blueprintSynthesizer.synthesize(repoName, curation.validInsights);
+
+            // 3. Persist
+            if (blueprint) {
+                generatedBlueprints.push(blueprint);
+                Logger.reducer(`[${repoName}] Blueprint generated. Complexity: ${blueprint.metrics.complexity}`);
+                await CacheRepository.persistRepoBlueprint(repoName, blueprint);
+
+                // STREAMING HOOK: Update Global Identity immediately!
+                if (globalContext) {
+                    await this._refineGlobalIdentity(username, globalContext);
+                }
+            }
+        });
+
+        await Promise.all(blueprintPromises);
+        return generatedBlueprints;
+    }
+
+    /**
+     * Internal: Re-calculates and persists the Global Identity based on current blueprints
+     * @private
+     */
+    async _refineGlobalIdentity(username, ctx) {
+        try {
+            // 1. Fetch History + New State
+            const allBlueprints = await CacheRepository.getAllRepoBlueprints() || [];
+            if (allBlueprints.length === 0) return;
+
+            // 2. Calculate Holistic Metrics
+            const holisticMetrics = this.holisticSynthesizer.synthesize(allBlueprints);
+
+            // 3. Synthesize Updated Global DNA
+            const { dna } = await this.dnaSynthesizer.synthesize(
+                username,
+                ctx.thematicAnalyses,
+                ctx.stats,
+                ctx.traceability_map,
+                ctx.rawCount,
+                ctx.curatedCount,
+                ctx.healthReport,
+                holisticMetrics
+            );
+
+            // 4. Persist immediately (Streaming Update)
+            if (dna) {
+                await CacheRepository.setTechnicalIdentity(username, dna);
+                Logger.reducer(`[STREAMING] Global Identity updated. Versatility: ${holisticMetrics.versatility_index} | Blueprints: ${allBlueprints.length}`);
+            }
+        } catch (e) {
+            Logger.error('DeepCurator', `Streaming update failed: ${e.message}`);
+        }
+    }
+
+    /**
+     * STREAMING API: Process a single repo immediately after scanning
+     */
+    async processStreamingRepo(username, repoName, coordinator, isPartial = false) {
+        // 1. Fetch findings (Prefer Coordinator as it has real-time state, bypassing WorkerPool buffer)
+        let repoFindings = [];
+        if (coordinator) {
+            repoFindings = coordinator.getAllRichSummaries().filter(f => f.repo === repoName);
+        }
+
+        // Fallback to internal state
+        if (repoFindings.length === 0) {
+            repoFindings = this.accumulatedFindings.filter(f => f.repo === repoName);
+        }
+
+        if (repoFindings.length === 0) {
+            Logger.warn('DeepCurator', `[STREAMING] Skipped ${repoName} (No findings available yet)`);
+            return;
+        }
+
+        Logger.info('DeepCurator', `[STREAMING] Processing finished repo: ${repoName} (${repoFindings.length} findings)`);
+
+        try {
+            // 2. Curate & Synthesize Blueprint (Local)
+            const curation = this.insightsCurator.curate(repoFindings);
+            const blueprint = await this.blueprintSynthesizer.synthesize(repoName, curation.validInsights);
+
+            if (blueprint) {
+                Logger.reducer(`[${repoName}] Blueprint generated (Streaming). Complexity: ${blueprint.metrics.complexity}`);
+                await CacheRepository.persistRepoBlueprint(repoName, blueprint);
+
+                // GATEKEEPER IMPLEMENTATION (Optimization)
+                // Only refine Global Identity if "Critical Mass" is reached
+                // Rule: At least 2 repos with > 2 analyzed files
+                const allBlueprints = await CacheRepository.getAllRepoBlueprints();
+                const decentRepos = allBlueprints.filter(bp => bp.volume && bp.volume.analyzedFiles > 2).length;
+
+                if (decentRepos < 2) {
+                    Logger.info('DeepCurator', `[STREAMING] Global Synthesis Skipped (Gatekeeper: ${decentRepos}/2 decent repos)`);
+                } else {
+                    // 3. Update Global Identity (Incremental)
+                    const ctx = this._buildStreamingContext();
+                    await this._refineGlobalIdentity(username, ctx);
+                }
+            }
+        } catch (e) {
+            Logger.error('DeepCurator', `Streaming process failed for ${repoName}: ${e.message}`);
+        }
+    }
+
+    /**
      * Generates a dense technical summary using local AI.
      */
     async generateHighFidelitySummary(repo, path, usageSnippet, priority = AISlotPriorities.BACKGROUND) {
@@ -249,5 +423,32 @@ export class DeepCurator {
         } catch (e) {
             return `Analysis failed: ${e.message}`;
         }
+    }
+
+    /**
+     * Helper to build a partial context for streaming updates
+     */
+    _buildStreamingContext() {
+        const rawFindings = this.accumulatedFindings;
+        const curationResult = this.curateInsights(rawFindings);
+
+        // Use placeholder thematic analysis for speed (Wait for Phase 2 for deep analysis)
+        const thematicAnalyses = [
+            "Analysis in progress (Streaming)...",
+            "Analysis in progress (Streaming)...",
+            "Analysis in progress (Streaming)..."
+        ];
+
+        // Light-weight health report
+        const healthReport = MetricRefinery.refine(curationResult.validInsights, 0); // Total files unknown in streaming
+
+        return {
+            thematicAnalyses,
+            stats: curationResult.stats,
+            traceability_map: curationResult.traceability_map,
+            rawCount: rawFindings.length,
+            curatedCount: curationResult.validInsights.length,
+            healthReport
+        };
     }
 }

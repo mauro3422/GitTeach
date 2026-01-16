@@ -2,29 +2,67 @@
 
 **Plataforma de Gestión de Perfiles y Aprendizaje de Git (Potenciada por IA Local)**
 
-GitTeach es una aplicación de escritorio (Electron) diseñada para ayudar a los desarrolladores a gestionar sus perfiles de GitHub y mejorar sus habilidades mediante un asistente de IA local.
+GitTeach es una aplicación de escritorio (Electron) diseñada para ayudar a los desarrolladores a gestionar sus perfiles de GitHub y mejorar sus habilidades mediante un asistente de IA local con arquitectura Thinking RAG.
 
-- Scripts de verificación (`verify_agent_flow.py`, `live_analysis_test.py`) incluidos para desarrollo.
-- **[MODULAR]** Núcleo de IA rediseñado: `AIWorkerPool`, `DeepCurator`, `AIService` y `ProfileAnalyzer` ahora operan mediante submódulos especializados para máxima mantenibilidad.
-- **[PRO]** `scripts/tools/tracer/`: Nuevo **Tracer Engine v2.1 Forensic**. La herramienta definitiva de validación *headless* con auditoría de integridad, rastreo de tráfico crudo y deltas metabólicos.
+## 🎯 **Novedades v2.4.0 (Reasoning)**
+- **Thinking RAG System**: IA que "piensa" antes de actuar con Chain of Thought
+- **Sistema de Herramientas**: Tools como `query_memory`, `read_file`, `analyze_code`
+- **Memoria Jerárquica**: ADN Técnico, Identidad Técnica, y Memoria Conversacional
+- **Pipeline de Análisis Avanzado**: Scanning → Processing → Curation → Synthesis
+- **True Streaming**: Actualización de perfil en tiempo real (Procesamiento Parcial y Threshold).
+- **Arquitectura SOLID**: Refactor completo para máxima mantenibilidad
+- **Sistema de Seguridad**: Firewall integrado y aislamiento de procesos
+- **Tracer Engine v2.1**: Auditoría forense completa del sistema
+
+## 📚 **Documentación Técnica**
+- **[Arquitectura Completa](docs/architecture/)**: Diagramas y documentación detallada
+- **[Manual de Tracing](docs/TRACER_MANUAL.md)**: Guía del sistema de auditoría
+- **[Auditoría Técnica](docs/audit_report.md)**: Reporte de calidad del código
 
 ## ✨ Características Principales
 
-*   **Autenticación con GitHub:** Login seguro y gestión de sesión persistente.
-*   **Editor de README Inteligente:**
-    *   Generación de banners animados (Welcome Headers).
-    *   Estadísticas de GitHub (GitHub Readme Stats).
-    *   Gráficos de lenguajes y contribuciones (Snake Game).
-*   **Asistente de IA (Cerebro Local):**
-    *   Motor: **LFM 2.5 (1.2B Parameters)** vía `llama.cpp`.
-    *   **Arquitectura Cortex (Brain-Voice Dance):** Separación de responsabilidades entre el razonamiento estratégico (Cortex) y la vocalización humana (Vocalizer) para una comunicación libre de ruido técnico.
-    *   **Arquitectura Dual-Server**:
-        *   **Chat (GPU):** LFM 2.5 (1.2B) para razonamiento fluido.
-        *   **Vectores (CPU):** Nomic Embed Text v1.5 para memoria semántica de alta fidelidad.
-    *   **Memoria Jerárquica:** Sistema que distingue entre **Hallazgos** (Vectores), **ADN Técnico** (Curación Interna) e **Identidad de Usuario** (Perfil para el chat).
-    *   **Analista de Código:** Capacidad para leer y analizar tus repositorios públicos con introspección profunda.
-    *   **Offline Cache ("Zero-API"):** Sistema de caché inteligente (`aiSnippet`) que almacena localmente el contexto completo de análisis. Permite re-analizar repositorios infinitamente sin consumir cuota de API ni depender de internet una vez descargados.
-*   **Privacidad Total:** Todo corre en tu máquina (`localhost`), tus tokens y datos nunca salen a servidores de terceros (salvo GitHub API directa).
+### 🔐 **Seguridad y Autenticación**
+*   **Autenticación con GitHub:** Login OAuth seguro con gestión de sesión persistente.
+*   **Firewall Integrado:** Monitoreo y control de todas las comunicaciones de red.
+*   **Aislamiento de Procesos:** Main Process y Renderer Process completamente separados.
+*   **Token Security:** Almacenamiento seguro de credenciales OAuth.
+
+### 📝 **Editor de README Inteligente**
+*   **Generación de banners animados (Welcome Headers).**
+*   **Estadísticas de GitHub (GitHub Readme Stats).**
+*   **Gráficos de lenguajes y contribuciones (Snake Game).**
+*   **Templates personalizables y previews en tiempo real.**
+
+### 🧠 **Asistente de IA Avanzado (Thinking RAG System)**
+*   **Motor:** **LFM 2.5 (1.2B Parameters)** vía `llama.cpp`.
+*   **Chain of Thought:** IA que razona antes de ejecutar acciones.
+*   **Sistema de Herramientas:** Tools inteligentes (`query_memory`, `read_file`, `analyze_code`, etc.).
+*   **Arquitectura Cortex:** Separación entre razonamiento estratégico y comunicación natural.
+*   **Arquitectura Dual-Server:**
+    *   **Chat (GPU):** LFM 2.5 para respuestas conversacionales.
+    *   **Vectores (CPU):** Nomic Embed Text v1.5 para memoria semántica.
+*   **Memoria Jerárquica:**
+    *   **Hallazgos:** Vectores semánticos de código analizado.
+    *   **ADN Técnico:** Curación profunda de patrones de desarrollo.
+    *   **Identidad Técnica:** Perfil cognitivo del desarrollador.
+*   **Analista de Código Avanzado:**
+    *   Scanning inteligente de hasta 500 repositorios.
+    *   Análisis paralelo con 3 workers GPU concurrentes.
+    *   Detección automática de tecnologías y patrones.
+*   **Cache Offline Inteligente:** Sistema `aiSnippet` para análisis sin internet.
+
+### 🔍 **Sistema de Análisis de Perfil**
+*   **Pipeline de 4 Fases:** Scanning → Processing → Curation → Synthesis.
+*   **Análisis de Forks:** Detección automática de contribuciones en repositorios forked.
+*   **Filtrado Anti-Noise:** Eliminación inteligente de archivos irrelevantes.
+*   **Curación de Insights:** Deduplicación y weighting por importancia.
+*   **Síntesis de ADN Técnico:** Creación de perfiles técnicos objetivos.
+
+### 🛡️ **Privacidad y Rendimiento**
+*   **Privacidad Total:** Todo procesa localmente, solo API calls directos a GitHub.
+*   **Zero External Dependencies:** No requiere servicios de terceros para funcionar.
+*   **Rendimiento Optimizado:** View Transitions nativas, lazy loading, virtual scrolling.
+*   **Health Monitoring:** Monitoreo continuo del estado de los servidores IA.
 
 ## 🛠️ Tecnologías
 
@@ -52,14 +90,63 @@ GitTeach es una aplicación de escritorio (Electron) diseñada para ayudar a los
     ```
     *Usa el menú interactivo para iniciar la pila completa (App + Dual AI Servers) o gestionar los procesos individualmente.*
 
+## 🧪 **Testing y Desarrollo**
+
+### Scripts de Verificación
+```bash
+# Verificar flujo completo de análisis
+node scripts/verify_agent_flow.py
+
+# Tests end-to-end con Electron
+node scripts/test_headless_concept.js
+
+# Verificar integridad de handlers IPC
+node scripts/verify_integrity.js
+
+# Testing del sistema de memoria
+node scripts/verify_rag_flow.js
+
+# Auditoría forense completa
+node scripts/tools/tracer/ultimate_multitier_tracer.mjs
+```
+
+### Scripts de Análisis
+```bash
+# Simulación de análisis vectorial
+node scripts/simulate_vector_search.mjs
+
+# Tests metabólicos del sistema
+node scripts/tests/test_metabolic_evolution.mjs
+
+# Verificación de widgets UI
+node scripts/verify_widgets.js
+```
+
 ## 🤖 Comandos de IA
 
-Habla con el asistente en el chat lateral:
+Habla con el asistente en el chat lateral usando lenguaje natural:
 
+### 📊 **Análisis de Código**
+*   *"Analiza mi perfil de GitHub"*
+*   *"Qué tecnologías uso más?"*
+*   *"Dime qué tipo de desarrollador soy"*
+*   *"Revisa el repo 'mi-proyecto' y dame feedback"*
+
+### 🧠 **Sistema RAG (Thinking)**
+*   *"Qué recuerdo sobre mis proyectos en Python?"* (query_memory)
+*   *"Cuéntame sobre mi experiencia con React"* (semantic search)
+*   *"Cómo he evolucionado como developer?"* (technical DNA)
+
+### 📝 **Editor de README**
 *   *"Pon un banner estilo shark color rojo"*
-*   *"Lista mis repositorios"*
-*   *"Lee el repo 'mi-proyecto' y dime qué opinas"*
+*   *"Agrega estadísticas de GitHub"*
 *   *"Genera una serpiente de contribuciones"*
+*   *"Crea un header animado"*
+
+### 🔧 **Herramientas del Sistema**
+*   *"Verifica el estado de los servicios"* (system health)
+*   *"Limpia la caché del sistema"* (cache management)
+*   *"Audita la configuración"* (system audit)
 
 ---
 ## 📄 License

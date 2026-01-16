@@ -153,8 +153,8 @@ export class AIWorkerPool {
             // Detect repo change: reset affinity and context
             if (claimedRepo && nextRepo !== claimedRepo) {
                 Logger.worker(workerId, `>>> CONTEXT SWITCH: From [${claimedRepo}] to [${nextRepo}]. Resetting.`);
+                this.contextManager.clearRepoContext(claimedRepo); // Purge OLD context
                 lastProcessedPath = null;
-                this.contextManager.clearRepoContext(claimedRepo);
             }
 
             claimedRepo = nextRepo;
@@ -174,7 +174,7 @@ export class AIWorkerPool {
                 const { prompt, summary, langCheck } = await this._summarizeWithAI(aiService, input);
 
                 // Parse response
-                const parsed = this.promptBuilder.parseResponse(summary);
+                const parsed = this.promptBuilder.parseResponse(summary, isBatch ? null : input.path);
                 const finalSummary = parsed?.tool === 'skip'
                     ? "SKIP: Content not relevant or empty."
                     : summary;
@@ -205,10 +205,15 @@ export class AIWorkerPool {
         // Note: input might be a single item or a batch. For batch, use priority of first item.
         const priority = input.isBatch ? (input.items[0].priority || AISlotPriorities.NORMAL) : (input.priority || AISlotPriorities.NORMAL);
 
-        let summary = await aiService.callAI(systemPrompt, userPrompt, 0.1, null, null, priority);
-
-        // Post-process with anomaly tagging
-        summary = this.promptBuilder.postProcessSummary(summary, langCheck || { valid: true });
+        // Use temperature 0.0 and JSON schema for high-fidelity extraction (LFM2 Optimization)
+        let summary = await aiService.callAI(
+            systemPrompt,
+            userPrompt,
+            0.0, // Forced cold temperature
+            'json_object',
+            this.promptBuilder.getResponseSchema(),
+            priority
+        );
 
         return {
             prompt: `${systemPrompt}\n\n${userPrompt}`,

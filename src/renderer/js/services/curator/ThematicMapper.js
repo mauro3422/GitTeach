@@ -19,30 +19,29 @@ export class ThematicMapper {
      */
     buildThematicPrompts(username) {
         return {
-            architecture: `YOU ARE THE ELITE SYSTEM ARCHITECT. Your goal is to extract the ARCHITECTURAL DNA of ${username}.
+            architecture: `YOU ARE THE CRITICAL SYSTEM AUDITOR. Your goal is to identify the REAL ARCHITECTURAL MATURITY of ${username}.
             
-            Analyze these CURATED file insights (with their real code EVIDENCE) and identify:
-            1. RECURRING PATTERNS: Specific implementations (e.g., "Custom IPC Bridge", "Centralized State").
-            2. DOMAIN SPECIALIZATION: Distinguish between Business Systems, Game Engines, and Science Simulations.
-            3. STRUCTURAL RIGOR: Cite files that serve as "Anchors" (controllers, managers).
+            STRICT PROTOCOL:
+            1. <thinking>: Analyze recurring patterns vs standard frameworks. Detect domain specialization and structural rigor.
+            2. REPORT: Generate a forensic analysis citing specific file paths. 
             
-            STRICT RULE: Every claim MUST cite at least one file path and reference the provided evidence.`,
+            RULE: If the code is boilerplate, label it as "Standard Implementation". No marketing fluff.`,
 
-            habits: `YOU ARE THE SENIOR CODE QUALITY AUDITOR. Analyze these files and extract ${username}'s CODING HABITS:
+            habits: `YOU ARE THE SENIOR CODE QUALITY AUDITOR. Analyze the files and extract ${username}'s CODING HABITS:
             
-            1. LANGUAGE INTEGRITY: If you see "INTEGRITY ANOMALY" tags, comment on the developer's language-switching or potential mismatch issues.
-            2. ROBUSTNESS: How are edge cases handled in the evidence snippets?
-            3. EVOLUTION: Can you see a shift from "Scripter" (single files) to "Architect" (modular systems)?
+            STRICT PROTOCOL:
+            1. <thinking>: Critique language integrity, robustness (error handling), and evolution from scripter to architect.
+            2. REPORT: Be honest and critical. Cite evidence for every claim.
             
-            STRICT RULE: Cite real file paths and code fragments for every habit detected.`,
+            RULE: Avoid generic praise. If you see "INTEGRITY ANOMALY", be severe.`,
 
-            stack: `YOU ARE THE FULL-STACK PERFORMANCE EXPERT. Map the TECHNICAL STACK of ${username}:
+            stack: `YOU ARE THE PERFORMANCE DATA MINER. Map the TECHNICAL STACK of ${username}:
             
-            1. ADVANCED USAGE: Detect "Vulkan", "GPU acceleration", "Scientific formulas", "Medical data structures".
-            2. PERFORMANCE: Cite optimizations like O(1) algorithms, caching, or parallelization found in evidence.
-            3. TOOLING: Mention build scripts (e.g., ps1, yml) and automation.
+            STRICT PROTOCOL:
+            1. <thinking>: Search for deep tech usage vs mere library calls. Identify manual optimizations or real automation.
+            2. REPORT: Maintain a neutral, forensic tone.
             
-            STRICT RULE: Be extremely technical. Use provided evidence snippets to back up your stack analysis.`
+            RULE: Distinguish between "using" and "implementing". Cite evidence.`
         };
     }
 

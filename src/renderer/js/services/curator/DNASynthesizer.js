@@ -21,6 +21,7 @@ export class DNASynthesizer {
         return {
             type: "object",
             properties: {
+                thought: { type: "string" },
                 bio: { type: "string" },
                 traits: {
                     type: "array",
@@ -36,19 +37,31 @@ export class DNASynthesizer {
                         required: ["name", "score", "details", "evidence", "evidence_uids"]
                     }
                 },
+                distinctions: {
+                    type: "array",
+                    items: {
+                        type: "object",
+                        properties: {
+                            signal: { type: "string" },
+                            badge: { type: "string" },
+                            justification: { type: "string" }
+                        },
+                        required: ["signal", "badge", "justification"]
+                    }
+                },
                 signature_files: { type: "array", items: { type: "string" } },
                 code_health: {
                     type: "object",
                     properties: {
-                        integrity_score: { type: "integer" },
-                        anomalies_found: { type: "boolean" },
+                        logic_integrity: { type: "integer" },
+                        knowledge_integrity: { type: "integer" },
                         details: { type: "string" }
                     },
-                    required: ["integrity_score", "anomalies_found", "details"]
+                    required: ["logic_integrity", "knowledge_integrity", "details"]
                 },
                 verdict: { type: "string" }
             },
-            required: ["bio", "traits", "signature_files", "code_health", "verdict"]
+            required: ["thought", "bio", "traits", "distinctions", "signature_files", "code_health", "verdict"]
         };
     }
 
@@ -61,38 +74,63 @@ export class DNASynthesizer {
      * @param {number} curatedCount - Curated insights count
      * @returns {string} Full synthesis prompt
      */
-    buildSynthesisPrompt(username, thematicAnalyses, stats, rawCount, curatedCount) {
-        return `YOU ARE THE TECHNICAL INTELLIGENCE REDUCER.
-Your goal is to synthesize the final technical identity of <user>${username}</user>.
+    buildSynthesisPrompt(username, thematicAnalyses, stats, rawCount, curatedCount, holisticMetrics = null) {
+        // LFM2 Standard: XML Fencing for clear context separation
+        return `
+<system_role>
+You are the SENIOR TECHNICAL PROFILER.
+Your goal is to synthesize the TECHNICAL DNA of the user based on multi-repository forensics.
+</system_role>
 
-<specialist_reports>
-  <architecture>${thematicAnalyses[0]}</architecture>
-  <habits>${thematicAnalyses[1]}</habits>
-  <stack_tech>${thematicAnalyses[2]}</stack_tech>
-</specialist_reports>
+<context>
+USERNAME: ${username}
+RAW_DATA_VOLUME: ${rawCount} findings reduced to ${curatedCount} insights.
+REPOSITORIES_ANALYZED: ${stats.repoCount}
+TOP_STRENGTHS: ${stats.topStrengths.map(s => `${s.name} (${s.count})`).join(', ')}
 
-<statistical_volume>
-  - Total Files: ${rawCount}
-  - Analyzed Files: ${curatedCount}
-  - Repositories: ${stats.repoCount}
-  - Top Patterns: ${stats.topStrengths.map(s => `${s.name} (${s.count})`).join(', ')}
-</statistical_volume>
+[SPECIALIST_REPORTS]
+<architecture>
+${thematicAnalyses[0]}
+</architecture>
 
-<cognitive_vaccines>
-- DO NOT invent code that is not in the reports.
-- DO NOT use generic descriptions like "experienced developer". 
-- CITE specific files (e.g., sketch-ui/app.js) for every trait.
-</cognitive_vaccines>
+<habits>
+${thematicAnalyses[1]}
+</habits>
 
-ANALYTICAL STEPS:
-1. Examine <specialist_reports> to find the "Soul" of the code (e.g., custom rendering, medical data).
-2. Rank the 5 most dominant technical domains (e.g., "Systems Architecture", "Performance", "UI/UX"). 
-3. Assign scores (1-100) based on the depth of implementation shown in the reports.
-4. For each trait, include an array of "evidence_uids" citing the [ID:mem_xxxx] tags from the reports.
-5. Formulate a dense, 5-sentence biography citing specific files.
-6. Output EXACTLY the requested JSON schema.
+<stack_tech>
+${thematicAnalyses[2]}
+</stack_tech>
+[/SPECIALIST_REPORTS]
 
-STRICT RULE: NO MARKDOWN. NO INTRO. START WITH '{'.`;
+[HOLISTIC_METRICS]
+// These are deterministic math-calculated global scores.
+VERSATILITY_INDEX: ${holisticMetrics ? holisticMetrics.versatility_index : 'N/A'} (0-100)
+- Definition: Variance in architecture/stack across repos. High = Full-Range Developer.
+CONSISTENCY_SCORE: ${holisticMetrics ? holisticMetrics.consistency_score : 'N/A'} (0-100)
+- Definition: Discipline stability. High = Professional Reliability.
+EVOLUTION_RATE: ${holisticMetrics ? holisticMetrics.evolution_rate : 'N/A'}
+- Definition: Quality trajectory over time.
+[/HOLISTIC_METRICS]
+</context>
+
+<task>
+Synthesize the 'Technical DNA' JSON object using the DUAL-TRACK PROTOCOL.
+1. **Logic health**: Engineering rigor (SOLID, Modularity).
+2. **Knowledge health**: Architectural eloquence (Clarity, Discipline).
+3. **Seniority Signals**: Professional maturity (Resilience, Auditability).
+</task>
+
+<constraints>
+1. **Fact-Based**: Do not hallucinate skills not present in the reports.
+2. **Holistic Integration**: You MUST mention the Versatility and Evolution in the 'bio'.
+3. **Chain-of-Thought**: You MUST generate a 'thought' field FIRST, explaining your reasoning.
+4. **Distinctions**: Award badges based on Seniority Signals.
+</constraints>
+
+<output_format>
+JSON Object only. Starts with '{'.
+</output_format>
+`;
     }
 
     /**
@@ -105,23 +143,27 @@ STRICT RULE: NO MARKDOWN. NO INTRO. START WITH '{'.`;
      * @param {number} curatedCount - Curated insights count
      * @returns {Promise<Object>} { dna, traceability_map }
      */
-    async synthesize(username, thematicAnalyses, stats, traceabilityMap, rawCount, curatedCount, healthReport = null) {
+    async synthesize(username, thematicAnalyses, stats, traceabilityMap, rawCount, curatedCount, healthReport = null, holisticMetrics = null) {
         Logger.reducer('Synthesizing Developer DNA with HIGH FIDELITY...');
 
-        const prompt = this.buildSynthesisPrompt(username, thematicAnalyses, stats, rawCount, curatedCount);
+        const prompt = this.buildSynthesisPrompt(username, thematicAnalyses, stats, rawCount, curatedCount, holisticMetrics);
 
         // Grounding instruction for Synthesizer
         let scoringInstruction = "";
         if (healthReport) {
             scoringInstruction = `
-### MANDATORY SCORING DATA (Metric Refinery):
-- AVG SOLID: ${healthReport.averages.solid}
-- AVG MODULARITY: ${healthReport.averages.modularity}
-- AVG READABILITY: ${healthReport.averages.readability}
+### MANDATORY METRICS (High-Resolution):
+LOGIC HEALTH: SOLID=${healthReport.logic_health.solid}, Modularity=${healthReport.logic_health.modularity}
+KNOWLEDGE HEALTH: Clarity=${healthReport.knowledge_health.clarity}, Discipline=${healthReport.knowledge_health.discipline}
+SENIORITY SIGNALS (0-5): 
+  - Semantic: ${healthReport.seniority_signals.semantic}
+  - Resilience: ${healthReport.seniority_signals.resilience}
+  - Resource Mindfulness: ${healthReport.seniority_signals.resources}
+  - Auditability: ${healthReport.seniority_signals.auditability}
+  - Domain Fidelity: ${healthReport.seniority_signals.domain_fidelity}
 
 RULE: Use these averages to determine the 'score' in traits. 
-Score = (AVG * 20). If AVG is 3.5, Score should be 70.
-IF STATUS IS 'EXPERIMENTAL', CAP FINAL SCORES AT 75% UNTIL MORE DATA IS ANALYZED.`;
+Score = (LOGIC_AVG * 20) or (KNOWLEDGE_AVG * 20).`;
         }
 
         const schema = this.getDNASchema();
@@ -132,30 +174,42 @@ IF STATUS IS 'EXPERIMENTAL', CAP FINAL SCORES AT 75% UNTIL MORE DATA IS ANALYZED
             const dna = this._parseResponse(rawResponse);
 
             // Final Step: Technical Linking (Graph V3)
-            // Manually inject UIDs based on filename matching to bridge AI descriptions with real memory nodes
             this._linkMemoryNodes(dna, traceabilityMap);
 
-            // EXTRA: Objective Data Injection (from refinery)
+            // EXTRA: Dual-Track Presentation Data
             if (healthReport) {
                 dna.code_health = {
-                    integrity_score: Math.round(parseFloat(healthReport.averages.solid) * 20) || 0,
-                    averages: healthReport.averages,
-                    volume: healthReport.volume
+                    logic_integrity: Math.round(parseFloat(healthReport.logic_health.solid) * 20) || 0,
+                    knowledge_integrity: Math.round(parseFloat(healthReport.knowledge_health.clarity) * 20) || 0,
+                    details: dna.code_health?.details || "Calculated using Dual-Track protocol."
                 };
 
                 dna.presentation = {
-                    radar_data: [
-                        { label: 'SOLID', score: Math.round(parseFloat(healthReport.averages.solid) * 20) },
-                        { label: 'Modularidad', score: Math.round(parseFloat(healthReport.averages.modularity) * 20) },
-                        { label: 'Legibilidad', score: Math.round(parseFloat(healthReport.averages.readability) * 20) },
-                        { label: 'Cobertura', score: parseInt(healthReport.volume.coverage) || 0 }
+                    logic_radar: [
+                        { label: 'SOLID', score: Math.round(parseFloat(healthReport.logic_health.solid) * 20) },
+                        { label: 'Modularidad', score: Math.round(parseFloat(healthReport.logic_health.modularity) * 20) },
+                        { label: 'Complejidad', score: Math.round(parseFloat(healthReport.logic_health.complexity) * 20) }
                     ],
-                    orbital_skills: (healthReport.topPatterns || []).map(p => ({
-                        name: p.name.replace(/_/g, ' ').toUpperCase(),
-                        value: p.count,
-                        level: p.count > 2 ? 'Master' : 'Advanced'
+                    knowledge_radar: [
+                        { label: 'Claridad', score: Math.round(parseFloat(healthReport.knowledge_health.clarity) * 20) },
+                        { label: 'Disciplina', score: Math.round(parseFloat(healthReport.knowledge_health.discipline) * 20) },
+                        { label: 'Profundidad', score: Math.round(parseFloat(healthReport.knowledge_health.depth) * 20) }
+                    ],
+                    seniority_badges: (dna.distinctions || []).map(d => ({
+                        name: d.badge,
+                        description: d.justification,
+                        signal: d.signal
                     }))
                 };
+
+                // NEW: Inject Holistic Metrics into Presentation
+                if (holisticMetrics) {
+                    dna.presentation.holistic = {
+                        versatility: parseFloat(holisticMetrics.versatility_index) || 0,
+                        consistency: parseFloat(holisticMetrics.consistency_score) || 0,
+                        evolution: holisticMetrics.evolution_rate
+                    };
+                }
             }
 
             return { dna, traceability_map: traceabilityMap };

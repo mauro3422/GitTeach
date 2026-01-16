@@ -196,6 +196,38 @@ export class PersistenceMock {
                     fs.writeFileSync(filePath, JSON.stringify(memoryNodes, null, 2), 'utf8');
                     return true;
                 } catch (e) { return false; }
+            },
+            persistRepoBlueprint: async (repoName, blueprint) => {
+                try {
+                    const repoDir = path.join(MOCK_PERSISTENCE_PATH, 'repos', repoName);
+                    if (!fs.existsSync(repoDir)) fs.mkdirSync(repoDir, { recursive: true });
+
+                    const filePath = path.join(repoDir, 'repo_blueprint.json');
+                    fs.writeFileSync(filePath, JSON.stringify(blueprint, null, 2), 'utf8');
+                    return true;
+                } catch (e) { return false; }
+            },
+            getAllRepoBlueprints: async () => {
+                try {
+                    const reposDir = path.join(MOCK_PERSISTENCE_PATH, 'repos');
+                    if (!fs.existsSync(reposDir)) return [];
+
+                    const repos = fs.readdirSync(reposDir, { withFileTypes: true })
+                        .filter(dirent => dirent.isDirectory())
+                        .map(dirent => dirent.name);
+
+                    const blueprints = [];
+                    for (const repo of repos) {
+                        const bpPath = path.join(reposDir, repo, 'repo_blueprint.json');
+                        if (fs.existsSync(bpPath)) {
+                            try {
+                                const bp = JSON.parse(fs.readFileSync(bpPath, 'utf8'));
+                                blueprints.push(bp);
+                            } catch (e) { }
+                        }
+                    }
+                    return blueprints;
+                } catch (e) { return []; }
             }
         };
     }

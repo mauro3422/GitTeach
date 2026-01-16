@@ -9,6 +9,8 @@ export class CoordinatorAgent {
         this.inventoryManager = new InventoryManager();
         this.reporter = new ProgressReporter();
         this.workerCount = 4;
+        this.onRepoComplete = null;
+        this.completedRepos = new Set();
     }
 
     get inventory() { return this.inventoryManager.data; }
@@ -34,6 +36,29 @@ export class CoordinatorAgent {
 
         const stats = this.inventoryManager.getStats();
         this.reporter.report('Progress', `Analyzing... ${stats.analyzed}/${stats.totalFiles}`, this.inventory, { percent: stats.progress });
+
+        // STREAMING HOOK: Check if this repo is fully done
+        const isDone = this.inventoryManager.isRepoComplete(repoName);
+
+        // STREAMING EVOLUTION: Partial Batch Trigger (Every 3 files)
+        if (!this.repoProgress) this.repoProgress = {};
+        if (!this.repoProgress[repoName]) this.repoProgress[repoName] = 0;
+        this.repoProgress[repoName]++;
+
+        // Fire partial event every 3 files (Threshold)
+        if (this.repoProgress[repoName] > 0 && this.repoProgress[repoName] % 3 === 0) {
+            if (this.onRepoBatchReady) {
+                console.log(`[Coordinator] 🌊 PARTIAL BATCH: ${repoName} (${this.repoProgress[repoName]} files)`);
+                this.onRepoBatchReady(repoName);
+            }
+        }
+
+        if (isDone) {
+            if (!this.completedRepos.has(repoName)) {
+                this.completedRepos.add(repoName);
+                if (this.onRepoComplete) this.onRepoComplete(repoName);
+            }
+        }
     }
 
     markFailed(repoName, filePath, error) {
@@ -41,6 +66,14 @@ export class CoordinatorAgent {
 
         const stats = this.inventoryManager.getStats();
         this.reporter.report('Progress', `Analyzing... ${stats.analyzed}/${stats.totalFiles}`, this.inventory, { percent: stats.progress });
+
+        // STREAMING HOOK: Check if this repo is fully done (even with failure)
+        if (this.inventoryManager.isRepoComplete(repoName)) {
+            if (!this.completedRepos.has(repoName)) {
+                this.completedRepos.add(repoName);
+                if (this.onRepoComplete) this.onRepoComplete(repoName);
+            }
+        }
     }
 
     isComplete() {

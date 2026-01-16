@@ -43,6 +43,19 @@ export class ProfileAnalyzer {
                 this.runAuditorAgent(username)
             ]);
 
+            // STREAMING ARCHITECTURE: Bridge Coordinator -> DeepCurator
+            // MUST be set BEFORE scan() to catch cached repos that complete immediately
+            this.coordinator.onRepoComplete = (repoName) => {
+                this.deepCurator.processStreamingRepo(username, repoName, this.coordinator);
+                if (onStep) onStep({ type: 'StreamingUpdate', message: `⚡ Streaming Blueprint: ${repoName} (Final)` });
+            };
+
+            // PARTIAL STREAMING: Update every 3 files
+            this.coordinator.onRepoBatchReady = (repoName) => {
+                this.deepCurator.processStreamingRepo(username, repoName, this.coordinator, true); // true = partial
+                if (onStep) onStep({ type: 'StreamingUpdate', message: `🌊 Partial Update: ${repoName}` });
+            };
+
             let codeInsights = [];
             let allFindings = [];
             if (typeof window !== 'undefined' && !window.AI_OFFLINE) {
