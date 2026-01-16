@@ -6,7 +6,6 @@ import { CoordinatorAgent } from './coordinatorAgent.js';
 import { AIWorkerPool } from './aiWorkerPool.js';
 import { CodeScanner } from './codeScanner.js';
 import { DeepCurator } from './deepCurator.js';
-import { BackgroundAnalyzer } from './backgroundAnalyzer.js';
 import { IntelligenceSynthesizer } from './intelligenceSynthesizer.js';
 import { Logger } from '../utils/logger.js';
 import { CacheRepository } from '../utils/cacheRepository.js';
@@ -26,7 +25,6 @@ export class ProfileAnalyzer {
         this.codeScanner = new CodeScanner(this.coordinator, this.workerPool);
         this.deepCurator = new DeepCurator();
         this.intelligenceSynthesizer = new IntelligenceSynthesizer(null, debugLogger);
-        this.backgroundAnalyzer = new BackgroundAnalyzer(this.coordinator, this.deepCurator, debugLogger);
     }
 
     async analyze(username, onStep = null) {
@@ -63,7 +61,8 @@ export class ProfileAnalyzer {
 
             this.startWorkerProcessing(onStep, username);
 
-            this.backgroundPromise = this.backgroundAnalyzer.startBackgroundAnalysis(username, allFindings, (data) => {
+            // UNIFIED QUEUE: Processing background files via CodeScanner (Low Priority)
+            this.backgroundPromise = this.codeScanner.processBackgroundFiles(username, allFindings, (data) => {
                 if (onStep) onStep(data);
             });
 

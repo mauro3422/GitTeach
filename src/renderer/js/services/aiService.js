@@ -169,6 +169,11 @@ export const AIService = {
     },
 
     async getEmbedding(text) {
+        // TRACER/MOCK MODE: Return dummy vector to unblock flow
+        if (typeof window !== 'undefined' && window.IS_TRACER) {
+            return new Array(768).fill(0.1);
+        }
+
         let ENDPOINT;
         if (typeof window !== 'undefined' && window.AI_CONFIG?.embeddingEndpoint) {
             ENDPOINT = window.AI_CONFIG.embeddingEndpoint;

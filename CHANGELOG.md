@@ -1,5 +1,18 @@
 # Changelog
-## [2.5.1-HyperSpeed] - 2026-01-16
+## [2.6.0-Unified] - 2026-01-16
+### 🔧 Unified Worker Queue & Priority System
+- **Unified Queue Architecture**: Eliminación de `BackgroundAnalyzer` redundante. Todas las tareas de IA ahora fluyen por `QueueManager`.
+- **Priority System (Urgent/Normal/Background)**: `CodeScanner` asigna inteligentemente prioridades:
+    - **URGENT**: Archivos ancla (README, package.json) para respuesta inmediata.
+    - **BACKGROUND**: Resto de archivos procesados con menor prioridad sin bloquear el chat.
+- **Background Worker Logic**: `CodeScanner` ahora maneja directamente la ingesta de archivos de fondo (`processBackgroundFiles`), integrándose con el Tracer.
+
+### 🛡️ Tracer Robustness & Memory Integrity
+- **Embedded Mocking**: Solución definitiva a `fetch failed` simulando embeddings en modo diagnóstico.
+- **Explicit Context Export**: Garantía de generación de `context_user.json` al finalizar, asegurando continuidad de sesión tras reinicios.
+- **Integrity Validation**: Detección proactiva de anomalías (ej: Python en JS) y validación de generación de `technical_identity.json` y `cognitive_profile.json`.
+
+
 ### ⚡ Performance & Offline Cache Strategy
 - **Offline Code Cache**: Implementación de `aiSnippet` (3000 chars) en `PersistenceMock` y `repo_cache.json`.
     - El `CodeScanner` ahora prioriza la carga local de código completo, eliminando llamadas a la API de GitHub en re-escaneos.

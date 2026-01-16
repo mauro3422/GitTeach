@@ -19,27 +19,32 @@ export class QueueManager {
     /**
      * Enqueue a single file for processing
      */
-    enqueue(repoName, filePath, content, sha) {
+    enqueue(repoName, filePath, content, sha, priority = 1) { // Default to NORMAL (1)
         this.queue.push({
             repo: repoName,
             path: filePath,
             content: content,
             sha: sha,
-            status: 'pending'
+            status: 'pending',
+            priority: priority
         });
         this.totalQueued++;
+        // Keep queue sorted by priority (Ascending: 0=Urgent to 2=Background)
+        // Optimization: Sort on insert or sort on retrieval? Insert is cleaner here.
+        this.queue.sort((a, b) => a.priority - b.priority);
     }
 
     /**
      * Enqueue multiple files
      */
-    enqueueBatch(files) {
-        files.forEach(f => this.enqueue(f.repo, f.path, f.content, f.sha));
+    enqueueBatch(files, priority = 1) {
+        files.forEach(f => this.enqueue(f.repo, f.path, f.content, f.sha, priority));
     }
 
     /**
      * Get next item or batch of items to process.
      * Prioritizes:
+     * 0. HIGHEST PRIORITY (Ascending order of priority field) - handled by sort on enqueue
      * 1. Files with name affinity to last processed (e.g., config -> dependents)
      * 2. Files from the same repository (stickiness)
      * 3. Batching of small files
@@ -53,12 +58,25 @@ export class QueueManager {
         const MAX_BATCH_SIZE = 3;
         const MIN_CONTENT_FOR_BATCH = 1000;
 
-        // 1. Try to continue with current repo and look for affinities
-        if (claimedRepo) {
-            const pendingInRepo = this.queue.filter(item => item.status === 'pending' && item.repo === claimedRepo);
+        // FILTER: Only look at pending items
+        const pendingItems = this.queue.filter(i => i.status === 'pending');
+        if (pendingItems.length === 0) return null;
 
-            if (pendingInRepo.length > 0) {
-                // Name affinity: if last was "config", prioritize similar files or same dir
+        // URGENT OVERRIDE: If we have URGENT items (0) and current claimedRepo is lower priority, 
+        // we might want to switch? For now, simple logic: get highest priority available.
+        // Queue is already sorted by priority.
+
+        // 1. Try to continue with current repo IF it has high priority items
+        if (claimedRepo) {
+            const pendingInRepo = pendingItems.filter(item => item.repo === claimedRepo);
+
+            // If repo has items, check if they are "top priority" relative to the whole queue.
+            // If the first item in global queue has significantly higher priority (lower val) than this repo's items, switch.
+            const globalTopPriority = pendingItems[0].priority;
+            const repoTopPriority = pendingInRepo.length > 0 ? pendingInRepo[0].priority : 999;
+
+            if (pendingInRepo.length > 0 && repoTopPriority <= globalTopPriority) {
+                // Proceed with affinity logic for this repo
                 if (lastProcessedPath) {
                     const lastDir = lastProcessedPath.split('/').slice(0, -1).join('/');
                     const lastNameBase = lastProcessedPath.split('/').pop().split('.')[0].toLowerCase();
@@ -75,7 +93,7 @@ export class QueueManager {
                     }
                 }
 
-                // Batching logic: if first is small, look for more small files
+                // Batching logic for repo
                 const first = pendingInRepo[0];
                 if (first.content.length < MIN_CONTENT_FOR_BATCH) {
                     const batch = [];
@@ -98,43 +116,32 @@ export class QueueManager {
             }
         }
 
-        // 2. If no more from that repo or affinity, find a "free" repo
-        const activeRepos = new Set(this.queue.filter(i => i.status === 'processing' || i.status === 'assigned').map(i => i.repo));
-        const nextPending = this.queue.find(item => item.status === 'pending' && !activeRepos.has(item.repo));
+        // 2. Fallback: Take the highest priority item from global queue
+        // Since queue is sorted (0=URGENT first), we just take the first pending one that isn't locked by another worker processing same repo?
+        // Actually, we want parallelism. Multiple activeworkers on same repo is FINE if pool size allows.
+        // But we want to avoid fragmentation.
 
-        if (nextPending) {
-            const repo = nextPending.repo;
-            const repoItems = this.queue.filter(item => item.status === 'pending' && item.repo === repo);
-            const first = repoItems[0];
+        // Find first available repo that is top priority
+        const topItem = pendingItems[0];
 
-            if (first.content.length < MIN_CONTENT_FOR_BATCH) {
-                const batch = [];
-                for (const item of repoItems) {
-                    if (item.content.length < MIN_CONTENT_FOR_BATCH && batch.length < MAX_BATCH_SIZE) {
-                        item.status = 'assigned';
-                        batch.push(item);
-                    } else if (batch.length === 0) {
-                        item.status = 'assigned';
-                        return item;
-                    } else {
-                        break;
-                    }
-                }
-                return batch.length > 1 ? { repo: repo, isBatch: true, items: batch } : batch[0];
-            } else {
-                first.status = 'assigned';
-                return first;
+        // Batching for fallback
+        if (topItem.content.length < MIN_CONTENT_FOR_BATCH) {
+            const repoItems = pendingItems.filter(i => i.repo === topItem.repo);
+            const batch = [];
+            for (const item of repoItems) {
+                if (item.content.length < MIN_CONTENT_FOR_BATCH && batch.length < MAX_BATCH_SIZE && item.priority === topItem.priority) {
+                    item.status = 'assigned';
+                    batch.push(item);
+                } else if (batch.length === 0) {
+                    item.status = 'assigned';
+                    return item;
+                } else { break; }
             }
+            return batch.length > 1 ? { repo: topItem.repo, isBatch: true, items: batch } : batch[0];
+        } else {
+            topItem.status = 'assigned';
+            return topItem;
         }
-
-        // 3. Fallback: any pending item
-        const anyItem = this.queue.find(item => item.status === 'pending');
-        if (anyItem) {
-            anyItem.status = 'assigned';
-            return anyItem;
-        }
-
-        return null;
     }
 
     /**

@@ -54,15 +54,15 @@ export class AIWorkerPool {
     /**
      * Enqueue a file for processing
      */
-    enqueue(repoName, filePath, content, sha) {
-        this.queueManager.enqueue(repoName, filePath, content, sha);
+    enqueue(repoName, filePath, content, sha, priority = 1) { // Default NORMAL (1)
+        this.queueManager.enqueue(repoName, filePath, content, sha, priority);
     }
 
     /**
      * Enqueue multiple files
      */
-    enqueueBatch(files) {
-        this.queueManager.enqueueBatch(files);
+    enqueueBatch(files, priority = 1) {
+        this.queueManager.enqueueBatch(files, priority);
     }
 
     /**
@@ -201,7 +201,11 @@ export class AIWorkerPool {
             return { prompt: 'PRE-FILTERED', summary: `SKIP: ${skipReason}`, langCheck: { valid: true } };
         }
 
-        let summary = await aiService.callAI(systemPrompt, userPrompt, 0.1, null, null, AISlotPriorities.NORMAL);
+        // Use priority from input item, default to NORMAL if missing
+        // Note: input might be a single item or a batch. For batch, use priority of first item.
+        const priority = input.isBatch ? (input.items[0].priority || AISlotPriorities.NORMAL) : (input.priority || AISlotPriorities.NORMAL);
+
+        let summary = await aiService.callAI(systemPrompt, userPrompt, 0.1, null, null, priority);
 
         // Post-process with anomaly tagging
         summary = this.promptBuilder.postProcessSummary(summary, langCheck || { valid: true });

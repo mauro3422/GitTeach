@@ -138,6 +138,21 @@ export class TracerEngine {
 
         this.generateSummary('COMPLETE');
 
+        // EXPORT: Dump final Session Context (Requested by User)
+        try {
+            // Access AIService context via global or service import
+            if (AIService.currentSessionContext) {
+                fs.writeFileSync(path.join(SESSION_PATH, 'context_user.json'), JSON.stringify({
+                    timestamp: new Date().toISOString(),
+                    context: AIService.currentSessionContext,
+                    identitySnapshot: this.metabolicSnapshot.after?.identity
+                }, null, 2));
+                console.log("📝 Saved context_user.json");
+            }
+        } catch (e) {
+            console.warn("⚠️ Could not save context_user.json:", e.message);
+        }
+
         console.log(`\n✅ TRACE COMPLETE. Sessions: ${SESSION_ID}`);
     }
 

@@ -119,7 +119,10 @@ export class PersistenceMock {
                     localDb[u] = data;
                     fs.writeFileSync(p, JSON.stringify(localDb, null, 2));
                     return true;
-                } catch (e) { return false; }
+                } catch (e) {
+                    console.error("PERSISTENCE ERROR setCognitiveProfile:", e);
+                    return false;
+                }
             },
             getFileSummary: async (u, r, p) => {
                 const key = `${u}/${r}`;

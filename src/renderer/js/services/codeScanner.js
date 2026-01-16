@@ -7,8 +7,9 @@ import { Logger } from '../utils/logger.js';
 import { CacheRepository } from '../utils/cacheRepository.js';
 import { DebugLogger } from '../utils/debugLogger.js';
 
+import { AISlotPriorities } from './ai/AISlotManager.js';
+
 // Configuration constants
-// Configuration constants (Defaults)
 const DEFAULT_MAX_ANCHORS = 10;
 const DEFAULT_MAX_REPOS = 10;
 const MAX_WORKER_QUEUE_SIZE = 50000;
@@ -27,17 +28,20 @@ export class CodeScanner {
     }
 
     /**
-     * Scans all user repositories
+     * Scans all user repositories (Phase 1: Urgent Anchors)
      * @param {string} username 
      * @param {Array} repos 
      * @param {Function} onStep 
-     * @returns {Promise<Array>} Curated findings
+     * @returns {Promise<Array>} Curated findings + Pending Files
      */
     async scan(username, repos, onStep = null, options = {}) {
         const maxRepos = options.maxRepos || (window.IS_TRACER ? DEFAULT_MAX_REPOS : 50000);
         const maxAnchors = options.maxAnchors || (window.IS_TRACER ? DEFAULT_MAX_ANCHORS : 50000);
 
         // Sort by updated date (descending) and slice for 10x10 logic
+        // If IS_TRACER is false (Chat mode), we want to scan MORE repos? 
+        // The previous logic had a hard slice. Users might want "unlimited".
+        // sticking to existing logic for now.
         const targetRepos = [...repos].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).slice(0, maxRepos);
 
         // Initialize coordinator with target repos
@@ -68,11 +72,16 @@ export class CodeScanner {
                     Logger.cache(`${repo.name} - Using cached data`, true);
                 }
 
-                // Identify "Anchor" files (Architecture)
+                // Identify "Anchor" files (Architecture/Urgent)
                 const anchors = this.identifyAnchorFiles(treeFiles);
 
-                // Audit anchor files (Limited according to mode)
-                const repoAudit = await this.auditFiles(username, repo.name, anchors.slice(0, maxAnchors), needsFullScan, onStep);
+                // Identify "Pending" files (Background) - Everything else
+                // Filter out anchors to avoid duplicates
+                const anchorPaths = new Set(anchors.map(a => a.path));
+                const pendingFiles = treeFiles.filter(f => f.type === 'blob' && !anchorPaths.has(f.path));
+
+                // Audit anchor files (URGENT PRIORITY)
+                const repoAudit = await this.auditFiles(username, repo.name, anchors.slice(0, maxAnchors), needsFullScan, onStep, AISlotPriorities.URGENT);
 
                 // Save tree SHA in cache
                 await CacheRepository.setRepoTreeSha(username, repo.name, treeSha);
@@ -80,7 +89,8 @@ export class CodeScanner {
                 allFindings.push({
                     repo: repo.name,
                     techStack: anchors.map(a => a.path),
-                    auditedFiles: repoAudit.filter(f => f !== null)
+                    auditedFiles: repoAudit.filter(f => f !== null),
+                    pendingFiles: pendingFiles // Pass pending files for Phase 2
                 });
 
                 if (onStep) {
@@ -96,9 +106,71 @@ export class CodeScanner {
 
         // Log estadísticas del coordinator
         const stats = this.coordinator.getStats();
-        Logger.progress(stats.analyzed, stats.totalFiles, 'archivos descargados');
+        Logger.progress(stats.analyzed, stats.totalFiles, 'archivos descargados (Fase 1)');
 
         return allFindings;
+    }
+
+    /**
+     * Phase 2: Process background files (Unified Queue)
+     * Replaces BackgroundAnalyzer
+     */
+    async processBackgroundFiles(username, allFindings, onStep) {
+        let maxBackgroundFiles = 99999;
+        if (typeof window !== 'undefined' && window.IS_TRACER) {
+            Logger.info('BACKGROUND', 'Tracer Mode: Limiting background analysis to 5 files for verification.');
+            maxBackgroundFiles = 5;
+        }
+
+        Logger.background('UnifiedWorkerQueue: Starting background ingestion...');
+
+        // extract all pending files from findings
+        const allPending = [];
+        allFindings.forEach(f => {
+            if (f.pendingFiles && f.pendingFiles.length > 0) {
+                f.pendingFiles.forEach(file => {
+                    allPending.push({ repo: f.repo, ...file });
+                });
+            }
+        });
+
+        if (allPending.length === 0) {
+            Logger.success('BACKGROUND', 'No pending files. Full coverage.');
+            return;
+        }
+
+        // Slice for Tracer limit if applicable
+        const filesToProcess = allPending.slice(0, maxBackgroundFiles);
+
+        // Process in throttled batches to avoid network saturation (Downloading is the bottleneck)
+        const BATCH_SIZE = 5;
+        for (let i = 0; i < filesToProcess.length; i += BATCH_SIZE) {
+            if (window.AI_OFFLINE) break;
+
+            const batch = filesToProcess.slice(i, i + BATCH_SIZE);
+
+            // Reuse auditFiles logic but with BACKGROUND priority
+            // We group by repo to minimize context switching? 
+            // auditFiles expects a single repoName.
+            // Our batch might have mixed repos.
+
+            // Group batch by repo
+            const batchByRepo = {};
+            batch.forEach(item => {
+                if (!batchByRepo[item.repo]) batchByRepo[item.repo] = [];
+                batchByRepo[item.repo].push(item);
+            });
+
+            await Promise.all(Object.keys(batchByRepo).map(async repoName => {
+                // Pass AISlotPriorities.BACKGROUND
+                await this.auditFiles(username, repoName, batchByRepo[repoName], true, null, AISlotPriorities.BACKGROUND);
+            }));
+
+            // Small breathing room for UI
+            await new Promise(r => setTimeout(r, 50));
+        }
+
+        Logger.success('BACKGROUND', 'All background files enqueued.');
     }
 
     /**
@@ -157,7 +229,7 @@ export class CodeScanner {
     /**
      * Audits a list of files, downloading content and saving to cache
      */
-    async auditFiles(username, repoName, files, needsFullScan, onStep) {
+    async auditFiles(username, repoName, files, needsFullScan, onStep, priority = AISlotPriorities.NORMAL) {
         return await Promise.all(files.map(async (file) => {
             // Check cache first - SHA verification is now ALWAYS active (Cache-First)
             const needsUpdate = await CacheRepository.needsUpdate(username, repoName, file.path, file.sha);
@@ -171,9 +243,14 @@ export class CodeScanner {
                     this.coordinator.markCompleted(repoName, file.path, cached.summary);
                     DebugLogger.logCacheHit(repoName, file.path, cached.summary);
 
-                    // In Tracer mode, feed worker with LOCAL data
+                    // FEED WORKER: Even if cached, we might want to re-analyze if it's high priority or in Tracer mode
+                    // For URGENT files or TRACER mode, we force enqueue with local content
+                    // For BACKGROUND files, we might skip if summary is already good? 
+                    // Current logic: force enqueue if Tracer. 
+                    // New logic: Use priority.
+
                     if (window.IS_TRACER && this.workerPool.totalQueued < MAX_WORKER_QUEUE_SIZE) {
-                        this.workerPool.enqueue(repoName, file.path, cached.aiSnippet, file.sha);
+                        this.workerPool.enqueue(repoName, file.path, cached.aiSnippet, file.sha, priority);
                     }
                     return { path: file.path, snippet: cached.aiSnippet, fromCache: true };
                 }
@@ -187,10 +264,9 @@ export class CodeScanner {
                     this.coordinator.markCompleted(repoName, file.path, cached.summary);
                     DebugLogger.logCacheHit(repoName, file.path, cached.summary);
 
-                    // CRITICAL FIX: In Tracer mode, FORCE worker execution even if content is cached
-                    // This ensures we regenerate findings after a memory reset
+                    // Force re-analysis if Tracer
                     if (window.IS_TRACER && this.workerPool.totalQueued < MAX_WORKER_QUEUE_SIZE) {
-                        this.workerPool.enqueue(repoName, file.path, cached.contentSnippet || '', file.sha);
+                        this.workerPool.enqueue(repoName, file.path, cached.contentSnippet || '', file.sha, priority);
                     }
 
                     return { path: file.path, snippet: cached.contentSnippet || '', fromCache: true };
@@ -216,7 +292,7 @@ export class CodeScanner {
 
                 // Enqueue for AI processing
                 if (this.workerPool.totalQueued < MAX_WORKER_QUEUE_SIZE) {
-                    this.workerPool.enqueue(repoName, file.path, codeSnippet, contentRes.sha);
+                    this.workerPool.enqueue(repoName, file.path, codeSnippet, contentRes.sha, priority);
                 }
 
                 this.coordinator.markCompleted(repoName, file.path, codeSnippet.substring(0, 100));
