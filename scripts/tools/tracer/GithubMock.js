@@ -47,12 +47,17 @@ export class GithubMock {
                 try {
                     const treeRes = await fetch(`https://api.github.com/repos/${u}/${r}/git/trees/main?recursive=1`, { headers: headers() });
                     if (!treeRes.ok) {
-                        const masterRes = await fetch(`https://api.github.com/repos/${u}/${r}/git/trees/master?recursive=1`, { headers: headers() });
                         if (masterRes.ok) {
-                            return await masterRes.json();
+                            const data = await masterRes.json();
+                            // TRACER LIMIT: Slice to 15 files max to emulate "10x10" quick mode
+                            if (data.tree) data.tree = data.tree.slice(0, 15);
+                            return data;
                         }
                     } else {
-                        return await treeRes.json();
+                        const data = await treeRes.json();
+                        // TRACER LIMIT: Slice to 15 files max to emulate "10x10" quick mode
+                        if (data.tree) data.tree = data.tree.slice(0, 15);
+                        return data;
                     }
                 } catch (e) { }
                 return { tree: [] };

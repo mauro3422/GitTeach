@@ -41,6 +41,8 @@ export class EvolutionManager {
                 ...parsed,
                 traits: newDNA.traits,
                 anomalies: newDNA.anomalies,
+                code_health: newDNA.code_health, // Preserve Integrity Scores
+                presentation: newDNA.presentation, // Preserve Radar Data
                 last_updated: new Date().toISOString()
             };
         } catch (error) {
@@ -59,6 +61,8 @@ export class EvolutionManager {
             evolution_snapshot: "Initial snapshot created.",
             traits: newDNA.traits,
             anomalies: newDNA.anomalies,
+            code_health: newDNA.code_health, // Preserve Integrity Scores
+            presentation: newDNA.presentation, // Preserve Radar Data
             last_updated: new Date().toISOString()
         };
     }

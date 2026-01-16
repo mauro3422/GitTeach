@@ -38,7 +38,34 @@ export class MemoryManager {
         });
 
         this.addNode(node);
+
+        // PERSISTENCE V3: Append Raw Finding immediately
+        CacheRepository.appendRepoRawFinding(finding.repo, finding).catch(err => {
+            console.warn(`[MemoryManager] Failed to append raw finding for ${finding.repo}`, err);
+        });
+
         return node;
+    }
+
+    /**
+     * Persist curated memory for a specific repository
+     * @param {string} repoName 
+     */
+    async persistRepoMemory(repoName) {
+        const nodes = this.getRepoMemory(repoName);
+        if (nodes.length === 0) return;
+
+        Logger.info('MemoryManager', `Persisting ${nodes.length} curated nodes for ${repoName}...`);
+        await CacheRepository.persistRepoCuratedMemory(repoName, nodes);
+    }
+
+    /**
+     * Persist memory for ALL repositories (Flush)
+     */
+    async persistAll() {
+        Logger.info('MemoryManager', 'Flushing all repo memories to persistence...');
+        const repos = Array.from(this.repoIndexes.keys());
+        await Promise.all(repos.map(repo => this.persistRepoMemory(repo)));
     }
 
     /**

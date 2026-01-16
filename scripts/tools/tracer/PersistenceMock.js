@@ -164,7 +164,39 @@ export class PersistenceMock {
             hasRepoChanged: async (u, r, sha) => {
                 return db.repos?.[`${u}/${r}`]?.treeSha !== sha;
             },
-            getStats: async () => ({ repoCount: Object.keys(db.repos || {}).length, fileCount: 0, auditEntries: 0 })
+            getStats: async () => ({ repoCount: Object.keys(db.repos || {}).length, fileCount: 0, auditEntries: 0 }),
+
+            // ==========================================
+            // REPO-CENTRIC PERSISTENCE (V3)
+            // ==========================================
+            ensureRepoDir: async (repoName) => {
+                const repoDir = path.join(MOCK_PERSISTENCE_PATH, 'repos', repoName);
+                if (!fs.existsSync(repoDir)) {
+                    fs.mkdirSync(repoDir, { recursive: true });
+                }
+                return repoDir;
+            },
+            appendRepoRawFinding: async (repoName, finding) => {
+                try {
+                    const repoDir = path.join(MOCK_PERSISTENCE_PATH, 'repos', repoName);
+                    if (!fs.existsSync(repoDir)) fs.mkdirSync(repoDir, { recursive: true });
+
+                    const filePath = path.join(repoDir, 'raw_findings.jsonl');
+                    const line = JSON.stringify({ ...finding, timestamp: new Date().toISOString() }) + '\n';
+                    fs.appendFileSync(filePath, line, 'utf8');
+                    return true;
+                } catch (e) { return false; }
+            },
+            persistRepoCuratedMemory: async (repoName, memoryNodes) => {
+                try {
+                    const repoDir = path.join(MOCK_PERSISTENCE_PATH, 'repos', repoName);
+                    if (!fs.existsSync(repoDir)) fs.mkdirSync(repoDir, { recursive: true });
+
+                    const filePath = path.join(repoDir, 'curated_memory.json');
+                    fs.writeFileSync(filePath, JSON.stringify(memoryNodes, null, 2), 'utf8');
+                    return true;
+                } catch (e) { return false; }
+            }
         };
     }
 }

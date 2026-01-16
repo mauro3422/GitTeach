@@ -214,6 +214,38 @@ class CacheRepositoryService {
     }
 
     // ==========================================
+    // REPO-CENTRIC PERSISTENCE (V3 Refactor)
+    // ==========================================
+
+    /**
+     * Appends a raw finding to the repo's raw_findings.jsonl
+     */
+    async appendRepoRawFinding(repoName, finding) {
+        if (!this.isAvailable()) return false;
+        try {
+            if (window.cacheAPI.appendRepoRawFinding) {
+                await window.cacheAPI.appendRepoRawFinding(repoName, finding);
+                return true;
+            }
+        } catch (e) { return false; }
+        return false;
+    }
+
+    /**
+     * Persists the curated memory nodes for a specific repo
+     */
+    async persistRepoCuratedMemory(repoName, nodes) {
+        if (!this.isAvailable()) return false;
+        try {
+            if (window.cacheAPI.persistRepoCuratedMemory) {
+                await window.cacheAPI.persistRepoCuratedMemory(repoName, nodes);
+                return true;
+            }
+        } catch (e) { return false; }
+        return false;
+    }
+
+    // ==========================================
     // CONVENIENCE METHODS
     // ==========================================
 

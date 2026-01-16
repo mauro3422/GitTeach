@@ -1,4 +1,15 @@
 # Changelog
+## [2.7.0-RepoCentric] - 2026-01-16
+### 📦 Repo-Centric Data Refactor
+- **Persistent Repo Structure**: Nueva jerarquía de almacenamiento en `mock_persistence/repos/[RepoName]`.
+- **Real-Time Findings**: Implementación de `raw_findings.jsonl` generado instantáneamente por los workers (~9KB audit logs).
+- **Curated Memory Flush**: Mecanismo `persistAll()` que asegura el guardado de `curated_memory.json` al finalizar la fase de análisis.
+
+### 🚄 Unified Worker Queue
+- **Optimization**: Deprecación de `BackgroundAnalyzer.js` en favor de una cola unificada en `AIWorkerPool`.
+- **Priority Management**: Gestión inteligente de slots (Urgent/Normal/Background) para no bloquear el chat.
+- **Data Preservation**: Fix crítico en `EvolutionManager` para conservar metadatos de `code_health` y `presentation` durante la síntesis.
+
 ## [2.6.0-Unified] - 2026-01-16
 ### 🔧 Unified Worker Queue & Priority System
 - **Unified Queue Architecture**: Eliminación de `BackgroundAnalyzer` redundante. Todas las tareas de IA ahora fluyen por `QueueManager`.

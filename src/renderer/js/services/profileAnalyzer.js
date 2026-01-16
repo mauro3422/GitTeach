@@ -83,6 +83,9 @@ export class ProfileAnalyzer {
     async _runFinalSynthesis(username, onStep) {
         await Promise.all([this.backgroundPromise, this.aiWorkersPromise || Promise.resolve()]);
 
+        // PERSISTENCE V3: Flush all repo memories before synthesis strategy
+        await memoryManager.persistAll();
+
         Logger.reducer('Executing FINAL SYNTHESIS...');
         const curationResult = await this.deepCurator.runDeepCurator(username, this.coordinator);
         if (!curationResult) return null;

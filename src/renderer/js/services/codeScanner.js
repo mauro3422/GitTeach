@@ -86,6 +86,10 @@ export class CodeScanner {
                 // Save tree SHA in cache
                 await CacheRepository.setRepoTreeSha(username, repo.name, treeSha);
 
+                // PERSISTENCE V3: Save Repo Memory
+                const { memoryManager } = await import('./memory/MemoryManager.js');
+                await memoryManager.persistRepoMemory(repo.name);
+
                 allFindings.push({
                     repo: repo.name,
                     techStack: anchors.map(a => a.path),
@@ -118,7 +122,7 @@ export class CodeScanner {
     async processBackgroundFiles(username, allFindings, onStep) {
         let maxBackgroundFiles = 99999;
         if (typeof window !== 'undefined' && window.IS_TRACER) {
-            Logger.info('BACKGROUND', 'Tracer Mode: Limiting background analysis to 5 files for verification.');
+            Logger.info('BACKGROUND', 'Tracer Mode: Limiting background analysis to 5 files (Total) for verification.');
             maxBackgroundFiles = 5;
         }
 
@@ -165,6 +169,11 @@ export class CodeScanner {
                 // Pass AISlotPriorities.BACKGROUND
                 await this.auditFiles(username, repoName, batchByRepo[repoName], true, null, AISlotPriorities.BACKGROUND);
             }));
+
+            // Persist all affected repos in the batch
+            const affectedRepos = Object.keys(batchByRepo);
+            const { memoryManager } = await import('./memory/MemoryManager.js');
+            await Promise.all(affectedRepos.map(repoName => memoryManager.persistRepoMemory(repoName)));
 
             // Small breathing room for UI
             await new Promise(r => setTimeout(r, 50));
