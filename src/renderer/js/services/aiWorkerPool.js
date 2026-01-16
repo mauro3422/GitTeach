@@ -170,8 +170,12 @@ export class AIWorkerPool {
             }
 
             try {
+                const startTime = Date.now();
+
                 // Call AI to summarize the file or batch
                 const { prompt, summary, langCheck } = await this._summarizeWithAI(aiService, input);
+
+                const durationMs = Date.now() - startTime;
 
                 // Parse response
                 const parsed = this.promptBuilder.parseResponse(summary, isBatch ? null : input.path);
@@ -180,7 +184,7 @@ export class AIWorkerPool {
                     : summary;
 
                 // Process results
-                this._processResults(workerId, items, finalSummary, parsed, aiService, prompt, isBatch, claimedRepo);
+                this._processResults(workerId, items, finalSummary, parsed, aiService, prompt, isBatch, claimedRepo, durationMs);
 
             } catch (error) {
                 Logger.worker(workerId, `Error: ${error.message}`);
@@ -225,7 +229,7 @@ export class AIWorkerPool {
     /**
      * Process successful results
      */
-    _processResults(workerId, items, summary, parsed, aiService, prompt, isBatch, claimedRepo) {
+    _processResults(workerId, items, summary, parsed, aiService, prompt, isBatch, claimedRepo, durationMs = 0) {
         items.forEach(item => {
             item.status = 'completed';
             item.summary = summary;
@@ -237,7 +241,8 @@ export class AIWorkerPool {
                 workerId: workerId,
                 classification: parsed?.params?.technical_strength || 'General',
                 metadata: parsed?.params?.metadata || {}, // NEW: Carries the metrics
-                params: parsed?.params || { insight: summary, technical_strength: 'General' }
+                params: parsed?.params || { insight: summary, technical_strength: 'General' },
+                durationMs: durationMs // Track timing
             };
 
             this.results.push(resultItem);
@@ -264,7 +269,8 @@ export class AIWorkerPool {
                 repo: item.repo,
                 path: item.path,
                 summary: summary,
-                classification: parsed?.params?.technical_strength || 'General'
+                classification: parsed?.params?.technical_strength || 'General',
+                durationMs: durationMs
             });
         });
 
@@ -276,7 +282,8 @@ export class AIWorkerPool {
         this.debugLogger.logWorker(workerId, {
             input: isBatch ? { repo: claimedRepo, paths: items.map(i => i.path) } : { repo: items[0].repo, path: items[0].path, contentLength: items[0].content?.length },
             prompt: prompt,
-            output: summary
+            output: summary,
+            durationMs: durationMs
         });
 
         // Update progress (FIX: Only increment once!)

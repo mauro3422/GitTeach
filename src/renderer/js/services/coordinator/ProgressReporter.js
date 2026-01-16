@@ -31,7 +31,7 @@ export class ProgressReporter {
         }
 
         const log = `[Coordinator] ${type}: ${message}`;
-        console.log(log);
+
         if (this.onProgress) {
             this.onProgress({ type, message, ...extra });
         }

@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.10.0-TraceEvolution] - 2026-01-16
+### 🧬 Identity Evolution & Deep Metrics
+- **Context Evolution Logging**: Implementación de `identity_evolution.jsonl` en `mock_persistence`. Captura instantáneas del `technical_identity` evolutivo en tiempo real.
+- **Metric Timing**: Inclusión de métrica `durationMs` en logs de workers y snapshots de identidad para medir latencia de síntesis.
+- **Forensic Quality Audit**: Verificación de integridad de flujo `Raw Input -> Identity`. Confirmada fidelidad de datos (escala 0-5) y auto-corrección de artefactos de agregación temprana.
+- **Fixes**:
+    - **Duplicate Logs**: Eliminación de logs redundantes en `ProgressReporter` que ensuciaban el `SUMMARY.json`.
+    - **Tracer Config**: Restaurada configuración de límites (10 repos/15 archivos) para diagnósticos rápidos.
+
 ## [2.9.0-Streaming] - 2026-01-16
 ### 🌊 True Streaming & Optimization
 - **True Streaming Architecture**: Implemented `onRepoComplete` event bridge between `Coordinator` and `DeepCurator` for instant findings processing.

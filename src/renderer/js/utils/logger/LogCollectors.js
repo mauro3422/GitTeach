@@ -34,4 +34,10 @@ export class LogCollectors {
         const snapshot = { timestamp: new Date().toISOString(), cache: cacheState, context: contextState };
         await this.transport.writeLog(this.sid, this.spath, 'memory', 'snapshot.json', JSON.stringify(snapshot, null, 2), true);
     }
+
+    async logContextEvolution(snapshot) {
+        // Enforcing 'mock_persistence' category to keep it near technical_identity.json
+        const entry = { timestamp: new Date().toISOString(), ...snapshot };
+        await this.transport.writeLog(this.sid, this.spath, 'mock_persistence', 'identity_evolution.jsonl', JSON.stringify(entry) + '\n');
+    }
 }

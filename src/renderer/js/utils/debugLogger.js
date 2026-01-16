@@ -31,6 +31,7 @@ class DebugLoggerService {
     async logCurator(phase, data) { if (this.enabled && this.sessionId) await this.collectors.logCurator(phase, data); }
     async logChat(type, msg) { if (this.enabled && this.sessionId) await this.collectors.logChat(type, msg); }
     async logMemory(cache, ctx) { if (this.enabled && this.sessionId) await this.collectors.logMemory(cache, ctx); }
+    async logContextEvolution(data) { if (this.enabled && this.sessionId) await this.collectors.logContextEvolution(data); }
 
     async endSession() {
         if (!this.enabled || !this.sessionId) return null;

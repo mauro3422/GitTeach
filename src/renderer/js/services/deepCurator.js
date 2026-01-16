@@ -328,6 +328,7 @@ export class DeepCurator {
      * @private
      */
     async _refineGlobalIdentity(username, ctx) {
+        const startTime = Date.now();
         try {
             // 1. Fetch History + New State
             const allBlueprints = await CacheRepository.getAllRepoBlueprints() || [];
@@ -352,6 +353,23 @@ export class DeepCurator {
             if (dna) {
                 await CacheRepository.setTechnicalIdentity(username, dna);
                 Logger.reducer(`[STREAMING] Global Identity updated. Versatility: ${holisticMetrics.versatility_index} | Blueprints: ${allBlueprints.length}`);
+
+                const durationMs = Date.now() - startTime;
+
+                // STREAMING LOG: Validated by User (2026-01-16)
+                // Tracks evolution of identity in mock_persistence/identity_evolution.jsonl
+                await this.debugLogger.logContextEvolution({
+                    phase: ctx.rawCount < 100 ? 'PARTIAL_STREAMING' : 'FINAL_SYNTHESIS',
+                    repoCount: allBlueprints.length,
+                    fileCount: ctx.rawCount,
+                    durationMs: durationMs,
+                    metrics: {
+                        versatility: holisticMetrics.versatility_index,
+                        evolution_rate: holisticMetrics.evolution_rate
+                    },
+                    topTraits: dna.traits ? dna.traits.slice(0, 3).map(t => `${t.name}:${t.score}`) : [],
+                    bio_snippet: dna.bio ? dna.bio.substring(0, 50) + "..." : "N/A"
+                });
             }
         } catch (e) {
             Logger.error('DeepCurator', `Streaming update failed: ${e.message}`);
