@@ -51,6 +51,13 @@ export const AIService = {
             if (ChatComponent) ChatComponent.showProactiveStep(`Investigating: **${tool.name}**...`);
 
             const executionResult = await tool.execute(params, username);
+
+            // Handle Context Injection (RAG)
+            if (executionResult.success && executionResult.systemContext) {
+                this.setSessionContext(this.currentSessionContext + "\n" + executionResult.systemContext);
+            }
+
+            // Handle Content Injection (Editor)
             if (executionResult.success && executionResult.content) {
                 AIToolbox.applyContent(executionResult.content);
             }
@@ -58,7 +65,15 @@ export const AIService = {
             Logger.info('OBSERVATION', `${executionResult.details} (Success: ${executionResult.success})`);
 
             // 5. Respondent Flow (Closed Loop)
-            const responsePrompt = PromptBuilder.getPostActionPrompt(tool.name, executionResult, input);
+            let responsePrompt;
+            if (tool.name === 'query_memory') {
+                // RAG Special Case: Use the Chat Persona to answer using the new context
+                responsePrompt = ChatPromptBuilder.build(username, this.currentSessionContext);
+            } else {
+                // Standard Action Reporting
+                responsePrompt = PromptBuilder.getPostActionPrompt(tool.name, executionResult, input);
+            }
+
             const finalMessage = await this.callAI(responsePrompt, input, 0.7);
 
             return { action: "chat", message: finalMessage };

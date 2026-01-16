@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.4.0-Reasoning] - 2026-01-16
+### 🧠 Thinking Agent & Autonomous RAG
+- **Thinking Protocol (CoT)**: Implementación de un ciclo de razonamiento explícito ("Thought") antes de cada acción. La IA ahora "piensa" y justifica qué herramienta usar, evitando alucinaciones de herramientas.
+- **RAG Autónomo**: Integración profunda de `QueryMemoryTool`. El Router decide inteligentemente cuándo inyectar contexto de memoria técnica (ej: al pedir un README) basándose en su propio razonamiento.
+- **Tracer Resilience**:
+    - **DOM Mocking**: Parcheado del entorno del Tracer (`TracerEnvironment.js`) para soportar dependencias de UI (ChatComponent) en modo headless.
+    - **Network Stability**: Fix de IPv6/IPv4 en `Globals.js` para garantizar conexión estable con los servidores locales AI en `127.0.0.1`.
+- **Scripts de Verificación**:
+    - `scripts/verify_rag_flow.js`: Test de flujo completo (Real AI + Memory).
+    - `scripts/verify_reasoning.js`: Test unitario aislado del protocolo de pensamiento (Zero dependencies).
+
 ## [2.3.0-Vector] - 2026-01-15
 ### 🧠 Vector Identity & RAG Architecture
 - **Memory Agent Vectorial**: Implementación de `MemoryAgent.js` con búsqueda semántica basada en similitud coseno local.
@@ -155,8 +166,10 @@ Todas las mejoras y cambios notables del proyecto GitTeach.
     - Implementación del flujo **Router -> Constructor -> Ejecutor -> Observador -> Respondedor**.
     - La IA ahora "ve" el resultado de sus acciones y confirma con éxito real.
 - **Herramientas de Análisis**:
-    - `list_repos`: Capacidad de listar repositorios públicos.
-    - `read_repo`: Capacidad de leer y resumir READMEs de proyectos.
+    *   **Analista de Código**: Capacidad para leer y analizar tus repositorios públicos.
+    *   **Thinking Protocol (CoT):** La IA razona explícitamente (`[BRAIN] Thinking: ...`) antes de actuar, asegurando decisiones lógicas.
+    *   **RAG Autónomo:** Inyección dinámica de memoria técnica cuando el contexto lo requiere (ej: generar documentación).
+*   **Privacidad Total:** Todo corre en tu máquina (`localhost`), tus tokens y datos nunca salen a servidores de terceros (salvo GitHub API directa).
 - **Herramientas de Diseño**:
     - `welcome_header`: Generación de banners con soporte de color (Hex mapping automático) y estilos (Shark, Waving, etc).
     - `github_stats`, `tech_stack`, `contribution_snake`: Plantillas dinámicas.

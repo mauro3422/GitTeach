@@ -107,7 +107,28 @@ export class TracerEngine {
         console.log("⏳ Waiting 10s for Autonomous Reactions (Streaming)...");
         await new Promise(r => setTimeout(r, 10000));
 
-        // 7. Capture "AFTER" state
+        // 7. Phase 3: Interactive Chat Simulation (RAG Verification)
+        console.log('\n--- PHASE 3: INTERACTIVE CHAT SIMULATION (RAG) ---');
+        try {
+            const testPrompt = "Generame un README para mi perfil basado en mi código";
+            console.log(`🤖 USER INPUT: "${testPrompt}"`);
+
+            // We use the real AIService to test the full Router -> Tool -> Chat flow
+            const result = await AIService.processIntent(testPrompt, 'mauro3422');
+
+            console.log(`\n📢 AI RESPONSE:\n${result.message}`);
+
+            if (AIService.currentSessionContext && AIService.currentSessionContext.includes("MEMORIA ASOCIATIVA")) {
+                console.log("\n✅ RAG SUCCESS: 'MEMORIA ASOCIATIVA' section found in Session Context.");
+            } else {
+                console.log("\n⚠️ RAG NOTE: 'MEMORIA ASOCIATIVA' tag not found in context (check if tool was triggered).");
+            }
+
+        } catch (e) {
+            console.error("❌ SIMULATION FAILED:", e);
+        }
+
+        // 8. Capture "AFTER" state
         this.metabolicSnapshot.after = {
             identity: await window.cacheAPI.getTechnicalIdentity('mauro3422'),
             profile: await window.cacheAPI.getCognitiveProfile('mauro3422')

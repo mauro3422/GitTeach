@@ -29,14 +29,34 @@ export class Globals {
                     return { success: true };
                 }
             },
-            AI_CONFIG: { endpoint: 'http://localhost:8000/v1/chat/completions' },
+            AI_CONFIG: {
+                endpoint: 'http://127.0.0.1:8000/v1/chat/completions',
+                embeddingEndpoint: 'http://127.0.0.1:8001/v1/embeddings'
+            },
             AI_OFFLINE: false
         };
 
         global.document = {
             querySelector: () => null,
-            getElementById: () => null
+            getElementById: (id) => ({
+                value: '',
+                innerText: '',
+                classList: { add: () => { }, remove: () => { } },
+                addEventListener: () => { },
+                dataset: {},
+                style: {},
+                dispatchEvent: () => { },
+                appendChild: () => { }
+            }),
+            createElement: (tag) => ({
+                className: '',
+                style: {},
+                classList: { add: () => { } },
+                appendChild: () => { },
+                innerText: ''
+            })
         };
+        global.Element = class { };
 
         // Polyfill fetch if not present (Node 18+ has it)
         if (!global.fetch) {

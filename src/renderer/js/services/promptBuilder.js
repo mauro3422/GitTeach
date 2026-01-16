@@ -21,29 +21,43 @@ export const PromptBuilder = {
     const toolDescriptions = tools.map(t => `- ${t.id}: ${t.description}`).join('\n');
 
     return `SYSTEM: You are an Intent Classifier. You ONLY output JSON.
-Tasks:
-1. Analyze the user request.
-2. Match it to a tool ID from the catalog.
-3. If no match, use "chat".
-4. CRITICAL: If the user mentions a specific file path or extension (e.g., .py, .js, .cpp, .json, .md), prioritize "read_file" over "read_repo".
+TASKS:
+1. THINK: Analyze the user request. Does it require external info?
+2. REASON: Explain WHY a tool is needed (e.g. "Need memory for documentation").
+3. SELECT: Output the JSON with your reasoning.
+
+RULES FOR INTELLIGENCE:
+- **CONTENT GENERATION**: Use "query_memory" for README/Docs.
+- **FILE ACCESS**: Use "read_file" for specific paths.
+- **IMPERATIVE**: If your thought mentions "context", "information", "project data", or "codebase", YOU MUST SELECT "query_memory". Do NOT use "chat".
 
 CATALOG:
 ${toolDescriptions}
 
 EXAMPLES:
-${trainingData}
-
-User: "Qué hay en el archivo setup.py de giteach?"
-JSON: {"tool": "read_file"}
-
 User: "Analiza el código de main.js"
-JSON: {"tool": "read_file"}
+JSON: {
+  "thought": "User wants file analysis. 'main.js' is a file path.",
+  "tool": "read_file"
+}
+
+User: "Generame un README para mi perfil"
+JSON: {
+  "thought": "User wants to generate content. This requires deep context about the project.",
+  "tool": "query_memory"
+}
 
 User: "Logo vectorial"
-JSON: {"tool": "chat"}
+JSON: {
+  "thought": "This is a general or conversational request.",
+  "tool": "chat"
+}
 
-RESPONSE FORMAT:
-{"tool": "TOOL_ID_OR_CHAT"}
+RESPONSE FORMAT (Chain of Thought):
+{
+  "thought": "Brief reasoning here...",
+  "tool": "TOOL_ID_OR_CHAT"
+}
 `;
   },
 

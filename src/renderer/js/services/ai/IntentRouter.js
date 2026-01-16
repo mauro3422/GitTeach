@@ -16,6 +16,10 @@ export class IntentRouter {
         try {
             const data = JSON.parse(response.match(/\{[\s\S]*\}/)?.[0] || '{}');
 
+            if (data.thought) {
+                Logger.info('BRAIN', `Thinking: "${data.thought}"`);
+            }
+
             // Heuristic for generic identity questions
             const isGenericIdentity = (input.toLowerCase().includes("quien soy") || input.toLowerCase().includes("mi perfil")) &&
                 !input.toLowerCase().includes("/");
