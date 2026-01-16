@@ -10,6 +10,7 @@ import { CacheRepository } from '../utils/cacheRepository.js';
 
 import { DebugLogger } from '../utils/debugLogger.js';
 import { FileClassifier } from '../utils/fileClassifier.js';
+import { AISlotPriorities } from './ai/AISlotManager.js';
 
 export class BackgroundAnalyzer {
     constructor(coordinator, deepCurator = null, debugLogger = null) {
@@ -22,7 +23,12 @@ export class BackgroundAnalyzer {
      * Background analysis - keeps learning while the user works
      * Returns Promise so tests can wait for it
      */
-    async startBackgroundAnalysis(username, initialFindings, onStep = null) {
+    async startBackgroundAnalysis(username, findings, onProgress) {
+        // PERFORMANCE: If in Tracer mode (10x10), skip background analysis to be fast
+        if (typeof window !== 'undefined' && window.IS_TRACER) {
+            Logger.info('BACKGROUND', 'Skipping background analysis (Tracer Limit Active)');
+            return null;
+        }
         if (window.AI_OFFLINE) return null; // CRITICAL: Stop here if offline
         Logger.background('Starting deep background analysis...');
 
@@ -33,7 +39,7 @@ export class BackgroundAnalyzer {
         const pendingBatches = [];
         let batch;
         // STABILITY FIX: Reduced batch from 20 to 2 to prevent AI Server Saturation
-        while ((batch = this.coordinator.getNextBatch(2, true)).length > 0) {
+        while ((batch = this.coordinator.getNextBatch(5, true)).length > 0) { // Increased to 5
             pendingBatches.push(batch);
         }
 
@@ -81,7 +87,7 @@ export class BackgroundAnalyzer {
                         // HIGH FIDELITY ANALYSIS
                         let aiSummary = `Code in ${fileInfo.repo}`;
                         try {
-                            aiSummary = await this.deepCurator.generateHighFidelitySummary(fileInfo.repo, fileInfo.path, snippet);
+                            aiSummary = await this.deepCurator.generateHighFidelitySummary(fileInfo.repo, fileInfo.path, snippet, AISlotPriorities.BACKGROUND);
                         } catch (err) {
                             console.warn("AI Fidelity Error:", err);
                         }

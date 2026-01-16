@@ -8,8 +8,10 @@ import { CacheRepository } from '../utils/cacheRepository.js';
 import { DebugLogger } from '../utils/debugLogger.js';
 
 // Configuration constants
-const MAX_ANCHORS_PER_REPO = 50000; // Definitely lifted
-const MAX_WORKER_QUEUE_SIZE = 50000; // Definitely lifted
+// Configuration constants (Defaults)
+const DEFAULT_MAX_ANCHORS = 10;
+const DEFAULT_MAX_REPOS = 10;
+const MAX_WORKER_QUEUE_SIZE = 50000;
 const MAX_CODE_SNIPPET_LENGTH = 3000;
 
 /**
@@ -31,14 +33,19 @@ export class CodeScanner {
      * @param {Function} onStep 
      * @returns {Promise<Array>} Curated findings
      */
-    async scan(username, repos, onStep = null) {
-        // Initialize coordinator with all repos
-        this.coordinator.initInventory(repos);
+    async scan(username, repos, onStep = null, options = {}) {
+        const maxRepos = options.maxRepos || (window.IS_TRACER ? DEFAULT_MAX_REPOS : 50000);
+        const maxAnchors = options.maxAnchors || (window.IS_TRACER ? DEFAULT_MAX_ANCHORS : 50000);
+
+        // Sort by updated date (descending) and slice for 10x10 logic
+        const targetRepos = [...repos].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).slice(0, maxRepos);
+
+        // Initialize coordinator with target repos
+        this.coordinator.initInventory(targetRepos);
         this.coordinator.onProgress = (data) => {
             if (onStep) onStep(data);
         };
 
-        const targetRepos = repos;
         const allFindings = [];
 
         // Process in parallel batches
@@ -64,8 +71,8 @@ export class CodeScanner {
                 // Identify "Anchor" files (Architecture)
                 const anchors = this.identifyAnchorFiles(treeFiles);
 
-                // Audit anchor files (max 50 per repo)
-                const repoAudit = await this.auditFiles(username, repo.name, anchors.slice(0, MAX_ANCHORS_PER_REPO), needsFullScan, onStep);
+                // Audit anchor files (Limited according to mode)
+                const repoAudit = await this.auditFiles(username, repo.name, anchors.slice(0, maxAnchors), needsFullScan, onStep);
 
                 // Save tree SHA in cache
                 await CacheRepository.setRepoTreeSha(username, repo.name, treeSha);
@@ -154,12 +161,38 @@ export class CodeScanner {
         return await Promise.all(files.map(async (file) => {
             // Check cache first - SHA verification is now ALWAYS active (Cache-First)
             const needsUpdate = await CacheRepository.needsUpdate(username, repoName, file.path, file.sha);
+
+            // 1. Check if we have a valid AI Snippet in cache (Offline Mode)
             if (!needsUpdate) {
+                const cached = await CacheRepository.getFileSummary(username, repoName, file.path);
+
+                // OFFLINE HIT: If we have the FULL AI context (3000 chars), use it!
+                if (cached && cached.aiSnippet) {
+                    this.coordinator.markCompleted(repoName, file.path, cached.summary);
+                    DebugLogger.logCacheHit(repoName, file.path, cached.summary);
+
+                    // In Tracer mode, feed worker with LOCAL data
+                    if (window.IS_TRACER && this.workerPool.totalQueued < MAX_WORKER_QUEUE_SIZE) {
+                        this.workerPool.enqueue(repoName, file.path, cached.aiSnippet, file.sha);
+                    }
+                    return { path: file.path, snippet: cached.aiSnippet, fromCache: true };
+                }
+                // If only truncated snippet exists (old cache), fall through to download (UPGRADE)
+            }
+
+            // If not in Tracer mode AND we don't need an update, use cached contentSnippet if available
+            if (!needsUpdate && !(typeof window !== 'undefined' && window.IS_TRACER)) {
                 const cached = await CacheRepository.getFileSummary(username, repoName, file.path);
                 if (cached) {
                     this.coordinator.markCompleted(repoName, file.path, cached.summary);
-                    // NEW: Log cache hit for visibility
                     DebugLogger.logCacheHit(repoName, file.path, cached.summary);
+
+                    // CRITICAL FIX: In Tracer mode, FORCE worker execution even if content is cached
+                    // This ensures we regenerate findings after a memory reset
+                    if (window.IS_TRACER && this.workerPool.totalQueued < MAX_WORKER_QUEUE_SIZE) {
+                        this.workerPool.enqueue(repoName, file.path, cached.contentSnippet || '', file.sha);
+                    }
+
                     return { path: file.path, snippet: cached.contentSnippet || '', fromCache: true };
                 }
             }

@@ -1,4 +1,15 @@
 # Changelog
+## [2.5.1-HyperSpeed] - 2026-01-16
+### ⚡ Performance & Offline Cache Strategy
+- **Offline Code Cache**: Implementación de `aiSnippet` (3000 chars) en `PersistenceMock` y `repo_cache.json`.
+    - El `CodeScanner` ahora prioriza la carga local de código completo, eliminando llamadas a la API de GitHub en re-escaneos.
+    - Permite diagnósticos forenses ilimitados sin riesgo de Rate Limiting.
+- **Tracer 10x10 Logic**: Optimización del modo diagnóstico para analizar solo una muestra representativa (10 repos/10 anclas) en segundos.
+- **AI Slot Concurrency Fixes**:
+    - **Worker Force-Queue**: Corrección crítica que fuerza a los workers a procesar archivos cacheados en modo Tracer, asegurando que el perfil cognitivo se regenere incluso tras un reset de memoria.
+    - **BackgroundAnalyzer**: Desactivado inteligentemente en modo Tracer para evitar cuellos de botella.
+    - **Slot Manager Integration**: Estabilización de la concurrencia (5 slots) con prioridades claras (URGENT/NORMAL/BACKGROUND).
+
 ## [2.5.0-Cortex] - 2026-01-16
 ### 🎭 Brain-Voice Dance & User Context Flow
 - **Arquitectura Brain-Voice**: Desacoplamiento total entre el razonamiento técnico (**Brain**) y la vocalización humana (**Voice**).

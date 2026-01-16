@@ -33,7 +33,8 @@ export class Globals {
                 endpoint: 'http://127.0.0.1:8000/v1/chat/completions',
                 embeddingEndpoint: 'http://127.0.0.1:8001/v1/embeddings'
             },
-            AI_OFFLINE: false
+            AI_OFFLINE: false,
+            IS_TRACER: true
         };
 
         global.document = {

@@ -37,10 +37,15 @@ export class MemoryNode {
     _generateUID(data) {
         const text = data.insight || data.summary || '';
         const seed = `${data.repo}:${data.path}:${text.substring(0, 20)}`;
-        // Browser/Node compatible base64
-        const base64 = typeof btoa !== 'undefined'
-            ? btoa(seed)
-            : Buffer.from(seed).toString('base64');
+
+        // Browser/Node compatible base64 (Safe for UTF-8)
+        let base64;
+        if (typeof Buffer !== 'undefined') {
+            base64 = Buffer.from(seed, 'utf8').toString('base64');
+        } else {
+            // Fallback for browser (might still fail with emojis, but we prefer Buffer in Tracer)
+            base64 = btoa(unescape(encodeURIComponent(seed)));
+        }
 
         return 'mem_' + base64.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10).toLowerCase();
     }
@@ -67,7 +72,8 @@ export class MemoryNode {
             confidence: this.confidence,
             complexity: this.complexity,
             links: this.links,
-            metadata: this.metadata
+            metadata: this.metadata, // NEW: Mandatory for data refinery
+            vectorStatus: this.vectorStatus
         };
     }
 }

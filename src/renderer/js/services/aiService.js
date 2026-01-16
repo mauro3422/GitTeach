@@ -24,6 +24,7 @@ import { SystemEventHandler } from './ai/SystemEventHandler.js';
 import { ChatPromptBuilder } from './ai/ChatPromptBuilder.js';
 import { IntentRouter } from './ai/IntentRouter.js';
 import { ParameterConstructor } from './ai/ParameterConstructor.js';
+import { aiSlotManager, AISlotPriorities } from './ai/AISlotManager.js';
 
 if (typeof window !== 'undefined') {
     window.AI_OFFLINE = true;
@@ -123,12 +124,13 @@ export const AIService = {
         }
     },
 
-    async callAI(systemPrompt, userMessage, temperature, format = null, schema = null) {
+    async callAI(systemPrompt, userMessage, temperature, format = null, schema = null, priority = AISlotPriorities.URGENT) {
         const ENDPOINT = (typeof window !== 'undefined' && window.AI_CONFIG?.endpoint) || 'http://localhost:8000/v1/chat/completions';
 
+        await aiSlotManager.acquire(priority);
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 120000);
+            const timeoutId = setTimeout(() => controller.abort(), 180000);
 
             const payload = {
                 model: "lfm2.5",
@@ -161,6 +163,8 @@ export const AIService = {
             this.updateHealth(false);
             console.error("[AIService] ❌ AI Error:", error.message);
             throw error;
+        } finally {
+            aiSlotManager.release();
         }
     },
 

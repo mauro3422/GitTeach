@@ -22,6 +22,9 @@ export const SESSION_PATH = path.join(ROOT, 'logs/sessions', SESSION_ID);
 
 export const MOCK_PERSISTENCE_PATH = path.join(SESSION_PATH, 'mock_persistence');
 
+// GLOBAL PERSISTENCE (Shared with App or stable for Tracer)
+export const REPOS_CACHE_PATH = path.join(APP_DATA, 'giteach', 'repo_cache.json');
+
 export const TOKEN_PATH = path.join(APP_DATA, 'giteach', 'token.json');
 
 export const PID_FILE = path.join(ROOT, 'tracer.pid');

@@ -15,23 +15,25 @@ export class WorkerPromptBuilder {
      * Build the system prompt for code analysis
      */
     buildSystemPrompt() {
-        return `You analyze code files for developer profiling.
+        return `You are a Code Mining Worker for GitTeach. Analyze code files for developer profiling.
+        
+### DUAL MISSION:
+1. SUMMARY (Qualitative): A technical description of what the code demonstrates.
+2. METRICS (Quantitative): Numeric health metrics for the file.
 
-STEP 1: Extract the most important function, class, or variable name from the code.
-STEP 2: Based on that evidence, classify the domain and assign weights.
+### OUTPUT FORMAT:
+[DOMAIN] | [CONFIDENCE:0.0-1.0] | [COMPLEXITY:1-5]
+SUMMARY: <Technical insight about the developer's skill in this file>.
+METRICS: {"solid": 1-5, "modularity": 1-5, "readability": 1-5, "patterns": ["pattern1", "pattern2"]}
+EVIDENCE: <Actual code fragment copied from original source>
 
-OUTPUT FORMAT (exactly one line):
-[DOMAIN] [CONFIDENCE:0.0-1.0] [COMPLEXITY:1-5] Description | Evidence: <paste_actual_code_fragment>
+### DOMAIN OPTIONS: UI, Backend, Business, System, Game, Script, Data, Science, DevOps, Config
 
-DOMAIN OPTIONS: UI, Backend, Business, System, Game, Script, Data, Science, DevOps, Config
-
-IMPORTANT:
-- The evidence MUST be copied from the actual code shown below.
-- STRICT RULE: Do not classify as "Game" unless it mentions game engines (Unity, Godot), sprites, or gameplay loops. 
-- CONFIDENCE: How certain are you of this classification? (e.g. 0.9 if sure, 0.4 if guessing).
-- COMPLEXITY: 1 (basic) to 5 (extremely sophisticated/advanced pattern).
-- If code is empty or under 50 characters, output: SKIP
-- Never invent function names. Only cite what exists in the code.`;
+### CONSTRAINTS:
+- Keep SUMMARY under 150 chars.
+- METRICS must be valid JSON on its own line.
+- EVIDENCE is mandatory and must be exact.
+- Do not be overly optimistic. If the code is basic, assign METRICS 1 or 2.`;
     }
 
     /**
@@ -90,58 +92,64 @@ Tell me what it demonstrates about the developer:`;
     parseResponse(summary) {
         const trimmed = summary.trim();
 
-        // Check for SKIP
         if (trimmed.toUpperCase().startsWith('SKIP') || trimmed.includes('[SKIP]')) {
             return { tool: 'skip' };
         }
 
-        // Try to extract structured data from plain text
-        // Format: [DOMAIN] [CONF:0.XX] [COMP:X] Description | Evidence: fragment
-        const domainMatch = trimmed.match(/^\[([^\]]+)\]\s+\[CONF:([\d\.]+)\]\s+\[COMP:(\d+)\]\s+(.*)$/s);
+        const lines = trimmed.split('\n');
+        const header = lines[0]; // [DOMAIN] | [CONF:X] | [COMP:X]
+        const summaryLine = lines.find(l => l.startsWith('SUMMARY:'));
+        const metricsLine = lines.find(l => l.startsWith('METRICS:'));
+        const evidenceLine = lines.find(l => l.startsWith('EVIDENCE:'));
 
-        if (domainMatch) {
-            const domain = domainMatch[1];
-            const confidence = parseFloat(domainMatch[2]);
-            const complexity = parseInt(domainMatch[3]);
-            const rest = domainMatch[4];
-            const evidenceMatch = rest.match(/\|\s*Evidence:\s*(.+)$/si);
-            const description = evidenceMatch ? rest.replace(evidenceMatch[0], '').trim() : rest.trim();
-            const evidence = evidenceMatch ? evidenceMatch[1].trim() : '';
+        if (header && summaryLine && metricsLine && evidenceLine) {
+            const headerMatch = header.match(/\[([^\]]+)\]\s*\|\s*\[CONF:([\d\.]+)\]\s*\|\s*\[COMP:(\d+)\]/);
 
-            return {
-                tool: 'analysis',
-                params: {
-                    insight: description.substring(0, 100),
-                    technical_strength: domain,
-                    impact: evidence || 'See analysis',
-                    confidence: isNaN(confidence) ? 0.7 : confidence,
-                    complexity: isNaN(complexity) ? 2 : complexity
-                }
-            };
-        }
-
-        // Fallback for old format or slightly broken format
-        const legacyMatch = trimmed.match(/^\[([^\]]+)\]\s*(.*)$/s);
-        if (legacyMatch) {
-            const domain = legacyMatch[1];
-            const rest = legacyMatch[2];
-            const evidenceMatch = rest.match(/\|\s*Evidence:\s*(.+)$/si);
-            const description = evidenceMatch ? rest.replace(evidenceMatch[0], '').trim() : rest.trim();
-            const evidence = evidenceMatch ? evidenceMatch[1].trim() : '';
+            let metrics = {};
+            try {
+                metrics = JSON.parse(metricsLine.replace('METRICS:', '').trim());
+            } catch (e) {
+                metrics = { solid: 2, modularity: 2, readability: 2, patterns: [] };
+            }
 
             return {
                 tool: 'analysis',
                 params: {
-                    insight: description.substring(0, 100),
-                    technical_strength: domain,
-                    impact: evidence || 'See analysis',
-                    confidence: 0.6,
-                    complexity: 2
+                    insight: summaryLine.replace('SUMMARY:', '').trim(),
+                    technical_strength: headerMatch ? headerMatch[1] : 'General',
+                    impact: evidenceLine.replace('EVIDENCE:', '').trim(),
+                    confidence: headerMatch ? parseFloat(headerMatch[2]) : 0.7,
+                    complexity: headerMatch ? parseInt(headerMatch[3]) : 2,
+                    metadata: metrics // NEW: Carries the structured metrics for widgets/refinery
                 }
             };
         }
 
-        // No structured format found, return null (raw summary is still valid)
+        // Fallback for legacy or loose parsing
+        return this._looseParse(trimmed);
+    }
+
+    /**
+     * Loose parsing fallback for broken formats
+     */
+    _looseParse(text) {
+        const domainMatch = text.match(/\[([^\]]+)\]/);
+        const insightMatch = text.match(/SUMMARY:\s*(.*)/i) || text.match(/Description:\s*(.*)/i);
+        const evidenceMatch = text.match(/EVIDENCE:\s*(.*)/i) || text.match(/Evidence:\s*(.*)/i);
+
+        if (domainMatch || insightMatch) {
+            return {
+                tool: 'analysis',
+                params: {
+                    insight: insightMatch ? insightMatch[1].substring(0, 150) : "Technical analysis",
+                    technical_strength: domainMatch ? domainMatch[1] : 'General',
+                    impact: evidenceMatch ? evidenceMatch[1] : 'See code',
+                    confidence: 0.5,
+                    complexity: 2,
+                    metadata: { solid: 2, modularity: 2, readability: 2, patterns: [] }
+                }
+            };
+        }
         return null;
     }
 

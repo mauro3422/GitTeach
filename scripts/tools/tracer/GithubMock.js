@@ -28,44 +28,51 @@ export class GithubMock {
         return {
             _headers: headers,
             listRepos: async () => {
-                const res = await fetch('https://api.github.com/user/repos?sort=updated&per_page=10', { headers: headers() });
-                const repos = await res.json();
-                return Array.isArray(repos) ? repos.slice(0, 10) : [];
+                try {
+                    const res = await fetch('https://api.github.com/user/repos?sort=updated&per_page=10', { headers: headers() });
+                    if (!res.ok) return [];
+                    const repos = await res.json();
+                    return Array.isArray(repos) ? repos.slice(0, 10) : [];
+                } catch (e) { return []; }
             },
             getProfileReadme: async (u) => {
-                const res = await fetch(`https://api.github.com/repos/${u}/${u}/readme`, { headers: headers() });
-                if (!res.ok) return "";
-                const data = await res.json();
-                return Buffer.from(data.content, 'base64').toString('utf8');
+                try {
+                    const res = await fetch(`https://api.github.com/repos/${u}/${u}/readme`, { headers: headers() });
+                    if (!res.ok) return "";
+                    const data = await res.json();
+                    return Buffer.from(data.content, 'base64').toString('utf8');
+                } catch (e) { return ""; }
             },
             getRepoTree: async (u, r) => {
-                const treeRes = await fetch(`https://api.github.com/repos/${u}/${r}/git/trees/main?recursive=1`, { headers: headers() });
-                // Fallback to master if main fails
-                if (!treeRes.ok) {
-                    const masterRes = await fetch(`https://api.github.com/repos/${u}/${r}/git/trees/master?recursive=1`, { headers: headers() });
-                    if (masterRes.ok) {
-                        const data = await masterRes.json();
-                        if (data.tree) data.tree = data.tree.slice(0, 10);
-                        return data;
+                try {
+                    const treeRes = await fetch(`https://api.github.com/repos/${u}/${r}/git/trees/main?recursive=1`, { headers: headers() });
+                    if (!treeRes.ok) {
+                        const masterRes = await fetch(`https://api.github.com/repos/${u}/${r}/git/trees/master?recursive=1`, { headers: headers() });
+                        if (masterRes.ok) {
+                            return await masterRes.json();
+                        }
+                    } else {
+                        return await treeRes.json();
                     }
-                } else {
-                    const data = await treeRes.json();
-                    if (data.tree) data.tree = data.tree.slice(0, 10);
-                    return data;
-                }
+                } catch (e) { }
                 return { tree: [] };
             },
             getFileContent: async (u, r, p) => {
-                const res = await fetch(`https://api.github.com/repos/${u}/${r}/contents/${p}`, { headers: headers() });
-                return await res.json();
+                try {
+                    const res = await fetch(`https://api.github.com/repos/${u}/${r}/contents/${p}`, { headers: headers() });
+                    if (!res.ok) return { message: 'Not Found' };
+                    return await res.json();
+                } catch (e) { return { message: e.message }; }
             },
             logToTerminal: () => { },
             checkAuth: async () => ({ login: 'mauro3422', token: authToken }),
             getRawFileByPath: async (u, r, p) => {
-                const res = await fetch(`https://api.github.com/repos/${u}/${r}/contents/${p}`, { headers: headers() });
-                if (!res.ok) return "";
-                const data = await res.json();
-                return Buffer.from(data.content, 'base64').toString('utf8');
+                try {
+                    const res = await fetch(`https://api.github.com/repos/${u}/${r}/contents/${p}`, { headers: headers() });
+                    if (!res.ok) return "";
+                    const data = await res.json();
+                    return Buffer.from(data.content, 'base64').toString('utf8');
+                } catch (e) { return ""; }
             },
             getUserCommits: async () => [],
             getCommitDiff: async () => ({ files: [] })

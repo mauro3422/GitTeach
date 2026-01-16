@@ -23,6 +23,7 @@ GitTeach es una aplicación de escritorio (Electron) diseñada para ayudar a los
         *   **Vectores (CPU):** Nomic Embed Text v1.5 para memoria semántica de alta fidelidad.
     *   **Memoria Jerárquica:** Sistema que distingue entre **Hallazgos** (Vectores), **ADN Técnico** (Curación Interna) e **Identidad de Usuario** (Perfil para el chat).
     *   **Analista de Código:** Capacidad para leer y analizar tus repositorios públicos con introspección profunda.
+    *   **Offline Cache ("Zero-API"):** Sistema de caché inteligente (`aiSnippet`) que almacena localmente el contexto completo de análisis. Permite re-analizar repositorios infinitamente sin consumir cuota de API ni depender de internet una vez descargados.
 *   **Privacidad Total:** Todo corre en tu máquina (`localhost`), tus tokens y datos nunca salen a servidores de terceros (salvo GitHub API directa).
 
 ## 🛠️ Tecnologías

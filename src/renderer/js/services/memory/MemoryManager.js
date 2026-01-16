@@ -32,8 +32,9 @@ export class MemoryManager {
             insight: finding.insight || finding.summary,
             evidence: finding.impact || finding.evidence,
             classification: finding.technical_strength || finding.classification,
-            confidence: finding.confidence || 0.7, // Fallback if worker doesn't provide it yet
-            complexity: finding.complexity || 2    // Fallback if worker doesn't provide it yet
+            confidence: finding.confidence || 0.7,
+            complexity: finding.complexity || 2,
+            metadata: finding.metadata || {} // NEW: Captures SOLID, modularity, etc.
         });
 
         this.addNode(node);

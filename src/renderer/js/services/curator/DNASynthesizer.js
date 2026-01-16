@@ -10,6 +10,7 @@
  */
 import { AIService } from '../aiService.js';
 import { Logger } from '../../utils/logger.js';
+import { AISlotPriorities } from '../ai/AISlotManager.js';
 
 export class DNASynthesizer {
     /**
@@ -104,13 +105,28 @@ STRICT RULE: NO MARKDOWN. NO INTRO. START WITH '{'.`;
      * @param {number} curatedCount - Curated insights count
      * @returns {Promise<Object>} { dna, traceability_map }
      */
-    async synthesize(username, thematicAnalyses, stats, traceabilityMap, rawCount, curatedCount) {
+    async synthesize(username, thematicAnalyses, stats, traceabilityMap, rawCount, curatedCount, healthReport = null) {
         Logger.reducer('Synthesizing Developer DNA with HIGH FIDELITY...');
 
         const prompt = this.buildSynthesisPrompt(username, thematicAnalyses, stats, rawCount, curatedCount);
+
+        // Grounding instruction for Synthesizer
+        let scoringInstruction = "";
+        if (healthReport) {
+            scoringInstruction = `
+### MANDATORY SCORING DATA (Metric Refinery):
+- AVG SOLID: ${healthReport.averages.solid}
+- AVG MODULARITY: ${healthReport.averages.modularity}
+- AVG READABILITY: ${healthReport.averages.readability}
+
+RULE: Use these averages to determine the 'score' in traits. 
+Score = (AVG * 20). If AVG is 3.5, Score should be 70.
+IF STATUS IS 'EXPERIMENTAL', CAP FINAL SCORES AT 75% UNTIL MORE DATA IS ANALYZED.`;
+        }
+
         const schema = this.getDNASchema();
 
-        const rawResponse = await AIService.callAI(prompt, "GENERATE TECHNICAL DNA OBJECT NOW.", 0.1, 'json_object', schema);
+        const rawResponse = await AIService.callAI(`${prompt}\n${scoringInstruction}`, "GENERATE TECHNICAL DNA OBJECT NOW.", 0.1, 'json_object', schema, AISlotPriorities.BACKGROUND);
 
         try {
             const dna = this._parseResponse(rawResponse);
@@ -118,6 +134,29 @@ STRICT RULE: NO MARKDOWN. NO INTRO. START WITH '{'.`;
             // Final Step: Technical Linking (Graph V3)
             // Manually inject UIDs based on filename matching to bridge AI descriptions with real memory nodes
             this._linkMemoryNodes(dna, traceabilityMap);
+
+            // EXTRA: Objective Data Injection (from refinery)
+            if (healthReport) {
+                dna.code_health = {
+                    integrity_score: Math.round(parseFloat(healthReport.averages.solid) * 20) || 0,
+                    averages: healthReport.averages,
+                    volume: healthReport.volume
+                };
+
+                dna.presentation = {
+                    radar_data: [
+                        { label: 'SOLID', score: Math.round(parseFloat(healthReport.averages.solid) * 20) },
+                        { label: 'Modularidad', score: Math.round(parseFloat(healthReport.averages.modularity) * 20) },
+                        { label: 'Legibilidad', score: Math.round(parseFloat(healthReport.averages.readability) * 20) },
+                        { label: 'Cobertura', score: parseInt(healthReport.volume.coverage) || 0 }
+                    ],
+                    orbital_skills: (healthReport.topPatterns || []).map(p => ({
+                        name: p.name.replace(/_/g, ' ').toUpperCase(),
+                        value: p.count,
+                        level: p.count > 2 ? 'Master' : 'Advanced'
+                    }))
+                };
+            }
 
             return { dna, traceability_map: traceabilityMap };
         } catch (e) {

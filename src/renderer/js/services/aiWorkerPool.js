@@ -21,6 +21,7 @@ import { DebugLogger } from '../utils/debugLogger.js';
 import { QueueManager } from './workers/QueueManager.js';
 import { RepoContextManager } from './workers/RepoContextManager.js';
 import { WorkerPromptBuilder } from './workers/WorkerPromptBuilder.js';
+import { AISlotPriorities } from './ai/AISlotManager.js';
 
 export class AIWorkerPool {
     constructor(workerCount = 3, coordinator = null, debugLogger = null) {
@@ -200,7 +201,7 @@ export class AIWorkerPool {
             return { prompt: 'PRE-FILTERED', summary: `SKIP: ${skipReason}`, langCheck: { valid: true } };
         }
 
-        let summary = await aiService.callAI(systemPrompt, userPrompt, 0.1);
+        let summary = await aiService.callAI(systemPrompt, userPrompt, 0.1, null, null, AISlotPriorities.NORMAL);
 
         // Post-process with anomaly tagging
         summary = this.promptBuilder.postProcessSummary(summary, langCheck || { valid: true });
@@ -226,6 +227,7 @@ export class AIWorkerPool {
                 summary: summary,
                 workerId: workerId,
                 classification: parsed?.params?.technical_strength || 'General',
+                metadata: parsed?.params?.metadata || {}, // NEW: Carries the metrics
                 params: parsed?.params || { insight: summary, technical_strength: 'General' }
             };
 

@@ -91,7 +91,7 @@ JSON: {
 CRITICAL RULES:
 1. "thought": EXPLAIN what you discovered in the user's intent vs their profile.
 2. "whisper_to_chat": This is the 'Brain' talking to the 'Voice'. Give the Chat Agent a secret insight or strategic angle to win over the user. Focus on their DEVELOPER IDENTITY.
-3. "searchTerms": English only.
+3. "searchTerms": ALWAYS in English. Translate user concepts (e.g. "entrada" -> "login", "crear" -> "create").
 `;
   },
 

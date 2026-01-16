@@ -56,7 +56,7 @@ export class InsightsCurator {
 
             // 2. Echo Detection (Deduplication via Jaccard)
             let isEcho = false;
-            const lookback = seenTokens.slice(-10);
+            const lookback = seenTokens.slice(-50); // Increased from 10 to 50
 
             for (let i = 0; i < lookback.length; i++) {
                 const otherTokens = lookback[i];
@@ -120,7 +120,12 @@ export class InsightsCurator {
      * @returns {string} Formatted text
      */
     formatInsightsAsText(validInsights) {
-        return validInsights.map(i => {
+        // Implementation of Density Cap: Sort by weight and slice top 150
+        const significantInsights = [...validInsights]
+            .sort((a, b) => (b.weight || 1) - (a.weight || 1))
+            .slice(0, 150);
+
+        return significantInsights.map(i => {
             const anomalyPrefix = i.params.insight.includes('INTEGRITY ANOMALY') ? '[⚠️ INTEGRITY ANOMALY] ' : '';
             const weightPrefix = i.weight > 1 ? `[x${i.weight} CONFIRMED] ` : '';
             const uidTag = i.uid ? `[ID:${i.uid}] ` : '';

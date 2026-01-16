@@ -9,6 +9,7 @@
  */
 import { AIService } from '../aiService.js';
 import { Logger } from '../../utils/logger.js';
+import { AISlotPriorities } from '../ai/AISlotManager.js';
 
 export class ThematicMapper {
     /**
@@ -51,16 +52,30 @@ export class ThematicMapper {
      * @param {string} curatedInsightsText - Formatted curated insights
      * @returns {Promise<Object>} Analysis results by layer
      */
-    async executeMapping(username, curatedInsightsText) {
+    async executeMapping(username, curatedInsightsText, healthReport = null) {
         const prompts = this.buildThematicPrompts(username);
+
+        // Grounding with Health Report (Objectivity Filter)
+        let groundingInstruction = "";
+        if (healthReport) {
+            groundingInstruction = `
+### GLOBAL HEALTH AUDIT (Mathematical Truth):
+- SOLID Average: ${healthReport.averages.solid}/5
+- Modularity: ${healthReport.averages.modularity}/5
+- Analyzed Files: ${healthReport.volume.analyzedFiles} / Total: ${healthReport.volume.totalFiles}
+- Significance: ${healthReport.volume.status} (${healthReport.volume.coverage} coverage)
+
+INSTRUCTION: You MUST ground your analysis in these numbers. 
+If status is 'EXPERIMENTAL' or 'SURFACE', be very cautious and do not over-praise.
+If SOLID average is below 3.0, mention areas for improvement as a mentor.`;
+        }
 
         Logger.mapper('Executing 3 layers of deep technical analysis...');
 
-        // Execute ALL layers in PARALLEL (major performance improvement)
         const [architecture, habits, stack] = await Promise.all([
-            this._executeLayer('architecture', prompts.architecture, curatedInsightsText),
-            this._executeLayer('habits', prompts.habits, curatedInsightsText),
-            this._executeLayer('stack', prompts.stack, curatedInsightsText)
+            this._executeLayer('architecture', `${prompts.architecture}\n${groundingInstruction}`, curatedInsightsText),
+            this._executeLayer('habits', `${prompts.habits}\n${groundingInstruction}`, curatedInsightsText),
+            this._executeLayer('stack', prompts.stack, curatedInsightsText) // Stack is less about bias
         ]);
 
         Logger.mapper('All 3 layers completed in parallel.');
@@ -78,7 +93,10 @@ export class ThematicMapper {
             const result = await AIService.callAI(
                 `Curator Mapper: ${key}`,
                 `${systemPrompt}\n\nCURATED INSIGHTS:\n${curatedInsightsText}`,
-                0.1
+                0.1,
+                null,
+                null,
+                AISlotPriorities.BACKGROUND
             );
             return result;
         } catch (e) {

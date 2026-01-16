@@ -20,6 +20,8 @@ import { DebugLogger } from '../utils/debugLogger.js';
 import { ThematicMapper } from './curator/ThematicMapper.js';
 import { InsightsCurator } from './curator/InsightsCurator.js';
 import { DNASynthesizer } from './curator/DNASynthesizer.js';
+import { MetricRefinery } from './curator/MetricRefinery.js';
+import { AISlotPriorities } from './ai/AISlotManager.js';
 
 export class DeepCurator {
     constructor(debugLogger = null) {
@@ -100,9 +102,14 @@ export class DeepCurator {
         // Step 3: Format insights for AI consumption
         const validInsightsText = this.insightsCurator.formatInsightsAsText(validInsights);
 
+        // EXTRA STEP: Mathematical Metric Refining (Objectivity Layer)
+        // This grounds the AI in reality before mapping layers
+        const healthReport = MetricRefinery.refine(validInsights, coordinator.getTotalFilesScanned?.() || 0);
+
         // Step 4: Execute Thematic Mapping (Phase 1)
         Logger.mapper('Executing 3 layers of deep technical analysis...');
-        const mapperResults = await this.thematicMapper.executeMapping(username, validInsightsText);
+        // NEW: Pass healthReport to mapper so it can be used in prompts
+        const mapperResults = await this.thematicMapper.executeMapping(username, validInsightsText, healthReport);
         const thematicAnalyses = this.thematicMapper.formatForSynthesis(mapperResults);
 
         // Debug logging
@@ -113,7 +120,8 @@ export class DeepCurator {
             originalCount: rawFindings.length,
             curatedCount: validInsights.length,
             anomalies: anomalies,
-            stats: stats
+            stats: stats,
+            healthReport: healthReport // Log the math report
         });
 
         // Step 5: Synthesize DNA (Phase 2 - Reduce)
@@ -123,7 +131,8 @@ export class DeepCurator {
             stats,
             traceability_map,
             rawFindings.length,
-            validInsights.length
+            validInsights.length,
+            healthReport // NEW: Pass healthReport for deterministic scoring
         );
 
         // Debug logging
@@ -228,33 +237,15 @@ export class DeepCurator {
     /**
      * Generates a dense technical summary using local AI.
      */
-    async generateHighFidelitySummary(repo, path, usageSnippet) {
-        const systemPrompt = `You analyze code files for developer profiling.
-
-STEP 1: Extract the most important function, class, or variable name from the code.
-STEP 2: Based on that evidence, classify the domain.
-
-OUTPUT FORMAT (exactly one line):
-[DOMAIN] Brief description | Evidence: <paste_actual_code_fragment>
-
-DOMAIN OPTIONS: UI, Backend, Business, System, Game, Script, Data, Science, DevOps, Config
-
-IMPORTANT:
-- The evidence MUST be copied from the actual code shown below.
-- STRICT RULE: Do not classify as "Game" unless it mentions game engines (Unity, Godot), sprites, or gameplay loops. 
-- Administrative, Medical, or Management code is "Business" or "System", NOT "Game".
-- Science or Physics simulations are "Science", NOT "Game".
-- If code is empty or under 50 characters, output: SKIP
-- Never invent function names. Only cite what exists in the code.`;
-
-        const userPrompt = `File: ${repo}/${path}
-\`\`\`
-${usageSnippet.substring(0, 1000)}
-\`\`\`
-Analyze:`;
+    async generateHighFidelitySummary(repo, path, usageSnippet, priority = AISlotPriorities.BACKGROUND) {
+        // Delegate to the specialized PromptBuilder logic even if used in isolation
+        const { WorkerPromptBuilder } = await import('./workers/WorkerPromptBuilder.js');
+        const builder = new WorkerPromptBuilder();
+        const systemPrompt = builder.buildSystemPrompt();
+        const { prompt: userPrompt } = builder.buildUserPrompt({ repo, path, content: usageSnippet });
 
         try {
-            return await AIService.callAI(systemPrompt, userPrompt, 0.1);
+            return await AIService.callAI(systemPrompt, userPrompt, 0.1, null, null, priority);
         } catch (e) {
             return `Analysis failed: ${e.message}`;
         }

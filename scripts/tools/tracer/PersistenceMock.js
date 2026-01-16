@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { MOCK_PERSISTENCE_PATH } from './TracerContext.js';
+import { MOCK_PERSISTENCE_PATH, REPOS_CACHE_PATH } from './TracerContext.js';
 
 /**
  * PersistenceMock - Simulates CacheAPI and FS persistence
@@ -9,8 +9,34 @@ import { MOCK_PERSISTENCE_PATH } from './TracerContext.js';
  * la carpeta de sesión mock_persistence.
  */
 
+
+let cachedDb = null;
+
 export class PersistenceMock {
+    static _loadDb() {
+        if (cachedDb) return cachedDb;
+        try {
+            if (fs.existsSync(REPOS_CACHE_PATH)) {
+                cachedDb = JSON.parse(fs.readFileSync(REPOS_CACHE_PATH, 'utf8'));
+            } else {
+                cachedDb = { repos: {} };
+            }
+        } catch (e) {
+            cachedDb = { repos: {} };
+        }
+        return cachedDb;
+    }
+
+    static _saveDb() {
+        if (!cachedDb) return;
+        try {
+            fs.writeFileSync(REPOS_CACHE_PATH, JSON.stringify(cachedDb, null, 2), 'utf8');
+        } catch (e) { }
+    }
+
     static createAPI() {
+        const db = this._loadDb();
+
         return {
             appendWorkerLog: async (workerId, finding) => {
                 try {
@@ -36,7 +62,6 @@ export class PersistenceMock {
                 return null;
             },
             getDeveloperDNA: async (u) => {
-                // Alias for technical identity to support legacy tools
                 try {
                     const p = path.join(MOCK_PERSISTENCE_PATH, 'technical_identity.json');
                     if (fs.existsSync(p)) {
@@ -49,10 +74,10 @@ export class PersistenceMock {
             setTechnicalIdentity: async (u, data) => {
                 try {
                     const p = path.join(MOCK_PERSISTENCE_PATH, 'technical_identity.json');
-                    let db = {};
-                    if (fs.existsSync(p)) db = JSON.parse(fs.readFileSync(p, 'utf8'));
-                    db[u] = { identity: data, updatedAt: new Date().toISOString() };
-                    fs.writeFileSync(p, JSON.stringify(db, null, 2));
+                    let localDb = {};
+                    if (fs.existsSync(p)) localDb = JSON.parse(fs.readFileSync(p, 'utf8'));
+                    localDb[u] = { identity: data, updatedAt: new Date().toISOString() };
+                    fs.writeFileSync(p, JSON.stringify(localDb, null, 2));
                     return true;
                 } catch (e) { return false; }
             },
@@ -69,10 +94,10 @@ export class PersistenceMock {
             setTechnicalFindings: async (u, data) => {
                 try {
                     const p = path.join(MOCK_PERSISTENCE_PATH, 'curation_evidence.json');
-                    let db = {};
-                    if (fs.existsSync(p)) db = JSON.parse(fs.readFileSync(p, 'utf8'));
-                    db[u] = { evidence: data, updatedAt: new Date().toISOString() };
-                    fs.writeFileSync(p, JSON.stringify(db, null, 2));
+                    let localDb = {};
+                    if (fs.existsSync(p)) localDb = JSON.parse(fs.readFileSync(p, 'utf8'));
+                    localDb[u] = { evidence: data, updatedAt: new Date().toISOString() };
+                    fs.writeFileSync(p, JSON.stringify(localDb, null, 2));
                     return true;
                 } catch (e) { return false; }
             },
@@ -80,8 +105,8 @@ export class PersistenceMock {
                 try {
                     const p = path.join(MOCK_PERSISTENCE_PATH, 'cognitive_profile.json');
                     if (fs.existsSync(p)) {
-                        const db = JSON.parse(fs.readFileSync(p, 'utf8'));
-                        return db[u] || null;
+                        const localDb = JSON.parse(fs.readFileSync(p, 'utf8'));
+                        return localDb[u] || null;
                     }
                 } catch (e) { }
                 return null;
@@ -89,19 +114,54 @@ export class PersistenceMock {
             setCognitiveProfile: async (u, data) => {
                 try {
                     const p = path.join(MOCK_PERSISTENCE_PATH, 'cognitive_profile.json');
-                    let db = {};
-                    if (fs.existsSync(p)) db = JSON.parse(fs.readFileSync(p, 'utf8'));
-                    db[u] = data;
-                    fs.writeFileSync(p, JSON.stringify(db, null, 2));
+                    let localDb = {};
+                    if (fs.existsSync(p)) localDb = JSON.parse(fs.readFileSync(p, 'utf8'));
+                    localDb[u] = data;
+                    fs.writeFileSync(p, JSON.stringify(localDb, null, 2));
                     return true;
                 } catch (e) { return false; }
             },
-            getFileSummary: async () => null,
-            setFileSummary: async () => true,
-            needsUpdate: async () => true,
-            getRepoTreeSha: async () => null,
-            setRepoTreeSha: async () => true,
-            getStats: async () => ({ repoCount: 0, fileCount: 0, auditEntries: 0 })
+            getFileSummary: async (u, r, p) => {
+                const key = `${u}/${r}`;
+                return db.repos?.[key]?.files?.[p] || null;
+            },
+            setFileSummary: async (u, r, p, sha, summary, content) => {
+                const key = `${u}/${r}`;
+                if (!db.repos[key]) db.repos[key] = { files: {}, lastUpdated: null };
+                if (!db.repos[key].files) db.repos[key].files = {};
+
+                db.repos[key].files[p] = {
+                    sha,
+                    summary,
+                    summary,
+                    contentSnippet: content ? content.substring(0, 500) : null,
+                    aiSnippet: content ? content.substring(0, 3000) : null, // AI / Offline Context
+                    analyzedAt: new Date().toISOString()
+                };
+                db.repos[key].lastUpdated = new Date().toISOString();
+                this._saveDb();
+                return true;
+            },
+            needsUpdate: async (u, r, p, currentSha) => {
+                const cached = db.repos?.[`${u}/${r}`]?.files?.[p];
+                if (!cached) return true;
+                return cached.sha !== currentSha;
+            },
+            getRepoTreeSha: async (u, r) => {
+                return db.repos?.[`${u}/${r}`]?.treeSha || null;
+            },
+            setRepoTreeSha: async (u, r, sha) => {
+                const key = `${u}/${r}`;
+                if (!db.repos[key]) db.repos[key] = { files: {}, lastUpdated: null };
+                db.repos[key].treeSha = sha;
+                db.repos[key].lastUpdated = new Date().toISOString();
+                this._saveDb();
+                return true;
+            },
+            hasRepoChanged: async (u, r, sha) => {
+                return db.repos?.[`${u}/${r}`]?.treeSha !== sha;
+            },
+            getStats: async () => ({ repoCount: Object.keys(db.repos || {}).length, fileCount: 0, auditEntries: 0 })
         };
     }
 }

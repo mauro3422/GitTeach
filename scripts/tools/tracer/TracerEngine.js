@@ -52,11 +52,13 @@ export class TracerEngine {
 
         // Setup DebugLogger for Node FS
         DebugLogger.setEnabled(true);
+        // Inject dependencies directly into transport for Node environment
+        DebugLogger.transport.fs = fs;
+        DebugLogger.transport.path = path;
+        DebugLogger.transport.isNode = true;
+
         DebugLogger.session.sessionPath = SESSION_PATH;
         DebugLogger.session.sessionId = SESSION_ID;
-        DebugLogger.session.fs = fs;
-        DebugLogger.session.path = path;
-        DebugLogger.isNode = true;
 
         let totalFilesOnDisk = 0;
         try {

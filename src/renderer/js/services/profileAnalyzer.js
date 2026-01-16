@@ -72,7 +72,10 @@ export class ProfileAnalyzer {
             return this.results;
         } catch (error) {
             console.error("❌ Analysis Error:", error);
-            return null;
+            // Even if scanning fails, try to finalize with what we have
+            const langData = FlowManager.processLanguages(repos || []);
+            this.results = FlowManager.finalizeResults(username, repos || [], { summary: "Error parcial durante el escaneo." }, langData, [], this.coordinator);
+            return this.results;
         } finally {
             this.isAnalyzing = false;
         }
