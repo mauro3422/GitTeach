@@ -86,6 +86,7 @@ export class ProfileAnalyzer {
         if (!curationResult) return null;
 
         const oldIdentity = await CacheRepository.getTechnicalIdentity(username);
+        // Sintetizar Identidad (Personalidad) a partir del ADN Técnico
         const { finalProfile, report, isSignificant } = await this.intelligenceSynthesizer.synthesizeProfile(oldIdentity, curationResult.dna);
 
         await CacheRepository.setTechnicalIdentity(username, finalProfile);
@@ -93,11 +94,12 @@ export class ProfileAnalyzer {
             await CacheRepository.setTechnicalFindings(username, curationResult.traceability_map);
         }
 
+        // Inyectar contexto: Identidad Técnica (Personalidad) + ADN (Trazabilidad) + Memoria (Hallazgos)
         AIService.setSessionContext(this.getFreshContext(username, finalProfile, this.intelligenceSynthesizer.technicalProfile, curationResult.traceability_map));
 
         if (isSignificant && report.milestone !== 'INITIAL_SYNTHESIS') {
-            const reactivePrompt = `Mi identidad técnica ha evolucionado: ${report.evolutionSnapshot || 'Nuevos hallazgos detectados.'}`;
-            ReactionEngine.trigger(username, reactivePrompt, 'raw');
+            const reactiveMsg = `DNA_EVOLUTION_DETECTED: ${report.evolutionSnapshot || 'Nuevos rasgos detectados.'}`;
+            ReactionEngine.trigger(username, reactiveMsg, 'system');
         }
 
         if (onStep) onStep({ type: 'DeepMemoryReady', message: isSignificant ? '🧠 Identidad Evolucionada!' : '🧠 Memoria sincronizada.', data: finalProfile });
@@ -119,7 +121,7 @@ export class ProfileAnalyzer {
             if (onStep) onStep({ type: 'Progreso', percent: data.percent, message: `🤖 Worker ${data.workerId}: Processed` });
         };
 
-        this.workerPool.onBatchComplete = (batch) => {
+        this.workerPool.onBatchComplete = async (batch) => {
             // Memory V3: Store findings in the decoupled MemoryManager
             batch.forEach(finding => {
                 const node = memoryManager.storeFinding(finding);
@@ -134,7 +136,8 @@ export class ProfileAnalyzer {
             if (reflection.isSignificant) {
                 Logger.success('ANALYZER', `💡 Intermediate Evolution: ${reflection.snapshot}`);
                 if (onStep) onStep({ type: 'DeepMemoryReady', message: `🧠 ${reflection.snapshot}`, data: null });
-                ReactionEngine.trigger(username, reflection.snapshot);
+
+                ReactionEngine.trigger(username, reflection.snapshot, 'system');
             }
         };
 

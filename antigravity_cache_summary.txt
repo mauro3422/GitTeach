@@ -1,0 +1,41 @@
+Resumen de archivos de cache de Antigravity antes de la limpieza
+Fecha: 16/01/2026
+
+Directorio: C:\Users\mauro\.gemini\antigravity\
+
+Conversaciones:
+- Total de archivos: 68
+- Archivos grandes (>5MB): Múltiples, incluyendo uno de ~24.59 MB
+- Nota: Los archivos están en formato binario protobuf (.pb), no legibles como texto
+
+Context State:
+- Estado: Parece vacío (directorio existe pero sin contenido visible)
+
+Scratch:
+- Estado: No existe
+
+Backup existente:
+- old_conversations_backup: Existe y contiene archivos respaldados previamente
+
+Problema identificado:
+- Archivos de conversación muy grandes causando "Payload Too Large" en conexiones API
+- Error de conexión en el chat del IDE
+
+Acción tomada inicialmente:
+- Movidas todas las conversaciones a conversations_backup_full (68 archivos)
+- Eliminado y recreado context_state vacío
+- Recrear conversations vacío
+- Scratch no existía, no se recreó
+
+Problema persistió después de reinicio.
+
+Acciones adicionales tomadas:
+- Respaldadas configuraciones (settings.json)
+- Eliminado completamente el directorio .gemini/antigravity
+- Restaurada settings.json
+- Ahora el IDE debería iniciar con configuración fresca
+
+Si el problema persiste, considera:
+- Reinstalar Antigravity
+- Verificar conexión a internet
+- Revisar configuración de modelos IA

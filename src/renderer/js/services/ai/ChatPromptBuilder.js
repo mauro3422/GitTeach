@@ -11,13 +11,25 @@ export class ChatPromptBuilder {
      * Construye el prompt del sistema para conversación de chat.
      * @param {string} username - Username del usuario
      * @param {string} sessionContext - Contexto de sesión (identidad técnica)
+     * @param {string} brainThought - Lo que el cerebro pensó (CoT)
+     * @param {string} brainWhisper - Instrucción estratégica (Whisper)
      * @returns {string} System prompt completo
      */
-    static build(username, sessionContext) {
-        if (sessionContext && sessionContext.length > 50) {
-            return this.buildRichPrompt(username, sessionContext);
+    static build(username, sessionContext, brainThought = null, brainWhisper = null) {
+        let basePrompt = (sessionContext && sessionContext.length > 50)
+            ? this.buildRichPrompt(username, sessionContext)
+            : this.buildBasicPrompt(username);
+
+        // La danza: El cerebro le habla a la voz
+        if (brainThought || brainWhisper) {
+            basePrompt += `\n\n### 🧠 SUSURRO DEL CEREBRO (ESTRATEGIA):
+${brainThought ? `RAZONAMIENTO INTERNO: "${brainThought}"\n` : ""}
+${brainWhisper ? `INTUICIÓN PARA LA VOZ: "${brainWhisper}"\n` : ""}
+
+**INSTRUCCIÓN DE VOCALIZACIÓN**: No repitas el susurro. Úsalo como combustible emocional y técnico para que tu respuesta al usuario sea profunda, personalizada y demuestre que "entiendes su ADN" más allá de las palabras.`;
         }
-        return this.buildBasicPrompt(username);
+
+        return basePrompt;
     }
 
     /**

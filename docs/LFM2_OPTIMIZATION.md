@@ -114,3 +114,36 @@ IMPORTANT:
 - Model cannot classify without first reading the code
 - No examples to copy = no echo pollution
 
+---
+
+## 6. LFM2-1.2B Model Specifications
+
+### Capabilities ✅
+| Capability | Details |
+|------------|---------|
+| **Parameters** | 1.17 billion (1,170,340,608) |
+| **Context Window** | 32,768 tokens (32K) |
+| **Architecture** | Hybrid: Double-gated convolution + Grouped Query Attention |
+| **Speed** | 2x faster decode/prefill on CPU vs Qwen3 |
+| **Languages** | EN, ES, ZH, DE, AR, JA, KO, FR |
+| **Best Tasks** | RAG, extraction, summarization, structured JSON |
+| **Memory** | <2GB (int4 quantized) |
+
+### Limitations ⚠️
+| Limitation | Mitigation |
+|------------|------------|
+| Not for knowledge-intensive tasks | Use RAG to inject external knowledge |
+| Advanced programming needs fine-tuning | Keep prompts simple, use Few-Shot |
+| Tendency to copy few-shot examples | Use Evidence-First prompting (Step-Based) |
+| May hallucinate domain names | Use Cognitive Vaccines in prompts |
+
+### Recommended Settings
+```javascript
+// For classification/extraction:
+temperature: 0.0,
+response_format: { type: "json_object" }
+
+// For generation:
+temperature: 0.2-0.7,
+n_predict: 4096 // Max tokens
+```

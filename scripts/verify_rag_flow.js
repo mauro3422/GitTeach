@@ -11,6 +11,7 @@
 import { IntentRouter } from '../src/renderer/js/services/ai/IntentRouter.js';
 import { ToolRegistry } from '../src/renderer/js/services/toolRegistry.js';
 import { MemoryAgent } from '../src/renderer/js/services/memory/MemoryAgent.js';
+import { AIService } from '../src/renderer/js/services/aiService.js';
 
 // MOCK ENVIRONMENT (Minimal for Node.js)
 if (typeof window === 'undefined') {

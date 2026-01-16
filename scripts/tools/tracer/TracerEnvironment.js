@@ -1,5 +1,7 @@
 import fs from 'fs';
+import path from 'path';
 import { PID_FILE, SESSION_PATH, MOCK_PERSISTENCE_PATH } from './TracerContext.js';
+import { PersistenceMock } from './PersistenceMock.js';
 
 /**
  * TracerEnvironment - Process and Filesystem management
@@ -31,12 +33,8 @@ export class TracerEnvironment {
                     endpoint: 'http://localhost:8000/v1/chat/completions',
                     embeddingEndpoint: 'http://localhost:8001/v1/embeddings'
                 },
-                cacheAPI: {
-                    getTechnicalIdentity: async () => ({ bio: 'MOCK BIO', traits: [] }),
-                    getCognitiveProfile: async () => ({ learningStyle: 'Visual' }),
-                    getStats: async () => ({ fileCount: 50, repoCount: 3 }),
-                    getDeveloperDNA: async () => ({ bio: 'MOCK DNA', traits: [] })
-                },
+                // Use the REAL PersistenceMock that reads/writes to mock_persistence/
+                cacheAPI: PersistenceMock.createAPI(),
                 utilsAPI: {
                     checkAIHealth: async () => true
                 },
@@ -93,11 +91,6 @@ export class TracerEnvironment {
         this.ensureDir(path.join(SESSION_PATH, 'curator'));
         this.ensureDir(path.join(SESSION_PATH, 'chat'));
         this.ensureDir(MOCK_PERSISTENCE_PATH);
-
-        // Import path from node for internal use
-        // (already used in TracerContext but good to be explicit if needed here)
     }
 }
 
-// Internal helper for full paths inside sessions
-import path from 'path';

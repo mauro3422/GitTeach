@@ -1,6 +1,12 @@
 # Changelog
+## [2.5.0-Cortex] - 2026-01-16
+### 🎭 Brain-Voice Dance & User Context Flow
+- **Arquitectura Brain-Voice**: Desacoplamiento total entre el razonamiento técnico (**Brain**) y la vocalización humana (**Voice**).
+    - El `IntentRouter` y el `SystemEventHandler` ahora actúan como un **Cortex** unificado que genera "susurros" estratégicos.
+    - El `ChatAgent` es la única voz autorizada, utilizando los susurros para responder con personalidad senior y sin fugas de datos técnicos crudos.
+- **Flujo de Perfil Curado**: Refactorización de `ContextBuilder` y `IntelligenceSynthesizer` para asegurar que solo la identidad técnica refinada impacte en la comunicación, dejando los hallazgos granulares en la memoria técnica subyacente.
+- **Unified Strategic Guidelines**: Migración de `chat_guidance` a `whisper_to_chat`, enriqueciendo la comunicación interna entre agentes con intuiciones cualitativas.
 
-## [2.4.0-Reasoning] - 2026-01-16
 ### 🧠 Thinking Agent & Autonomous RAG
 - **Thinking Protocol (CoT)**: Implementación de un ciclo de razonamiento explícito ("Thought") antes de cada acción. La IA ahora "piensa" y justifica qué herramienta usar, evitando alucinaciones de herramientas.
 - **RAG Autónomo**: Integración profunda de `QueryMemoryTool`. El Router decide inteligentemente cuándo inyectar contexto de memoria técnica (ej: al pedir un README) basándose en su propio razonamiento.

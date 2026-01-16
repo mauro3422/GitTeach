@@ -46,33 +46,45 @@ export class ThematicMapper {
     }
 
     /**
-     * Execute thematic analysis for all layers
+     * Execute thematic analysis for all layers IN PARALLEL
      * @param {string} username - GitHub username
      * @param {string} curatedInsightsText - Formatted curated insights
      * @returns {Promise<Object>} Analysis results by layer
      */
     async executeMapping(username, curatedInsightsText) {
         const prompts = this.buildThematicPrompts(username);
-        const results = {};
 
         Logger.mapper('Executing 3 layers of deep technical analysis...');
 
-        for (const [key, systemPrompt] of Object.entries(prompts)) {
-            try {
-                Logger.mapper(`Analyzing layer: ${key}...`);
-                const result = await AIService.callAI(
-                    `Curator Mapper: ${key}`,
-                    `${systemPrompt}\n\nCURATED INSIGHTS:\n${curatedInsightsText}`,
-                    0.1
-                );
-                results[key] = result;
-            } catch (e) {
-                Logger.error('ThematicMapper', `Error in mapper ${key}: ${e.message}`);
-                results[key] = `Error in mapper ${key}: ${e.message}`;
-            }
-        }
+        // Execute ALL layers in PARALLEL (major performance improvement)
+        const [architecture, habits, stack] = await Promise.all([
+            this._executeLayer('architecture', prompts.architecture, curatedInsightsText),
+            this._executeLayer('habits', prompts.habits, curatedInsightsText),
+            this._executeLayer('stack', prompts.stack, curatedInsightsText)
+        ]);
 
-        return results;
+        Logger.mapper('All 3 layers completed in parallel.');
+
+        return { architecture, habits, stack };
+    }
+
+    /**
+     * Execute a single analysis layer
+     * @private
+     */
+    async _executeLayer(key, systemPrompt, curatedInsightsText) {
+        try {
+            Logger.mapper(`Analyzing layer: ${key}...`);
+            const result = await AIService.callAI(
+                `Curator Mapper: ${key}`,
+                `${systemPrompt}\n\nCURATED INSIGHTS:\n${curatedInsightsText}`,
+                0.1
+            );
+            return result;
+        } catch (e) {
+            Logger.error('ThematicMapper', `Error in mapper ${key}: ${e.message}`);
+            return `Error in mapper ${key}: ${e.message}`;
+        }
     }
 
     /**

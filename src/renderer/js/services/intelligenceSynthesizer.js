@@ -1,6 +1,6 @@
 /**
- * IntelligenceSynthesizer - The Core of the intelligence system (Facade).
- * Now delegates to ComparisonEngine and EvolutionManager.
+ * IntelligenceSynthesizer - Core of the identity system.
+ * Synthesizes the technical personality (Identity) from curated findings (DNA).
  */
 import { Logger } from '../utils/logger.js';
 import { CacheRepository } from '../utils/cacheRepository.js';

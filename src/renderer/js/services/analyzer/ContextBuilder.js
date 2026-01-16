@@ -8,12 +8,12 @@
 
 export class ContextBuilder {
     /**
-     * Construye el contexto completo de sesión.
+     * Construye el contexto de sesión enfocado en el PERFIL DE USUARIO.
      * @param {string} username - Username del usuario
      * @param {object} results - Resultados del análisis
-     * @param {object} technicalIdentity - Identidad técnica sintetizada
+     * @param {object} technicalIdentity - Identidad técnica sintetizada (User Context)
      * @param {object} cognitiveProfile - Perfil cognitivo (opcional)
-     * @param {object} curationEvidence - Mapa de trazabilidad (opcional)
+     * @param {object} curationEvidence - No se usa para el chat directamente (ADN crudo)
      * @param {Function} getSummaryForChat - Función para obtener resúmenes del coordinator
      * @returns {string} Contexto formateado
      */
@@ -24,74 +24,51 @@ export class ContextBuilder {
             ? results.mainLangs.join(', ')
             : 'varios lenguajes';
 
-        // ATOMS: Quick summaries (Only top priority if no map is available)
-        const quickSummaries = !curationEvidence && getSummaryForChat ? getSummaryForChat() : null;
-
+        // IDENTIDAD: Perfil consolidado que recibe el Router
         const identityString = this.formatIdentityString(technicalIdentity);
-        const evidenceString = this.formatEvidenceString(curationEvidence);
 
         if (cognitiveProfile) {
-            return this.buildCognitiveContext(username, cognitiveProfile, identityString, evidenceString, quickSummaries);
+            return this.buildCognitiveContext(username, cognitiveProfile, identityString);
         }
 
         return this.buildBasicContext(username, langList, results.summary, identityString);
     }
 
     /**
-     * Formatea la identidad técnica como string.
+     * Formatea la IDENTIDAD TÉCNICA (User Context).
+     * Este es el "ADN Refinado" que el Sintetizador ha decidido que es persistente.
      */
     static formatIdentityString(technicalIdentity) {
         if (typeof technicalIdentity === 'object' && technicalIdentity !== null) {
-            let identityString = `BIOGRAFÍA: ${technicalIdentity.bio}\n`;
+            let identityString = `PERFIL TÉCNICO ACTUALIZADO:\n`;
+            identityString += `BIOGRAFÍA: ${technicalIdentity.bio}\n`;
             identityString += `VEREDICTO: ${technicalIdentity.verdict}\n`;
             if (Array.isArray(technicalIdentity.traits)) {
-                identityString += "RASGOS TÉCNICOS (IDENTIDAD TÉCNICA):\n";
+                identityString += "RASGOS DE DESARROLLADOR:\n";
                 technicalIdentity.traits.forEach(t => {
-                    identityString += `- [${t.name} | Confianza: ${t.score}%]\n`;
-                    identityString += `  Detalle: ${t.details}\n`;
-                    if (t.evidence) identityString += `  Fuentes Core: ${t.evidence}\n`;
+                    identityString += `- [${t.name}]: ${t.details} (Confianza: ${t.score}%)\n`;
                 });
             }
             return identityString;
         }
-        return technicalIdentity || "Generando identidad técnica...";
-    }
-
-    /**
-     * Formatea el mapa de trazabilidad como string.
-     */
-    static formatEvidenceString(curationEvidence) {
-        if (!curationEvidence) return "";
-
-        let evidenceString = "🔍 EVIDENCIAS TÉCNICAS (MAPA DE TRAZABILIDAD):\n";
-        Object.entries(curationEvidence).forEach(([strength, refs]) => {
-            evidenceString += `### DOMINIO: ${strength}\n`;
-            refs.slice(0, 5).forEach(r => {
-                evidenceString += `- [${r.repo}/${r.file}]: ${r.summary}\n`;
-            });
-        });
-        return evidenceString;
+        return technicalIdentity || "Perfil en construcción...";
     }
 
     /**
      * Construye el contexto con perfil cognitivo.
      */
-    static buildCognitiveContext(username, cognitiveProfile, identityString, evidenceString, quickSummaries) {
-        return `# 🧠 PERFIL COGNITIVO DEL USUARIO: ${username}
+    static buildCognitiveContext(username, cognitiveProfile, identityString) {
+        return `# 🧠 PERFIL DE USUARIO: ${username}
 **TITLE**: ${cognitiveProfile.title}
 **DOMAIN**: ${cognitiveProfile.domain}
 **LANGUAGES**: ${cognitiveProfile.core_languages.join(', ')}
 **CORE PATTERNS**: ${cognitiveProfile.patterns.join(', ')}
 
-## 🧬 IDENTIDAD TÉCNICA SINTETIZADA
+## 🧬 IDENTIDAD SINTETIZADA
 ${identityString}
 
-${evidenceString}
-
-## 🔍 CACHE DE HALLAZGOS TÉCNICOS (WORKER FINDINGS)
-${quickSummaries?.slice(0, 500) || "Evidencias curadas en el mapa superior."}...
-
 ---
+**INSTRUCCIÓN PARA EL ROUTER**: Este es el contexto persistente del usuario. Utilízalo para filtrar intenciones y personalizar el tono. No menciones "hallazgos crudos" a menos que se te solicite memoria técnica.
 **FIN DEL CONTEXTO DE INTELIGENCIA**`;
     }
 
@@ -99,14 +76,11 @@ ${quickSummaries?.slice(0, 500) || "Evidencias curadas en el mapa superior."}...
      * Construye el contexto básico sin perfil cognitivo.
      */
     static buildBasicContext(username, langList, summary, identityString) {
-        return `# 🧠 MEMORIA PROFUNDA: DIRECTOR DE ARTE
+        return `# 🧠 CONTEXTO DE DESARROLLADOR
 **USUARIO**: ${username}
-**STACK DETECTADO**: ${langList}
+**STACK**: ${langList}
 
-## 📄 RESUMEN BIOGRÁFICO (CURADO)
-${summary || "Sintetizando perfil..."}
-
-## 🧬 IDENTIDAD TÉCNICA (SÍNTESIS MAP-REDUCE 100%)
+## 📄 IDENTIDAD TÉCNICA
 ${identityString}
 
 ---

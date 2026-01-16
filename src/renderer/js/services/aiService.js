@@ -40,22 +40,34 @@ export const AIService = {
 
     async processIntent(input, username) {
         try {
-            // 1. Proactive Event Handling
+            let thought = null;
+            let whisper = null;
+            let intent = 'chat';
+            let searchTerms = [];
+            let memorySource = null;
+
+            // 1. Brain Phase (Router or System Handler)
             if (SystemEventHandler.isSystemEvent(input)) {
-                return await SystemEventHandler.handle(input, username, this.currentSessionContext, this.callAI.bind(this));
+                const brainResult = await SystemEventHandler.handle(input, username, this.currentSessionContext, this.callAI.bind(this));
+                thought = brainResult.thought;
+                whisper = brainResult.whisper;
+            } else {
+                const routerResult = await IntentRouter.route(input, this.currentSessionContext, this.callAI.bind(this));
+                intent = routerResult.intent;
+                searchTerms = routerResult.searchTerms;
+                memorySource = routerResult.memorySource;
+                thought = routerResult.thought;
+                whisper = routerResult.whisper;
             }
 
-            // 2. Intent Routing (Smart RAG)
-            const routerResult = await IntentRouter.route(input, this.currentSessionContext, this.callAI.bind(this));
-            const { intent, searchTerms, memorySource, thought } = routerResult;
-
-            // 3. Chat Flow
+            // 2. Vocalization Phase (Chat Flow)
             if (intent === 'chat') {
-                const response = await this.callAI(ChatPromptBuilder.build(username, this.currentSessionContext), input, 0.2);
+                const systemPrompt = ChatPromptBuilder.build(username, this.currentSessionContext, thought, whisper);
+                const response = await this.callAI(systemPrompt, input, 0.2);
                 return { action: "chat", message: response };
             }
 
-            // 4. Tool Flow
+            // 3. Tool Flow
             const tool = ToolRegistry.getById(intent);
             if (!tool) return { action: "chat", message: `Command not recognized: ${intent}` };
 
@@ -88,14 +100,17 @@ export const AIService = {
 
             Logger.info('OBSERVATION', `${executionResult.details} (Success: ${executionResult.success})`);
 
-            // 5. Respondent Flow (Closed Loop)
+            // 4. Respondent Phase (Closed Loop)
             let responsePrompt;
             if (tool.id === 'query_memory') {
-                // RAG Special Case: Use the Chat Persona to answer using the new context
-                responsePrompt = ChatPromptBuilder.build(username, this.currentSessionContext);
+                // RAG Special Case: Use the Chat Persona with whisper
+                responsePrompt = ChatPromptBuilder.build(username, this.currentSessionContext, thought, whisper);
             } else {
-                // Standard Action Reporting
+                // Standard Action Reporting with whisper injection
                 responsePrompt = PromptBuilder.getPostActionPrompt(tool.name, executionResult, input);
+                if (whisper) {
+                    responsePrompt += `\n\n[STRATEGIC WHISPER]\n"${whisper}"`;
+                }
             }
 
             const finalMessage = await this.callAI(responsePrompt, input, 0.7);

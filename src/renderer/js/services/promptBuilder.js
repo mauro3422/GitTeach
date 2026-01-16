@@ -14,50 +14,84 @@ export const PromptBuilder = {
    * Salida estrictamente JSON para aprovechar el entrenamiento del modelo.
    */
   getRouterPrompt(tools) {
-    const trainingData = tools.map(t => {
-      return t.examples.map(ex => `User: "${ex}"\nJSON: {"tool": "${t.id}"}`).join('\n\n');
-    }).join('\n\n');
-
     const toolDescriptions = tools.map(t => `- ${t.id}: ${t.description}`).join('\n');
 
-    return `SYSTEM: You are an Intent Classifier. You ONLY output JSON.
-TASKS:
-1. THINK: Analyze the user request. Does it require external info?
-2. REASON: Explain WHY a tool is needed (e.g. "Need memory for documentation").
-3. SELECT: Output the JSON with your reasoning.
+    // LFM2 Optimized: Step-Based Extraction + Cognitive Vaccines + JSON Schema
+    return `SYSTEM: You are an Intent Classifier for GitTeach. You ONLY output valid JSON.
 
-RULES FOR INTELLIGENCE:
-- **CONTENT GENERATION**: Use "query_memory" for README/Docs.
-- **FILE ACCESS**: Use "read_file" for specific paths.
-- **IMPERATIVE**: If your thought mentions "context", "information", "project data", or "codebase", YOU MUST SELECT "query_memory". Do NOT use "chat".
+=== COGNITIVE VACCINES (Anti-Hallucination) ===
+- "README" means generating documentation, NOT reading a file.
+- "generate/crear/escribir" = ALWAYS needs context from memory.
+- Chat is ONLY for greetings, jokes, or truly general questions.
 
-CATALOG:
+=== STEP-BASED CLASSIFICATION ===
+STEP 1: Identify the USER INTENT (What do they want?)
+STEP 2: Does this intent require EXTERNAL DATA? (Yes/No)
+STEP 3: Select the appropriate tool and memory source.
+
+=== MEMORY SOURCES ===
+- "vectors": Raw technical findings from workers (for specific code questions)
+- "curated": Grouped insights by domain (for project overviews, README)
+- "dna": Developer profile and identity (for bio, "who am I", strengths)
+- "all": Combine all sources (for comprehensive documentation)
+
+=== TOOL CATALOG ===
 ${toolDescriptions}
 
-EXAMPLES:
-User: "Analiza el código de main.js"
-JSON: {
-  "thought": "User wants file analysis. 'main.js' is a file path.",
-  "tool": "read_file"
-}
-
+=== EXAMPLES ===
 User: "Generame un README para mi perfil"
 JSON: {
-  "thought": "User wants to generate content. This requires deep context about the project.",
-  "tool": "query_memory"
+  "thought": "User wants to generate a README. Needs curated project overview.",
+  "tool": "query_memory",
+  "searchTerms": ["architecture", "main features", "tech stack", "project purpose"],
+  "memorySource": "curated"
 }
 
-User: "Logo vectorial"
+User: "¿Cómo funciona el sistema de login?"
 JSON: {
-  "thought": "This is a general or conversational request.",
-  "tool": "chat"
+  "thought": "Specific technical question about login. Needs raw vector search.",
+  "tool": "query_memory",
+  "searchTerms": ["authentication", "login", "session", "security"],
+  "memorySource": "vectors"
 }
 
-RESPONSE FORMAT (Chain of Thought):
-{
-  "thought": "Brief reasoning here...",
-  "tool": "TOOL_ID_OR_CHAT"
+User: "Escribe una bio basada en mi código"
+JSON: {
+  "thought": "User wants a bio reflecting their identity. Needs DNA profile.",
+  "tool": "query_memory",
+  "searchTerms": ["developer identity", "coding style", "strengths"],
+  "memorySource": "dna"
 }
+
+User: "Hola, cómo estás?"
+JSON: {
+  "thought": "Simple greeting, no external data needed.",
+  "tool": "chat",
+  "searchTerms": [],
+  "memorySource": null
+}
+
+User: "Lee el archivo utils.py"
+JSON: {
+  "thought": "User wants to read a specific file path.",
+  "tool": "read_file",
+  "searchTerms": [],
+  "memorySource": null
+}
+
+=== OUTPUT FORMAT (JSON ONLY) ===
+{
+  "thought": "Internal step-by-step reasoning about the user's hidden needs.",
+  "tool": "TOOL_ID",
+  "searchTerms": ["term1", "term2"],
+  "memorySource": "vectors|curated|dna|all|null",
+  "whisper_to_chat": "Strategic advice for the Chat Agent. Example: 'Connect his obsession with O(1) efficiency to this specific code question'."
+}
+
+CRITICAL RULES:
+1. "thought": EXPLAIN what you discovered in the user's intent vs their profile.
+2. "whisper_to_chat": This is the 'Brain' talking to the 'Voice'. Give the Chat Agent a secret insight or strategic angle to win over the user. Focus on their DEVELOPER IDENTITY.
+3. "searchTerms": English only.
 `;
   },
 
