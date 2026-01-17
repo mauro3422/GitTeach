@@ -43,6 +43,13 @@ export class MetricRefinery {
                 collaboration: { review: 0, mentoring: new Map(), count: 0 },
                 growth: { signals: new Map(), vibes: new Map() },
                 churn: { dates: [], authors: new Map() }
+            },
+            resilience_forensics: {
+                error_discipline: 0,
+                defensive_posture: 0,
+                optimization_score: 0,
+                antipatterns: new Map(),
+                count: 0
             }
         };
 
@@ -78,7 +85,7 @@ export class MetricRefinery {
                 totals.signals.count++;
             }
 
-            // 3b. Multidimensional Metrics (New)
+            // 3b. Multidimensional Metrics
             const d = m.dimensions || {};
             if (d.social !== undefined) {
                 totals.dimensions.social += d.social || 0;
@@ -87,7 +94,7 @@ export class MetricRefinery {
                 totals.dimensions.count++;
             }
 
-            // 3c. Semantic Aggregation (New)
+            // 3c. Semantic Aggregation
             const sem = m.semantic || {};
             if (sem.business_context) {
                 const ctx = sem.business_context;
@@ -110,7 +117,7 @@ export class MetricRefinery {
                 }
             }
 
-            // 3d. Professional Context (New V4)
+            // 3d. Professional Context
             const prof = m.professional || {};
             if (prof.code_quality) {
                 totals.professional.quality.cyclomatic += prof.code_quality.cyclomatic || 0;
@@ -142,13 +149,27 @@ export class MetricRefinery {
                 }
             }
 
-            // 3e. File Metadata (Code Churn)
-            const meta = m.file_meta || {};
+            // 3e. File Metadata (Code Churn) - MOVED & FIXED
+            const meta = node.file_meta || m.file_meta || {};
             if (meta.last_modified) {
                 totals.professional.churn.dates.push(new Date(meta.last_modified).getTime());
                 if (meta.author) {
                     totals.professional.churn.authors.set(meta.author, (totals.professional.churn.authors.get(meta.author) || 0) + 1);
                 }
+            }
+
+            // 3f. Resilience & Forensics (New)
+            const res = m.resilience_forensics || {};
+            if (res.error_discipline !== undefined) {
+                totals.resilience_forensics.error_discipline += res.error_discipline || 0;
+                totals.resilience_forensics.defensive_posture += res.defensive_posture || 0;
+                totals.resilience_forensics.optimization_score += res.optimization_score || 0;
+                if (Array.isArray(res.antipatterns)) {
+                    res.antipatterns.forEach(ap => {
+                        totals.resilience_forensics.antipatterns.set(ap, (totals.resilience_forensics.antipatterns.get(ap) || 0) + 1);
+                    });
+                }
+                totals.resilience_forensics.count++;
             }
 
             // 4. Complexity (Unified)
@@ -176,6 +197,7 @@ export class MetricRefinery {
         const dimDenom = totals.dimensions.count || 1;
         const profDenom = totals.professional.quality.count || 1;
         const collabDenom = totals.professional.collaboration.count || 1;
+        const resDenom = totals.resilience_forensics.count || 1;
         const compDenom = totals.compCount || 1;
 
         // Helper for map sorting
@@ -246,6 +268,12 @@ export class MetricRefinery {
                             : "Unknown",
                         unique_authors: totals.professional.churn.authors.size
                     }
+                },
+                resilience_report: {
+                    error_discipline_score: (totals.resilience_forensics.error_discipline / resDenom).toFixed(2),
+                    defensive_posture_score: (totals.resilience_forensics.defensive_posture / resDenom).toFixed(2),
+                    optimization_score: (totals.resilience_forensics.optimization_score / resDenom).toFixed(2),
+                    common_antipatterns: getTopK(totals.resilience_forensics.antipatterns, 5)
                 }
             },
             timestamp: new Date().toISOString()
@@ -295,6 +323,12 @@ export class MetricRefinery {
                     collaboration: { review_participation: "0.00", mentoring_culture: "Neutral" },
                     growth: { dominant_vibe: "Unknown", skill_signals: [] },
                     churn: { avg_age_days: "Unknown", unique_authors: 0 }
+                },
+                resilience_report: {
+                    error_discipline_score: "0.00",
+                    defensive_posture_score: "0.00",
+                    optimization_score: "0.00",
+                    common_antipatterns: []
                 }
             },
             timestamp: new Date().toISOString()

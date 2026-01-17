@@ -95,9 +95,16 @@ export class GithubMock {
                                     author: commits[0].commit.committer.name,
                                     sha: commits[0].sha
                                 };
+                                console.log(`[GithubMock] Meta for ${p}: ${data.file_meta.last_modified}`);
+                            } else {
+                                console.warn(`[GithubMock] No commits found for path: ${p}`);
                             }
+                        } else {
+                            console.error(`[GithubMock] Meta fetch failed for ${p}: ${mRes.status} ${mRes.statusText}`);
                         }
-                    } catch (me) { }
+                    } catch (me) {
+                        console.error(`[GithubMock] Meta fetch ERROR for ${p}:`, me.message);
+                    }
 
                     return data;
                 } catch (e) { return { message: e.message }; }

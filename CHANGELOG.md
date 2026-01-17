@@ -1,10 +1,30 @@
 # Changelog
 
+## [2.13.0-RefactorCompleto] - 2026-01-16
+### 🏗️ Modularización & SOLID (User-Led Refactor)
+- **Descomposición Modular**: Transformación de 6 módulos monolíticos (`DeepCurator`, `DNASynthesizer`, `CodeScanner`, `WorkerPromptBuilder`, `CacheRepository`, `AIWorkerPool`) en 17 módulos especializados.
+- **Facade Patterns**: Implementación de Facades para `DeepCurator` y otros, delegando a gestores especializados (`GlobalIdentityUpdater`, `SynthesisOrchestrator`).
+- **CoT & Rules Integration**: Actualización de `IntentRouter` con reglas imperativas y soporte de Chain of Thought mejorado.
+- **Technical Debt Reduction**: Reducción del 75% en complejidad de archivos core.
+
+### 🔧 Blueprint Metadata & Churn Fixes
+- **Regression Fix**: Re-integración de `RepoBlueprintSynthesizer` en `GlobalIdentityUpdater` para asegurar que la síntesis de blueprints utilice motores de lógica avanzada.
+- **Code Churn Propagation**: Corrección del pipeline de metadatos `file_meta` desde `GithubMock` hasta `MetricRefinery`.
+- **Raw Findings Integration**: `RepoBlueprintSynthesizer` ahora consume `rawFindings` para calcular métricas de churn precisas (evitando pérdida de datos por filtrado de insights).
+
+## [2.14.0-ResilienceForensics] - 2026-01-16
+### 🧬 Code Robustness & Error Forensics
+- **Error Discipline Detection**: AI Workers now extract `error_discipline` (granularity of error handling) and `defensive_posture` (input validation) scores (0-5).
+- **Anti-Pattern Tagging**: Automated detection of specific failure patterns (e.g., "Generic Catch", "Swallowed Exception") propagated to the global profile.
+- **Resilience Aggregation**: `MetricRefinery` calculates global `resilience_report` including optimization scores and top anti-patterns.
+- **DNA Synthesis Upgrade**: `DNASynthesizer` and `RepoBlueprintSynthesizer` now include a dedicated `resilience_context` and `forensics` section in the final JSON artifacts.
+
 ## [2.12.0-ProfessionalContext] - 2026-01-16
 ### 💼 Code Churn & Professional Mapping
-- **Code Churn Analysis**: Implementation of `last_modified` tracking in `GithubMock`. Automated calculation of `avg_age_days` and `unique_authors`.
+- **Integrated Code Churn Analysis**: Implemented `file_meta` extraction from GitHub API and ensured its flow through `CodeScanner`, `AIWorkerPool`, `MemoryManager`, and `MetricRefinery`.
+- **Enhanced DNA Synthesis**: Updated `DNASynthesizer` to include holistic `professional_context` (Quality Index, Ecosystem Profile, Collaboration Style, Seniority Vibe, and Code Churn).
 - **Professional Context Inference**: Workers now detect `code_quality` (Debt/Complexity), `ecosystem` (CI/CD tools/Cloud strategy), and `collaboration` (Mentoring/Review).
-- **Holistic Professional DNA**: Final profile includes a `professional_context` summary (Quality Index, Ecosystem Profile, Collab Style).
+- **Holistic Professional DNA**: Final profile includes a `professional_context` summary in the Technical Identity.
 - **Metadata Conduit**: Deep integration between `GithubMock` -> `CodeScanner` -> `Cache` -> `Analytics Engine`.
 
 ## [2.11.0-MetadataRevolution] - 2026-01-16

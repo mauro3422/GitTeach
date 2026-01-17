@@ -34,7 +34,8 @@ export class MemoryManager {
             classification: finding.technical_strength || finding.classification,
             confidence: finding.params?.confidence || finding.confidence || 0.7,
             complexity: finding.params?.complexity || finding.complexity || 2,
-            metadata: finding.metadata || {} // NEW: Captures SOLID, modularity, etc.
+            metadata: finding.metadata || {}, // NEW: Captures SOLID, modularity, etc.
+            file_meta: finding.file_meta || {} // NEW: For churn analysis
         });
 
         this.addNode(node);

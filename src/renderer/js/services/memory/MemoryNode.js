@@ -24,6 +24,7 @@ export class MemoryNode {
         // Interconnectivity
         this.links = data.links || []; // Array of UIDs
         this.metadata = data.metadata || {};
+        this.file_meta = data.file_meta || {}; // NEW: For churn analysis
 
         // V3 Vector Data
         this.embedding = data.embedding || null;
@@ -73,6 +74,7 @@ export class MemoryNode {
             complexity: this.complexity,
             links: this.links,
             metadata: this.metadata, // NEW: Mandatory for data refinery
+            file_meta: this.file_meta,
             vectorStatus: this.vectorStatus
         };
     }

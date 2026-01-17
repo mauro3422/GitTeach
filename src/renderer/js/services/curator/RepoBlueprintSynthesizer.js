@@ -17,11 +17,12 @@ export class RepoBlueprintSynthesizer {
      * @param {Array} findings - Curated findings for this repo
      * @returns {Promise<Object>} The Repository Blueprint
      */
-    async synthesize(repoName, findings) {
+    async synthesize(repoName, findings, rawFindings = null) {
         if (!findings || findings.length === 0) return null;
 
         // 1. Calculate Repo-Specific Metrics (Dual-Track)
-        const healthReport = MetricRefinery.refine(findings, findings.length);
+        // PREFER rawFindings for metadata (churn) if provided
+        const healthReport = MetricRefinery.refine(rawFindings || findings, (rawFindings || findings).length);
 
         // 2. Build Thematic Summary via AI with CoT
         const result = await this._generateThematicSummary(repoName, findings, healthReport);
@@ -33,13 +34,15 @@ export class RepoBlueprintSynthesizer {
             metrics: {
                 logic: healthReport.logic_health,
                 knowledge: healthReport.knowledge_health,
-                signals: healthReport.seniority_signals
+                signals: healthReport.seniority_signals,
+                professional: healthReport.extended_metadata?.professional || {},
+                resilience: healthReport.extended_metadata?.resilience_report || {} // NEW: Error forensics
             },
             volume: healthReport.volume,
             domains: healthReport.domains,
             thought: result.thought,
             summary: result.summary,
-            blueprintVersion: "1.2"
+            blueprintVersion: "1.3" // Version bump for resilience
         };
     }
 
@@ -56,23 +59,26 @@ export class RepoBlueprintSynthesizer {
 
         const systemPrompt = `You are a REPOSITORY ARCHITECT. 
 Your goal is to summarize the TECHNICAL SOUL of a specific project.
-Focus on: Primary purpose, Architectural pattern, and Tech Stack.
+Focus on: Primary purpose, Architectural pattern, Tech Stack, and Error Resilience.
 
 STRICT PROTOCOL:
-1. THINK: Analyze the findings to identify the core architectural intent.
+1. THINK: Analyze the findings to identify the core architectural intent and defensive patterns.
 2. SYNTHESIZE: Generate a dense 3-sentence summary.
 
 JSON SCHEMA:
 {
-  "thought": "Internal reasoning about the repo's architecture and quality",
+  "thought": "Internal reasoning about the repo's architecture, quality, and resilience",
   "summary": "Dense 3-sentence technical projection"
 }`;
+
+        const resilienceScore = health.extended_metadata?.resilience_report?.error_discipline_score || "N/A";
 
         const userPrompt = `REPO: ${repoName}
 METRICS (Dual-Track):
 - Logic: SOLID=${health.logic_health.solid}, Modularity=${health.logic_health.modularity}
 - Knowledge: Clarity=${health.knowledge_health.clarity}, Discipline=${health.knowledge_health.discipline}
 - Signals: Semantic=${health.seniority_signals.semantic}, Resilience=${health.seniority_signals.resilience}
+- Forensics: Error Discipline=${resilienceScore}
 
 KEY FINDINGS:
 ${context}

@@ -24,6 +24,8 @@ export const PromptBuilder = {
 - "generate/crear/escribir" = ALWAYS needs context from memory.
 - Chat is ONLY for greetings, jokes, or truly general questions.
 
+**IMPERATIVE RULE**: If your thought mentions "context", "information", "project data", "codebase", "generate", "create", "write", or "documentation" → YOU MUST SELECT "query_memory". Do NOT invent new tools or use "chat".
+
 === STEP-BASED CLASSIFICATION ===
 STEP 1: Identify the USER INTENT (What do they want?)
 STEP 2: Does this intent require EXTERNAL DATA? (Yes/No)

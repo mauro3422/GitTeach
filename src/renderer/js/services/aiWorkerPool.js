@@ -1,19 +1,20 @@
 /**
- * AIWorkerPool - Orchestrates N AI workers that process files in parallel
- * Uses llama-server slots for real GPU concurrency
+ * AIWorkerPool - Lightweight facade for AI worker orchestration
  * REFACTORED: Delegates to specialized modules (SRP compliant)
- * 
+ *
  * SOLID Principles:
  * - S: Only orchestrates workers and coordinates modules
  * - O: Extensible via callbacks (onFileProcessed, onBatchComplete)
  * - L: N/A (no inheritance)
  * - I: Minimal interface (enqueue, processAll)
  * - D: Depends on injected AIService and CoordinatorAgent
- * 
- * Extracted Modules:
+ *
+ * Composed Modules:
  * - QueueManager: Queue handling, batching, affinity scheduling
  * - RepoContextManager: Cumulative context, Golden Knowledge compaction
  * - WorkerPromptBuilder: Prompt generation, pre-filtering, response parsing
+ * - ResultProcessor: AI result processing and error handling
+ * - WorkerHealthMonitor: Worker health monitoring and statistics
  */
 import { Logger } from '../utils/logger.js';
 import { CacheRepository } from '../utils/cacheRepository.js';
@@ -21,6 +22,8 @@ import { DebugLogger } from '../utils/debugLogger.js';
 import { QueueManager } from './workers/QueueManager.js';
 import { RepoContextManager } from './workers/RepoContextManager.js';
 import { WorkerPromptBuilder } from './workers/WorkerPromptBuilder.js';
+import { ResultProcessor } from './workers/ResultProcessor.js';
+import { WorkerHealthMonitor } from './workers/WorkerHealthMonitor.js';
 import { AISlotPriorities } from './ai/AISlotManager.js';
 
 export class AIWorkerPool {
@@ -31,10 +34,12 @@ export class AIWorkerPool {
 
         console.log(`[AIWorkerPool] Constructor - Injected Logger: ${!!debugLogger}, IsActive: ${this.debugLogger.isActive()}, Path: ${this.debugLogger.sessionPath}`);
 
-        // Delegate to specialized modules
+        // Compose specialized modules
         this.queueManager = new QueueManager();
         this.contextManager = new RepoContextManager();
         this.promptBuilder = new WorkerPromptBuilder();
+        this.resultProcessor = new ResultProcessor(this.queueManager, this.contextManager, this.promptBuilder, this.debugLogger);
+        this.healthMonitor = new WorkerHealthMonitor(this.queueManager, this.resultProcessor);
 
         // Callbacks (PUBLIC API - DO NOT CHANGE)
         this.onProgress = null;
@@ -43,7 +48,6 @@ export class AIWorkerPool {
         this.batchSize = 5;
         this.batchBuffer = [];
 
-        this.isProcessing = false;
         this.results = [];
     }
 
@@ -69,18 +73,24 @@ export class AIWorkerPool {
      * Process entire queue using N parallel workers
      */
     async processAll(aiService) {
-        if (this.isProcessing) {
+        if (!this.healthMonitor.startProcessing()) {
             console.warn('[AIWorkerPool] Already processing');
             return this.results;
         }
 
-        this.isProcessing = true;
         this.results = [];
 
         // Create N workers that process in parallel
         const workers = [];
         for (let i = 0; i < this.workerCount; i++) {
-            workers.push(this.runWorker(i + 1, aiService));
+            workers.push(this.healthMonitor.runWorker(
+                i + 1,
+                aiService,
+                this.coordinator,
+                this.onFileProcessed,
+                this.onProgress,
+                this.onBatchComplete
+            ));
         }
 
         // Wait for all workers to finish
@@ -92,7 +102,7 @@ export class AIWorkerPool {
             this.batchBuffer = [];
         }
 
-        this.isProcessing = false;
+        this.healthMonitor.endProcessing();
         return this.results;
     }
 
@@ -119,208 +129,5 @@ export class AIWorkerPool {
         this.results = [];
     }
 
-    // =========================================
-    // INTERNAL WORKER LOGIC
-    // =========================================
 
-    /**
-     * Individual worker: takes items from queue and processes them
-     */
-    async runWorker(workerId, aiService) {
-        Logger.worker(workerId, 'Starting...');
-        let claimedRepo = null;
-        let lastProcessedPath = null;
-
-        while (true) {
-            // Get next item from queue
-            const input = this.queueManager.getNextItem(workerId, claimedRepo, lastProcessedPath);
-
-            if (!input) {
-                if (claimedRepo) {
-                    Logger.worker(workerId, `Finished repo [${claimedRepo}]. Clearing affinities.`);
-                    claimedRepo = null;
-                    lastProcessedPath = null;
-                    continue;
-                }
-                Logger.worker(workerId, 'Queue empty or repos busy, terminating');
-                break;
-            }
-
-            const isBatch = input.isBatch;
-            const items = isBatch ? input.items : [input];
-            const nextRepo = items[0].repo;
-
-            // Detect repo change: reset affinity and context
-            if (claimedRepo && nextRepo !== claimedRepo) {
-                Logger.worker(workerId, `>>> CONTEXT SWITCH: From [${claimedRepo}] to [${nextRepo}]. Resetting.`);
-                this.contextManager.clearRepoContext(claimedRepo); // Purge OLD context
-                lastProcessedPath = null;
-            }
-
-            claimedRepo = nextRepo;
-            lastProcessedPath = items[items.length - 1].path;
-
-            // Mark items as processing
-            items.forEach(i => i.status = 'processing');
-
-            if (isBatch) {
-                Logger.worker(workerId, `Processing BATCH [${claimedRepo}] (${items.length} files)`);
-            } else {
-                Logger.worker(workerId, `Processing [${claimedRepo}]: ${input.path}`);
-            }
-
-            try {
-                const startTime = Date.now();
-
-                // Call AI to summarize the file or batch
-                const { prompt, summary, langCheck } = await this._summarizeWithAI(aiService, input);
-
-                const durationMs = Date.now() - startTime;
-
-                // Parse response
-                const parsed = this.promptBuilder.parseResponse(summary, isBatch ? null : input.path);
-                const finalSummary = parsed?.tool === 'skip'
-                    ? "SKIP: Content not relevant or empty."
-                    : summary;
-
-                // Process results
-                this._processResults(workerId, items, finalSummary, parsed, aiService, prompt, isBatch, claimedRepo, durationMs);
-
-            } catch (error) {
-                Logger.worker(workerId, `Error: ${error.message}`);
-                this._handleError(workerId, items, error, isBatch, claimedRepo);
-            }
-        }
-    }
-
-    /**
-     * Call AI to summarize a file or batch
-     */
-    async _summarizeWithAI(aiService, input) {
-        const systemPrompt = this.promptBuilder.buildSystemPrompt();
-        const { prompt: userPrompt, skipReason, langCheck } = this.promptBuilder.buildUserPrompt(input);
-
-        // Pre-filtered
-        if (skipReason) {
-            return { prompt: 'PRE-FILTERED', summary: `SKIP: ${skipReason}`, langCheck: { valid: true } };
-        }
-
-        // Use priority from input item, default to NORMAL if missing
-        // Note: input might be a single item or a batch. For batch, use priority of first item.
-        const priority = input.isBatch ? (input.items[0].priority || AISlotPriorities.NORMAL) : (input.priority || AISlotPriorities.NORMAL);
-
-        // Use temperature 0.0 and JSON schema for high-fidelity extraction (LFM2 Optimization)
-        let summary = await aiService.callAI(
-            systemPrompt,
-            userPrompt,
-            0.0, // Forced cold temperature
-            'json_object',
-            this.promptBuilder.getResponseSchema(),
-            priority
-        );
-
-        return {
-            prompt: `${systemPrompt}\n\n${userPrompt}`,
-            summary,
-            langCheck: langCheck || { valid: true }
-        };
-    }
-
-    /**
-     * Process successful results
-     */
-    _processResults(workerId, items, summary, parsed, aiService, prompt, isBatch, claimedRepo, durationMs = 0) {
-        items.forEach(item => {
-            item.status = 'completed';
-            item.summary = summary;
-
-            const resultItem = {
-                repo: item.repo,
-                path: item.path,
-                summary: summary,
-                workerId: workerId,
-                classification: parsed?.params?.technical_strength || 'General',
-                metadata: parsed?.params?.metadata || {}, // NEW: Carries the metrics
-                params: parsed?.params || { insight: summary, technical_strength: 'General' },
-                durationMs: durationMs // Track timing
-            };
-
-            this.results.push(resultItem);
-
-            // Streaming Buffer logic
-            this.batchBuffer.push(resultItem);
-            if (this.onBatchComplete && this.batchBuffer.length >= this.batchSize) {
-                const batch = [...this.batchBuffer];
-                this.batchBuffer = [];
-                this.onBatchComplete(batch);
-            }
-
-            // Add to repo context for future files
-            this.contextManager.addToRepoContext(item.repo, item.path, summary, aiService);
-
-            // Update Coordinator
-            if (this.coordinator) {
-                this.coordinator.markCompleted(item.repo, item.path, summary, parsed || null);
-            }
-
-            // Audit logging
-            CacheRepository.appendWorkerLog(workerId, {
-                timestamp: new Date().toISOString(),
-                repo: item.repo,
-                path: item.path,
-                summary: summary,
-                classification: parsed?.params?.technical_strength || 'General',
-                durationMs: durationMs
-            });
-        });
-
-        // Debug logging
-        if (!this.debugLogger.isActive()) {
-            console.warn(`[AIWorkerPool] ⚠️ DebugLogger INACTIVE. Enabled: ${this.debugLogger.enabled}, Session: ${this.debugLogger.sessionPath}`);
-        }
-
-        this.debugLogger.logWorker(workerId, {
-            input: isBatch ? { repo: claimedRepo, paths: items.map(i => i.path) } : { repo: items[0].repo, path: items[0].path, contentLength: items[0].content?.length },
-            prompt: prompt,
-            output: summary,
-            durationMs: durationMs
-        });
-
-        // Update progress (FIX: Only increment once!)
-        this.queueManager.markProcessed(items.length);
-
-        if (this.onFileProcessed) {
-            items.forEach(item => this.onFileProcessed(item.repo, item.path, summary));
-        }
-
-        if (this.onProgress) {
-            const stats = this.queueManager.getStats();
-            this.onProgress({
-                workerId,
-                processed: stats.processed,
-                total: stats.queued,
-                percent: stats.percent,
-                file: items[items.length - 1].path
-            });
-        }
-    }
-
-    /**
-     * Handle processing errors
-     */
-    _handleError(workerId, items, error, isBatch, claimedRepo) {
-        this.debugLogger.logWorker(workerId, {
-            input: isBatch ? { repo: claimedRepo, paths: items.map(i => i.path) } : { repo: items[0].repo, path: items[0].path },
-            prompt: "ERROR_DURING_EXECUTION",
-            output: null,
-            error: error.message
-        });
-
-        items.forEach(item => {
-            item.status = 'failed';
-            item.error = error.message;
-        });
-
-        this.queueManager.markProcessed(items.length);
-    }
 }

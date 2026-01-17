@@ -1,141 +1,19 @@
 /**
- * WorkerPromptBuilder - Builds prompts for AI code analysis
- * Extracted from AIWorkerPool to comply with SRP
- * 
+ * PromptTemplateManager - Manages response schemas and parsing logic
+ * Extracted from WorkerPromptBuilder to comply with SRP
+ *
  * Responsibilities:
- * - Build system prompts for code analysis
- * - Build user prompts with domain hints and language checks
- * - Pre-filter files that should be skipped
+ * - Define JSON schemas for AI responses
  * - Parse AI responses into structured data
+ * - Handle fallback parsing for broken formats
+ * - Apply programmatic caps for different file types
+ * - Post-process summaries with anomaly tagging
  */
-import { FileClassifier } from '../../utils/fileClassifier.js';
 
-export class WorkerPromptBuilder {
-    /**
-     * Build the system prompt for code analysis
-     */
-    buildSystemPrompt() {
-        return `You are a Senior Technical Profiler for GitTeach. Analyze code files using the "Semantic & Multidimensional" protocol.
-
-### 1. DUAL-TRACK SCORING (Technical Base):
-- **Logic Track** (Code Only): Evaluate SOLID, Modularity, and Complexity.
-- **Knowledge Track** (Docs & Comments): Evaluate Clarity, Discipline, and Depth.
-
-### 2. SENIORITY SIGNALS (Score 0-5):
-- **Resilience**: Defensive programming, error management.
-- **Auditability**: Quality of logs and traceability.
-- **Domain Fidelity**: Alignment between code structure and business logic.
-
-### 3. RESILIENCE & FORENSICS (Explicit):
-- **Error Discipline**: Granularity of error handling (0-5). 
-- **Defensive Posture**: Input validation and boundary guards (0-5).
-- **Optimization**: algorithmic efficiency and resource mindfulness (0-5).
-- **Anti-Patterns**: List specific pattern families detected (e.g., "Generic Catch", "Prop Drilling").
-
-### 3. PROFESSIONAL CONTEXT (Inference):
-- **Code Quality**: Estimating complexity, debt ratio, and maintainability.
-- **Ecosystem**: Detecting CI/CD (Actions/Docker), monitoring, and cloud-native signals.
-- **Collaboration**: Mentoring indicators, review readiness, knowledge sharing tokens.
-- **Growth**: Technology adoption speed (modernity) and professional maturity.
-
-### 4. RICH SEMANTIC METADATA (The "Why" & "How"):
-- **Business Context**: Infer the purpose (e.g., "Payment Gateway", "Auth Service").
-- **Constraints**: Constraints detected (e.g., "Legacy DB", "High Performance").
-- **Stack Ecology**: Detect tech version/maturity (e.g., "React 18+", "Legacy ES5").
-
-### 5. RESILIENCE & ERROR FORENSICS (New):
-- **Error Discipline**: Score 0-5 on how well errors are handled (not just ignored).
-- **Defensive Patterns**: Score 0-5 on presence of guards, null checks, assertions.
-- **Optimization**: Score 0-5 on algorithmic efficiency and resource usage.
-- **Anti-Patterns**: List specific bad practices found (e.g., "pokemon-catching", "magic-numbers").
-
-### 4. MULTIDIMENSIONAL METRICS (Human/Team):
-- **Social**: Collaboration readiness (clear comments for teammates, TODOs).
-- **Security**: Defensive posture (input validation, sanitization).
-- **Testability**: Design facilitates testing (dependency injection, pure functions).
-
-### RESPONSE STRUCTURE (STRICT JSON):
-You must respond with:
-{
-  "thought": "Internal reasoning...",
-  "domain": "Technical domain",
-  "confidence": 0.0-1.0,
-  "complexity": 1-5,
-  "summary": "< 150 chars",
-  "evidence": "Code fragment",
-  "logic": { "solid": 0-5, "modularity": 0-5, "patterns": ["Pattern1", "Pattern2"] },
-  "knowledge": { "clarity": 0-5, "discipline": 0-5, "depth": 0-5 },
-  "signals": { "semantic": 0-5, "resilience": 0-5, "resources": 0-5, "auditability": 0-5, "domain_fidelity": 0-5 },
-  "semantic": {
-     "business_context": "String",
-     "design_tradeoffs": ["String"],
-     "dependencies": { "frameworks": ["String"], "maturity": "Stable/Legacy/Bleeding" }
-  },
-  "professional": {
-     "code_quality": { "cyclomatic": 1-5, "debt_ratio": 0.0-1.0, "maintainability": 0-100 },
-     "ecosystem": { "ci_cd": ["Tool"], "pushed_to": "Cloud/On-Prem/Unknown" },
-     "collaboration": { "review_ready": 0-5, "mentoring": "High/Low" },
-     "growth": { "learning_signals": ["String"], "seniority_vibe": "Junior/Mid/Senior" }
-  },
-  "resilience_forensics": {
-     "error_discipline": 0-5,
-     "defensive_posture": 0-5,
-     "optimization_score": 0-5,
-     "antipatterns": ["String"]
-  },
-  "dimensions": {
-     "social": 0-5,
-     "security": 0-5,
-     "testability": 0-5
-  }
-}`;
-    }
-
-    /**
-     * Build the user prompt for a file or batch
-     * @param {Object} input - Single item or batch object
-     * @returns {Object} { prompt: string, skipReason: string|null }
-     */
-    buildUserPrompt(input) {
-        const isBatch = input.isBatch;
-        const items = isBatch ? input.items : [input];
-        const repo = items[0].repo;
-
-        // Pre-filter check
-        const skipCheck = FileClassifier.shouldSkip(items[0].path, items[0].content);
-        if (skipCheck.skip && !isBatch) {
-            return { prompt: null, skipReason: skipCheck.reason };
-        }
-
-        // Get domain hint from FileClassifier
-        const domainHint = FileClassifier.getDomainHint(items[0].path, items[0].content);
-
-        // Validate language integrity (detect Python in .js, etc.)
-        const langCheck = FileClassifier.validateLanguageIntegrity(items[0].path, items[0].content);
-        const langWarning = langCheck.valid ? '' : `\n⚠️ ANOMALY DETECTED: ${langCheck.anomaly}. Report this mismatch.\n`;
-
-        let userPrompt;
-
-        if (isBatch) {
-            userPrompt = `<project_context>\nAnalyze these files from repository: ${repo}\n</project_context>\n\n<target_files>\n`;
-            items.forEach((item) => {
-                userPrompt += `\n--- FILE: ${item.path} ---\n\`\`\`\n${item.content.substring(0, 800)}\n\`\`\`\n`;
-            });
-            userPrompt += `</target_files>\n\nIdentify the synergy between these files and what they demonstrate about the developer:`;
-        } else {
-            const hintLine = domainHint ? `SUGGESTED DOMAIN: ${domainHint}\n` : '';
-            userPrompt = `<project_context>\n${langWarning}${hintLine}Repository: ${repo}\n</project_context>\n\n<target_file PATH="${items[0].path}">\n\`\`\`\n${items[0].content.substring(0, 3000)}\n\`\`\`\n</target_file>\n\nTell me what it demonstrates about the developer using the Evidence-First protocol:`;
-        }
-
-        return {
-            prompt: userPrompt,
-            skipReason: null,
-            langCheck: langCheck
-        };
-    }
-
+export class PromptTemplateManager {
     /**
      * Get JSON Schema for validation (LFM2 Optimization)
+     * @returns {Object} Response schema
      */
     getResponseSchema() {
         return {
@@ -190,6 +68,14 @@ You must respond with:
                         }
                     }
                 },
+                dimensions: {
+                    type: "object",
+                    properties: {
+                        social: { type: "integer" },
+                        security: { type: "integer" },
+                        testability: { type: "integer" }
+                    }
+                },
                 professional: {
                     type: "object",
                     properties: {
@@ -223,27 +109,9 @@ You must respond with:
                             }
                         }
                     }
-                },
-                resilience_forensics: {
-                    type: "object",
-                    properties: {
-                        error_discipline: { type: "integer" },
-                        defensive_posture: { type: "integer" },
-                        optimization_score: { type: "integer" },
-                        antipatterns: { type: "array", items: { type: "string" } }
-                    },
-                    required: ["error_discipline", "defensive_posture", "optimization_score", "antipatterns"]
-                },
-                dimensions: {
-                    type: "object",
-                    properties: {
-                        social: { type: "integer" },
-                        security: { type: "integer" },
-                        testability: { type: "integer" }
-                    }
                 }
             },
-            required: ["thought", "domain", "confidence", "complexity", "summary", "evidence", "logic", "knowledge", "signals", "semantic", "dimensions", "professional", "resilience_forensics"]
+            required: ["thought", "domain", "confidence", "complexity", "summary", "evidence", "logic", "knowledge", "signals", "semantic", "dimensions", "professional"]
         };
     }
 
@@ -273,7 +141,6 @@ You must respond with:
                 const semantic = data.semantic || {};
                 const dimensions = data.dimensions || {};
                 const professional = data.professional || {};
-                const resilience_forensics = data.resilience_forensics || {};
 
                 const cappedLogic = this._applyProgrammaticCaps(data.domain, data.summary || "", data.thought || "", logic, filePath);
 
@@ -292,7 +159,6 @@ You must respond with:
                             semantic,
                             dimensions,
                             professional,
-                            resilience_forensics,
                             // Preserve file system metadata if injected before
                             file_meta: data.file_meta || {}
                         },
@@ -337,6 +203,9 @@ You must respond with:
 
     /**
      * Loose parsing fallback for broken formats
+     * @param {string} text - Raw response text
+     * @param {string} filePath - File path for context
+     * @returns {Object|null} Parsed data or null
      */
     _looseParse(text, filePath = null) {
         const domainMatch = text.match(/\[([^\]]+)\]/);
@@ -382,6 +251,12 @@ You must respond with:
     /**
      * Internal helper to apply metric caps for scripts and documentation
      * @private
+     * @param {string} domain - Detected domain
+     * @param {string} summary - Summary text
+     * @param {string} thought - Thought text
+     * @param {Object} metrics - Metrics object
+     * @param {string} filePath - File path
+     * @returns {Object} Capped metrics
      */
     _applyProgrammaticCaps(domain, summary, thought, metrics, filePath = null) {
         if (!metrics) metrics = { solid: 0, modularity: 0, readability: 0, patterns: [] };
@@ -416,5 +291,90 @@ You must respond with:
             }
         }
         return metrics;
+    }
+
+    /**
+     * Validate response against schema
+     * @param {Object} response - Parsed response
+     * @returns {boolean} True if valid
+     */
+    validateResponse(response) {
+        if (!response || typeof response !== 'object') return false;
+        if (response.tool === 'skip') return true;
+        if (response.tool !== 'analysis') return false;
+
+        const params = response.params;
+        if (!params) return false;
+
+        return params.insight && params.technical_strength && params.impact;
+    }
+
+    /**
+     * Get default metrics structure
+     * @returns {Object} Default metrics
+     */
+    getDefaultMetrics() {
+        return {
+            solid: 0,
+            modularity: 0,
+            readability: 0,
+            patterns: []
+        };
+    }
+
+    /**
+     * Get default knowledge structure
+     * @returns {Object} Default knowledge
+     */
+    getDefaultKnowledge() {
+        return {
+            clarity: 0,
+            discipline: 0,
+            depth: 0
+        };
+    }
+
+    /**
+     * Get default signals structure
+     * @returns {Object} Default signals
+     */
+    getDefaultSignals() {
+        return {
+            semantic: 0,
+            resilience: 0,
+            resources: 0,
+            auditability: 0,
+            domain_fidelity: 0
+        };
+    }
+
+    /**
+     * Check if response indicates file should be skipped
+     * @param {string} response - Raw response
+     * @returns {boolean} True if should skip
+     */
+    shouldSkip(response) {
+        const trimmed = response.trim();
+        return trimmed.toUpperCase().startsWith('SKIP') || trimmed.includes('[SKIP]');
+    }
+
+    /**
+     * Extract domain from response text
+     * @param {string} text - Response text
+     * @returns {string|null} Extracted domain or null
+     */
+    extractDomain(text) {
+        const match = text.match(/\[([^\]]+)\]/);
+        return match ? match[1] : null;
+    }
+
+    /**
+     * Extract summary from response text
+     * @param {string} text - Response text
+     * @returns {string|null} Extracted summary or null
+     */
+    extractSummary(text) {
+        const match = text.match(/SUMMARY:\s*(.*)/i) || text.match(/Description:\s*(.*)/i);
+        return match ? match[1].substring(0, 150) : null;
     }
 }

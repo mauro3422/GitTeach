@@ -1,10 +1,31 @@
 /**
- * CacheRepository - Abstraction layer for cache operations
- * Abstracts calls to window.cacheAPI
+ * CacheRepository - Lightweight facade for cache operations
+ * REFACTORED: Delegates to specialized modules (SRP compliant)
+ *
+ * SOLID Principles:
+ * - S: Only orchestrates cache operations and coordinates modules
+ * - O: Extensible via module composition
+ * - L: N/A (no inheritance)
+ * - I: Minimal interface for cache operations
+ * - D: Depends on injected specialized modules
+ *
+ * Composed Modules:
+ * - FileCacheManager: File summary caching
+ * - RepoCacheManager: Repository blueprint caching
+ * - IdentityCacheManager: Technical identity caching
  */
 import { DebugLogger } from './debugLogger.js';
+import { FileCacheManager } from '../services/cache/FileCacheManager.js';
+import { RepoCacheManager } from '../services/cache/RepoCacheManager.js';
+import { IdentityCacheManager } from '../services/cache/IdentityCacheManager.js';
 
 class CacheRepositoryService {
+    constructor() {
+        // Compose specialized modules
+        this.fileCache = new FileCacheManager();
+        this.repoCache = new RepoCacheManager();
+        this.identityCache = new IdentityCacheManager();
+    }
     /**
      * Checks if cache is available
      */
@@ -21,39 +42,21 @@ class CacheRepositoryService {
      * @returns {Promise<{summary: string, contentSnippet: string}|null>}
      */
     async getFileSummary(username, repo, path) {
-        if (!this.isAvailable()) return null;
-        try {
-            return await window.cacheAPI.getFileSummary(username, repo, path);
-        } catch (e) {
-            console.warn('[CacheRepository] Error getting file summary:', e);
-            return null;
-        }
+        return this.fileCache.getFileSummary(username, repo, path);
     }
 
     /**
      * Saves file summary to cache
      */
     async setFileSummary(username, repo, path, sha, summary, contentSnippet, fileMeta = {}) {
-        if (!this.isAvailable()) return false;
-        try {
-            await window.cacheAPI.setFileSummary(username, repo, path, sha, summary, contentSnippet, fileMeta);
-            return true;
-        } catch (e) {
-            console.warn('[CacheRepository] Error setting file summary:', e);
-            return false;
-        }
+        return this.fileCache.setFileSummary(username, repo, path, sha, summary, contentSnippet, fileMeta);
     }
 
     /**
      * Checks if a file needs update
      */
     async needsUpdate(username, repo, path, currentSha) {
-        if (!this.isAvailable()) return true;
-        try {
-            return await window.cacheAPI.needsUpdate(username, repo, path, currentSha);
-        } catch (e) {
-            return true; // Asumir que necesita update si hay error
-        }
+        return this.fileCache.needsUpdate(username, repo, path, currentSha);
     }
 
     // ==========================================
@@ -64,26 +67,14 @@ class CacheRepositoryService {
      * Checks if repo tree changed
      */
     async hasRepoChanged(username, repo, currentTreeSha) {
-        if (!this.isAvailable()) return true;
-        try {
-            return await window.cacheAPI.hasRepoChanged(username, repo, currentTreeSha);
-        } catch (e) {
-            return true;
-        }
+        return this.repoCache.hasRepoChanged(username, repo, currentTreeSha);
     }
 
     /**
      * Saves repo tree SHA
      */
     async setRepoTreeSha(username, repo, treeSha) {
-        if (!this.isAvailable()) return false;
-        try {
-            await window.cacheAPI.setRepoTreeSha(username, repo, treeSha);
-            return true;
-        } catch (e) {
-            console.warn('[CacheRepository] Error setting tree SHA:', e);
-            return false;
-        }
+        return this.repoCache.setRepoTreeSha(username, repo, treeSha);
     }
 
     // ==========================================
@@ -94,54 +85,28 @@ class CacheRepositoryService {
      * Gets technical identity (deep synthesis) from cache
      */
     async getTechnicalIdentity(username) {
-        if (!this.isAvailable()) return null;
-        try {
-            return await window.cacheAPI.getTechnicalIdentity(username);
-        } catch (e) {
-            console.warn('[CacheRepository] Error getting technical identity:', e);
-            return null;
-        }
+        return this.identityCache.getTechnicalIdentity(username);
     }
 
     /**
      * Saves technical identity (deep synthesis) to cache
      */
     async setTechnicalIdentity(username, identity) {
-        if (!this.isAvailable()) return false;
-        try {
-            await window.cacheAPI.setTechnicalIdentity(username, identity);
-            return true;
-        } catch (e) {
-            console.warn('[CacheRepository] Error setting technical identity:', e);
-            return false;
-        }
+        return this.identityCache.setTechnicalIdentity(username, identity);
     }
 
     /**
      * Gets technical findings (traceability map) from cache
      */
     async getTechnicalFindings(username) {
-        if (!this.isAvailable()) return null;
-        try {
-            return await window.cacheAPI.getTechnicalFindings(username);
-        } catch (e) {
-            console.warn('[CacheRepository] Error getting technical findings:', e);
-            return null;
-        }
+        return this.identityCache.getTechnicalFindings(username);
     }
 
     /**
      * Saves technical findings (traceability map) to cache
      */
     async setTechnicalFindings(username, findings) {
-        if (!this.isAvailable()) return false;
-        try {
-            await window.cacheAPI.setTechnicalFindings(username, findings);
-            return true;
-        } catch (e) {
-            console.warn('[CacheRepository] Error setting technical findings:', e);
-            return false;
-        }
+        return this.identityCache.setTechnicalFindings(username, findings);
     }
 
     // ==========================================
@@ -152,32 +117,14 @@ class CacheRepositoryService {
      * Gets the CognitiveProfile (master user profile) from cache
      */
     async getCognitiveProfile(username) {
-        if (!this.isAvailable()) return null;
-        try {
-            return await window.cacheAPI.getCognitiveProfile(username);
-        } catch (e) {
-            console.warn('[CacheRepository] Error getting CognitiveProfile:', e);
-            return null;
-        }
+        return this.identityCache.getCognitiveProfile(username);
     }
 
     /**
      * Saves the CognitiveProfile (master user profile) to cache
      */
     async setCognitiveProfile(username, profile) {
-        if (!this.isAvailable()) return false;
-        try {
-            await window.cacheAPI.setCognitiveProfile(username, {
-                ...profile,
-                username,
-                lastUpdated: new Date().toISOString()
-            });
-            console.log('[CacheRepository] Cognitive Profile updated:', profile.title);
-            return true;
-        } catch (e) {
-            console.warn('[CacheRepository] Error setting CognitiveProfile:', e);
-            return false;
-        }
+        return this.identityCache.setCognitiveProfile(username, profile);
     }
 
     // ==========================================
@@ -221,55 +168,28 @@ class CacheRepositoryService {
      * Appends a raw finding to the repo's raw_findings.jsonl
      */
     async appendRepoRawFinding(repoName, finding) {
-        if (!this.isAvailable()) return false;
-        try {
-            if (window.cacheAPI.appendRepoRawFinding) {
-                await window.cacheAPI.appendRepoRawFinding(repoName, finding);
-                return true;
-            }
-        } catch (e) { return false; }
-        return false;
+        return this.repoCache.appendRepoRawFinding(repoName, finding);
     }
 
     /**
      * Persists the curated memory nodes for a specific repo
      */
     async persistRepoCuratedMemory(repoName, nodes) {
-        if (!this.isAvailable()) return false;
-        try {
-            if (window.cacheAPI.persistRepoCuratedMemory) {
-                await window.cacheAPI.persistRepoCuratedMemory(repoName, nodes);
-                return true;
-            }
-        } catch (e) { return false; }
-        return false;
+        return this.repoCache.persistRepoCuratedMemory(repoName, nodes);
     }
 
     /**
      * Persists the consolidated blueprint for a specific repo
      */
     async persistRepoBlueprint(repoName, blueprint) {
-        if (!this.isAvailable()) return false;
-        try {
-            if (window.cacheAPI.persistRepoBlueprint) {
-                await window.cacheAPI.persistRepoBlueprint(repoName, blueprint);
-                return true;
-            }
-        } catch (e) { return false; }
-        return false;
+        return this.repoCache.persistRepoBlueprint(repoName, blueprint);
     }
 
     /**
      * Gets all persisted repo blueprints for holistic analysis
      */
     async getAllRepoBlueprints() {
-        if (!this.isAvailable()) return [];
-        try {
-            if (window.cacheAPI.getAllRepoBlueprints) {
-                return await window.cacheAPI.getAllRepoBlueprints();
-            }
-        } catch (e) { return []; }
-        return [];
+        return this.repoCache.getAllRepoBlueprints();
     }
 
     // ==========================================
