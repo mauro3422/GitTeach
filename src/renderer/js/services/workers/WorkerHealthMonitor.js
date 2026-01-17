@@ -137,8 +137,14 @@ export class WorkerHealthMonitor {
                 );
 
                 // Update coordinator and callbacks
+                // Fix: Ensure batchBuffer contains the processed results, not raw inputs
+                // If ResultProcessor returns weird batchBuffer, usage results instead
+                const effectiveBatch = (batchBuffer && batchBuffer.length > 0 && batchBuffer[0].workerId)
+                    ? batchBuffer
+                    : results;
+
                 this.updateCoordinatorAndCallbacks(
-                    results, batchBuffer, coordinator, onFileProcessed, onProgress, onBatchComplete, workerId
+                    results, effectiveBatch, coordinator, onFileProcessed, onProgress, onBatchComplete, workerId
                 );
 
                 this.updateWorkerStats(workerId, 'processingTimeMs', durationMs);

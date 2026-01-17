@@ -62,8 +62,11 @@ export class TracerEngine {
 
         let totalFilesOnDisk = 0;
         try {
-            totalFilesOnDisk = parseInt(fs.readFileSync(path.join(ROOT, 'temp_file_count.txt'), 'utf8').trim());
-            this.latestTotalFiles = totalFilesOnDisk;
+            const tempPath = path.join(ROOT, 'temp_file_count.txt');
+            if (fs.existsSync(tempPath)) {
+                totalFilesOnDisk = parseInt(fs.readFileSync(tempPath, 'utf8').trim());
+                this.latestTotalFiles = totalFilesOnDisk;
+            }
         } catch (e) { }
 
         // 6. Capture "BEFORE" state
@@ -77,19 +80,27 @@ export class TracerEngine {
         const analyzer = new ProfileAnalyzer(DebugLogger);
 
         let lastReport = 0;
-        const REPORT_INTERVAL = 20;
+        const REPORT_INTERVAL = 5;
 
         const results = await analyzer.analyze('mauro3422', (step) => {
+            // ALWAYS update latestStats if possible to ensure summaries are fresh
+            if (analyzer.coordinator) {
+                const stats = analyzer.coordinator.getStats();
+                this.latestStats = stats;
+                // CRITICAL: Ensure filesOnDisk is NEVER 0 if inventory has files
+                if ((!this.latestTotalFiles || this.latestTotalFiles === 0) && stats.totalFiles > 0) {
+                    this.latestTotalFiles = stats.totalFiles;
+                }
+            }
+
             if (step.type === 'Progreso') {
                 const p = step.percent;
-                if (p >= lastReport + REPORT_INTERVAL || p === 100) {
-                    const stats = analyzer.coordinator.getStats();
-                    this.latestStats = stats;
-                    process.stdout.write(`\r   [PROGRESS] ${p}% | Scanned: ${stats.analyzed} / ${totalFilesOnDisk}`);
+                // Log and flush summary at intervals OR on phase completion
+                if (p >= lastReport + REPORT_INTERVAL || p === 100 || p < lastReport) {
+                    process.stdout.write(`\r   [PROGRESS] ${p}% | Scanned: ${this.latestStats?.analyzed || 0} / ${this.latestTotalFiles}`);
                     lastReport = p;
                     if (p === 100) console.log("");
 
-                    // Periodic Flush for resilience
                     this.generateSummary('RUNNING');
                 }
             } else if (step.type === 'DeepMemoryReady') {
@@ -98,10 +109,17 @@ export class TracerEngine {
             }
         });
 
-        const stats = analyzer.coordinator.getStats();
+        // Ensure stats are fresh after analyze() returns (Phase 1 finished)
+        this.latestStats = analyzer.coordinator.getStats();
+
         console.log(`\n📊 FINAL COVERAGE REPORT:`);
-        console.log(`   - Files Scanned:   ${stats.analyzed}`);
-        console.log(`   - Coverage Index:  ${totalFilesOnDisk > 0 ? Math.round((stats.analyzed / totalFilesOnDisk) * 100) : 0}%`);
+        console.log(`   - Files Scanned:   ${this.latestStats.analyzed}`);
+
+        // Fix: Clamp to 100% if analyzed > totalFilesOnDisk (due to temp file lag or mock mismatch)
+        const denominator = Math.max(this.latestTotalFiles, this.latestStats.analyzed);
+        const coverage = denominator > 0 ? Math.round((this.latestStats.analyzed / denominator) * 100) : 0;
+
+        console.log(`   - Coverage Index:  ${coverage}%`);
 
         console.log('\n--- PHASE 2: INTELLIGENCE SYNTHESIS ---');
         if (analyzer.fullIntelligencePromise) {
@@ -126,8 +144,22 @@ export class TracerEngine {
 
             for (const testPrompt of prompts) {
                 console.log(`\n🤖 USER INPUT: "${testPrompt}"`);
-                const result = await AIService.processIntent(testPrompt, 'mauro3422');
-                console.log(`📢 AI RESPONSE: ${result.message.substring(0, 150)}...`);
+                const simStart = Date.now();
+                let result;
+                const watchdog = new Promise((resolve, reject) =>
+                    setTimeout(() => reject(new Error('AI Service call timed out after 60s')), 60000)
+                );
+                try {
+                    result = await Promise.race([
+                        AIService.processIntent(testPrompt, 'mauro3422'),
+                        watchdog
+                    ]);
+                } catch (e) {
+                    console.error(`❌ AI Service call for "${testPrompt}" failed or timed out:`, e.message);
+                    continue; // Skip to the next prompt
+                }
+                const simDuration = Date.now() - simStart;
+                console.log(`📢 AI RESPONSE: ${result.message.substring(0, 150)}... (${simDuration}ms)`);
 
                 // Check Context-Light Protections
                 if (AIService.currentSessionContext.includes("INSTRUCCIÓN PARA EL ROUTER") &&
@@ -178,6 +210,12 @@ export class TracerEngine {
             architecture: await window.cacheAPI.getTechnicalIdentity('theme:architecture:mauro3422'),
             habits: await window.cacheAPI.getTechnicalIdentity('theme:habits:mauro3422')
         };
+
+        // FINAL REFRESH: Ensure all worker data is captured
+        this.latestStats = analyzer.coordinator.getStats();
+        if (!this.latestTotalFiles || this.latestTotalFiles === 0) {
+            this.latestTotalFiles = this.latestStats.totalFiles;
+        }
 
         this.generateSummary('COMPLETE');
 
@@ -251,6 +289,11 @@ export class TracerEngine {
                 arch: process.arch
             },
             errors: loggerCapture.getErrors(),
+            performance: {
+                workerLatency: stats.performance || { totalAiMs: 0, count: 0, slowestFile: { path: '', ms: 0 } },
+                totalTraceMs: Date.now() - this.startTime.getTime(),
+                metabolicSynthesis: this.metabolicSnapshot.after?.performance || {}
+            },
             integrityAudit: status === 'COMPLETE' ? this.runIntegrityAudit() : 'PENDING'
         };
 

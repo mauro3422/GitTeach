@@ -141,12 +141,13 @@ export class PersistenceMock {
                 const db = await getDb();
                 return await db.get(`raw:file:${r}:${p}`);
             },
-            setFileSummary: async (u, r, p, sha, summary, content, fileMeta = {}) => {
+            setFileSummary: async (u, r, p, sha, summary, content, fileMeta = {}, durationMs = 0) => {
                 const db = await getDb();
                 const key = `raw:file:${r}:${p}`;
                 const data = {
                     content,
                     summary,
+                    durationMs,
                     meta: { sha, ...fileMeta },
                     updatedAt: new Date().toISOString()
                 };

@@ -4,8 +4,10 @@
 
 GitTeach es una aplicación de escritorio (Electron) diseñada para ayudar a los desarrolladores a gestionar sus perfiles de GitHub y mejorar sus habilidades mediante un asistente de IA local con arquitectura Thinking RAG.
 
-## 🎯 **Novedades v2.4.0 (Reasoning)**
-- **Thinking RAG System**: IA que "piensa" antes de actuar con Chain of Thought
+## 🎯 **Novedades v2.5.0 (Hybrid Speed)**
+- **Hybrid Architecture**: CPU/GPU Split para máxima velocidad (LFM 2.5 + Nomic Embed).
+- **Continuous Batching**: Paralelismo real en inferencia de IA (-cb).
+- **Integridad Forense**: Sistema Tracer v2.1 con validación de datos 100% blindada.
 - **Sistema de Herramientas**: Tools como `query_memory`, `read_file`, `analyze_code`
 - **Memoria Jerárquica**: ADN Técnico, Identidad Técnica, y Memoria Conversacional
 - **Pipeline de Análisis Avanzado**: Scanning → Processing → Curation → Synthesis

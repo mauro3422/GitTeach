@@ -18,9 +18,21 @@ export class HabitsMapper {
 
         try {
             Logger.mapper('Analyzing Coding Habits...');
-            return await AIService.callAI('Mapper: Habits', `${prompt}\n\nINSIGHTS:\n${insights}`, 0.1, null, null, AISlotPriorities.BACKGROUND);
+            const schema = {
+                type: "object",
+                properties: {
+                    analysis: { type: "string" },
+                    evidence_uids: { type: "array", items: { type: "string" } }
+                },
+                required: ["analysis", "evidence_uids"]
+            };
+
+            const response = await AIService.callAI('Mapper: Habits', `${prompt}\n\nINSIGHTS:\n${insights}`, 0.1, 'json_object', schema, AISlotPriorities.BACKGROUND);
+
+            if (response.error || typeof response === 'string') return { analysis: response.error || response, evidence_uids: [] };
+            return response;
         } catch (e) {
-            return `Habits Analysis Error: ${e.message}`;
+            return { analysis: `Habits Analysis Error: ${e.message}`, evidence_uids: [] };
         }
     }
 }

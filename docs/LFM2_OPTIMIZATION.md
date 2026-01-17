@@ -1,6 +1,6 @@
 # LFM2 Optimization & Prompt Engineering Guide 🧬
 
-**Version:** 1.0 (Liquid Era)
+**Version:** 1.1 (Liquid Era - Forensic Update)
 **Target Model:** Liquid Foundation Models 2.5 (LFM-1.2B / LFM-3B)
 
 ## 1. Understanding the Engine: LFM2 vs. Transformers
@@ -121,10 +121,10 @@ IMPORTANT:
 ### Capabilities ✅
 | Capability | Details |
 |------------|---------|
-| **Parameters** | 1.17 billion (1,170,340,608) |
-| **Context Window** | 32,768 tokens (32K) |
-| **Architecture** | Hybrid: Double-gated convolution + Grouped Query Attention |
-| **Speed** | 2x faster decode/prefill on CPU vs Qwen3 |
+| **Parameters** | 1.17 billion (Instrust v2.5) |
+| **Context Window** | 32,768 tokens (optimized for long-context RAG) |
+| **Architecture** | **Hybrid Liquid-Transformer**: 10 double-gated LIV convolution blocks + 6 Grouped Query Attention (GQA) layers. |
+| **Speed** | Extremely fast generation (16s for 3k chars). Low latency on Edge devices. |
 | **Languages** | EN, ES, ZH, DE, AR, JA, KO, FR |
 | **Best Tasks** | RAG, extraction, summarization, structured JSON |
 | **Memory** | <2GB (int4 quantized) |
@@ -132,18 +132,47 @@ IMPORTANT:
 ### Limitations ⚠️
 | Limitation | Mitigation |
 |------------|------------|
-| Not for knowledge-intensive tasks | Use RAG to inject external knowledge |
-| Advanced programming needs fine-tuning | Keep prompts simple, use Few-Shot |
+| Small parameter count | Avoid complex deductive reasoning. Use "Step-by-Step" prompting. |
 | Tendency to copy few-shot examples | Use Evidence-First prompting (Step-Based) |
-| May hallucinate domain names | Use Cognitive Vaccines in prompts |
+| **Compute Bound** on Prefill | High latency on large prompts if not batched correctly (See Section 7). |
 
-### Recommended Settings
-```javascript
-// For classification/extraction:
-temperature: 0.0,
-response_format: { type: "json_object" }
+---
 
-// For generation:
-temperature: 0.2-0.7,
-n_predict: 4096 // Max tokens
+## 7. Hardware Parallelism & Continuous Batching 🚀
+
+**CRITICAL PERFORMANCE NOTE:**
+
+When running multiple AI workers (e.g., Worker 1, 2, 3) against a single GPU server, you MUST distinguish between "Software Slots" and "Hardware Execution".
+
+### The "Queueing" Problem
+Using `--parallel 4` alone reserves memory for 4 users but does **NOT** guarantee parallel execution.
+- **Without `-cb`**: The GPU processes Request A fully, then Request B.
+- **Symptom**: Workers report high latency (e.g., 82s) despite the model being fast (16s). The extra time is "Queue Wait Time".
+
+### The Solution: Continuous Batching (`-cb`)
+The `-cb` flag enables **Continuous Batching**, allowing the server to dynamically interleave tokens from multiple requests.
+- **With `-cb`**: Request A and Request B define tokens simultaneously.
+- **Result**: Throughput increases dramatically. Worker wait times drop to near zero.
+
+### Recommended Launch Command (GPU)
+```batch
+server\llama-server.exe --model "%MODEL_PATH%" ^
+    --port 8000 ^
+    --host 0.0.0.0 ^
+    --n-gpu-layers 999 ^
+    --ctx-size 81920 ^
+    --parallel 4 ^
+    -cb ^                  <-- CRITICAL FOR PARALLELISM
+    --chat-template chatml
 ```
+
+### The "Quality First" Concurrency Strategy
+For "Deep Forensics" on LFM 2.5 (1.2B), we prioritize **Parallel Workers** over **Batch Size**.
+
+| Strategy | Config | Pros | Cons |
+| :--- | :--- | :--- | :--- |
+| **High Batching** | `parallel 1`, `batchSize 5` | Fewer HTTP requests | **Lower Quality** (Context dilution), Slow feedback loop |
+| **High Concurrency** | `parallel 4`, `batchSize 1` | **Maximum Quality** (Dedicated context), 2x Throughput | Requires `-cb` flag |
+
+**Recommendation:**
+Keep `batchSize = 1` in `AIWorkerPool.js` and let the GPU's **Continuous Batching** handle the parallelism. This gives you the speed of batching with the precision of single-file analysis.

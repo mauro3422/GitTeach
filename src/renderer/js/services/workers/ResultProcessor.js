@@ -84,17 +84,24 @@ export class ResultProcessor {
             item.status = 'completed';
             item.summary = summary;
 
+            // Default valid summary if undefined
+            const safeSummary = summary || "Analyzed (No Summary)";
+
             const resultItem = {
                 repo: item.repo,
                 path: item.path,
-                summary: summary,
-                workerId: workerId,
+                summary: safeSummary,
+                workerId: workerId || 999,
                 classification: parsed?.params?.technical_strength || 'General',
-                metadata: parsed?.params?.metadata || {}, // NEW: Carries the metrics
-                params: parsed?.params || { insight: summary, technical_strength: 'General' },
-                file_meta: item.file_meta || {}, // NEW: For churn analysis
-                durationMs: durationMs // Track timing
+                metadata: parsed?.params?.metadata || {},
+                params: parsed?.params || { insight: safeSummary, technical_strength: 'General' },
+                file_meta: item.file_meta || {},
+                durationMs: durationMs || 1
             };
+
+            // Critical Debug
+            if (!summary) console.warn(`[ResultProcessor] ⚠️ Summary missing for ${item.path}`);
+            // console.log(`[ResultProcessor] Created result for ${item.path}:`, JSON.stringify(resultItem));
 
             results.push(resultItem);
             batchBuffer.push(resultItem); // BRIDGE TO MEMORY SYSTEM V3

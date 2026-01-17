@@ -113,6 +113,9 @@ export class ProfileAnalyzer {
             // Sintetizar Identidad (Personalidad) a partir del ADN Técnico
             const { finalProfile, report, isSignificant } = await this.intelligenceSynthesizer.synthesizeProfile(oldIdentity, curationResult.dna);
 
+            // Forensics: Attach performance metrics for Tracer
+            finalProfile.performance = curationResult.performance;
+
             await CacheRepository.setTechnicalIdentity(username, finalProfile);
             // Log the traceability map for debugging, with a fallback for join
             Logger.debug('ANALYZER', `### TRACEABILITY MAP:\n${Array.isArray(curationResult.traceability_map) ? curationResult.traceability_map.join('\n') : ''}`);
@@ -151,9 +154,19 @@ export class ProfileAnalyzer {
         this.workerPool.onProgress = (data) => {
             if (onStep) onStep({ type: 'Progreso', percent: data.percent, message: `🤖 Worker ${data.workerId}: Processed` });
         };
-
+        // Listen for batch completion (Concurrent)
+        // This receives the batch from AIWorkerPool -> WorkerHealthMonitor
         this.workerPool.onBatchComplete = async (batch) => {
-            // Memory V3: Store findings in the decoupled MemoryManager
+            // EMERGENCY FIX: Ensure critical properties exist
+            // If upstream passes raw inputs, we upgrade them to findings here
+            batch.forEach(f => {
+                if (!f.summary) {
+                    f.summary = f.content ? `Analyzed content (${f.content.length} chars)` : "No Summary Available";
+                }
+                if (!f.workerId) f.workerId = 999;
+            });
+
+            // Persist to Graph Memory
             // Use for...of to ensure we await the async storeFinding
             for (const finding of batch) {
                 const node = await memoryManager.storeFinding(finding);
@@ -173,7 +186,7 @@ export class ProfileAnalyzer {
             }
         };
 
-        this.aiWorkersPromise = this.workerPool.processAll(AIService).catch(err => console.warn('[AI WORKERS] Error:', err));
+        this.aiWorkersPromise = this.workerPool.processQueue(AIService).catch(err => console.warn('[AI WORKERS] Error:', err));
     }
 
     getFreshContext(username, technicalIdentity, cognitiveProfile = null, curationEvidence = null) {

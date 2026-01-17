@@ -45,10 +45,10 @@ export class FileCacheManager {
      * @param {Object} fileMeta - File metadata
      * @returns {Promise<boolean>} Success status
      */
-    async setFileSummary(username, repo, path, sha, summary, contentSnippet, fileMeta = {}) {
+    async setFileSummary(username, repo, path, sha, summary, contentSnippet, fileMeta = {}, durationMs = 0) {
         if (!this.isAvailable()) return false;
         try {
-            await window.cacheAPI.setFileSummary(username, repo, path, sha, summary, contentSnippet, fileMeta);
+            await window.cacheAPI.setFileSummary(username, repo, path, sha, summary, contentSnippet, fileMeta, durationMs);
             return true;
         } catch (e) {
             console.warn('[FileCacheManager] Error setting file summary:', e);
@@ -94,7 +94,7 @@ export class FileCacheManager {
         // Fetch and save
         const result = await fetchFn();
         if (result && result.summary) {
-            await this.setFileSummary(username, repo, path, sha, result.summary, result.content, result.file_meta || {});
+            await this.setFileSummary(username, repo, path, sha, result.summary, result.content, result.file_meta || {}, result.durationMs || 0);
         }
 
         return { ...result, fromCache: false };

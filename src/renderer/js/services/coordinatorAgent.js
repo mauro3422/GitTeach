@@ -11,6 +11,7 @@ export class CoordinatorAgent {
         this.workerCount = 4;
         this.onRepoComplete = null;
         this.completedRepos = new Set();
+        this.perfStats = { totalAiMs: 0, count: 0, slowestFile: { path: '', ms: 0 } };
     }
 
     get inventory() { return this.inventoryManager.data; }
@@ -33,6 +34,15 @@ export class CoordinatorAgent {
 
     markCompleted(repoName, filePath, summary, rawData = null) {
         this.inventoryManager.markCompleted(repoName, filePath, summary, rawData);
+
+        // REAL-TIME PERFORMANCE ACCUMULATION
+        if (rawData && typeof rawData.durationMs === 'number') {
+            this.perfStats.totalAiMs += rawData.durationMs;
+            this.perfStats.count++;
+            if (rawData.durationMs > this.perfStats.slowestFile.ms) {
+                this.perfStats.slowestFile = { path: filePath, ms: rawData.durationMs };
+            }
+        }
 
         const stats = this.inventoryManager.getStats();
         this.reporter.report('Progress', `Analyzing... ${stats.analyzed}/${stats.totalFiles}`, this.inventory, { percent: stats.progress });
@@ -81,7 +91,15 @@ export class CoordinatorAgent {
     }
 
     getStats() {
-        return this.inventoryManager.getStats();
+        const stats = this.inventoryManager.getStats();
+
+        stats.performance = {
+            totalAiMs: this.perfStats.totalAiMs,
+            avgAiMs: this.perfStats.count > 0 ? Math.round(this.perfStats.totalAiMs / this.perfStats.count) : 0,
+            slowestFile: this.perfStats.slowestFile
+        };
+
+        return stats;
     }
 
     /**

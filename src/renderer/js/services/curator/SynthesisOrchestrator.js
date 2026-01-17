@@ -86,7 +86,7 @@ export class SynthesisOrchestrator {
             // Debug logging
             DebugLogger.logCurator('final_dna_synthesis', dna);
 
-            return { dna, traceability_map: finalMap };
+            return { dna, traceability_map: finalMap, performance: mapperResults.performance };
         } catch (e) {
             console.error(`[SYNTHESIS_CRASH] Fatal exception in SynthesisOrchestrator:`, e);
             Logger.error('SynthesisOrchestrator', `Global Synthesis failed: ${e.message}`);

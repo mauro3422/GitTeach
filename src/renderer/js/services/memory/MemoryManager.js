@@ -18,8 +18,10 @@ export class MemoryManager {
         this.repoIndexes = new Map(); // Index by repository [RepoName -> [UIDs]]
 
         this.embeddingBuffer = [];
-        this.BATCH_SIZE = (typeof window !== 'undefined' && window.IS_TRACER) ? 1 : 10;
-        this.FLUSH_INTERVAL = 500; // ms
+        this.BATCH_SIZE = (typeof window !== 'undefined' && window.IS_TRACER) ? 2 : 10;
+        this.FLUSH_INTERVAL = (typeof window !== 'undefined' && window.IS_TRACER) ? 2000 : 500; // ms
+        this.THROTTLE_DELAY = 500; // ms delay between batches
+        this.lastFlushTime = 0;
         this.flushTimer = null;
 
         Logger.info('MemoryManager', 'Decoupled Memory V3 initialized (Batching Enabled).');
@@ -140,13 +142,29 @@ export class MemoryManager {
 
         if (this.embeddingBuffer.length === 0) return;
 
+        // TECHNICAL THROTTLE: Ensure we don't saturate the bus
+        const now = Date.now();
+        const timeSinceLast = now - this.lastFlushTime;
+        if (timeSinceLast < this.THROTTLE_DELAY) {
+            if (!this.flushTimer) {
+                this.flushTimer = setTimeout(() => this.flushEmbeddingBuffer(), this.THROTTLE_DELAY - timeSinceLast);
+            }
+            return;
+        }
+        this.lastFlushTime = now;
+
         // Take chunk
         const batch = this.embeddingBuffer.splice(0, this.embeddingBuffer.length);
 
-        // Construct batch texts
-        const texts = batch.map(node =>
-            `Insight: ${node.insight}. Evidence: ${node.evidence}. Context: ${node.repo}/${node.path}`
-        );
+        // Construct batch texts (filtered for safety)
+        const texts = batch
+            .map(node => `Insight: ${node.insight || 'N/A'}. Evidence: ${node.evidence || 'N/A'}. Context: ${node.repo}/${node.path}`)
+            .filter(t => t.trim().length > 0);
+
+        if (texts.length === 0) {
+            batch.forEach(n => n.vectorStatus = 'ready'); // Mark as "processed" if nothing to do
+            return;
+        }
 
         try {
             // Call Batch API

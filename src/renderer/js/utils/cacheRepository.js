@@ -48,8 +48,8 @@ class CacheRepositoryService {
     /**
      * Saves file summary to cache
      */
-    async setFileSummary(username, repo, path, sha, summary, contentSnippet, fileMeta = {}) {
-        return this.fileCache.setFileSummary(username, repo, path, sha, summary, contentSnippet, fileMeta);
+    async setFileSummary(username, repo, path, sha, summary, contentSnippet, fileMeta = {}, durationMs = 0) {
+        return this.fileCache.setFileSummary(username, repo, path, sha, summary, contentSnippet, fileMeta, durationMs);
     }
 
     /**
@@ -229,7 +229,7 @@ class CacheRepositoryService {
         // Fetch y guardar
         const result = await fetchFn();
         if (result && result.summary) {
-            await this.setFileSummary(username, repo, path, sha, result.summary, result.content, result.file_meta || {});
+            await this.setFileSummary(username, repo, path, sha, result.summary, result.content, result.file_meta || {}, result.durationMs || 0);
         }
 
         return { ...result, fromCache: false };

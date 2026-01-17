@@ -43,15 +43,46 @@ export class ThematicMapper {
         }
         Logger.mapper('Executing Parallel Thematic Mapping (Architecture, Habits, Stack)...');
 
+        const startTime = Date.now();
+        const results_meta = { start: startTime };
+
         const [architecture, habits, stack] = await Promise.all([
-            this.architectureMapper.map(username, this._formatInsights(partitions.architecture), healthReport),
-            this.habitsMapper.map(username, this._formatInsights(partitions.habits), healthReport),
-            this.stackMapper.map(username, this._formatInsights(partitions.stack))
+            (async () => {
+                const s = Date.now();
+                const res = await this.architectureMapper.map(username, this._formatInsights(partitions.architecture), healthReport);
+                res.durationMs = Date.now() - s;
+                return res;
+            })(),
+            (async () => {
+                const s = Date.now();
+                const res = await this.habitsMapper.map(username, this._formatInsights(partitions.habits), healthReport);
+                res.durationMs = Date.now() - s;
+                return res;
+            })(),
+            (async () => {
+                const s = Date.now();
+                const res = await this.stackMapper.map(username, this._formatInsights(partitions.stack));
+                res.durationMs = Date.now() - s;
+                return res;
+            })()
         ]);
 
-        Logger.mapper('Thematic Layers completed successfully ✅');
+        const totalDuration = Date.now() - startTime;
+        Logger.mapper(`Thematic Layers completed successfully in ${totalDuration}ms ✅`);
 
-        return { architecture, habits, stack };
+        return {
+            architecture,
+            habits,
+            stack,
+            performance: {
+                totalMs: totalDuration,
+                layers: {
+                    architecture: architecture.durationMs,
+                    habits: habits.durationMs,
+                    stack: stack.durationMs
+                }
+            }
+        };
     }
 
     _formatInsights(insights) {

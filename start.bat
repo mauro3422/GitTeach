@@ -39,11 +39,7 @@ if not exist "models\nomic-embed-text-v1.5.Q4_K_M.gguf" (
 
 echo.
 echo [3/4] Iniciando Brain Stack...
-echo    - Chat Server (GPU: 8000)
-start "GitTeach Brain (LFM 2.5)" /MIN server\llama-server.exe --model "models\LFM2.5-1.2B-Instruct-Q8_0.gguf" --port 8000 --host 0.0.0.0 --n-gpu-layers 999 --ctx-size 81920 --parallel 4 --chat-template chatml
-
-echo    - Vector Server (CPU: 8001)
-start "GitTeach Vectors (Nomic)" /MIN server\llama-server.exe --model "models\nomic-embed-text-v1.5.Q4_K_M.gguf" --port 8001 --embedding -ngl 0 -c 2048 --parallel 1
+call :START_SERVERS_INTERNAL
 
 timeout /t 3 /nobreak >nul
 echo.
@@ -67,8 +63,8 @@ if not exist "models\nomic-embed-text-v1.5.Q4_K_M.gguf" (
     curl -k --ssl-no-revoke -L -o "models\nomic-embed-text-v1.5.Q4_K_M.gguf" "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q4_K_M.gguf?download=true"
 )
 
-start "GitTeach Brain (LFM 2.5)" /MIN server\llama-server.exe --model "models\LFM2.5-1.2B-Instruct-Q8_0.gguf" --port 8000 --host 0.0.0.0 --n-gpu-layers 999 --ctx-size 81920 --parallel 4 --chat-template chatml
-start "GitTeach Vectors (Nomic)" /MIN server\llama-server.exe --model "models\nomic-embed-text-v1.5.Q4_K_M.gguf" --port 8001 --embedding -ngl 0 -c 2048 --parallel 1
+start "GitTeach Brain (LFM 2.5)" /MIN cmd /k scripts\start_brain_gpu.bat
+start "GitTeach Vectors (Nomic)" /MIN cmd /k scripts\start_vectors_cpu.bat
 
 echo.
 echo Servidores Iniciados. Presione una tecla para volver al menu...

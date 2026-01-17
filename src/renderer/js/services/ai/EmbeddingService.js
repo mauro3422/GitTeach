@@ -12,7 +12,7 @@
 export class EmbeddingService {
     constructor() {
         this.cache = new Map();
-        this.maxCacheSize = 100;
+        this.maxCacheSize = 1000;
     }
 
     /**
@@ -192,44 +192,65 @@ export class EmbeddingService {
             (fs.appendFileSync || fs.default.appendFileSync)('embedding_debug.log', logMsg);
         } catch (e) { }
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s timeout for batch
+        let attempt = 0;
+        const maxRetries = 4;
+        const baseDelay = 1000;
 
-        try {
-            const payload = {
-                model: "lfm2.5",
-                input: texts
-            };
+        while (attempt < maxRetries) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s timeout for batch
 
-            const response = await fetch(ENDPOINT, {
-                signal: controller.signal,
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                const errText = `Batch embedding API error: ${response.status}`;
-                throw new Error(errText);
-            }
-
-            const data = await response.json();
-            if (data && data.data && Array.isArray(data.data)) {
-                return data.data.map(item => item.embedding).filter(emb => emb);
-            }
-
-            throw new Error('Invalid batch embedding response format');
-        } catch (error) {
             try {
-                const fs = await import('fs');
-                fs.appendFileSync('embedding_debug.log', `‼ Error: ${error.message}\n`);
-            } catch (e) { }
-            if (error.name === 'AbortError') {
-                throw new Error('Batch embedding request timeout');
+                const payload = {
+                    model: "lfm2.5",
+                    input: texts
+                };
+
+                const response = await fetch(ENDPOINT, {
+                    signal: controller.signal,
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                clearTimeout(timeoutId);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.data && Array.isArray(data.data)) {
+                        return data.data.map(item => item.embedding).filter(emb => emb);
+                    }
+                    throw new Error('Invalid batch embedding response format');
+                }
+
+                if (response.status >= 400 && response.status < 500) {
+                    throw new Error(`Embedding API client error: ${response.status}`);
+                }
+
+                throw new Error(`Server returned ${response.status}`);
+
+            } catch (error) {
+                clearTimeout(timeoutId);
+                attempt++;
+
+                const isRetryable = error.name !== 'AbortError' && !error.message.includes('client error');
+
+                if (attempt >= maxRetries || !isRetryable) {
+                    try {
+                        const fs = await import('fs');
+                        fs.appendFileSync('embedding_debug.log', `‼ Final Error: ${error.message}\n`);
+                    } catch (e) { }
+
+                    if (error.name === 'AbortError') {
+                        throw new Error('Batch embedding request timeout');
+                    }
+                    throw error;
+                }
+
+                const delay = Math.pow(2, attempt - 1) * baseDelay + (Math.random() * 500);
+                console.warn(`[EmbeddingService] Retry ${attempt}/${maxRetries} after ${Math.round(delay)}ms: ${error.message}`);
+                await new Promise(r => setTimeout(r, delay));
             }
-            throw error;
         }
     }
 

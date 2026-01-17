@@ -1,38 +1,26 @@
-/**
- * AIWorkerPool - Lightweight facade for AI worker orchestration
- * REFACTORED: Delegates to specialized modules (SRP compliant)
- *
- * SOLID Principles:
- * - S: Only orchestrates workers and coordinates modules
- * - O: Extensible via callbacks (onFileProcessed, onBatchComplete)
- * - L: N/A (no inheritance)
- * - I: Minimal interface (enqueue, processAll)
- * - D: Depends on injected AIService and CoordinatorAgent
- *
- * Composed Modules:
- * - QueueManager: Queue handling, batching, affinity scheduling
- * - RepoContextManager: Cumulative context, Golden Knowledge compaction
- * - WorkerPromptBuilder: Prompt generation, pre-filtering, response parsing
- * - ResultProcessor: AI result processing and error handling
- * - WorkerHealthMonitor: Worker health monitoring and statistics
- */
 import { Logger } from '../utils/logger.js';
-import { CacheRepository } from '../utils/cacheRepository.js';
-import { DebugLogger } from '../utils/debugLogger.js';
 import { QueueManager } from './workers/QueueManager.js';
 import { RepoContextManager } from './workers/RepoContextManager.js';
 import { WorkerPromptBuilder } from './workers/WorkerPromptBuilder.js';
 import { ResultProcessor } from './workers/ResultProcessor.js';
 import { WorkerHealthMonitor } from './workers/WorkerHealthMonitor.js';
-import { AISlotPriorities } from './ai/AISlotManager.js';
 
+/**
+ * AIWorkerPool - Orchestrates parallel AI processing tasks.
+ * Uses a modular architecture:
+ * - QueueManager: Handles task prioritization and queueing.
+ * - RepoContextManager: Manages system prompt and context switching.
+ * - WorkerPromptBuilder: Builds specialized prompts for workers.
+ * - ResultProcessor: Processes AI output and manages callbacks.
+ * - WorkerHealthMonitor: Orchestrates execution and handles timeouts/retries.
+ */
 export class AIWorkerPool {
     constructor(workerCount = 3, coordinator = null, debugLogger = null) {
         this.workerCount = workerCount;
         this.coordinator = coordinator;
-        this.debugLogger = debugLogger || DebugLogger;
+        this.debugLogger = debugLogger || (typeof DebugLogger !== 'undefined' ? DebugLogger : { isActive: () => false });
 
-        console.log(`[AIWorkerPool] Constructor - Injected Logger: ${!!debugLogger}, IsActive: ${this.debugLogger.isActive()}, Path: ${this.debugLogger.sessionPath}`);
+        console.log(`[AIWorkerPool] Constructor - Injected Logger: ${!!debugLogger}, IsActive: ${this.debugLogger.isActive()}`);
 
         // Compose specialized modules
         this.queueManager = new QueueManager();
@@ -64,83 +52,91 @@ export class AIWorkerPool {
     }
 
     /**
-     * Enqueue multiple files
+     * Start processing the queue
      */
-    enqueueBatch(files, priority = 1) {
-        files.forEach(f => this.enqueue(f.repo, f.path, f.content, f.sha, priority, f.file_meta || {}));
-    }
+    async processQueue(aiService) {
+        if (!aiService) throw new Error("AIService is required for AIWorkerPool");
 
-    /**
-     * Process entire queue using N parallel workers
-     */
-    async processAll(aiService) {
-        if (!this.healthMonitor.startProcessing()) {
-            console.warn('[AIWorkerPool] Already processing');
-            return this.results;
-        }
-
-        this.results = [];
-
-        // Create N workers that process in parallel
         const workers = [];
         for (let i = 0; i < this.workerCount; i++) {
-            workers.push(this.healthMonitor.runWorker(
-                i + 1,
-                aiService,
-                this.coordinator,
-                this.onFileProcessed,
-                this.onProgress,
-                this.onBatchComplete
-            ));
+            workers.push(this._runWorker(aiService, i + 1));
         }
 
-        // Wait for all workers to finish
         await Promise.all(workers);
-
-        // Flush remaining buffer
-        // Flush remaining buffer
-        if (this.batchBuffer.length > 0) {
-            if (this.onBatchComplete) {
-                this.onBatchComplete(this.batchBuffer);
-            } else {
-                // If no callback, store it temporarily
-                this._batchQueue.push([...this.batchBuffer]);
-            }
-            this.batchBuffer = [];
-        }
-
-        // Check for any buffered queues that missed the callback
-        if (this.onBatchComplete && this._batchQueue.length > 0) {
-            this._batchQueue.forEach(b => this.onBatchComplete(b));
-            this._batchQueue = [];
-        }
-
-        this.healthMonitor.endProcessing();
-        return this.results;
     }
 
-    /**
-     * Get current statistics (PUBLIC API)
-     */
+    // =========================================
+    // PRIVATE METHODS (Implementation Details)
+    // =========================================
+
+    async _runWorker(aiService, workerId) {
+        try {
+            // Delegate execution to HealthMonitor (It manages the queue loop)
+            await this.healthMonitor.runWorker(
+                workerId,
+                aiService,
+                this.coordinator,
+                // onFileProcessed adapter
+                (repo, path, summary) => {
+                    if (this.onFileProcessed) {
+                        // Reconstruct a partial result for legacy listeners if needed
+                        // But ideally, listeners should rely on the batch or rich events
+                        this.onFileProcessed({ repo, path, summary });
+                    }
+                },
+                // onProgress adapter
+                (stats) => {
+                    if (this.onProgress) {
+                        this.onProgress(stats.processed, stats.total);
+                    }
+                },
+                // onBatchComplete adapter
+                (batch) => {
+                    // Store full results
+                    this.results.push(...batch);
+
+                    if (this.onBatchComplete) {
+                        this.onBatchComplete(batch);
+                    } else {
+                        // Store in local buffer if no listener
+                        this._batchQueue.push(batch);
+                    }
+                }
+            );
+        } catch (error) {
+            console.error(`[Worker ${workerId}] Fatal error:`, error);
+        }
+    }
+
+    _handleResult(result) {
+        this.results.push(result);
+
+        // Individual file callback
+        if (this.onFileProcessed) {
+            this.onFileProcessed(result);
+        }
+
+        // Batch management
+        this.batchBuffer.push(result);
+        if (this.batchBuffer.length >= this.batchSize) {
+            const batch = [...this.batchBuffer];
+            this.batchBuffer = [];
+
+            if (this.onBatchComplete) {
+                this.onBatchComplete(batch);
+            } else {
+                this._batchQueue.push(batch);
+            }
+        }
+
+        // Progress callback
+        if (this.onProgress) {
+            const stats = this.queueManager.getStats();
+            this.onProgress(stats.processed, stats.total);
+        }
+    }
+
     getStats() {
         return this.queueManager.getStats();
     }
-
-    /**
-     * Get total queued count (PUBLIC API - used by ProfileAnalyzer)
-     */
-    get totalQueued() {
-        return this.queueManager.totalQueued;
-    }
-
-    /**
-     * Clear queue and contexts
-     */
-    clear() {
-        this.queueManager.clear();
-        this.contextManager.clear();
-        this.results = [];
-    }
-
-
 }
