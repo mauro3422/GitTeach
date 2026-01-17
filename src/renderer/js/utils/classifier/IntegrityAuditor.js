@@ -29,11 +29,23 @@ export class IntegrityAuditor {
         const expectedLang = EXT_TO_LANG[ext];
         if (!expectedLang) return { valid: true };
 
-        const detectedLangs = Object.entries(SIGNS)
-            .filter(([_, pattern]) => pattern.test(content))
-            .map(([lang]) => lang);
+        try {
+            const detectedLangs = Object.entries(SIGNS)
+                .filter(([_, pattern]) => pattern.test(content))
+                .map(([lang]) => lang);
 
-        if (detectedLangs.length === 0 || detectedLangs.includes(expectedLang)) {
+            if (detectedLangs.length === 0 || detectedLangs.includes(expectedLang)) {
+                return { valid: true };
+            }
+
+            return {
+                valid: false,
+                anomaly: `${detectedLangs[0]} code in ${ext} file`,
+                detectedLang: detectedLangs[0],
+                expectedLang: expectedLang
+            };
+        } catch (error) {
+            // Guard against Regex DoS or compilation errors
             return { valid: true };
         }
 

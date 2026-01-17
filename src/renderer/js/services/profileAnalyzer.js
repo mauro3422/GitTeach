@@ -141,13 +141,14 @@ export class ProfileAnalyzer {
 
         this.workerPool.onBatchComplete = async (batch) => {
             // Memory V3: Store findings in the decoupled MemoryManager
-            batch.forEach(finding => {
-                const node = memoryManager.storeFinding(finding);
+            // Use for...of to ensure we await the async storeFinding
+            for (const finding of batch) {
+                const node = await memoryManager.storeFinding(finding);
                 // Attach the UID to the finding for later curation linking
                 finding.uid = node.uid;
                 // Fix: InsightsCurator expects 'file', AIWorkerPool provides 'path'
                 finding.file = finding.path;
-            });
+            }
 
             const stats = this.deepCurator.incorporateBatch(batch);
             const reflection = this.intelligenceSynthesizer.synthesizeBatch(stats);

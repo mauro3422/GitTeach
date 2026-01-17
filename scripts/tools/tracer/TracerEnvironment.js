@@ -19,8 +19,17 @@ export class TracerEnvironment {
         try {
             if (fs.existsSync(PID_FILE)) {
                 const oldPid = parseInt(fs.readFileSync(PID_FILE, 'utf8'));
+
+                // Safer kill sequence
                 try {
-                    process.kill(oldPid, 'SIGKILL');
+                    process.kill(oldPid, 0); // Check existence
+                    process.kill(oldPid, 'SIGTERM'); // Graceful request
+
+                    // Fallback to force kill if needed (unlikely to be reached in sync context, but good practice)
+                    // In a real async runner we would wait, but here we just signal.
+                    // If it persists, the OS will handle it eventually or next run cleans up.
+                    // For immediate force kill if stuck:
+                    // process.kill(oldPid, 'SIGKILL'); 
                 } catch (e) {
                     // Process already dead
                 }

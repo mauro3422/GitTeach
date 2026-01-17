@@ -33,10 +33,19 @@ export class StreamingHandler {
             if (!this.traceabilityMap[domain]) {
                 this.traceabilityMap[domain] = [];
             }
+            // Normalize for downstream consumers
+            const filePath = finding.file || finding.path || 'unknown';
+            const uid = finding.uid || finding.params?.uid || null;
+
+            if (!uid || filePath === 'unknown') {
+                // Skip broken references or log them
+                return;
+            }
+
             this.traceabilityMap[domain].push({
-                uid: finding.uid || null,
+                uid: uid,
                 repo: finding.repo,
-                file: finding.path,
+                file: filePath,
                 summary: finding.summary
             });
         });

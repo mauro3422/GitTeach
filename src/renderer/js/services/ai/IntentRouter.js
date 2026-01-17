@@ -28,9 +28,10 @@ export class IntentRouter {
         try {
             const data = JSON.parse(response.match(/\{[\s\S]*\}/)?.[0] || '{}');
 
-            if (data.thought) {
-                Logger.info('BRAIN', `Thinking: "${data.thought}"`);
-                result.thought = data.thought;
+            const thought = data.thought || "Razonamiento implícito del modelo";
+            if (thought) {
+                Logger.info('BRAIN', `Thinking: "${thought}"`);
+                result.thought = thought;
             }
 
             // Extract new Smart RAG fields

@@ -18,9 +18,15 @@ export class ChatPromptBuilder {
      * @returns {string} System prompt completo
      */
     static build(username, sessionContext, brainThought = null, brainWhisper = null) {
+        const hasRAG = sessionContext && sessionContext.includes('RELEVANT TECHNICAL MEMORY');
+
         let basePrompt = (sessionContext && sessionContext.length > 50)
             ? PersonaPrompts.formatRichPrompt(username, sessionContext)
             : PersonaPrompts.formatBasicPrompt(username);
+
+        if (hasRAG) {
+            basePrompt += `\n\n## ⚡ INSTRUCTION: RAG ACTIVE\nThe 'RELEVANT TECHNICAL MEMORY' section contains exact code snippets from the user's files.\nCITE these snippets in your answer to prove deep understanding.`;
+        }
 
         // La danza: El cerebro le habla a la voz
         if (brainThought || brainWhisper) {

@@ -37,7 +37,9 @@ export class MemoryNode {
      */
     _generateUID(data) {
         const text = data.insight || data.summary || '';
-        const seed = `${data.repo}:${data.path}:${text.substring(0, 20)}`;
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(2, 8);
+        const seed = `${data.repo}:${data.path}:${timestamp}:${random}`;
 
         // Browser/Node compatible base64 (Safe for UTF-8)
         let base64;

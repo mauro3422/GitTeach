@@ -46,7 +46,10 @@ export class AIWorkerPool {
         this.onFileProcessed = null;
         this.onBatchComplete = null;
         this.batchSize = 5;
+        this.onBatchComplete = null;
+        this.batchSize = 5;
         this.batchBuffer = [];
+        this._batchQueue = []; // Buffer for batches finished before callback is assigned
 
         this.results = [];
     }
@@ -97,9 +100,21 @@ export class AIWorkerPool {
         await Promise.all(workers);
 
         // Flush remaining buffer
-        if (this.onBatchComplete && this.batchBuffer.length > 0) {
-            this.onBatchComplete(this.batchBuffer);
+        // Flush remaining buffer
+        if (this.batchBuffer.length > 0) {
+            if (this.onBatchComplete) {
+                this.onBatchComplete(this.batchBuffer);
+            } else {
+                // If no callback, store it temporarily
+                this._batchQueue.push([...this.batchBuffer]);
+            }
             this.batchBuffer = [];
+        }
+
+        // Check for any buffered queues that missed the callback
+        if (this.onBatchComplete && this._batchQueue.length > 0) {
+            this._batchQueue.forEach(b => this.onBatchComplete(b));
+            this._batchQueue = [];
         }
 
         this.healthMonitor.endProcessing();

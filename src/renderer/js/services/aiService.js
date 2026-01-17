@@ -35,6 +35,8 @@ if (typeof window !== 'undefined') {
 
 export const AIService = {
     currentSessionContext: "",
+    baseContext: "", // Persistent DNA/Identity
+    ragContext: "",  // Ephemeral Query Context
     _hasLoggedOnline: false,
 
     // Initialize specialized modules
@@ -42,8 +44,41 @@ export const AIService = {
     _embeddingService: new EmbeddingService(),
 
     setSessionContext(context) {
-        this.currentSessionContext = context;
-        Logger.info('AIService', 'Session context updated.');
+        this.baseContext = context;
+        this.rebuildContext();
+        Logger.info('AIService', 'Session context updated (Base Identity).');
+    },
+
+    injectRAGContext(contextBlock) {
+        this.ragContext = contextBlock;
+        this.rebuildContext();
+    },
+
+    clearRAGContext() {
+        if (this.ragContext) {
+            this.ragContext = "";
+            this.rebuildContext();
+        }
+    },
+
+    rebuildContext() {
+        const parts = [];
+        if (this.baseContext) parts.push(this.baseContext);
+
+        if (this.ragContext) {
+            parts.push("\n### RELEVANT TECHNICAL MEMORY (RAG):\n" + this.ragContext);
+        }
+
+        this.currentSessionContext = parts.join('\n');
+
+        // Safety Truncation (Max ~8k tokens -> ~32k chars safely)
+        if (this.currentSessionContext.length > 32000) {
+            Logger.warn('AIService', 'Context too large, truncating base...');
+            // Keep RAG, truncate base
+            const maxBase = 32000 - this.ragContext.length - 100;
+            this.baseContext = this.baseContext.substring(0, maxBase);
+            this.currentSessionContext = this.baseContext + "\n### RELEVANT TECHNICAL MEMORY (RAG):\n" + this.ragContext;
+        }
     },
 
     async processIntent(input, username) {
@@ -98,7 +133,10 @@ export const AIService = {
 
             // Handle Context Injection (RAG)
             if (executionResult.success && executionResult.systemContext) {
-                this.setSessionContext(this.currentSessionContext + "\n" + executionResult.systemContext);
+                this.injectRAGContext(executionResult.systemContext);
+            } else if (intent !== 'query_memory' && intent !== 'chat') {
+                // Clear RAG context on context switch (other tools)
+                this.clearRAGContext();
             }
 
             // Handle Content Injection (Editor)
@@ -151,7 +189,29 @@ export const AIService = {
                 if (schema) payload.response_format.schema = schema;
             }
 
-            const response = await fetch(ENDPOINT, { signal: controller.signal, method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            let response;
+            let attempt = 0;
+            const maxRetries = 3;
+
+            while (attempt < maxRetries) {
+                try {
+                    response = await fetch(ENDPOINT, { signal: controller.signal, method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (response.ok) break;
+
+                    // If 4xx error, do not retry (client error)
+                    if (response.status >= 400 && response.status < 500) break;
+
+                    throw new Error(`Server returned ${response.status}`);
+                } catch (err) {
+                    attempt++;
+                    if (attempt >= maxRetries) throw err;
+
+                    // Exponential backoff: 1s, 2s, 4s...
+                    const delay = Math.pow(2, attempt - 1) * 1000;
+                    console.warn(`[AIService] Retry ${attempt}/${maxRetries} after ${delay}ms...`);
+                    await new Promise(r => setTimeout(r, delay));
+                }
+            }
             clearTimeout(timeoutId);
 
             if (!response.ok) {

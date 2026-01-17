@@ -25,22 +25,27 @@ export class MemoryManager {
      * @param {Object} finding - Raw finding from worker
      * @returns {MemoryNode} The created node
      */
-    storeFinding(finding) {
+    async storeFinding(finding) {
+        // Robust extraction of weights
+        const confidence = finding.confidence || finding.params?.confidence || 0.7;
+        const complexity = finding.complexity || finding.params?.complexity || 2;
+
         const node = new MemoryNode({
             repo: finding.repo,
-            path: finding.path,
-            insight: finding.insight || finding.summary,
-            evidence: finding.impact || finding.evidence,
-            classification: finding.technical_strength || finding.classification,
-            confidence: finding.params?.confidence || finding.confidence || 0.7,
-            complexity: finding.params?.complexity || finding.complexity || 2,
+            path: finding.path || finding.file, // Robust path extraction
+            insight: finding.insight || finding.summary || finding.params?.insight,
+            evidence: finding.impact || finding.evidence || finding.params?.impact,
+            classification: finding.technical_strength || finding.classification || finding.params?.technical_strength || 'General',
+            confidence: parseFloat(confidence),
+            complexity: parseInt(complexity),
             metadata: finding.metadata || {}, // NEW: Captures SOLID, modularity, etc.
             file_meta: finding.file_meta || {} // NEW: For churn analysis
         });
 
-        this.addNode(node);
+        await this.addNode(node);
 
         // PERSISTENCE V3: Append Raw Finding immediately
+        // We don't await this to keep the main flow fast, as it's just a safeguard log
         CacheRepository.appendRepoRawFinding(finding.repo, finding).catch(err => {
             console.warn(`[MemoryManager] Failed to append raw finding for ${finding.repo}`, err);
         });
@@ -73,7 +78,7 @@ export class MemoryManager {
      * Add a node to the memory and update indexes
      * @param {MemoryNode} node 
      */
-    addNode(node) {
+    async addNode(node) {
         this.nodes.set(node.uid, node);
 
         // Update Repo Index
@@ -88,7 +93,7 @@ export class MemoryManager {
         Logger.debug('MemoryManager', `Node stored: ${node.uid} [${node.classification}] in ${node.repo}`);
 
         // Trigger async embedding generation
-        this.indexNode(node).catch(err => console.error(err));
+        await this.indexNode(node);
     }
 
     /**

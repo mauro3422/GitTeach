@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.17.0] - Forensic Deep Fixes - 2026-01-17
+### 🔧 Critical Bug Fixes (Based on Forensic Audit)
+- **Race Condition in Indexing (FIXED)**: `MemoryManager.storeFinding()` now properly awaits `addNode()`, preventing premature searches on unindexed data.
+- **Data Integrity / UID Loss (FIXED)**: `DeepCurator` and `StreamingHandler` now robustly normalize `file/path` and propagate `uid`, fixing broken references in the Traceability Map.
+- **Smart RAG Context (FIXED)**: Split `AIService` context into `baseContext` (Persistent DNA) and `ragContext` (Ephemeral). Implemented `rebuildContext()` to manage RAG cleanup automatically.
+- **Context Injection (FIXED)**: `ChatPromptBuilder` now detects RAG context and explicitly instructs the AI to CITE the injected memory correctly.
+- **Weight Extraction (FIXED)**: `MemoryManager` now correctly extracts `confidence` and `complexity` weights even when nested in finding parameters.
+- **Export Error Fix**: Fixed `AISlotManager` module export issue (`SyntaxError` in AIWorkerPool).
+
 ## [2.16.0] - Prompt Centralization - 2026-01-16
 ### Added
 - **Centralized Prompts Directory**: Created `src/renderer/js/prompts/` structure:

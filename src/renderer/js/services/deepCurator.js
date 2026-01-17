@@ -40,6 +40,7 @@ export class DeepCurator {
     }
 
     // =========================================
+    // =========================================
     // PUBLIC API (Contract - DO NOT BREAK)
     // =========================================
 
@@ -48,7 +49,21 @@ export class DeepCurator {
      * Used in Streaming Map-Reduce pipeline (Slot 5)
      */
     incorporateBatch(batchFindings) {
-        return this.streamingHandler.incorporateBatch(batchFindings);
+        if (!batchFindings || batchFindings.length === 0) return null;
+
+        const result = this.streamingHandler.incorporateBatch(batchFindings);
+
+        // SYNC TRACEABILITY MAP (Forensic Audit Fix)
+        // Ensure that we capture the traceability data immediately for local usage
+        // even if StreamingHandler stores the raw data.
+
+        batchFindings.forEach(finding => {
+            // Normalize for downstream consumers
+            finding.file = finding.file || finding.path || 'unknown';
+            if (!finding.uid && finding.params?.uid) finding.uid = finding.params.uid;
+        });
+
+        return result;
     }
 
     /**

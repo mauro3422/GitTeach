@@ -49,6 +49,13 @@ export class RepoContextManager {
         const ctx = this.repoContexts.get(repoName);
         // Keep slightly more descriptive summary for compaction (max 150 chars)
         const cleanSummary = summary.split('\n')[0].substring(0, 150);
+
+        // Anti-Memory Leak: Limit buffer size
+        const MAX_RECENT = 50;
+        if (ctx.recentFindings.length >= MAX_RECENT) {
+            ctx.recentFindings.shift(); // Remove oldest
+        }
+
         ctx.recentFindings.push({ path: filePath, summary: cleanSummary });
 
         // Adaptive Compaction: If we have enough recent findings, merge them into Golden Knowledge
@@ -64,33 +71,36 @@ export class RepoContextManager {
         const ctx = this.repoContexts.get(repoName);
         ctx.compactionInProgress = true;
 
-        try {
-            Logger.worker('POOL', `[${repoName}] Compacting technical memory (${ctx.recentFindings.length} files)...`);
+        // Non-blocking: yield to event loop
+        setTimeout(async () => {
+            try {
+                Logger.worker('POOL', `[${repoName}] Compacting technical memory (${ctx.recentFindings.length} files)...`);
 
-            const systemPrompt = `You are a TECHNICAL KNOWLEDGE SYNTHESIZER. 
-Your goal is to merge current knowledge with new findings into a single, DENSE Technical Profile.
-Preserve architectural patterns, key file roles, and technical evidence.`;
+                const systemPrompt = `You are a TECHNICAL KNOWLEDGE SYNTHESIZER. 
+                Your goal is to merge current knowledge with new findings into a single, DENSE Technical Profile.
+                Preserve architectural patterns, key file roles, and technical evidence.`;
 
-            const userPrompt = `REPO: ${repoName}
-            EXISTING GOLDEN KNOWLEDGE:
-            ${ctx.goldenKnowledge || 'None yet.'}
+                const userPrompt = `REPO: ${repoName}
+                EXISTING GOLDEN KNOWLEDGE:
+                ${ctx.goldenKnowledge || 'None yet.'}
 
-            NEW DISCOVERIES TO MERGE:
-            ${ctx.recentFindings.map(f => `- ${f.path}: ${f.summary}`).join('\n')}
+                NEW DISCOVERIES TO MERGE:
+                ${ctx.recentFindings.map(f => `- ${f.path}: ${f.summary}`).join('\n')}
 
-            Synthesize into a short, DENSE paragraph (Max 120 words) representing the accumulated architectural understanding:`;
+                Synthesize into a short, DENSE paragraph (Max 120 words) representing the accumulated architectural understanding:`;
 
-            const compacted = await aiService.callAI(systemPrompt, userPrompt, 0.1);
+                const compacted = await aiService.callAI(systemPrompt, userPrompt, 0.1);
 
-            // Atomically update
-            ctx.goldenKnowledge = compacted;
-            ctx.recentFindings = [];
-            Logger.worker('POOL', `[${repoName}] Knowledge compacted successfully ✅`);
-        } catch (e) {
-            console.warn(`[Compaction Error] ${repoName}:`, e);
-        } finally {
-            ctx.compactionInProgress = false;
-        }
+                // Atomically update
+                ctx.goldenKnowledge = compacted;
+                ctx.recentFindings = [];
+                Logger.worker('POOL', `[${repoName}] Knowledge compacted successfully ✅`);
+            } catch (e) {
+                console.warn(`[Compaction Error] ${repoName}:`, e);
+            } finally {
+                ctx.compactionInProgress = false;
+            }
+        }, 0);
     }
 
     /**

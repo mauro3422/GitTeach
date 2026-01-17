@@ -32,7 +32,8 @@ export class QueryMemoryTool extends BaseTool {
 
             if (!contextBlock || contextBlock.length < 50) {
                 return {
-                    success: true,
+                    success: false,
+                    systemContext: "",
                     details: `Búsqueda en "${memorySource}" para: [${searchTerms.join(', ')}]. Sin resultados relevantes.`
                 };
             }
