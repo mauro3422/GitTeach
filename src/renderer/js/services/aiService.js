@@ -62,23 +62,31 @@ export const AIService = {
     },
 
     rebuildContext() {
-        const parts = [];
-        if (this.baseContext) parts.push(this.baseContext);
+        const MAX_CHARS = 32000;
+        const MIN_BASE_RESERVE = 8000; // Protect at least 8k for critical instructions/identity
 
-        if (this.ragContext) {
-            parts.push("\n### RELEVANT TECHNICAL MEMORY (RAG):\n" + this.ragContext);
+        let base = this.baseContext || "";
+        let rag = this.ragContext || "";
+
+        // Non-destructive truncation logic
+        if ((base.length + rag.length) > MAX_CHARS) {
+            Logger.warn('AIService', 'Context too large, applying non-destructive truncation...');
+
+            // 1. Prioritize RAG truncation (Ephemeral technical memory)
+            // We keep the TAIL of the RAG as it's usually the most recent investigation
+            const availableForRag = Math.max(0, MAX_CHARS - Math.max(base.length, MIN_BASE_RESERVE));
+            if (rag.length > availableForRag) {
+                rag = "--- [TRUNCATED RAG] ---\n" + rag.substring(rag.length - availableForRag);
+            }
+
+            // 2. If still too big, truncate BASE protecting the HEAD (Instructions/Role)
+            if ((base.length + rag.length) > MAX_CHARS) {
+                const availableForBase = MAX_CHARS - rag.length - 100;
+                base = base.substring(0, availableForBase) + "\n... [Identity Truncated]";
+            }
         }
 
-        this.currentSessionContext = parts.join('\n');
-
-        // Safety Truncation (Max ~8k tokens -> ~32k chars safely)
-        if (this.currentSessionContext.length > 32000) {
-            Logger.warn('AIService', 'Context too large, truncating base...');
-            // Keep RAG, truncate base
-            const maxBase = 32000 - this.ragContext.length - 100;
-            this.baseContext = this.baseContext.substring(0, maxBase);
-            this.currentSessionContext = this.baseContext + "\n### RELEVANT TECHNICAL MEMORY (RAG):\n" + this.ragContext;
-        }
+        this.currentSessionContext = rag ? `${base}\n\n### RELEVANT TECHNICAL MEMORY (RAG):\n${rag}` : base;
     },
 
     async processIntent(input, username) {
@@ -90,6 +98,7 @@ export const AIService = {
             let memorySource = null;
 
             // 1. Brain Phase (Router or System Handler)
+            let intentParams = {};
             if (SystemEventHandler.isSystemEvent(input)) {
                 const brainResult = await SystemEventHandler.handle(input, username, this.currentSessionContext, this.callAI.bind(this));
                 thought = brainResult.thought;
@@ -97,6 +106,7 @@ export const AIService = {
             } else {
                 const routerResult = await IntentRouter.route(input, this.currentSessionContext, this.callAI.bind(this));
                 intent = routerResult.intent;
+                intentParams = routerResult.params || {};
                 searchTerms = routerResult.searchTerms;
                 memorySource = routerResult.memorySource;
                 thought = routerResult.thought;
@@ -114,8 +124,10 @@ export const AIService = {
             const tool = ToolRegistry.getById(intent);
             if (!tool) return { action: "chat", message: `Command not recognized: ${intent}` };
 
-            // Build params with Smart RAG fields
-            let params = await ParameterConstructor.construct(input, tool, this.callAI.bind(this));
+            // Build params: Use Router's direct params if available, else use Constructor
+            let params = (Object.keys(intentParams).length > 0)
+                ? intentParams
+                : await ParameterConstructor.construct(input, tool, this.callAI.bind(this));
 
             // Inject Smart RAG params for query_memory tool
             if (intent === 'query_memory') {
@@ -161,7 +173,17 @@ export const AIService = {
 
             const finalMessage = await this.callAI(responsePrompt, input, 0.7);
 
-            return { action: "chat", message: finalMessage };
+            return {
+                action: "chat",
+                message: finalMessage,
+                meta: {
+                    thought,
+                    intent,
+                    whisper,
+                    searchTerms,
+                    memorySource
+                }
+            };
 
         } catch (error) {
             console.error("AI Service Error:", error);
@@ -170,7 +192,8 @@ export const AIService = {
     },
 
     async callAI(systemPrompt, userMessage, temperature, format = null, schema = null, priority = AISlotPriorities.URGENT) {
-        const ENDPOINT = (typeof window !== 'undefined' && window.AI_CONFIG?.endpoint) || 'http://localhost:8000/v1/chat/completions';
+        const _window = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global.window : {});
+        const ENDPOINT = (_window?.AI_CONFIG?.endpoint) || 'http://localhost:8000/v1/chat/completions';
 
         await aiSlotManager.acquire(priority);
         try {
@@ -196,6 +219,7 @@ export const AIService = {
             while (attempt < maxRetries) {
                 try {
                     response = await fetch(ENDPOINT, { signal: controller.signal, method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+
                     if (response.ok) break;
 
                     // If 4xx error, do not retry (client error)

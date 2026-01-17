@@ -97,6 +97,16 @@ export class GlobalIdentityUpdater {
                 Logger.reducer(`[${repoName}] Blueprint generated. Complexity: ${blueprint.metrics.complexity}`);
                 await CacheRepository.persistRepoBlueprint(repoName, blueprint);
 
+                // REPO-LEVEL PARTITIONING (Traceability)
+                // Save the split insights inside the repo folder for debugging/lineage
+                try {
+                    const { InsightPartitioner } = await import('./InsightPartitioner.js');
+                    const repoPartitions = InsightPartitioner.partition(curation.validInsights);
+                    await CacheRepository.persistRepoPartitions(repoName, repoPartitions);
+                } catch (e) {
+                    console.warn(`[GlobalIdentityUpdater] Partition save failed for ${repoName}:`, e);
+                }
+
                 // STREAMING HOOK: Update Global Identity immediately!
                 if (globalContext) {
                     await this.refineGlobalIdentity(username, globalContext);

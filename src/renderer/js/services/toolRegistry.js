@@ -21,6 +21,8 @@ import { ProjectShowcaseTool } from './tools/projectShowcaseTool.js';
 import { ReadabilityAuditorTool } from './tools/readabilityAuditorTool.js';
 import { ReadFileTool } from './tools/readFileTool.js';
 import { QueryMemoryTool } from './tools/queryMemoryTool.js';
+import { QueryTechnicalMetricsTool } from './tools/queryTechnicalMetricsTool.js';
+import { QueryThematicAnalysisTool } from './tools/queryThematicAnalysisTool.js';
 
 const activeTools = [
     new GithubStatsTool(),
@@ -41,7 +43,9 @@ const activeTools = [
     new ProjectShowcaseTool(),
     new ReadabilityAuditorTool(),
     new ReadFileTool(),
-    new QueryMemoryTool()
+    new QueryMemoryTool(),
+    new QueryTechnicalMetricsTool(),
+    new QueryThematicAnalysisTool()
 ];
 
 export const ToolRegistry = {

@@ -64,15 +64,15 @@ TOP_STRENGTHS: ${params.stats.topStrengths.map(s => `${s.name} (${s.count})`).jo
 
 [SPECIALIST_REPORTS]
 <architecture>
-${params.thematicAnalyses[0]}
+${params.thematicAnalyses[0]?.analysis || params.thematicAnalyses[0] || "N/A"}
 </architecture>
 
 <habits>
-${params.thematicAnalyses[1]}
+${params.thematicAnalyses[1]?.analysis || params.thematicAnalyses[1] || "N/A"}
 </habits>
 
 <stack_tech>
-${params.thematicAnalyses[2]}
+${params.thematicAnalyses[2]?.analysis || params.thematicAnalyses[2] || "N/A"}
 </stack_tech>
 [/SPECIALIST_REPORTS]
 

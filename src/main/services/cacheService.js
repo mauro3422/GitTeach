@@ -141,6 +141,11 @@ class CacheService {
         await this.db.put(`meta:blueprint:${repoName}`, blueprint);
     }
 
+    async persistRepoPartitions(repoName, partitions) {
+        // Persist partitioned insights for fast querying by layer
+        await this.db.put(`meta:partitions:${repoName}`, partitions);
+    }
+
     /**
      * Cache Statistics
      */

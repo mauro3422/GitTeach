@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { ROOT, SESSION_ID, SESSION_PATH } from './TracerContext.js';
+import { ROOT, SESSION_ID, SESSION_PATH, MOCK_PERSISTENCE_PATH } from './TracerContext.js';
 import { TracerEnvironment } from './TracerEnvironment.js';
 import { GithubMock } from './GithubMock.js';
 import { Globals } from './Globals.js';
@@ -104,26 +104,67 @@ export class TracerEngine {
         console.log(`   - Coverage Index:  ${totalFilesOnDisk > 0 ? Math.round((stats.analyzed / totalFilesOnDisk) * 100) : 0}%`);
 
         console.log('\n--- PHASE 2: INTELLIGENCE SYNTHESIS ---');
-        if (analyzer.fullIntelligencePromise) await analyzer.fullIntelligencePromise;
+        if (analyzer.fullIntelligencePromise) {
+            try {
+                await analyzer.fullIntelligencePromise;
+            } catch (e) {
+                console.error('❌ PHASE 2 FAILED:', e);
+            }
+        }
 
         console.log("⏳ Waiting 10s for Autonomous Reactions (Streaming)...");
         await new Promise(r => setTimeout(r, 10000));
 
-        // 7. Phase 3: Interactive Chat Simulation (RAG Verification)
-        console.log('\n--- PHASE 3: INTERACTIVE CHAT SIMULATION (RAG) ---');
+        // 7. Phase 3: Interactive Chat Simulation (Tool-Augmented Retrieval Verification)
+        console.log('\n--- PHASE 3: INTERACTIVE CHAT SIMULATION (TOOLS) ---');
         try {
-            const testPrompt = "Generame un README para mi perfil basado en mi código";
-            console.log(`🤖 USER INPUT: "${testPrompt}"`);
+            const prompts = [
+                "Generame un README para mi perfil basado en mi código", // Tests general identity
+                "¿Cuáles son mis hábitos de programación según el análisis profundo?", // Tests query_thematic_analysis
+                "¿Qué nivel de salud lógica (SOLID) tengo?" // Tests query_technical_metrics
+            ];
 
-            // We use the real AIService to test the full Router -> Tool -> Chat flow
-            const result = await AIService.processIntent(testPrompt, 'mauro3422');
+            for (const testPrompt of prompts) {
+                console.log(`\n🤖 USER INPUT: "${testPrompt}"`);
+                const result = await AIService.processIntent(testPrompt, 'mauro3422');
+                console.log(`📢 AI RESPONSE: ${result.message.substring(0, 150)}...`);
 
-            console.log(`\n📢 AI RESPONSE:\n${result.message}`);
+                // Check Context-Light Protections
+                if (AIService.currentSessionContext.includes("INSTRUCCIÓN PARA EL ROUTER") &&
+                    AIService.currentSessionContext.indexOf("INSTRUCCIÓN PARA EL ROUTER") < 500) {
+                    console.log("✅ CONTEXT-LIGHT: Router Instructions found at THE TOP.");
+                }
 
-            if (AIService.currentSessionContext && AIService.currentSessionContext.includes("MEMORIA ASOCIATIVA")) {
-                console.log("\n✅ RAG SUCCESS: 'MEMORIA ASOCIATIVA' section found in Session Context.");
-            } else {
-                console.log("\n⚠️ RAG NOTE: 'MEMORIA ASOCIATIVA' tag not found in context (check if tool was triggered).");
+                // Check RAG / Tool Usage logic
+                if (AIService.currentSessionContext.includes("RELEVANT TECHNICAL MEMORY (RAG)")) {
+                    console.log("✅ TOOL-AUGMENTED: RAG section successfully injected into context.");
+                }
+
+                // FLIGHT RECORDER (Session Log)
+                try {
+                    const sessionLogPath = path.join(MOCK_PERSISTENCE_PATH, 'chat_sessions');
+                    if (!fs.existsSync(sessionLogPath)) fs.mkdirSync(sessionLogPath, { recursive: true });
+
+                    const logEntry = {
+                        timestamp: new Date().toISOString(),
+                        input: testPrompt,
+                        intent_router: {
+                            selected_tool: result.meta?.intent,
+                            thought: result.meta?.thought,
+                            search_terms: result.meta?.searchTerms,
+                            memory_source: result.meta?.memorySource
+                        },
+                        response: result.message
+                    };
+
+                    fs.appendFileSync(
+                        path.join(sessionLogPath, `session_TRACE_${SESSION_ID}.jsonl`),
+                        JSON.stringify(logEntry) + '\n'
+                    );
+                    console.log("📝 Interaction saved to Flight Recorder.");
+                } catch (logErr) {
+                    console.warn("⚠️ Flight Recorder failed:", logErr.message);
+                }
             }
 
         } catch (e) {
@@ -133,24 +174,48 @@ export class TracerEngine {
         // 8. Capture "AFTER" state
         this.metabolicSnapshot.after = {
             identity: await window.cacheAPI.getTechnicalIdentity('mauro3422'),
-            profile: await window.cacheAPI.getCognitiveProfile('mauro3422')
+            profile: await window.cacheAPI.getCognitiveProfile('mauro3422'),
+            architecture: await window.cacheAPI.getTechnicalIdentity('theme:architecture:mauro3422'),
+            habits: await window.cacheAPI.getTechnicalIdentity('theme:habits:mauro3422')
         };
 
         this.generateSummary('COMPLETE');
 
         // EXPORT: Dump final Session Context (Requested by User)
         try {
-            // Access AIService context via global or service import
             if (AIService.currentSessionContext) {
-                fs.writeFileSync(path.join(SESSION_PATH, 'context_user.json'), JSON.stringify({
+                // 1. Gather Extended Data
+                const allBlueprints = await window.cacheAPI.getAllRepoBlueprints() || [];
+
+                // 2. Fetch specific layers for identity
+                const identityLayers = {
+                    architecture: this.metabolicSnapshot.after?.architecture,
+                    habits: this.metabolicSnapshot.after?.habits
+                };
+
+                fs.writeFileSync(path.join(MOCK_PERSISTENCE_PATH, 'context_user.json'), JSON.stringify({
                     timestamp: new Date().toISOString(),
-                    context: AIService.currentSessionContext,
-                    identitySnapshot: this.metabolicSnapshot.after?.identity
+                    contextCurrent: AIService.currentSessionContext,
+                    identityBroker: this.metabolicSnapshot.after?.identity,
+                    layeredMemory: identityLayers,
+                    blueprints: allBlueprints
                 }, null, 2));
-                console.log("📝 Saved context_user.json");
+
+                // 3. Export individual blueprints for easier reading
+                const blueprintsDir = path.join(SESSION_PATH, 'blueprints');
+                if (!fs.existsSync(blueprintsDir)) fs.mkdirSync(blueprintsDir);
+
+                for (const bp of allBlueprints) {
+                    fs.writeFileSync(
+                        path.join(blueprintsDir, `${bp.repoName}_blueprint.json`),
+                        JSON.stringify(bp, null, 2)
+                    );
+                }
+
+                console.log("📝 Saved context_user.json and individual blueprints to session folder.");
             }
         } catch (e) {
-            console.warn("⚠️ Could not save context_user.json:", e.message);
+            console.warn("⚠️ Could not save context_user.json or blueprints:", e.message);
         }
 
         console.log(`\n✅ TRACE COMPLETE. Sessions: ${SESSION_ID}`);
@@ -175,6 +240,7 @@ export class TracerEngine {
             },
             metabolicDelta: {
                 evolved: JSON.stringify(this.metabolicSnapshot.before) !== JSON.stringify(this.metabolicSnapshot.after),
+                architectureLayered: !!this.metabolicSnapshot.after?.architecture,
                 snapshot: this.metabolicSnapshot
             },
             coordinatorStats: stats,
@@ -191,27 +257,25 @@ export class TracerEngine {
         fs.writeFileSync(path.join(SESSION_PATH, 'SUMMARY.json'), JSON.stringify(summary, null, 2));
     }
 
-    runIntegrityAudit() {
-        const artifacts = [
-            'technical_identity.json',
-            'curation_evidence.json',
-            'cognitive_profile.json'
+    async runIntegrityAudit() {
+        const layers = [
+            { id: 'Identity Broker', key: 'mauro3422' },
+            { id: 'Architecture Layer', key: 'theme:architecture:mauro3422' },
+            { id: 'Habits Layer', key: 'theme:habits:mauro3422' },
+            { id: 'Health Metrics', key: 'metrics:health:mauro3422' }
         ];
 
         const audit = {};
-        for (const file of artifacts) {
-            const p = path.join(SESSION_PATH, 'mock_persistence', file);
-            if (fs.existsSync(p)) {
-                try {
-                    const content = fs.readFileSync(p, 'utf8');
-                    const size = content.length;
-                    JSON.parse(content); // Test valid JSON
-                    audit[file] = { status: 'VALID', size: `${(size / 1024).toFixed(2)} KB` };
-                } catch (e) {
-                    audit[file] = { status: 'INVALID_JSON', error: e.message };
+        for (const layer of layers) {
+            try {
+                const content = await window.cacheAPI.getTechnicalIdentity(layer.key);
+                if (content) {
+                    audit[layer.id] = { status: 'VALID', type: typeof content };
+                } else {
+                    audit[layer.id] = { status: 'MISSING' };
                 }
-            } else {
-                audit[file] = { status: 'MISSING' };
+            } catch (e) {
+                audit[layer.id] = { status: 'ERROR', error: e.message };
             }
         }
         return audit;

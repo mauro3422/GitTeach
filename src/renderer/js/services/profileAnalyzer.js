@@ -31,6 +31,8 @@ export class ProfileAnalyzer {
         if (this.isAnalyzing) return;
         this.isAnalyzing = true;
 
+        let repos = []; // Initialize repos here
+
         try {
             const cachedIdentity = await CacheRepository.getTechnicalIdentity(username);
             const cachedFindings = await CacheRepository.getTechnicalFindings(username);
@@ -94,34 +96,45 @@ export class ProfileAnalyzer {
     }
 
     async _runFinalSynthesis(username, onStep) {
-        await Promise.all([this.backgroundPromise, this.aiWorkersPromise || Promise.resolve()]);
+        try {
+            await Promise.all([this.backgroundPromise, this.aiWorkersPromise || Promise.resolve()]);
 
-        // PERSISTENCE V3: Flush all repo memories before synthesis strategy
-        await memoryManager.persistAll();
+            // PERSISTENCE V3: Flush all repo memories before synthesis strategy
+            await memoryManager.persistAll();
 
-        Logger.reducer('Executing FINAL SYNTHESIS...');
-        const curationResult = await this.deepCurator.runDeepCurator(username, this.coordinator);
-        if (!curationResult) return null;
+            Logger.reducer('Executing FINAL SYNTHESIS...');
+            const curationResult = await this.deepCurator.runDeepCurator(username, this.coordinator);
+            if (!curationResult || curationResult.error) {
+                Logger.error('ANALYZER', `Synthesis failed: ${curationResult?.error || 'No result'}`);
+                return null;
+            }
 
-        const oldIdentity = await CacheRepository.getTechnicalIdentity(username);
-        // Sintetizar Identidad (Personalidad) a partir del ADN Técnico
-        const { finalProfile, report, isSignificant } = await this.intelligenceSynthesizer.synthesizeProfile(oldIdentity, curationResult.dna);
+            const oldIdentity = await CacheRepository.getTechnicalIdentity(username);
+            // Sintetizar Identidad (Personalidad) a partir del ADN Técnico
+            const { finalProfile, report, isSignificant } = await this.intelligenceSynthesizer.synthesizeProfile(oldIdentity, curationResult.dna);
 
-        await CacheRepository.setTechnicalIdentity(username, finalProfile);
-        if (curationResult.traceability_map) {
-            await CacheRepository.setTechnicalFindings(username, curationResult.traceability_map);
+            await CacheRepository.setTechnicalIdentity(username, finalProfile);
+            // Log the traceability map for debugging, with a fallback for join
+            Logger.debug('ANALYZER', `### TRACEABILITY MAP:\n${Array.isArray(curationResult.traceability_map) ? curationResult.traceability_map.join('\n') : ''}`);
+            if (curationResult.traceability_map) {
+                await CacheRepository.setTechnicalFindings(username, curationResult.traceability_map);
+            }
+
+            // Inyectar contexto: Identidad Técnica (Personalidad) + ADN (Trazabilidad) + Memoria (Hallazgos)
+            AIService.setSessionContext(this.getFreshContext(username, finalProfile, this.intelligenceSynthesizer.technicalProfile, curationResult.traceability_map));
+
+            if (isSignificant && report.milestone !== 'INITIAL_SYNTHESIS') {
+                const reactiveMsg = `DNA_EVOLUTION_DETECTED: ${report.evolutionSnapshot || 'Nuevos rasgos detectados.'}`;
+                ReactionEngine.trigger(username, reactiveMsg, 'system');
+            }
+
+            if (onStep) onStep({ type: 'DeepMemoryReady', message: isSignificant ? '🧠 Identidad Evolucionada!' : '🧠 Memoria sincronizada.', data: finalProfile });
+            return finalProfile;
+        } catch (error) {
+            console.error("❌ Final Synthesis Error:", error);
+            Logger.error('ANALYZER', `Final synthesis failed: ${error.message}`);
+            return null;
         }
-
-        // Inyectar contexto: Identidad Técnica (Personalidad) + ADN (Trazabilidad) + Memoria (Hallazgos)
-        AIService.setSessionContext(this.getFreshContext(username, finalProfile, this.intelligenceSynthesizer.technicalProfile, curationResult.traceability_map));
-
-        if (isSignificant && report.milestone !== 'INITIAL_SYNTHESIS') {
-            const reactiveMsg = `DNA_EVOLUTION_DETECTED: ${report.evolutionSnapshot || 'Nuevos rasgos detectados.'}`;
-            ReactionEngine.trigger(username, reactiveMsg, 'system');
-        }
-
-        if (onStep) onStep({ type: 'DeepMemoryReady', message: isSignificant ? '🧠 Identidad Evolucionada!' : '🧠 Memoria sincronizada.', data: finalProfile });
-        return finalProfile;
     }
 
     async runAuditorAgent(username) {
@@ -132,7 +145,7 @@ export class ProfileAnalyzer {
         } catch (e) { return { score: 0 }; }
     }
 
-    startWorkerProcessing(onStep, username) {
+    async startWorkerProcessing(onStep, username) {
         if (this.workerPool.totalQueued === 0) return;
 
         this.workerPool.onProgress = (data) => {

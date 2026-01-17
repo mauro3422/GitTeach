@@ -52,27 +52,46 @@ export class SynthesisOrchestrator {
         // This grounds the AI in reality before mapping layers
         const healthReport = MetricRefinery.refine(validInsights, coordinator.getTotalFilesScanned?.() || 0);
 
-        // Step 4: Execute Thematic Mapping (Phase 1)
-        Logger.mapper('Executing 3 layers of deep technical analysis...');
-        // Pass healthReport to mapper so it can be used in prompts
-        const mapperResults = await this.thematicMapper.executeMapping(username, validInsights, healthReport);
-        const thematicAnalyses = this.thematicMapper.formatForSynthesis(mapperResults);
+        try {
+            // Step 4: Execute Thematic Mapping (Phase 1)
+            Logger.mapper('Executing 3 layers of deep technical analysis...');
+            // OPTIMIZATION: Passing structured array instead of text blob
+            const mapperResults = await this.thematicMapper.executeMapping(username, validInsights, healthReport);
 
-        // Step 5: Synthesize DNA (Phase 2 - Reduce)
-        const { dna, traceability_map: finalMap } = await this.dnaSynthesizer.synthesize(
-            username,
-            thematicAnalyses,
-            stats,
-            traceability_map,
-            allFindings.length,
-            validInsights.length,
-            healthReport // Pass healthReport for deterministic scoring
-        );
+            // EXTRA STEP: Layered Persistence (Persistence of Themes as independent keys)
+            const { LayeredPersistenceManager } = await import('./LayeredPersistenceManager.js');
+            await Promise.all([
+                LayeredPersistenceManager.storeLayer(username, 'theme', 'architecture', mapperResults.architecture),
+                LayeredPersistenceManager.storeLayer(username, 'theme', 'habits', mapperResults.habits),
+                LayeredPersistenceManager.storeLayer(username, 'theme', 'stack', mapperResults.stack),
+                LayeredPersistenceManager.storeLayer(username, 'metrics', 'health', healthReport)
+            ]);
 
-        // Debug logging
-        DebugLogger.logCurator('final_dna_synthesis', dna);
+            const thematicAnalyses = this.thematicMapper.formatForSynthesis(mapperResults);
 
-        return { dna, traceability_map: finalMap };
+            // Step 5: Synthesize DNA (Phase 2 - Reduce)
+            const { dna, traceability_map: finalMap } = await this.dnaSynthesizer.synthesize(
+                username,
+                thematicAnalyses,
+                stats,
+                traceability_map,
+                allFindings.length,
+                validInsights.length,
+                healthReport
+            );
+
+            // Final Step: Store Identity Broker
+            await LayeredPersistenceManager.storeIdentityBroker(username, dna);
+
+            // Debug logging
+            DebugLogger.logCurator('final_dna_synthesis', dna);
+
+            return { dna, traceability_map: finalMap };
+        } catch (e) {
+            console.error(`[SYNTHESIS_CRASH] Fatal exception in SynthesisOrchestrator:`, e);
+            Logger.error('SynthesisOrchestrator', `Global Synthesis failed: ${e.message}`);
+            return { error: e.message, stack: e.stack };
+        }
     }
 
     /**

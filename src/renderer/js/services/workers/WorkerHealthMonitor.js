@@ -113,7 +113,7 @@ export class WorkerHealthMonitor {
                 Logger.worker(workerId, `Processing BATCH [${claimedRepo}] (${items.length} files)`);
                 this.updateWorkerStats(workerId, 'batchesProcessed', 1);
             } else {
-                Logger.worker(workerId, `Processing [${claimedRepo}]: ${input.path}`);
+                Logger.worker(workerId, `Processing [${claimedRepo}]: ${nextRepo === claimedRepo ? input.path : claimedRepo + ' -> ' + input.path}`);
                 this.updateWorkerStats(workerId, 'filesProcessed', 1);
             }
 

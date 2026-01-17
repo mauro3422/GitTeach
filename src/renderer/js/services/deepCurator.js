@@ -24,6 +24,7 @@ import { SynthesisOrchestrator } from './curator/SynthesisOrchestrator.js';
 import { StreamingRepoProcessor } from './curator/StreamingRepoProcessor.js';
 import { BlueprintGenerator } from './curator/BlueprintGenerator.js';
 import { GlobalIdentityRefiner } from './curator/GlobalIdentityRefiner.js';
+import { TaskDivider } from './TaskDivider.js';
 import { AISlotPriorities } from './ai/AISlotManager.js';
 
 export class DeepCurator {
@@ -117,17 +118,27 @@ export class DeepCurator {
             Generate a JSON with this format:
             { "summary": "Couldn't analyze your code deeply due to lack of access.", "suggestions": ["github_stats"] }`;
         } else {
-            const structuredFindings = codeInsights.map(f => {
+            // OPTIMIZATION: Use TaskDivider to batch or summarize findings if too many
+            const maxVisibleRepos = 10;
+            const topInsights = codeInsights.slice(0, maxVisibleRepos);
+            const remainingCount = codeInsights.length - maxVisibleRepos;
+
+            const structuredFindings = topInsights.map(f => {
                 const files = f.auditedSnippets && f.auditedSnippets !== "No Access"
-                    ? f.auditedSnippets.map(s => `- ${s.file}: ${s.aiSummary || "Analyzed"}`).join('\n')
+                    ? f.auditedSnippets.slice(0, 5).map(s => `- ${s.file}: ${s.aiSummary || "Analyzed"}`).join('\n')
                     : "Files analyzed without specific summary.";
                 return `### REPO: ${f.repo}\n${files}`;
             }).join('\n\n');
+
+            const additionalContext = remainingCount > 0
+                ? `\n\n[NOTE] ${remainingCount} additional repositories were analyzed but omitted for context efficiency.`
+                : "";
 
             prompt = `You are an ELITE TECHNICAL CURATOR. Your goal is to transform Worker-analyzed code into an IMPACT PROFILE for ${username}.
             
             RAW DATA BY REPOSITORY (STRICTLY TRUTHFUL):
             ${structuredFindings}
+            ${additionalContext}
             
             CURATION INSTRUCTIONS:
             1. **TECHNICAL IDENTITY**: Based on all repositories, define the developer's essence.
@@ -177,6 +188,19 @@ export class DeepCurator {
                 suggestions: ['github_stats', 'top_langs']
             };
         }
+    }
+
+    /**
+     * Generates a dense summary of insights to avoid prompt bloating
+     * @private
+     */
+    _generateInsightsSummary(codeInsights) {
+        if (!codeInsights || codeInsights.length === 0) return "No data.";
+
+        return codeInsights.map(f => {
+            const auditCount = f.auditedSnippets ? (Array.isArray(f.auditedSnippets) ? f.auditedSnippets.length : 0) : 0;
+            return `- ${f.repo}: ${auditCount} files audited. Core tech detected.`;
+        }).join('\n');
     }
 
     /**

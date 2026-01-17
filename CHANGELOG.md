@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.19.0] - Tracer Resilience & Forensic Repair - 2026-01-17
+### Added
+- **Flight Recorder (Session Logging)**: Re-enabled session logging in `TracerEngine.js` to capture AI reasoning (`thought`, `intent`, `whisper`) and chat interactions in JSONL format.
+- **LevelDB Dynamic Fallback**: Implemented a robust dynamic import in `PersistenceMock.js` to handle ABI mismatches between Node.js and Electron, automatically falling back to an in-memory store.
+
+### Fixed
+- **ThematicMapper Syntax Corruption**: Resolved a critical `SyntaxError` caused by a duplicate/nested method declaration and orphaned braces that blocked the Tracer's analysis phase.
+- **Missing Infrastructure**: Resolved Tracer boot failure by ensuring a default `context_user.json` exists in the root directory.
+
 ## [2.18.0] - Architecture Modernization - 2026-01-17
 ### Added
 - **LevelDB Persistence**: Replaced flat JSON files with `classic-level` (LSM-Tree) for high-performance, granular data storage.

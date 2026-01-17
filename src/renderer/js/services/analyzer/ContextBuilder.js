@@ -20,7 +20,7 @@ export class ContextBuilder {
     static build(username, results, technicalIdentity, cognitiveProfile = null, curationEvidence = null, getSummaryForChat = null) {
         if (!results) return "";
 
-        const langList = (results.mainLangs && results.mainLangs.length > 0)
+        const langList = (results && results.mainLangs && results.mainLangs.length > 0)
             ? results.mainLangs.join(', ')
             : 'varios lenguajes';
 
@@ -58,17 +58,21 @@ export class ContextBuilder {
      * Construye el contexto con perfil cognitivo.
      */
     static buildCognitiveContext(username, cognitiveProfile, identityString) {
-        return `# 🧠 PERFIL DE USUARIO: ${username}
-**TITLE**: ${cognitiveProfile.title}
-**DOMAIN**: ${cognitiveProfile.domain}
-**LANGUAGES**: ${cognitiveProfile.core_languages.join(', ')}
-**CORE PATTERNS**: ${cognitiveProfile.patterns.join(', ')}
+        const languages = (cognitiveProfile.core_languages || []).join(', ');
+        const patterns = (cognitiveProfile.patterns || []).join(', ');
+
+        return `**INSTRUCCIÓN PARA EL ROUTER**: Este es el contexto persistente del usuario. Utilízalo para filtrar intenciones y personalizar el tono. No menciones "hallazgos crudos" a menos que se te solicite memoria técnica.
+
+# 🧠 PERFIL DE USUARIO: ${username}
+**TITLE**: ${cognitiveProfile.title || 'Developer'}
+**DOMAIN**: ${cognitiveProfile.domain || 'General'}
+**LANGUAGES**: ${languages}
+**CORE PATTERNS**: ${patterns}
 
 ## 🧬 IDENTIDAD SINTETIZADA
 ${identityString}
 
 ---
-**INSTRUCCIÓN PARA EL ROUTER**: Este es el contexto persistente del usuario. Utilízalo para filtrar intenciones y personalizar el tono. No menciones "hallazgos crudos" a menos que se te solicite memoria técnica.
 **FIN DEL CONTEXTO DE INTELIGENCIA**`;
     }
 
@@ -76,7 +80,9 @@ ${identityString}
      * Construye el contexto básico sin perfil cognitivo.
      */
     static buildBasicContext(username, langList, summary, identityString) {
-        return `# 🧠 CONTEXTO DE DESARROLLADOR
+        return `**INSTRUCCIÓN PARA EL ROUTER**: Este es el contexto persistente del usuario. No menciones "hallazgos crudos" a menos que se te solicite memoria técnica.
+
+# 🧠 CONTEXTO DE DESARROLLADOR
 **USUARIO**: ${username}
 **STACK**: ${langList}
 

@@ -14,12 +14,17 @@ export class QueueManager {
         this.queue = [];
         this.totalQueued = 0;
         this.processedCount = 0;
+        this.processedShas = new Map(); // SHA -> Summary (Session cache)
+        this.activeKeys = new Set(); // repo:path (Prevention of duplicate enqueues)
     }
 
     /**
      * Enqueue a single file for processing
      */
     enqueue(repoName, filePath, content, sha, priority = 1, fileMeta = {}) { // Default to NORMAL (1)
+        const key = `${repoName}:${filePath}`;
+        if (this.activeKeys.has(key)) return; // Already in queue
+
         this.queue.push({
             repo: repoName,
             path: filePath,
@@ -29,9 +34,10 @@ export class QueueManager {
             priority: priority,
             file_meta: fileMeta
         });
+        this.activeKeys.add(key);
         this.totalQueued++;
-        // Keep queue sorted by priority (Ascending: 0=Urgent to 2=Background)
-        // Optimization: Sort on insert or sort on retrieval? Insert is cleaner here.
+
+        // Keep queue sorted by priority
         this.queue.sort((a, b) => a.priority - b.priority);
     }
 
@@ -148,8 +154,18 @@ export class QueueManager {
     /**
      * Increment processed count
      */
-    markProcessed(count = 1) {
-        this.processedCount += count;
+    markProcessed(itemsOrCount) {
+        if (Array.isArray(itemsOrCount)) {
+            itemsOrCount.forEach(item => {
+                this.processedCount++;
+                this.activeKeys.delete(`${item.repo}:${item.path}`);
+                if (item.sha && item.summary) {
+                    this.processedShas.set(item.sha, item.summary);
+                }
+            });
+        } else {
+            this.processedCount += itemsOrCount;
+        }
     }
 
     /**

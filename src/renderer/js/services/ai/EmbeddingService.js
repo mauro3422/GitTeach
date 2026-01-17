@@ -31,8 +31,15 @@ export class EmbeddingService {
             return this.cache.get(cacheKey);
         }
 
-        // Use tracer mock if in tracer mode
-        if (this.isTracerMode()) {
+        // Use tracer mock if in tracer mode (unless forced to use real AI)
+        const _window = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global.window : {});
+        const isForcedReal = _window?.FORCE_REAL_AI === true;
+
+        if (this.isTracerMode() && !isForcedReal) {
+            if (!this._hasLoggedTracer) {
+                console.log('🧪 [EmbeddingService] Tracer Mode: Using deterministic mock embeddings.');
+                this._hasLoggedTracer = true;
+            }
             return this.getMockEmbedding(text);
         }
 
@@ -59,8 +66,14 @@ export class EmbeddingService {
             throw new Error('Texts must be an array');
         }
 
-        // Tracer Mode Support for Batching
-        if (this.isTracerMode()) {
+        // Tracer Mode Support for Batching (unless forced to use real AI)
+        const _window = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global.window : {});
+        const isTracer = this.isTracerMode();
+        const isForcedReal = _window?.FORCE_REAL_AI === true;
+
+        console.log(`📡 [EmbeddingService] Batch Request: isTracer=${isTracer}, isForcedReal=${isForcedReal}, texts=${texts.length}`);
+
+        if (isTracer && !isForcedReal) {
             return texts.map(text => this.getMockEmbedding(text));
         }
 
@@ -168,10 +181,19 @@ export class EmbeddingService {
      * @returns {Promise<Array<Array<number>>>} Array of embedding vectors
      */
     async batchEmbeddingAPI(texts) {
+        const _window = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global.window : {});
         const ENDPOINT = this.getEmbeddingEndpoint();
 
+        const logMsg = `[${new Date().toISOString()}] 📡 Requesting batch: ${texts.length} texts -> ${ENDPOINT}\n`;
+        console.log(logMsg.trim());
+
+        try {
+            const fs = await import('fs');
+            (fs.appendFileSync || fs.default.appendFileSync)('embedding_debug.log', logMsg);
+        } catch (e) { }
+
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout for batch
+        const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s timeout for batch
 
         try {
             const payload = {
@@ -189,7 +211,8 @@ export class EmbeddingService {
             clearTimeout(timeoutId);
 
             if (!response.ok) {
-                throw new Error(`Batch embedding API error: ${response.status}`);
+                const errText = `Batch embedding API error: ${response.status}`;
+                throw new Error(errText);
             }
 
             const data = await response.json();
@@ -199,6 +222,10 @@ export class EmbeddingService {
 
             throw new Error('Invalid batch embedding response format');
         } catch (error) {
+            try {
+                const fs = await import('fs');
+                fs.appendFileSync('embedding_debug.log', `‼ Error: ${error.message}\n`);
+            } catch (e) { }
             if (error.name === 'AbortError') {
                 throw new Error('Batch embedding request timeout');
             }
@@ -211,12 +238,14 @@ export class EmbeddingService {
      * @returns {string} Endpoint URL
      */
     getEmbeddingEndpoint() {
-        if (typeof window !== 'undefined' && window.AI_CONFIG?.embeddingEndpoint) {
-            return window.AI_CONFIG.embeddingEndpoint;
+        const _window = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global.window : {});
+
+        if (_window?.AI_CONFIG?.embeddingEndpoint) {
+            return _window.AI_CONFIG.embeddingEndpoint;
         }
 
-        if (typeof window !== 'undefined' && window.AI_CONFIG?.endpoint) {
-            return window.AI_CONFIG.endpoint.replace('/chat/completions', '/embeddings');
+        if (_window?.AI_CONFIG?.endpoint) {
+            return _window.AI_CONFIG.endpoint.replace('/chat/completions', '/embeddings');
         }
 
         return 'http://localhost:8000/v1/embeddings';

@@ -34,7 +34,8 @@ export class Globals {
                 embeddingEndpoint: 'http://127.0.0.1:8001/v1/embeddings'
             },
             AI_OFFLINE: false,
-            IS_TRACER: true
+            IS_TRACER: true,
+            FORCE_REAL_AI: process.env.FORCE_REAL_AI === 'true'
         };
 
         global.document = {

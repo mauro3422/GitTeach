@@ -70,9 +70,14 @@ export class BackgroundProcessor {
      */
     extractPendingFiles(allFindings) {
         const allPending = [];
+        const isTracer = typeof window !== 'undefined' && window.IS_TRACER;
+        const maxPerRepo = 5;
+
         allFindings.forEach(f => {
             if (f.pendingFiles && f.pendingFiles.length > 0) {
-                f.pendingFiles.forEach(file => {
+                // In Tracer mode, only take 5 files per repo to avoid saturating with one big repo
+                const files = isTracer ? f.pendingFiles.slice(0, maxPerRepo) : f.pendingFiles;
+                files.forEach(file => {
                     allPending.push({ repo: f.repo, ...file });
                 });
             }

@@ -145,13 +145,35 @@ export class DNASynthesizer {
     async synthesize(username, thematicAnalyses, stats, traceabilityMap, rawCount, curatedCount, healthReport = null, holisticMetrics = null) {
         Logger.reducer('Synthesizing Developer DNA with HIGH FIDELITY...');
 
-        const prompt = this.buildSynthesisPrompt(username, thematicAnalyses, stats, rawCount, curatedCount, holisticMetrics, healthReport);
+        // COMPRESSION GATE: Ensure thematic reports are within safety limits (4k each approx)
+        const { TaskDivider } = await import('../TaskDivider.js');
+
+        // Handle both legacy strings and new structured objects
+        const compressedReports = thematicAnalyses.map(report => {
+            if (typeof report === 'string') return TaskDivider.smartCompress(report, 5000);
+
+            // It's a structured object { analysis, evidence_uids }
+            const compressedText = TaskDivider.smartCompress(report.analysis || '', 5000);
+            return {
+                ...report,
+                analysis: compressedText
+            };
+        });
+
+        const prompt = this.buildSynthesisPrompt(username, compressedReports, stats, rawCount, curatedCount, holisticMetrics, healthReport);
 
         // Grounding instruction for Synthesizer
-        const scoringInstruction = this.promptBuilder.buildScoringInstruction(healthReport);
+        const { SynthesisPrompts } = await import('../../prompts/curator/SynthesisPrompts.js');
+        const scoringInstruction = SynthesisPrompts.SCORING_INSTRUCTION;
         const schema = this.schemaValidator.getDNASchema();
 
         const rawResponse = await AIService.callAI(`${prompt}\n${scoringInstruction}`, "GENERATE TECHNICAL DNA OBJECT NOW.", 0.1, 'json_object', schema, AISlotPriorities.BACKGROUND);
+
+        if (!rawResponse || (typeof rawResponse === 'object' && rawResponse.error)) {
+            const errorMsg = rawResponse?.error || 'Unknown AI error';
+            Logger.error('DNASynthesizer', `Synthesis failed: ${errorMsg}`);
+            return { dna: this.parser.buildFallback(rawResponse, traceabilityMap, errorMsg), traceability_map: traceabilityMap };
+        }
 
         try {
             const dna = this.parser.parseResponse(rawResponse);

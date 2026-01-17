@@ -45,9 +45,7 @@ export class AIWorkerPool {
         this.onProgress = null;
         this.onFileProcessed = null;
         this.onBatchComplete = null;
-        this.batchSize = 5;
-        this.onBatchComplete = null;
-        this.batchSize = 5;
+        this.batchSize = (typeof window !== 'undefined' && window.IS_TRACER) ? 1 : 5;
         this.batchBuffer = [];
         this._batchQueue = []; // Buffer for batches finished before callback is assigned
 

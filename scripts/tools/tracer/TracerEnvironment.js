@@ -38,6 +38,8 @@ export class TracerEnvironment {
 
         if (typeof global.window === 'undefined') {
             global.window = {
+                IS_TRACER: true,
+                FORCE_REAL_AI: process.env.FORCE_REAL_AI === 'true',
                 AI_CONFIG: {
                     endpoint: 'http://localhost:8000/v1/chat/completions',
                     embeddingEndpoint: 'http://localhost:8001/v1/embeddings'

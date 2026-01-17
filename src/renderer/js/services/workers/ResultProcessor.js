@@ -35,6 +35,14 @@ export class ResultProcessor {
             return { prompt: 'PRE-FILTERED', summary: `SKIP: ${skipReason}`, langCheck: { valid: true } };
         }
 
+        // SHA DEDUPLICATION: Check if we already analyzed this content in this session
+        if (!input.isBatch && input.sha) {
+            const sessionCache = this.queueManager.processedShas.get(input.sha);
+            if (sessionCache) {
+                return { prompt: 'SESSION_CACHE_HIT', summary: sessionCache, langCheck: { valid: true } };
+            }
+        }
+
         // Use priority from input item, default to NORMAL if missing
         const isBatch = input.isBatch;
         const priority = isBatch ? (input.items[0].priority || 1) : (input.priority || 1);
@@ -89,6 +97,7 @@ export class ResultProcessor {
             };
 
             results.push(resultItem);
+            batchBuffer.push(resultItem); // BRIDGE TO MEMORY SYSTEM V3
 
             // FEED COORDINATOR: Replace the "Downloaded" summary with the "Analyzed" rich finding
             // Note: Coordinator injection handled by parent class
@@ -120,8 +129,8 @@ export class ResultProcessor {
             durationMs: durationMs
         });
 
-        // Update progress
-        this.queueManager.markProcessed(items.length);
+        // Update progress and cleanup keys
+        this.queueManager.markProcessed(items);
 
         return {
             results,

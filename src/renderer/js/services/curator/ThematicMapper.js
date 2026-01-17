@@ -1,107 +1,67 @@
 /**
- * ThematicMapper - Executes parallel thematic analysis layers
- * Extracted from DeepCurator to comply with SRP
+ * ThematicMapper - Orchestrates specialized analysis mappers
  * 
  * Responsibilities:
- * - Execute 3 parallel AI analysis layers (architecture, habits, stack)
- * - Generate technical prompts for each layer
- * - Aggregate thematic analysis results
+ * - Delegate technical analysis to Architecture, Habits, and Stack mappers
+ * - Execute analysis in parallel for performance
  */
-import { AIService } from '../aiService.js';
 import { Logger } from '../../utils/logger.js';
-import { AISlotPriorities } from '../ai/AISlotManager.js';
+import { ArchitectureMapper } from './mappers/ArchitectureMapper.js';
+import { HabitsMapper } from './mappers/HabitsMapper.js';
+import { StackMapper } from './mappers/StackMapper.js';
 
 export class ThematicMapper {
-    /**
-     * Build thematic prompts for a user
-     * @param {string} username - GitHub username
-     * @returns {Object} Prompts for each layer
-     */
-    buildThematicPrompts(username) {
-        return {
-            architecture: `YOU ARE THE CRITICAL SYSTEM AUDITOR. Your goal is to identify the REAL ARCHITECTURAL MATURITY of ${username}.
-            
-            STRICT PROTOCOL:
-            1. <thinking>: Analyze recurring patterns vs standard frameworks. Detect domain specialization and structural rigor.
-            2. REPORT: Generate a forensic analysis citing specific file paths. 
-            
-            RULE: If the code is boilerplate, label it as "Standard Implementation". No marketing fluff.`,
-
-            habits: `YOU ARE THE SENIOR CODE QUALITY AUDITOR. Analyze the files and extract ${username}'s CODING HABITS:
-            
-            STRICT PROTOCOL:
-            1. <thinking>: Critique language integrity, robustness (error handling), and evolution from scripter to architect.
-            2. REPORT: Be honest and critical. Cite evidence for every claim.
-            
-            RULE: Avoid generic praise. If you see "INTEGRITY ANOMALY", be severe.`,
-
-            stack: `YOU ARE THE PERFORMANCE DATA MINER. Map the TECHNICAL STACK of ${username}:
-            
-            STRICT PROTOCOL:
-            1. <thinking>: Search for deep tech usage vs mere library calls. Identify manual optimizations or real automation.
-            2. REPORT: Maintain a neutral, forensic tone.
-            
-            RULE: Distinguish between "using" and "implementing". Cite evidence.`
-        };
+    constructor() {
+        this.architectureMapper = new ArchitectureMapper();
+        this.habitsMapper = new HabitsMapper();
+        this.stackMapper = new StackMapper();
     }
 
     /**
      * Execute thematic analysis for all layers IN PARALLEL
      * @param {string} username - GitHub username
      * @param {string} curatedInsightsText - Formatted curated insights
+     * @param {Object} healthReport - Grounding metrics
      * @returns {Promise<Object>} Analysis results by layer
      */
-    async executeMapping(username, curatedInsightsText, healthReport = null) {
-        const prompts = this.buildThematicPrompts(username);
+    async executeMapping(username, insightsArray, healthReport = null) {
+        // SEMANTIC PARTITIONING (Optimization)
+        // Instead of truncating a monolithic blob, we divide insights by relevance
+        // This ensures each mapper gets 100% of its relevant context.
+        const { InsightPartitioner } = await import('./InsightPartitioner.js');
+        const partitions = InsightPartitioner.partition(insightsArray);
 
-        // Grounding with Health Report (Objectivity Filter)
-        let groundingInstruction = "";
-        if (healthReport) {
-            groundingInstruction = `
-### GLOBAL HEALTH AUDIT (Mathematical Truth):
-- SOLID Average: ${healthReport.averages.solid}/5
-- Modularity: ${healthReport.averages.modularity}/5
-- Analyzed Files: ${healthReport.volume.analyzedFiles} / Total: ${healthReport.volume.totalFiles}
-- Significance: ${healthReport.volume.status} (${healthReport.volume.coverage} coverage)
+        Logger.mapper(`🔍 SEMANTIC PARTITIONING: Architecture (${partitions.architecture.length}), Habits (${partitions.habits.length}), Stack (${partitions.stack.length})`);
 
-INSTRUCTION: You MUST ground your analysis in these numbers. 
-If status is 'EXPERIMENTAL' or 'SURFACE', be very cautious and do not over-praise.
-If SOLID average is below 3.0, mention areas for improvement as a mentor.`;
+        // DEBUG PERSISTENCE (Tracer only)
+        if (typeof window !== 'undefined' && window.cacheAPI?.persistPartitionDebug) {
+            await Promise.all([
+                window.cacheAPI.persistPartitionDebug('architecture', partitions.architecture),
+                window.cacheAPI.persistPartitionDebug('habits', partitions.habits),
+                window.cacheAPI.persistPartitionDebug('stack', partitions.stack)
+            ]);
         }
-
-        Logger.mapper('Executing 3 layers of deep technical analysis...');
+        Logger.mapper('Executing Parallel Thematic Mapping (Architecture, Habits, Stack)...');
 
         const [architecture, habits, stack] = await Promise.all([
-            this._executeLayer('architecture', `${prompts.architecture}\n${groundingInstruction}`, curatedInsightsText),
-            this._executeLayer('habits', `${prompts.habits}\n${groundingInstruction}`, curatedInsightsText),
-            this._executeLayer('stack', prompts.stack, curatedInsightsText) // Stack is less about bias
+            this.architectureMapper.map(username, this._formatInsights(partitions.architecture), healthReport),
+            this.habitsMapper.map(username, this._formatInsights(partitions.habits), healthReport),
+            this.stackMapper.map(username, this._formatInsights(partitions.stack))
         ]);
 
-        Logger.mapper('All 3 layers completed in parallel.');
+        Logger.mapper('Thematic Layers completed successfully ✅');
 
         return { architecture, habits, stack };
     }
 
-    /**
-     * Execute a single analysis layer
-     * @private
-     */
-    async _executeLayer(key, systemPrompt, curatedInsightsText) {
-        try {
-            Logger.mapper(`Analyzing layer: ${key}...`);
-            const result = await AIService.callAI(
-                `Curator Mapper: ${key}`,
-                `${systemPrompt}\n\nCURATED INSIGHTS:\n${curatedInsightsText}`,
-                0.1,
-                null,
-                null,
-                AISlotPriorities.BACKGROUND
-            );
-            return result;
-        } catch (e) {
-            Logger.error('ThematicMapper', `Error in mapper ${key}: ${e.message}`);
-            return `Error in mapper ${key}: ${e.message}`;
-        }
+    _formatInsights(insights) {
+        if (!insights || insights.length === 0) return "No specific insights found for this layer.";
+
+        return insights.map(f => {
+            const repoTag = f.repo ? `[${f.repo}] ` : '';
+            // INJECT UID for Traceability (The Golden Thread)
+            return `### ${repoTag}${f.summary} [UID:${f.uid}]`;
+        }).join('\n\n');
     }
 
     /**
@@ -110,10 +70,12 @@ If SOLID average is below 3.0, mention areas for improvement as a mentor.`;
      * @returns {Array} Formatted array of results
      */
     formatForSynthesis(results) {
+        // Return full objects (analysis + uids)
+        // If error/fallback, ensure structure exists
         return [
-            results.architecture || 'No architecture analysis',
-            results.habits || 'No habits analysis',
-            results.stack || 'No stack analysis'
+            results.architecture || { analysis: 'No architecture analysis', evidence_uids: [] },
+            results.habits || { analysis: 'No habits analysis', evidence_uids: [] },
+            results.stack || { analysis: 'No stack analysis', evidence_uids: [] }
         ];
     }
 }

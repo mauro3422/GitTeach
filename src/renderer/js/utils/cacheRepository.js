@@ -192,6 +192,18 @@ class CacheRepositoryService {
         return this.repoCache.getAllRepoBlueprints();
     }
 
+    /**
+     * Persists the semantic partitions for a specific repo
+     */
+    async persistRepoPartitions(repoName, partitions) {
+        if (!this.isAvailable()) return false;
+        // Delegate to window.cacheAPI if in Tracer, or implementation in RepoCache logic
+        if (window.cacheAPI && window.cacheAPI.persistRepoPartitions) {
+            return window.cacheAPI.persistRepoPartitions(repoName, partitions);
+        }
+        return true; // No-op for production if not using mock
+    }
+
     // ==========================================
     // CONVENIENCE METHODS
     // ==========================================

@@ -36,6 +36,7 @@ export class IntentRouter {
 
             // Extract new Smart RAG fields
             result.intent = data.tool || 'chat';
+            result.params = data.params || {};
             result.searchTerms = Array.isArray(data.searchTerms) ? data.searchTerms : [];
             result.memorySource = data.memorySource || null;
             result.whisper = data.whisper_to_chat || data.chat_guidance || null;

@@ -23,7 +23,8 @@ const ICONS = {
     ERROR: '❌',
     REDUCER: '🧪',
     IDENTITY: '🧬',
-    PROFILE: '🧠'
+    PROFILE: '🧠',
+    MAPPER: '🗺️'
 };
 
 class LoggerService {

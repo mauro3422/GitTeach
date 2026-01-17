@@ -18,6 +18,11 @@ export class DNAParser {
      * @throws {Error} If parsing fails completely
      */
     parseResponse(rawResponse) {
+        if (typeof rawResponse !== 'string') {
+            const errorStr = JSON.stringify(rawResponse || 'NULL');
+            throw new Error(`Invalid AI response type: ${typeof rawResponse} (${errorStr.substring(0, 100)})`);
+        }
+
         let cleanResponse = rawResponse;
 
         // Remove markdown code blocks if present
@@ -50,7 +55,8 @@ export class DNAParser {
      * @returns {Object} Fallback DNA object
      */
     buildFallback(rawResponse, traceabilityMap, errorMessage) {
-        let rescuedBio = "DNA synthesized (partial parse). " + (rawResponse.substring(0, 500));
+        const safeRaw = typeof rawResponse === 'string' ? rawResponse : JSON.stringify(rawResponse || 'No response');
+        let rescuedBio = "DNA synthesized (partial parse). " + (safeRaw.substring(0, 500));
         rescuedBio = rescuedBio.replace(/\*\*/g, '').replace(/###/g, '').trim();
 
         return {

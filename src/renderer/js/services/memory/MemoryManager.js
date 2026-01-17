@@ -18,7 +18,7 @@ export class MemoryManager {
         this.repoIndexes = new Map(); // Index by repository [RepoName -> [UIDs]]
 
         this.embeddingBuffer = [];
-        this.BATCH_SIZE = 10;
+        this.BATCH_SIZE = (typeof window !== 'undefined' && window.IS_TRACER) ? 1 : 10;
         this.FLUSH_INTERVAL = 500; // ms
         this.flushTimer = null;
 

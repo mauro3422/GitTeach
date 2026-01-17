@@ -74,6 +74,9 @@ export class InventoryManager {
 
         const file = repo.files.find(f => f.path === filePath);
         if (file) {
+            // IDEMPOTENCY: Only count once
+            if (file.status === 'completed' || file.status === 'failed') return;
+
             file.status = 'completed';
             file.summary = summary;
             file.rawData = rawData;
@@ -88,6 +91,9 @@ export class InventoryManager {
 
         const file = repo.files.find(f => f.path === filePath);
         if (file) {
+            // IDEMPOTENCY: Only count once
+            if (file.status === 'completed' || file.status === 'failed') return;
+
             file.status = 'failed';
             file.error = error;
             this.data.analyzedFiles++;
