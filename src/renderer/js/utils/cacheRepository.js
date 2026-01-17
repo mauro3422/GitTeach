@@ -33,10 +33,10 @@ class CacheRepositoryService {
     /**
      * Saves file summary to cache
      */
-    async setFileSummary(username, repo, path, sha, summary, contentSnippet) {
+    async setFileSummary(username, repo, path, sha, summary, contentSnippet, fileMeta = {}) {
         if (!this.isAvailable()) return false;
         try {
-            await window.cacheAPI.setFileSummary(username, repo, path, sha, summary, contentSnippet);
+            await window.cacheAPI.setFileSummary(username, repo, path, sha, summary, contentSnippet, fileMeta);
             return true;
         } catch (e) {
             console.warn('[CacheRepository] Error setting file summary:', e);
@@ -297,7 +297,7 @@ class CacheRepositoryService {
         // Fetch y guardar
         const result = await fetchFn();
         if (result && result.summary) {
-            await this.setFileSummary(username, repo, path, sha, result.summary, result.content);
+            await this.setFileSummary(username, repo, path, sha, result.summary, result.content, result.file_meta || {});
         }
 
         return { ...result, fromCache: false };

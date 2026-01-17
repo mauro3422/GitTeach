@@ -78,9 +78,18 @@ export class DNASynthesizer {
                         testability_score: { type: "number" },
                         dominant_stack_maturity: { type: "string" }
                     }
+                },
+                professional_context: {
+                    type: "object",
+                    properties: {
+                        quality_index: { type: "string" }, // e.g. "High (78%)"
+                        ecosystem_profile: { type: "string" },
+                        collaboration_style: { type: "string" },
+                        seniority_vibe: { type: "string" }
+                    }
                 }
             },
-            required: ["thought", "bio", "traits", "distinctions", "signature_files", "code_health", "verdict", "tech_radar"]
+            required: ["thought", "bio", "traits", "distinctions", "signature_files", "code_health", "verdict", "tech_radar", "professional_context"]
         };
     }
 
@@ -139,6 +148,13 @@ TESTING_MATURITY: ${healthReport.extended_metadata.dimensions.testability} (0-5)
 TOP_CONTEXTS: ${healthReport.extended_metadata.semantic.top_contexts.join(', ')}
 TOP_FRAMEWORKS: ${healthReport.extended_metadata.semantic.top_frameworks.join(', ')}
 STACK_MATURITY: ${healthReport.extended_metadata.semantic.dominant_maturity}
+
+[PROFESSIONAL_SUMMARY]
+CODE_QUALITY: Cyclomatic=${healthReport.extended_metadata.professional.quality.cyclomatic}, Debt=${healthReport.extended_metadata.professional.quality.debt_ratio}, Maintainability=${healthReport.extended_metadata.professional.quality.maintainability}
+ECOSYSTEM: Tools=${healthReport.extended_metadata.professional.ecosystem.top_tools.join(', ')}, Strategy=${healthReport.extended_metadata.professional.ecosystem.dominant_strategy}
+COLLABORATION: Participation=${healthReport.extended_metadata.professional.collaboration.review_participation}, Mentoring=${healthReport.extended_metadata.professional.collaboration.mentoring_culture}
+GROWTH: Vibe=${healthReport.extended_metadata.professional.growth.dominant_vibe}, Skills=${healthReport.extended_metadata.professional.growth.skill_signals.join(', ')}
+[/PROFESSIONAL_SUMMARY]
 ` : 'N/A'}
 [/EXTENDED_METRICS]
 </context>
@@ -156,6 +172,7 @@ Synthesize the 'Technical DNA' JSON object using the DUAL-TRACK PROTOCOL.
 3. **Chain-of-Thought**: You MUST generate a 'thought' field FIRST, explaining your reasoning.
 4. **Distinctions**: Award badges based on Seniority Signals.
 5. **Tech Radar**: Categorize detected frameworks into Adopt/Trial/Assess/Hold based on STACK_MATURITY and TOP_FRAMEWORKS.
+6. **Professional Context**: Summarize the 'quality_index', 'ecosystem_profile', 'collaboration_style' and 'seniority_vibe' based on the PROFESSIONAL_SUMMARY.
 </constraints>
 
 <output_format>
@@ -249,6 +266,16 @@ Score = (LOGIC_AVG * 20) or (KNOWLEDGE_AVG * 20).`;
                         security_score: parseFloat(healthReport.extended_metadata.dimensions.security) || 0,
                         testability_score: parseFloat(healthReport.extended_metadata.dimensions.testability) || 0,
                         dominant_stack_maturity: healthReport.extended_metadata.semantic.dominant_maturity
+                    };
+                }
+
+                // NEW: Map Professional Context
+                if (healthReport.extended_metadata && healthReport.extended_metadata.professional) {
+                    dna.professional_context = dna.professional_context || {
+                        quality_index: `${Math.round(parseFloat(healthReport.extended_metadata.professional.quality.maintainability))}%`,
+                        ecosystem_profile: healthReport.extended_metadata.professional.ecosystem.dominant_strategy,
+                        collaboration_style: healthReport.extended_metadata.professional.collaboration.mentoring_culture,
+                        seniority_vibe: healthReport.extended_metadata.professional.growth.dominant_vibe
                     };
                 }
             }

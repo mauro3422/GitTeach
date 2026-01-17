@@ -62,11 +62,44 @@ export class GithubMock {
                 } catch (e) { }
                 return { tree: [] };
             },
+            _getFileMetadata: async (u, r, p) => {
+                try {
+                    // Fetch the last commit for this specific file path to get its last modified date
+                    const res = await fetch(`https://api.github.com/repos/${u}/${r}/commits?path=${p}&per_page=1`, { headers: headers() });
+                    if (!res.ok) return null;
+                    const commits = await res.json();
+                    if (Array.isArray(commits) && commits.length > 0) {
+                        return {
+                            last_modified: commits[0].commit.committer.date,
+                            author: commits[0].commit.committer.name,
+                            sha: commits[0].sha
+                        };
+                    }
+                } catch (e) { }
+                return null;
+            },
             getFileContent: async (u, r, p) => {
                 try {
                     const res = await fetch(`https://api.github.com/repos/${u}/${r}/contents/${p}`, { headers: headers() });
                     if (!res.ok) return { message: 'Not Found' };
-                    return await res.json();
+                    const data = await res.json();
+
+                    // Fetch metadata using internal headers
+                    try {
+                        const mRes = await fetch(`https://api.github.com/repos/${u}/${r}/commits?path=${p}&per_page=1`, { headers: headers() });
+                        if (mRes.ok) {
+                            const commits = await mRes.json();
+                            if (Array.isArray(commits) && commits.length > 0) {
+                                data.file_meta = {
+                                    last_modified: commits[0].commit.committer.date,
+                                    author: commits[0].commit.committer.name,
+                                    sha: commits[0].sha
+                                };
+                            }
+                        }
+                    } catch (me) { }
+
+                    return data;
                 } catch (e) { return { message: e.message }; }
             },
             logToTerminal: () => { },

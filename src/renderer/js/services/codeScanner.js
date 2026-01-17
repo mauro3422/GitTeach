@@ -259,7 +259,7 @@ export class CodeScanner {
                     // New logic: Use priority.
 
                     if (window.IS_TRACER && this.workerPool.totalQueued < MAX_WORKER_QUEUE_SIZE) {
-                        this.workerPool.enqueue(repoName, file.path, cached.aiSnippet, file.sha, priority);
+                        this.workerPool.enqueue(repoName, file.path, cached.aiSnippet, file.sha, priority, cached.file_meta || {});
                     }
                     return { path: file.path, snippet: cached.aiSnippet, fromCache: true };
                 }
@@ -275,7 +275,7 @@ export class CodeScanner {
 
                     // Force re-analysis if Tracer
                     if (window.IS_TRACER && this.workerPool.totalQueued < MAX_WORKER_QUEUE_SIZE) {
-                        this.workerPool.enqueue(repoName, file.path, cached.contentSnippet || '', file.sha, priority);
+                        this.workerPool.enqueue(repoName, file.path, cached.contentSnippet || '', file.sha, priority, cached.file_meta || {});
                     }
 
                     return { path: file.path, snippet: cached.contentSnippet || '', fromCache: true };
@@ -296,12 +296,13 @@ export class CodeScanner {
                     username, repoName, file.path,
                     contentRes.sha,
                     codeSnippet.substring(0, 500),
-                    codeSnippet
+                    codeSnippet,
+                    contentRes.file_meta || {}
                 );
 
                 // Enqueue for AI processing
                 if (this.workerPool.totalQueued < MAX_WORKER_QUEUE_SIZE) {
-                    this.workerPool.enqueue(repoName, file.path, codeSnippet, contentRes.sha, priority);
+                    this.workerPool.enqueue(repoName, file.path, codeSnippet, contentRes.sha, priority, contentRes.file_meta || {});
                 }
 
                 this.coordinator.markCompleted(repoName, file.path, codeSnippet.substring(0, 100));

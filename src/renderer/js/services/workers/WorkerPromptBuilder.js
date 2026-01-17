@@ -26,7 +26,13 @@ export class WorkerPromptBuilder {
 - **Auditability**: Quality of logs and traceability.
 - **Domain Fidelity**: Alignment between code structure and business logic.
 
-### 3. RICH SEMANTIC METADATA (The "Why" & "How"):
+### 3. PROFESSIONAL CONTEXT (Inference):
+- **Code Quality**: Estimating complexity, debt ratio, and maintainability.
+- **Ecosystem**: Detecting CI/CD (Actions/Docker), monitoring, and cloud-native signals.
+- **Collaboration**: Mentoring indicators, review readiness, knowledge sharing tokens.
+- **Growth**: Technology adoption speed (modernity) and professional maturity.
+
+### 4. RICH SEMANTIC METADATA (The "Why" & "How"):
 - **Business Context**: Infer the purpose (e.g., "Payment Gateway", "Auth Service").
 - **Constraints**: Constraints detected (e.g., "Legacy DB", "High Performance").
 - **Stack Ecology**: Detect tech version/maturity (e.g., "React 18+", "Legacy ES5").
@@ -52,6 +58,12 @@ You must respond with:
      "business_context": "String",
      "design_tradeoffs": ["String"],
      "dependencies": { "frameworks": ["String"], "maturity": "Stable/Legacy/Bleeding" }
+  },
+  "professional": {
+     "code_quality": { "cyclomatic": 1-5, "debt_ratio": 0.0-1.0, "maintainability": 0-100 },
+     "ecosystem": { "ci_cd": ["Tool"], "pushed_to": "Cloud/On-Prem/Unknown" },
+     "collaboration": { "review_ready": 0-5, "mentoring": "High/Low" },
+     "growth": { "learning_signals": ["String"], "seniority_vibe": "Junior/Mid/Senior" }
   },
   "dimensions": {
      "social": 0-5,
@@ -167,9 +179,43 @@ You must respond with:
                         security: { type: "integer" },
                         testability: { type: "integer" }
                     }
+                },
+                professional: {
+                    type: "object",
+                    properties: {
+                        code_quality: {
+                            type: "object",
+                            properties: {
+                                cyclomatic: { type: "number" },
+                                debt_ratio: { type: "number" },
+                                maintainability: { type: "number" }
+                            }
+                        },
+                        ecosystem: {
+                            type: "object",
+                            properties: {
+                                ci_cd: { type: "array", items: { type: "string" } },
+                                strategy: { type: "string" }
+                            }
+                        },
+                        collaboration: {
+                            type: "object",
+                            properties: {
+                                review_ready: { type: "number" },
+                                mentoring: { type: "string" }
+                            }
+                        },
+                        growth: {
+                            type: "object",
+                            properties: {
+                                learning_signals: { type: "array", items: { type: "string" } },
+                                seniority_vibe: { type: "string" }
+                            }
+                        }
+                    }
                 }
             },
-            required: ["thought", "domain", "confidence", "complexity", "summary", "evidence", "logic", "knowledge", "signals", "semantic", "dimensions"]
+            required: ["thought", "domain", "confidence", "complexity", "summary", "evidence", "logic", "knowledge", "signals", "semantic", "dimensions", "professional"]
         };
     }
 
@@ -195,26 +241,30 @@ You must respond with:
                 const logic = data.logic || data.metrics || {};
                 const knowledge = data.knowledge || { clarity: 0, discipline: 0, depth: 0 };
                 const signals = data.signals || { semantic: 0, resilience: 0, resources: 0, auditability: 0, domain_fidelity: 0 };
-                // NEW: Capture semantic and dimensions
+                // NEW: Capture semantic, dimensions, and professional context
                 const semantic = data.semantic || {};
                 const dimensions = data.dimensions || {};
+                const professional = data.professional || {};
 
                 const cappedLogic = this._applyProgrammaticCaps(data.domain, data.summary || "", data.thought || "", logic, filePath);
 
                 return {
                     tool: 'analysis',
                     params: {
-                        insight: data.summary,
-                        technical_strength: data.domain,
-                        impact: data.evidence,
-                        confidence: data.confidence || 0.7,
-                        complexity: data.complexity || 2,
+                        insight: data.summary || "Code analyzed",
+                        technical_strength: data.domain || "General",
+                        impact: data.evidence || "N/A",
+                        confidence: data.confidence || 0.5,
+                        complexity: data.complexity || 3,
                         metadata: {
                             ...cappedLogic,
                             knowledge,
                             signals,
                             semantic,
-                            dimensions
+                            dimensions,
+                            professional,
+                            // Preserve file system metadata if injected before
+                            file_meta: data.file_meta || {}
                         },
                         thought: data.thought
                     }

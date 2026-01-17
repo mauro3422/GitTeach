@@ -54,15 +54,15 @@ export class AIWorkerPool {
     /**
      * Enqueue a file for processing
      */
-    enqueue(repoName, filePath, content, sha, priority = 1) { // Default NORMAL (1)
-        this.queueManager.enqueue(repoName, filePath, content, sha, priority);
+    enqueue(repoName, filePath, content, sha, priority = 1, fileMeta = {}) { // Default NORMAL (1)
+        this.queueManager.enqueue(repoName, filePath, content, sha, priority, fileMeta);
     }
 
     /**
      * Enqueue multiple files
      */
     enqueueBatch(files, priority = 1) {
-        this.queueManager.enqueueBatch(files, priority);
+        files.forEach(f => this.enqueue(f.repo, f.path, f.content, f.sha, priority, f.file_meta || {}));
     }
 
     /**

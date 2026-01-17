@@ -19,14 +19,15 @@ export class QueueManager {
     /**
      * Enqueue a single file for processing
      */
-    enqueue(repoName, filePath, content, sha, priority = 1) { // Default to NORMAL (1)
+    enqueue(repoName, filePath, content, sha, priority = 1, fileMeta = {}) { // Default to NORMAL (1)
         this.queue.push({
             repo: repoName,
             path: filePath,
             content: content,
             sha: sha,
             status: 'pending',
-            priority: priority
+            priority: priority,
+            file_meta: fileMeta
         });
         this.totalQueued++;
         // Keep queue sorted by priority (Ascending: 0=Urgent to 2=Background)

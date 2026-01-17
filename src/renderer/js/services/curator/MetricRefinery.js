@@ -36,6 +36,13 @@ export class MetricRefinery {
                 frameworks: new Map(),
                 maturities: new Map(),
                 tradeoffs: new Map()
+            },
+            professional: {
+                quality: { cyclomatic: 0, debt: 0, maintainability: 0, count: 0 },
+                ecosystem: { tools: new Map(), strategies: new Map() },
+                collaboration: { review: 0, mentoring: new Map(), count: 0 },
+                growth: { signals: new Map(), vibes: new Map() },
+                churn: { dates: [], authors: new Map() }
             }
         };
 
@@ -103,6 +110,47 @@ export class MetricRefinery {
                 }
             }
 
+            // 3d. Professional Context (New V4)
+            const prof = m.professional || {};
+            if (prof.code_quality) {
+                totals.professional.quality.cyclomatic += prof.code_quality.cyclomatic || 0;
+                totals.professional.quality.debt += prof.code_quality.debt_ratio || 0;
+                totals.professional.quality.maintainability += prof.code_quality.maintainability || 0;
+                totals.professional.quality.count++;
+            }
+            if (prof.ecosystem) {
+                if (Array.isArray(prof.ecosystem.ci_cd)) {
+                    prof.ecosystem.ci_cd.forEach(t => totals.professional.ecosystem.tools.set(t, (totals.professional.ecosystem.tools.get(t) || 0) + 1));
+                }
+                if (prof.ecosystem.strategy) {
+                    totals.professional.ecosystem.strategies.set(prof.ecosystem.strategy, (totals.professional.ecosystem.strategies.get(prof.ecosystem.strategy) || 0) + 1);
+                }
+            }
+            if (prof.collaboration) {
+                totals.professional.collaboration.review += prof.collaboration.review_ready || 0;
+                if (prof.collaboration.mentoring) {
+                    totals.professional.collaboration.mentoring.set(prof.collaboration.mentoring, (totals.professional.collaboration.mentoring.get(prof.collaboration.mentoring) || 0) + 1);
+                }
+                totals.professional.collaboration.count++;
+            }
+            if (prof.growth) {
+                if (Array.isArray(prof.growth.learning_signals)) {
+                    prof.growth.learning_signals.forEach(s => totals.professional.growth.signals.set(s, (totals.professional.growth.signals.get(s) || 0) + 1));
+                }
+                if (prof.growth.seniority_vibe) {
+                    totals.professional.growth.vibes.set(prof.growth.seniority_vibe, (totals.professional.growth.vibes.get(prof.growth.seniority_vibe) || 0) + 1);
+                }
+            }
+
+            // 3e. File Metadata (Code Churn)
+            const meta = m.file_meta || {};
+            if (meta.last_modified) {
+                totals.professional.churn.dates.push(new Date(meta.last_modified).getTime());
+                if (meta.author) {
+                    totals.professional.churn.authors.set(meta.author, (totals.professional.churn.authors.get(meta.author) || 0) + 1);
+                }
+            }
+
             // 4. Complexity (Unified)
             if (node.params && node.params.complexity !== undefined) {
                 totals.complexity += Math.max(0, node.params.complexity);
@@ -126,6 +174,8 @@ export class MetricRefinery {
         const knowDenom = totals.knowledge.count || 1;
         const sigDenom = totals.signals.count || 1;
         const dimDenom = totals.dimensions.count || 1;
+        const profDenom = totals.professional.quality.count || 1;
+        const collabDenom = totals.professional.collaboration.count || 1;
         const compDenom = totals.compCount || 1;
 
         // Helper for map sorting
@@ -171,6 +221,31 @@ export class MetricRefinery {
                     top_frameworks: getTopK(totals.semantic.frameworks, 5),
                     dominant_maturity: getTopK(totals.semantic.maturities, 1)[0] || "Unknown",
                     common_tradeoffs: getTopK(totals.semantic.tradeoffs, 3)
+                },
+                professional: {
+                    quality: {
+                        cyclomatic: (totals.professional.quality.cyclomatic / profDenom).toFixed(2),
+                        debt_ratio: (totals.professional.quality.debt / profDenom).toFixed(2),
+                        maintainability: (totals.professional.quality.maintainability / profDenom).toFixed(2)
+                    },
+                    ecosystem: {
+                        top_tools: getTopK(totals.professional.ecosystem.tools, 5),
+                        dominant_strategy: getTopK(totals.professional.ecosystem.strategies, 1)[0] || "Unknown"
+                    },
+                    collaboration: {
+                        review_participation: (totals.professional.collaboration.review / collabDenom).toFixed(2),
+                        mentoring_culture: getTopK(totals.professional.collaboration.mentoring, 1)[0] || "Neutral"
+                    },
+                    growth: {
+                        dominant_vibe: getTopK(totals.professional.growth.vibes, 1)[0] || "Unknown",
+                        skill_signals: getTopK(totals.professional.growth.signals, 5)
+                    },
+                    churn: {
+                        avg_age_days: totals.professional.churn.dates.length > 0
+                            ? ((Date.now() - (totals.professional.churn.dates.reduce((a, b) => a + b, 0) / totals.professional.churn.dates.length)) / (1000 * 60 * 60 * 24)).toFixed(1)
+                            : "Unknown",
+                        unique_authors: totals.professional.churn.authors.size
+                    }
                 }
             },
             timestamp: new Date().toISOString()
@@ -213,6 +288,13 @@ export class MetricRefinery {
                     top_frameworks: [],
                     dominant_maturity: "Unknown",
                     common_tradeoffs: []
+                },
+                professional: {
+                    quality: { cyclomatic: "0.00", debt_ratio: "0.00", maintainability: "0.00" },
+                    ecosystem: { top_tools: [], dominant_strategy: "Unknown" },
+                    collaboration: { review_participation: "0.00", mentoring_culture: "Neutral" },
+                    growth: { dominant_vibe: "Unknown", skill_signals: [] },
+                    churn: { avg_age_days: "Unknown", unique_authors: 0 }
                 }
             },
             timestamp: new Date().toISOString()

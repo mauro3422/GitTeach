@@ -128,7 +128,7 @@ export class PersistenceMock {
                 const key = `${u}/${r}`;
                 return db.repos?.[key]?.files?.[p] || null;
             },
-            setFileSummary: async (u, r, p, sha, summary, content) => {
+            setFileSummary: async (u, r, p, sha, summary, content, fileMeta = {}) => {
                 const key = `${u}/${r}`;
                 if (!db.repos[key]) db.repos[key] = { files: {}, lastUpdated: null };
                 if (!db.repos[key].files) db.repos[key].files = {};
@@ -136,9 +136,9 @@ export class PersistenceMock {
                 db.repos[key].files[p] = {
                     sha,
                     summary,
-                    summary,
                     contentSnippet: content ? content.substring(0, 500) : null,
                     aiSnippet: content ? content.substring(0, 3000) : null, // AI / Offline Context
+                    file_meta: fileMeta, // NEW: Metadata storage
                     analyzedAt: new Date().toISOString()
                 };
                 db.repos[key].lastUpdated = new Date().toISOString();

@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.12.0-ProfessionalContext] - 2026-01-16
+### 💼 Code Churn & Professional Mapping
+- **Code Churn Analysis**: Implementation of `last_modified` tracking in `GithubMock`. Automated calculation of `avg_age_days` and `unique_authors`.
+- **Professional Context Inference**: Workers now detect `code_quality` (Debt/Complexity), `ecosystem` (CI/CD tools/Cloud strategy), and `collaboration` (Mentoring/Review).
+- **Holistic Professional DNA**: Final profile includes a `professional_context` summary (Quality Index, Ecosystem Profile, Collab Style).
+- **Metadata Conduit**: Deep integration between `GithubMock` -> `CodeScanner` -> `Cache` -> `Analytics Engine`.
+
 ## [2.11.0-MetadataRevolution] - 2026-01-16
 ### 🧠 Semantic & Multidimensional Identity
 - **Rich Semantic Metadata**: Workers now detect `business_context`, `design_tradeoffs`, and `stack_ecology` (tech version/maturity).
@@ -10,7 +17,6 @@
 - **Eye & Brain Upgrade**: Full update of `WorkerPromptBuilder`, `MetricRefinery`, and `DNASynthesizer`.
 
 ## [2.10.0-TraceEvolution] - 2026-01-16
-### 🧬 Identity Evolution & Deep Metrics
 - **Context Evolution Logging**: Implementación de `identity_evolution.jsonl` en `mock_persistence`. Captura instantáneas del `technical_identity` evolutivo en tiempo real.
 - **Metric Timing**: Inclusión de métrica `durationMs` en logs de workers y snapshots de identidad para medir latencia de síntesis.
 - **Forensic Quality Audit**: Verificación de integridad de flujo `Raw Input -> Identity`. Confirmada fidelidad de datos (escala 0-5) y auto-corrección de artefactos de agregación temprana.
