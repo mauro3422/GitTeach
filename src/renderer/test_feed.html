@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>GitTeach Monitor Test Feed</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            background: #eee;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #2f81f7;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+
+        button:hover {
+            background: #238636;
+        }
+
+        .status {
+            margin-top: 10px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>GitTeach Monitor Test Feed</h2>
+    <p>Click the button below to start sending simulated data to the Monitoring Dashboard.</p>
+    <p>Keep this window open alongside the Dashboard.</p>
+    <button id="btn-start">Start Simulation</button>
+    <div id="status" class="status">Status: Idle</div>
+
+    <script>
+        const channel = new BroadcastChannel('giteach-monitoring');
+        let interval;
+        let counter = 0;
+
+        document.getElementById('btn-start').addEventListener('click', () => {
+            if (interval) {
+                clearInterval(interval);
+                interval = null;
+                document.getElementById('btn-start').textContent = 'Start Simulation';
+                document.getElementById('status').textContent = 'Status: Stopped';
+                return;
+            }
+
+            document.getElementById('btn-start').textContent = 'Stop Simulation';
+            document.getElementById('status').textContent = 'Status: Broadcasting...';
+
+            interval = setInterval(() => {
+                counter++;
+                const isOdd = counter % 2 !== 0;
+
+                const payload = {
+                    type: 'STATUS_UPDATE',
+                    timestamp: Date.now(),
+                    system: {
+                        uptime: counter * 500,
+                        memory: {
+                            used: (100 + Math.random() * 50) * 1024 * 1024,
+                            total: 1024 * 1024 * 1024,
+                            limit: 4096 * 1024 * 1024
+                        }
+                    },
+                    queue: {
+                        total: 200,
+                        processed: 50 + counter,
+                        pending: 150 - counter,
+                        percent: Math.min(100, Math.round(((50 + counter) / 200) * 100))
+                    },
+                    workers: [
+                        { id: 1, status: 'PROCESSING', file: 'src/services/deepCurator.js', duration: 1200 + Math.random() * 1000, successfulOperations: 10 + counter, failedOperations: 0 },
+                        { id: 2, status: isOdd ? 'PROCESSING' : 'IDLE', file: isOdd ? 'src/utils/logger.js' : '--', duration: isOdd ? 500 : 0, successfulOperations: 5 + counter, failedOperations: 0 },
+                        { id: 3, status: Math.random() > 0.9 ? 'ERROR' : 'PROCESSING', file: 'src/complex/parser.js', duration: 3000, successfulOperations: 8, failedOperations: Math.floor(counter / 10) },
+                        { id: 4, status: 'IDLE', file: '--', successfulOperations: 0, failedOperations: 0 }
+                    ],
+                    logs: [
+                        { level: 'INFO', msg: `Tick ${counter}: System heartbeat normalized.`, time: new Date().toLocaleTimeString() },
+                        { level: Math.random() > 0.8 ? 'WARN' : 'INFO', msg: `Worker activity detected on channel ${isOdd ? 'A' : 'B'}`, time: new Date().toLocaleTimeString() }
+                    ]
+                };
+
+                channel.postMessage(payload);
+            }, 500); // Send every 500ms
+        });
+    </script>
+</body>
+
+</html>

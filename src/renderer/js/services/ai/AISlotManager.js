@@ -2,11 +2,7 @@
  * AISlotManager - Centralized concurrency controller for AI calls
  * Ensures we don't exceed the 5 available slots and manages priorities.
  */
-export const AISlotPriorities = {
-    URGENT: 0,    // Chat, Intent Routing (Sequential)
-    NORMAL: 1,    // AI Workers (Parallel)
-    BACKGROUND: 2 // Deep Curation, Fidelity Summaries
-};
+import { AISlotPriorities } from './AISlotPriorities.js';
 
 class AISlotManager {
     constructor(maxSlots = 5) {

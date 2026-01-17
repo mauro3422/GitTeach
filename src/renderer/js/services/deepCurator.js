@@ -21,6 +21,9 @@ import { MetricRefinery } from './curator/MetricRefinery.js';
 import { StreamingHandler } from './curator/StreamingHandler.js';
 import { GlobalIdentityUpdater } from './curator/GlobalIdentityUpdater.js';
 import { SynthesisOrchestrator } from './curator/SynthesisOrchestrator.js';
+import { StreamingRepoProcessor } from './curator/StreamingRepoProcessor.js';
+import { BlueprintGenerator } from './curator/BlueprintGenerator.js';
+import { GlobalIdentityRefiner } from './curator/GlobalIdentityRefiner.js';
 import { AISlotPriorities } from './ai/AISlotManager.js';
 
 export class DeepCurator {

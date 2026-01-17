@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.15.0-DeepModularization] - 2026-01-16
+### 🏗️ Phase 2: Refactorización Profunda (Metric & Worker Ecosystem)
+- **Descomposición de `WorkerPromptBuilder`**:
+    - **PromptTemplates.js**: Centralización de system prompts y templates de usuario.
+    - **ResponseParser.js**: Módulo robusto de parsing con fallback logic inteligente.
+    - **ResponseSchema.js**: Definición aislada de esquemas JSON para validación estructurada.
+- **Micro-Arquitectura de `MetricRefinery`**:
+    - **MetricAggregatorOrchestrator**: Nuevo motor de orquestación paralela para métricas.
+    - **Strategy Pattern**: Implementación de 4 aggregators especializados (`Logic`, `Professional`, `Resilience`, `Semantic`) bajo una interfaz común `IMetricAggregator`.
+    - **Extensibilidad**: Capacidad plug-and-play para nuevos dominios de métricas sin modificar el core.
+
+### 🖥️ Monitoring Dashboard V1 (Preview)
+- **Standalone Dashboard**: Creación de `monitoring.html` con estética Cyberpunk/Terminal.
+- **Real-Time Telemetry**: Implementación de `BroadcastChannel` en `WorkerHealthMonitor` para emitir métricas vivas de workers, cola y memoria.
+- **Visualización de Workers**: Grid reactivo que muestra el estado (IDLE/PROCESSING/ERROR) de cada worker en tiempo real.
+
 ## [2.13.0-RefactorCompleto] - 2026-01-16
 ### 🏗️ Modularización & SOLID (User-Led Refactor)
 - **Descomposición Modular**: Transformación de 6 módulos monolíticos (`DeepCurator`, `DNASynthesizer`, `CodeScanner`, `WorkerPromptBuilder`, `CacheRepository`, `AIWorkerPool`) en 17 módulos especializados.

@@ -24,7 +24,10 @@ import { SystemEventHandler } from './ai/SystemEventHandler.js';
 import { ChatPromptBuilder } from './ai/ChatPromptBuilder.js';
 import { IntentRouter } from './ai/IntentRouter.js';
 import { ParameterConstructor } from './ai/ParameterConstructor.js';
-import { aiSlotManager, AISlotPriorities } from './ai/AISlotManager.js';
+import { aiSlotManager } from './ai/AISlotManager.js';
+import { AISlotPriorities } from './ai/AISlotPriorities.js';
+import { AIHealthMonitor } from './ai/AIHealthMonitor.js';
+import { EmbeddingService } from './ai/EmbeddingService.js';
 
 if (typeof window !== 'undefined') {
     window.AI_OFFLINE = true;
@@ -33,6 +36,10 @@ if (typeof window !== 'undefined') {
 export const AIService = {
     currentSessionContext: "",
     _hasLoggedOnline: false,
+
+    // Initialize specialized modules
+    _healthMonitor: new AIHealthMonitor(),
+    _embeddingService: new EmbeddingService(),
 
     setSessionContext(context) {
         this.currentSessionContext = context;
@@ -169,62 +176,15 @@ export const AIService = {
     },
 
     async getEmbedding(text) {
-        // TRACER/MOCK MODE: Return dummy vector to unblock flow
-        if (typeof window !== 'undefined' && window.IS_TRACER) {
-            return new Array(768).fill(0.1);
-        }
-
-        let ENDPOINT;
-        if (typeof window !== 'undefined' && window.AI_CONFIG?.embeddingEndpoint) {
-            ENDPOINT = window.AI_CONFIG.embeddingEndpoint;
-        } else if (typeof window !== 'undefined' && window.AI_CONFIG?.endpoint) {
-            ENDPOINT = window.AI_CONFIG.endpoint.replace('/chat/completions', '/embeddings');
-        } else {
-            ENDPOINT = 'http://localhost:8000/v1/embeddings';
-        }
-
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout for embeddings
-
-            const payload = {
-                model: "lfm2.5", // Explicit model might be needed by some servers
-                input: text
-            };
-
-            const response = await fetch(ENDPOINT, {
-                signal: controller.signal,
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            clearTimeout(timeoutId);
-
-            if (!response.ok) throw new Error(`Status: ${response.status}`);
-
-            const data = await response.json();
-            if (data && data.data && data.data.length > 0) {
-                return data.data[0].embedding;
-            }
-            return null;
-        } catch (error) {
-            console.warn("[AIService] ⚠️ Embedding Error:", error.message);
-            return null; // Graceful fallback
-        }
+        return this._embeddingService.getEmbedding(text);
     },
 
     updateHealth(isOnline) {
-        if (typeof window !== 'undefined') window.AI_OFFLINE = !isOnline;
-        if (typeof document !== 'undefined') {
-            const dot = document.querySelector('.status-dot');
-            if (dot) isOnline ? dot.classList.remove('disconnected') : dot.classList.add('disconnected');
-        }
+        this._healthMonitor.updateHealth(isOnline);
     },
 
     startHealthCheck() {
-        if (typeof window === 'undefined') return;
-        window.utilsAPI?.checkAIHealth().then(online => this.updateHealth(online));
-        window.githubAPI?.onAIStatusChange?.((e, online) => this.updateHealth(online));
+        this._healthMonitor.startHealthCheck();
     }
 };
 

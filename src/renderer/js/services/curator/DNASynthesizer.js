@@ -1,19 +1,23 @@
 /**
  * DNASynthesizer - Synthesizes Technical DNA from thematic analyses
  * Extracted from DeepCurator to comply with SRP
- * 
+ *
  * Responsibilities:
- * - Define DNA JSON schema
+ * - Orchestrate DNA synthesis using specialized modules
+ * - Coordinate professional context, code churn, and ecosystem analysis
  * - Build synthesis prompt with cognitive vaccines
  * - Parse AI response with multi-pass cleaning
  * - Provide fallback mechanisms when AI fails
  */
 import { AIService } from '../aiService.js';
 import { Logger } from '../../utils/logger.js';
-import { AISlotPriorities } from '../ai/AISlotManager.js';
+import { AISlotPriorities } from '../ai/AISlotPriorities.js';
 import { DNAPromptBuilder } from './DNAPromptBuilder.js';
 import { DNAParser } from './DNAParser.js';
 import { DNASchemaValidator } from './DNASchemaValidator.js';
+import { ProfessionalContextSynthesizer } from './ProfessionalContextSynthesizer.js';
+import { CodeChurnAnalyzer } from './CodeChurnAnalyzer.js';
+import { EcosystemMapper } from './EcosystemMapper.js';
 
 export class DNASynthesizer {
     constructor() {

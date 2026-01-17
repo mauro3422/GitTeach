@@ -16,6 +16,8 @@ export class WorkerHealthMonitor {
         this.resultProcessor = resultProcessor;
         this.workerStats = new Map();
         this.isProcessing = false;
+        this.channel = new BroadcastChannel('giteach-monitoring');
+        this.broadcastInterval = null;
     }
 
     /**
@@ -36,6 +38,12 @@ export class WorkerHealthMonitor {
         }
         this.isProcessing = true;
         this.resetWorkerStats();
+
+        // Start broadcasting
+        if (this.channel) {
+            this.broadcastInterval = setInterval(() => this.broadcastStatus(), 500);
+        }
+
         return true;
     }
 
@@ -44,6 +52,10 @@ export class WorkerHealthMonitor {
      */
     endProcessing() {
         this.isProcessing = false;
+        if (this.broadcastInterval) {
+            clearInterval(this.broadcastInterval);
+            this.broadcastInterval = null;
+        }
     }
 
     /**
@@ -384,5 +396,51 @@ export class WorkerHealthMonitor {
         }
 
         return recommendations;
+    }
+
+    /**
+     * Broadcast current status to monitoring dashboard
+     */
+    broadcastStatus() {
+        if (!this.channel) return;
+
+        const health = this.getHealthStatus();
+        const workerStats = this.getWorkerStats();
+
+        // Transform worker stats for dashboard
+        const workers = workerStats.map(w => ({
+            id: w.workerId,
+            status: w.isActive ? 'PROCESSING' : (w.errorMessages.length > 0 ? 'ERROR' : 'IDLE'),
+            repo: 'active-repo', // We might need to track this better if needed
+            file: w.isActive ? 'processing...' : '--', // Simplify for now or pass actual current file
+            duration: w.isActive ? (Date.now() - w.startTime) : 0,
+            stats: {
+                success: w.successfulOperations,
+                failed: w.failedOperations
+            }
+        }));
+
+        // Get recent logs (This would require integration with Logger, for now sending mock/empty)
+        // In a real implementation, Logger would have a 'getRecent()' method.
+        const logs = [];
+
+        const payload = {
+            type: 'STATUS_UPDATE',
+            timestamp: Date.now(),
+            system: {
+                uptime: health.systemHealth.uptime,
+                memory: health.systemHealth.memoryUsage
+            },
+            queue: {
+                total: health.queueHealth.totalQueued + health.queueHealth.totalProcessed,
+                processed: health.queueHealth.totalProcessed,
+                pending: health.queueHealth.totalQueued,
+                percent: health.queueHealth.completionRate
+            },
+            workers: workers,
+            logs: logs
+        };
+
+        this.channel.postMessage(payload);
     }
 }
