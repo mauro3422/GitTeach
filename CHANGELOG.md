@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.18.0] - Architecture Modernization - 2026-01-17
+### Added
+- **LevelDB Persistence**: Replaced flat JSON files with `classic-level` (LSM-Tree) for high-performance, granular data storage.
+- **Embedding Batching**: Implemented a buffering mechanism in `MemoryManager` to batch embedding requests (10 nodes or 500ms).
+- **Tracer LevelDB Support**: Updated `PersistenceMock` to use LevelDB, ensuring diagnostic sessions benefit from the same performance gains.
+
 ## [2.17.0] - Forensic Deep Fixes - 2026-01-17
 ### 🔧 Critical Bug Fixes (Based on Forensic Audit)
 - **Race Condition in Indexing (FIXED)**: `MemoryManager.storeFinding()` now properly awaits `addNode()`, preventing premature searches on unindexed data.

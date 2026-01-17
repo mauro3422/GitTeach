@@ -17,7 +17,12 @@ export class MemoryManager {
         this.nodes = new Map(); // Global memory map [UID -> Node]
         this.repoIndexes = new Map(); // Index by repository [RepoName -> [UIDs]]
 
-        Logger.info('MemoryManager', 'Decoupled Memory V3 initialized.');
+        this.embeddingBuffer = [];
+        this.BATCH_SIZE = 10;
+        this.FLUSH_INTERVAL = 500; // ms
+        this.flushTimer = null;
+
+        Logger.info('MemoryManager', 'Decoupled Memory V3 initialized (Batching Enabled).');
     }
 
     /**
@@ -58,6 +63,9 @@ export class MemoryManager {
      * @param {string} repoName 
      */
     async persistRepoMemory(repoName) {
+        // Ensure pending embeddings are flushed before persisting
+        await this.flushEmbeddingBuffer();
+
         const nodes = this.getRepoMemory(repoName);
         if (nodes.length === 0) return;
 
@@ -70,6 +78,10 @@ export class MemoryManager {
      */
     async persistAll() {
         Logger.info('MemoryManager', 'Flushing all repo memories to persistence...');
+
+        // Ensure all pending embeddings are processed
+        await this.flushEmbeddingBuffer();
+
         const repos = Array.from(this.repoIndexes.keys());
         await Promise.all(repos.map(repo => this.persistRepoMemory(repo)));
     }
@@ -92,26 +104,73 @@ export class MemoryManager {
 
         Logger.debug('MemoryManager', `Node stored: ${node.uid} [${node.classification}] in ${node.repo}`);
 
-        // Trigger async embedding generation
-        await this.indexNode(node);
+        // Trigger batch-aware indexing
+        this.indexNode(node);
     }
 
     /**
-     * Generate embedding for node (Vector Indexing)
+     * Queue node for embedding generation (Vector Indexing)
+     * Replaces sequential processing with buffering
      */
-    async indexNode(node) {
+    indexNode(node) {
         if (node.vectorStatus === 'ready') return;
 
-        // Construct text to embed (Rich semantic representation)
-        const textToEmbed = `Insight: ${node.insight}. Evidence: ${node.evidence}. Context: ${node.repo}/${node.path}`;
+        this.embeddingBuffer.push(node);
 
-        const embedding = await AIService.getEmbedding(textToEmbed);
-        if (embedding) {
-            node.embedding = embedding;
-            node.vectorStatus = 'ready';
-            // Ideally save persistence here
-        } else {
-            node.vectorStatus = 'failed';
+        // If buffer is full, flush immediately
+        if (this.embeddingBuffer.length >= this.BATCH_SIZE) {
+            this.flushEmbeddingBuffer();
+        }
+        // Otherwise, ensure a timer is running
+        else if (!this.flushTimer) {
+            this.flushTimer = setTimeout(() => {
+                this.flushEmbeddingBuffer();
+            }, this.FLUSH_INTERVAL);
+        }
+    }
+
+    /**
+     * Process the buffered nodes in a single batch
+     */
+    async flushEmbeddingBuffer() {
+        if (this.flushTimer) {
+            clearTimeout(this.flushTimer);
+            this.flushTimer = null;
+        }
+
+        if (this.embeddingBuffer.length === 0) return;
+
+        // Take chunk
+        const batch = this.embeddingBuffer.splice(0, this.embeddingBuffer.length);
+
+        // Construct batch texts
+        const texts = batch.map(node =>
+            `Insight: ${node.insight}. Evidence: ${node.evidence}. Context: ${node.repo}/${node.path}`
+        );
+
+        try {
+            // Call Batch API
+            const embeddings = await AIService.batchEmbeddings(texts);
+
+            // Assign results back to nodes
+            batch.forEach((node, index) => {
+                const embedding = embeddings[index];
+                if (embedding) {
+                    node.embedding = embedding;
+                    node.vectorStatus = 'ready';
+                } else {
+                    node.vectorStatus = 'failed';
+                    Logger.warn('MemoryManager', `Embedding generation failed for node ${node.uid}`);
+                }
+            });
+
+            Logger.info('MemoryManager', `Batch processed ${batch.length} embeddings.`);
+
+        } catch (error) {
+            Logger.error('MemoryManager', `Batch embedding failed: ${error.message}`);
+            // Revert vectorStatus to pending or failed? 
+            // Currently failing the batch
+            batch.forEach(node => node.vectorStatus = 'failed');
         }
     }
 

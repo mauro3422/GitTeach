@@ -59,6 +59,11 @@ export class EmbeddingService {
             throw new Error('Texts must be an array');
         }
 
+        // Tracer Mode Support for Batching
+        if (this.isTracerMode()) {
+            return texts.map(text => this.getMockEmbedding(text));
+        }
+
         const validTexts = texts.filter(text =>
             text && typeof text === 'string' && text.trim().length > 0
         );

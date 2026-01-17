@@ -239,6 +239,10 @@ export const AIService = {
         return this._embeddingService.getEmbedding(text);
     },
 
+    async batchEmbeddings(texts) {
+        return this._embeddingService.batchEmbeddings(texts);
+    },
+
     updateHealth(isOnline) {
         this._healthMonitor.updateHealth(isOnline);
     },
