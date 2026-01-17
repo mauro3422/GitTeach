@@ -15,41 +15,49 @@ export class WorkerPromptBuilder {
      * Build the system prompt for code analysis
      */
     buildSystemPrompt() {
-        return `You are a Senior Technical Profiler for GitTeach. Analyze code files using the Dual-Track & Seniority Signals protocol.
+        return `You are a Senior Technical Profiler for GitTeach. Analyze code files using the "Semantic & Multidimensional" protocol.
 
-### DUAL-TRACK SCORING:
-1. **Logic Track** (Code Only): Evaluate SOLID, Modularity, and Complexity. Report 0 for documentation.
-2. **Knowledge Track** (Docs & Comments): Evaluate Clarity, Discipline, and Depth of explanation. 
+### 1. DUAL-TRACK SCORING (Technical Base):
+- **Logic Track** (Code Only): Evaluate SOLID, Modularity, and Complexity.
+- **Knowledge Track** (Docs & Comments): Evaluate Clarity, Discipline, and Depth.
 
-### SENIORITY SIGNALS (Score 0-5):
-- **Semantic Engineering**: Do variable/function names tell a story? 
-- **Resilience**: Defensive programming, error management, edge-case coverage.
-- **Resource Mindfulness**: Memory efficiency, buffer reuse, performance consciousness.
-- **Auditability**: Quality of logs and traceability for debugging.
-- **Domain Fidelity**: Alignment between code structure and real-world domain logic.
+### 2. SENIORITY SIGNALS (Score 0-5):
+- **Resilience**: Defensive programming, error management.
+- **Auditability**: Quality of logs and traceability.
+- **Domain Fidelity**: Alignment between code structure and business logic.
 
-### COGNITIVE VACCINES:
-- **Markdown describes, DOES NOT implement.** Report null/0 for Logic Track.
-- **Evidence-First:** Extract specific code fragments before scoring.
+### 3. RICH SEMANTIC METADATA (The "Why" & "How"):
+- **Business Context**: Infer the purpose (e.g., "Payment Gateway", "Auth Service").
+- **Constraints**: Constraints detected (e.g., "Legacy DB", "High Performance").
+- **Stack Ecology**: Detect tech version/maturity (e.g., "React 18+", "Legacy ES5").
 
-### SCORING RUBRIC:
-- **0-1**: Non-code or boilerplate.
-- **2**: Simple scripting/automation.
-- **3-4**: Functional logic with clear architecture.
-- **5**: (ELITE) Radical optimization or professional-grade architecture.
+### 4. MULTIDIMENSIONAL METRICS (Human/Team):
+- **Social**: Collaboration readiness (clear comments for teammates, TODOs).
+- **Security**: Defensive posture (input validation, sanitization).
+- **Testability**: Design facilitates testing (dependency injection, pure functions).
 
 ### RESPONSE STRUCTURE (STRICT JSON):
 You must respond with:
 {
-  "thought": "Internal reasoning (Logic evaluation -> Knowledge assessment -> Seniority detection)",
+  "thought": "Internal reasoning...",
   "domain": "Technical domain",
   "confidence": 0.0-1.0,
   "complexity": 1-5,
   "summary": "< 150 chars",
   "evidence": "Code fragment",
-  "logic": { "solid": 0-5, "modularity": 0-5, "patterns": [] },
+  "logic": { "solid": 0-5, "modularity": 0-5, "patterns": ["Pattern1", "Pattern2"] },
   "knowledge": { "clarity": 0-5, "discipline": 0-5, "depth": 0-5 },
-  "signals": { "semantic": 0-5, "resilience": 0-5, "resources": 0-5, "auditability": 0-5, "domain_fidelity": 0-5 }
+  "signals": { "semantic": 0-5, "resilience": 0-5, "resources": 0-5, "auditability": 0-5, "domain_fidelity": 0-5 },
+  "semantic": {
+     "business_context": "String",
+     "design_tradeoffs": ["String"],
+     "dependencies": { "frameworks": ["String"], "maturity": "Stable/Legacy/Bleeding" }
+  },
+  "dimensions": {
+     "social": 0-5,
+     "security": 0-5,
+     "testability": 0-5
+  }
 }`;
     }
 
@@ -137,9 +145,31 @@ You must respond with:
                         domain_fidelity: { type: "integer" }
                     },
                     required: ["semantic", "resilience", "resources", "auditability", "domain_fidelity"]
+                },
+                semantic: {
+                    type: "object",
+                    properties: {
+                        business_context: { type: "string" },
+                        design_tradeoffs: { type: "array", items: { type: "string" } },
+                        dependencies: {
+                            type: "object",
+                            properties: {
+                                frameworks: { type: "array", items: { type: "string" } },
+                                maturity: { type: "string" }
+                            }
+                        }
+                    }
+                },
+                dimensions: {
+                    type: "object",
+                    properties: {
+                        social: { type: "integer" },
+                        security: { type: "integer" },
+                        testability: { type: "integer" }
+                    }
                 }
             },
-            required: ["thought", "domain", "confidence", "complexity", "summary", "evidence", "logic", "knowledge", "signals"]
+            required: ["thought", "domain", "confidence", "complexity", "summary", "evidence", "logic", "knowledge", "signals", "semantic", "dimensions"]
         };
     }
 
@@ -165,6 +195,9 @@ You must respond with:
                 const logic = data.logic || data.metrics || {};
                 const knowledge = data.knowledge || { clarity: 0, discipline: 0, depth: 0 };
                 const signals = data.signals || { semantic: 0, resilience: 0, resources: 0, auditability: 0, domain_fidelity: 0 };
+                // NEW: Capture semantic and dimensions
+                const semantic = data.semantic || {};
+                const dimensions = data.dimensions || {};
 
                 const cappedLogic = this._applyProgrammaticCaps(data.domain, data.summary || "", data.thought || "", logic, filePath);
 
@@ -179,7 +212,9 @@ You must respond with:
                         metadata: {
                             ...cappedLogic,
                             knowledge,
-                            signals
+                            signals,
+                            semantic,
+                            dimensions
                         },
                         thought: data.thought
                     }

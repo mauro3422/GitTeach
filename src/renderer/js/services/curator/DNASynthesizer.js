@@ -59,9 +59,28 @@ export class DNASynthesizer {
                     },
                     required: ["logic_integrity", "knowledge_integrity", "details"]
                 },
-                verdict: { type: "string" }
+                verdict: { type: "string" },
+                // NEW: Tech Radar & Extended Metadata
+                tech_radar: {
+                    type: "object",
+                    properties: {
+                        adopt: { type: "array", items: { type: "string" } },
+                        trial: { type: "array", items: { type: "string" } },
+                        assess: { type: "array", items: { type: "string" } },
+                        hold: { type: "array", items: { type: "string" } }
+                    }
+                },
+                extended_metadata: {
+                    type: "object",
+                    properties: {
+                        social_score: { type: "number" },
+                        security_score: { type: "number" },
+                        testability_score: { type: "number" },
+                        dominant_stack_maturity: { type: "string" }
+                    }
+                }
             },
-            required: ["thought", "bio", "traits", "distinctions", "signature_files", "code_health", "verdict"]
+            required: ["thought", "bio", "traits", "distinctions", "signature_files", "code_health", "verdict", "tech_radar"]
         };
     }
 
@@ -74,7 +93,7 @@ export class DNASynthesizer {
      * @param {number} curatedCount - Curated insights count
      * @returns {string} Full synthesis prompt
      */
-    buildSynthesisPrompt(username, thematicAnalyses, stats, rawCount, curatedCount, holisticMetrics = null) {
+    buildSynthesisPrompt(username, thematicAnalyses, stats, rawCount, curatedCount, holisticMetrics = null, healthReport = null) {
         // LFM2 Standard: XML Fencing for clear context separation
         return `
 <system_role>
@@ -111,6 +130,17 @@ CONSISTENCY_SCORE: ${holisticMetrics ? holisticMetrics.consistency_score : 'N/A'
 EVOLUTION_RATE: ${holisticMetrics ? holisticMetrics.evolution_rate : 'N/A'}
 - Definition: Quality trajectory over time.
 [/HOLISTIC_METRICS]
+
+[EXTENDED_METRICS]
+${healthReport && healthReport.extended_metadata ? `
+SOCIAL_COLLAB: ${healthReport.extended_metadata.dimensions.social} (0-5)
+SECURITY_POSTURE: ${healthReport.extended_metadata.dimensions.security} (0-5)
+TESTING_MATURITY: ${healthReport.extended_metadata.dimensions.testability} (0-5)
+TOP_CONTEXTS: ${healthReport.extended_metadata.semantic.top_contexts.join(', ')}
+TOP_FRAMEWORKS: ${healthReport.extended_metadata.semantic.top_frameworks.join(', ')}
+STACK_MATURITY: ${healthReport.extended_metadata.semantic.dominant_maturity}
+` : 'N/A'}
+[/EXTENDED_METRICS]
 </context>
 
 <task>
@@ -125,6 +155,7 @@ Synthesize the 'Technical DNA' JSON object using the DUAL-TRACK PROTOCOL.
 2. **Holistic Integration**: You MUST mention the Versatility and Evolution in the 'bio'.
 3. **Chain-of-Thought**: You MUST generate a 'thought' field FIRST, explaining your reasoning.
 4. **Distinctions**: Award badges based on Seniority Signals.
+5. **Tech Radar**: Categorize detected frameworks into Adopt/Trial/Assess/Hold based on STACK_MATURITY and TOP_FRAMEWORKS.
 </constraints>
 
 <output_format>
@@ -146,7 +177,7 @@ JSON Object only. Starts with '{'.
     async synthesize(username, thematicAnalyses, stats, traceabilityMap, rawCount, curatedCount, healthReport = null, holisticMetrics = null) {
         Logger.reducer('Synthesizing Developer DNA with HIGH FIDELITY...');
 
-        const prompt = this.buildSynthesisPrompt(username, thematicAnalyses, stats, rawCount, curatedCount, holisticMetrics);
+        const prompt = this.buildSynthesisPrompt(username, thematicAnalyses, stats, rawCount, curatedCount, holisticMetrics, healthReport);
 
         // Grounding instruction for Synthesizer
         let scoringInstruction = "";
@@ -208,6 +239,16 @@ Score = (LOGIC_AVG * 20) or (KNOWLEDGE_AVG * 20).`;
                         versatility: parseFloat(holisticMetrics.versatility_index) || 0,
                         consistency: parseFloat(holisticMetrics.consistency_score) || 0,
                         evolution: holisticMetrics.evolution_rate
+                    };
+                }
+
+                // NEW: Map Extended Metadata to DNA root
+                if (healthReport.extended_metadata) {
+                    dna.extended_metadata = {
+                        social_score: parseFloat(healthReport.extended_metadata.dimensions.social) || 0,
+                        security_score: parseFloat(healthReport.extended_metadata.dimensions.security) || 0,
+                        testability_score: parseFloat(healthReport.extended_metadata.dimensions.testability) || 0,
+                        dominant_stack_maturity: healthReport.extended_metadata.semantic.dominant_maturity
                     };
                 }
             }

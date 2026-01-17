@@ -28,7 +28,15 @@ export class MetricRefinery {
             complexity: 0,
             compCount: 0,
             patterns: new Map(),
-            domainCounts: new Map()
+            domainCounts: new Map(),
+            // NEW: Extended Metadata Aggregators
+            dimensions: { social: 0, security: 0, testability: 0, count: 0 },
+            semantic: {
+                contexts: new Map(), // Frequency map for business contexts
+                frameworks: new Map(),
+                maturities: new Map(),
+                tradeoffs: new Map()
+            }
         };
 
         nodes.forEach(node => {
@@ -63,6 +71,38 @@ export class MetricRefinery {
                 totals.signals.count++;
             }
 
+            // 3b. Multidimensional Metrics (New)
+            const d = m.dimensions || {};
+            if (d.social !== undefined) {
+                totals.dimensions.social += d.social || 0;
+                totals.dimensions.security += d.security || 0;
+                totals.dimensions.testability += d.testability || 0;
+                totals.dimensions.count++;
+            }
+
+            // 3c. Semantic Aggregation (New)
+            const sem = m.semantic || {};
+            if (sem.business_context) {
+                const ctx = sem.business_context;
+                totals.semantic.contexts.set(ctx, (totals.semantic.contexts.get(ctx) || 0) + 1);
+            }
+            if (sem.design_tradeoffs && Array.isArray(sem.design_tradeoffs)) {
+                sem.design_tradeoffs.forEach(t => {
+                    totals.semantic.tradeoffs.set(t, (totals.semantic.tradeoffs.get(t) || 0) + 1);
+                });
+            }
+            if (sem.dependencies) {
+                if (sem.dependencies.maturity) {
+                    const mat = sem.dependencies.maturity;
+                    totals.semantic.maturities.set(mat, (totals.semantic.maturities.get(mat) || 0) + 1);
+                }
+                if (sem.dependencies.frameworks && Array.isArray(sem.dependencies.frameworks)) {
+                    sem.dependencies.frameworks.forEach(f => {
+                        totals.semantic.frameworks.set(f, (totals.semantic.frameworks.get(f) || 0) + 1);
+                    });
+                }
+            }
+
             // 4. Complexity (Unified)
             if (node.params && node.params.complexity !== undefined) {
                 totals.complexity += Math.max(0, node.params.complexity);
@@ -85,7 +125,14 @@ export class MetricRefinery {
         const logDenom = totals.logic.count || 1;
         const knowDenom = totals.knowledge.count || 1;
         const sigDenom = totals.signals.count || 1;
+        const dimDenom = totals.dimensions.count || 1;
         const compDenom = totals.compCount || 1;
+
+        // Helper for map sorting
+        const getTopK = (map, k = 3) => [...map.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, k)
+            .map(e => e[0]);
 
         const report = {
             logic_health: {
@@ -112,6 +159,20 @@ export class MetricRefinery {
                 status: this._getVolumeStatus(nodes.length, (nodes.length / (totalFilesScanned || 1)) * 100)
             },
             domains: Object.fromEntries(totals.domainCounts),
+            // NEW: Extended Metadata Report
+            extended_metadata: {
+                dimensions: {
+                    social: (totals.dimensions.social / dimDenom).toFixed(2),
+                    security: (totals.dimensions.security / dimDenom).toFixed(2),
+                    testability: (totals.dimensions.testability / dimDenom).toFixed(2)
+                },
+                semantic: {
+                    top_contexts: getTopK(totals.semantic.contexts, 3),
+                    top_frameworks: getTopK(totals.semantic.frameworks, 5),
+                    dominant_maturity: getTopK(totals.semantic.maturities, 1)[0] || "Unknown",
+                    common_tradeoffs: getTopK(totals.semantic.tradeoffs, 3)
+                }
+            },
             timestamp: new Date().toISOString()
         };
 
@@ -145,6 +206,15 @@ export class MetricRefinery {
             topPatterns: [],
             volume: { analyzedFiles: 0, totalFiles: 0, coverage: '0%', status: 'EMPTY' },
             domains: {},
+            extended_metadata: {
+                dimensions: { social: "0.00", security: "0.00", testability: "0.00" },
+                semantic: {
+                    top_contexts: [],
+                    top_frameworks: [],
+                    dominant_maturity: "Unknown",
+                    common_tradeoffs: []
+                }
+            },
             timestamp: new Date().toISOString()
         };
     }

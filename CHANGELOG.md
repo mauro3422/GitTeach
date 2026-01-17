@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.11.0-MetadataRevolution] - 2026-01-16
+### 🧠 Semantic & Multidimensional Identity
+- **Rich Semantic Metadata**: Workers now detect `business_context`, `design_tradeoffs`, and `stack_ecology` (tech version/maturity).
+- **Multidimensional Metrics**: Aggregation of `social`, `security` (defensive posture), and `testability` metrics.
+- **Dependency Ecology**: Automated mapping of framework maturity and tech adoption.
+- **Tech Radar**: Implementation of `tech_radar` in Technical DNA (`adopt`, `trial`, `assess`, `hold`).
+- **Extended Profile**: Final `technical_identity.json` now includes `extended_metadata` with holistic human/team scores.
+- **Eye & Brain Upgrade**: Full update of `WorkerPromptBuilder`, `MetricRefinery`, and `DNASynthesizer`.
+
 ## [2.10.0-TraceEvolution] - 2026-01-16
 ### 🧬 Identity Evolution & Deep Metrics
 - **Context Evolution Logging**: Implementación de `identity_evolution.jsonl` en `mock_persistence`. Captura instantáneas del `technical_identity` evolutivo en tiempo real.
