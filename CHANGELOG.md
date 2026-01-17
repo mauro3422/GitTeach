@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.16.0] - Prompt Centralization - 2026-01-16
+### Added
+- **Centralized Prompts Directory**: Created `src/renderer/js/prompts/` structure:
+    - `/workers/`: `AnalysisPrompts.js` & `ResponseSchema.js` (Code Analysis).
+    - `/chat/`: `PersonaPrompts.js` (Chat Persona).
+    - `/curator/`: `SynthesisPrompts.js` (DNA Synthesis).
+
+### Refactored
+- **WorkerPromptBuilder**: Delegated prompt generation to `AnalysisPrompts` and response schema to `ResponseSchema`.
+- **ChatPromptBuilder**: Delegated persona logic to `PersonaPrompts`.
+- **DNAPromptBuilder**: Delegated synthesis template logic to `SynthesisPrompts`.
+- **Deleted**: `PromptTemplateManager.js` (Obsolete, Logic split between `ResponseParser` and `ResponseSchema`).
+
 ## [2.15.0-DeepModularization] - 2026-01-16
 ### 🏗️ Phase 2: Refactorización Profunda (Metric & Worker Ecosystem)
 - **Descomposición de `WorkerPromptBuilder`**:

@@ -9,6 +9,7 @@
  * - Validate language integrity and provide warnings
  */
 import { FileClassifier } from '../../utils/fileClassifier.js';
+import { AnalysisPrompts } from '../../prompts/workers/AnalysisPrompts.js';
 
 export class UserPromptBuilder {
     /**
@@ -56,12 +57,10 @@ export class UserPromptBuilder {
      * @returns {string} Batch prompt
      */
     buildBatchPrompt(repo, items) {
-        let userPrompt = `<project_context>\nAnalyze these files from repository: ${repo}\n</project_context>\n\n<target_files>\n`;
-        items.forEach((item) => {
-            userPrompt += `\n--- FILE: ${item.path} ---\n\`\`\`\n${item.content.substring(0, 800)}\n\`\`\`\n`;
+        return AnalysisPrompts.formatBatchFilesPrompt({
+            repo: repo,
+            files: items.map(item => `\n--- FILE: ${item.path} ---\n\`\`\`\n${item.content.substring(0, 800)}\n\`\`\``).join('\n')
         });
-        userPrompt += `</target_files>\n\nIdentify the synergy between these files and what they demonstrate about the developer:`;
-        return userPrompt;
     }
 
     /**
@@ -73,9 +72,14 @@ export class UserPromptBuilder {
      * @returns {string} Single file prompt
      */
     buildSingleFilePrompt(repo, item, domainHint, langWarning) {
-        const hintLine = domainHint ? `SUGGESTED DOMAIN: ${domainHint}\n` : '';
-        const userPrompt = `<project_context>\n${langWarning}${hintLine}Repository: ${repo}\n</project_context>\n\n<target_file PATH="${item.path}">\n\`\`\`\n${item.content.substring(0, 3000)}\n\`\`\`\n</target_file>\n\nTell me what it demonstrates about the developer using the Evidence-First protocol:`;
-        return userPrompt;
+        return AnalysisPrompts.formatSingleFilePrompt({
+            repo: repo,
+            path: item.path,
+            code: item.content.substring(0, 3000),
+            domainHint: domainHint,
+            langWarning: langWarning,
+            hintLine: domainHint ? `SUGGESTED DOMAIN: ${domainHint}\n` : ''
+        });
     }
 
     /**

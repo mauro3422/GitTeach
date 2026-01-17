@@ -9,7 +9,7 @@
  */
 import { SystemPromptBuilder } from './SystemPromptBuilder.js';
 import { UserPromptBuilder } from './UserPromptBuilder.js';
-import { PromptTemplateManager } from './PromptTemplateManager.js';
+import { ResponseSchema } from '../../prompts/workers/ResponseSchema.js';
 import { ResponseParser } from './ResponseParser.js';
 
 export class WorkerPromptBuilder {
@@ -17,7 +17,6 @@ export class WorkerPromptBuilder {
         // Initialize specialized modules
         this.systemBuilder = new SystemPromptBuilder();
         this.userBuilder = new UserPromptBuilder();
-        this.templateManager = new PromptTemplateManager();
         this.responseParser = new ResponseParser();
     }
 
@@ -43,7 +42,7 @@ export class WorkerPromptBuilder {
      * @returns {Object} Response schema
      */
     getResponseSchema() {
-        return this.templateManager.getResponseSchema();
+        return ResponseSchema.WORKER_ANALYSIS_SCHEMA;
     }
 
     /**

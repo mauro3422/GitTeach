@@ -1,6 +1,6 @@
 /**
- * PromptTemplates - Static prompt templates and constants
- * Extracted from WorkerPromptBuilder to centralize static content
+ * AnalysisPrompts - Static prompt templates and constants for Code Analysis
+ * Centralized prompt storage for WorkerPromptBuilder
  *
  * Responsibilities:
  * - Store static SYSTEM_PROMPT constant
@@ -8,7 +8,7 @@
  * - Provide template management utilities
  */
 
-export class PromptTemplates {
+export class AnalysisPrompts {
     /**
      * System prompt constant for AI code analysis
      */
