@@ -8,6 +8,7 @@
  * - Manage recent findings buffer
  */
 import { Logger } from '../../utils/logger.js';
+import { AIService } from '../aiService.js';
 
 export class RepoContextManager {
     constructor() {
@@ -60,25 +61,21 @@ export class RepoContextManager {
 
         // Adaptive Compaction: If we have enough recent findings, merge them into Golden Knowledge
         if (ctx.recentFindings.length >= 10 && !ctx.compactionInProgress) {
-            this.runCompaction(repoName, aiService);
+            this.runCompaction(repoName);
         }
     }
 
     /**
-     * Internal: Run compaction without blocking the worker
+     * Internal: Run compaction without blocking the worker (Now on CPU)
      */
-    async runCompaction(repoName, aiService) {
+    async runCompaction(repoName) {
         const ctx = this.repoContexts.get(repoName);
         ctx.compactionInProgress = true;
 
         // Non-blocking: yield to event loop
         setTimeout(async () => {
             try {
-                Logger.worker('POOL', `[${repoName}] Compacting technical memory (${ctx.recentFindings.length} files)...`);
-
-                const systemPrompt = `You are a TECHNICAL KNOWLEDGE SYNTHESIZER. 
-                Your goal is to merge current knowledge with new findings into a single, DENSE Technical Profile.
-                Preserve architectural patterns, key file roles, and technical evidence.`;
+                Logger.worker('POOL', `[${repoName}] Compacting technical memory on CPU (${ctx.recentFindings.length} files)...`);
 
                 const userPrompt = `REPO: ${repoName}
                 EXISTING GOLDEN KNOWLEDGE:
@@ -89,7 +86,8 @@ export class RepoContextManager {
 
                 Synthesize into a short, DENSE paragraph (Max 120 words) representing the accumulated architectural understanding:`;
 
-                const compacted = await aiService.callAI(systemPrompt, userPrompt, 0.1);
+                // Use CPU server to avoid blocking GPU workers
+                const compacted = await AIService.callAI_CPU('Compaction', userPrompt, 0.1);
 
                 // Atomically update
                 ctx.goldenKnowledge = compacted;

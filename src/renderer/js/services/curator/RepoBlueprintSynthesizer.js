@@ -87,7 +87,8 @@ ${context}
 GENERATE BLUEPRINT JSON:`;
 
         try {
-            const response = await AIService.callAI(systemPrompt, userPrompt, 0.1, 'json_object', null, AISlotPriorities.BACKGROUND);
+            // Use CPU server to avoid blocking GPU workers
+            const response = await AIService.callAI_CPU(systemPrompt, userPrompt, 0.1, 'json_object', null);
             const data = JSON.parse(response);
             return {
                 thought: data.thought || "Analysis of repository patterns.",

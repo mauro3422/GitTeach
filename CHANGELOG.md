@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.24.0] - Full CPU Offload - 2026-01-18
+### 🚀 Complete GPU Liberation
+- **Compaction → CPU**: Knowledge compaction now runs on CPU (8002), not competing with workers.
+- **DNASynthesizer → CPU**: Final DNA synthesis runs on CPU, freeing GPU for chat.
+- **RepoBlueprintSynthesizer → CPU**: Repo blueprint generation offloaded to CPU.
+
+### 📊 Final Distribution
+| Server | Components |
+|--------|------------|
+| GPU (8000) | Workers (3) + Chat (1) |
+| CPU (8002) | Mappers + Compaction + DNASynth + Blueprint |
+| CPU (8001) | Embeddings |
+
 ## [2.23.0] - Incremental Mappers per Repo - 2026-01-18
 ### 🚀 CPU Parallelism Revolution
 - **Per-Repo Thematic Mapping**: Mappers now execute when each repo completes, not at the end.

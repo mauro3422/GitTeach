@@ -143,7 +143,7 @@ export class DNASynthesizer {
      * @returns {Promise<Object>} { dna, traceability_map }
      */
     async synthesize(username, thematicAnalyses, stats, traceabilityMap, rawCount, curatedCount, healthReport = null, holisticMetrics = null) {
-        Logger.reducer('Synthesizing Developer DNA with HIGH FIDELITY...');
+        Logger.reducer('Synthesizing Developer DNA on CPU with HIGH FIDELITY...');
 
         // COMPRESSION GATE: Ensure thematic reports are within safety limits (4k each approx)
         const { TaskDivider } = await import('../TaskDivider.js');
@@ -167,7 +167,8 @@ export class DNASynthesizer {
         const scoringInstruction = SynthesisPrompts.SCORING_INSTRUCTION;
         const schema = this.schemaValidator.getDNASchema();
 
-        const rawResponse = await AIService.callAI(`${prompt}\n${scoringInstruction}`, "GENERATE TECHNICAL DNA OBJECT NOW.", 0.1, 'json_object', schema, AISlotPriorities.BACKGROUND);
+        // Use CPU server to avoid blocking GPU workers/chat
+        const rawResponse = await AIService.callAI_CPU(`${prompt}\n${scoringInstruction}`, "GENERATE TECHNICAL DNA OBJECT NOW.", 0.1, 'json_object', schema);
 
         if (!rawResponse || (typeof rawResponse === 'object' && rawResponse.error)) {
             const errorMsg = rawResponse?.error || 'Unknown AI error';
