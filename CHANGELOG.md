@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.26.0] - Incremental Identity Updates (Critical Fix) - 2026-01-18
+### 🚨 Critical Bug Fix
+- **FIXED**: `StreamingHandler.updateGlobalIdentity` was empty (only console.log)!
+- User context was NEVER updated during streaming - now it evolves constantly.
+
+### 🔄 Implementation
+- Connected `updateGlobalIdentity` → `GlobalIdentityRefiner.refineGlobalIdentity`
+- Identity updates incrementally as each repo completes
+- Chat session context (`AIService.setSessionContext`) updated with fresh data
+- Added `_buildSessionContextFromIdentity` helper for chat context
+
+### 📊 Impact
+| Before | After |
+|--------|-------|
+| Identity updated ONLY at final synthesis | Identity evolves constantly |
+| Chat had stale context during analysis | Chat has fresh context |
+| "Hormiga" updates = broken | "Hormiga" updates = working ✅ |
+
 ## [2.25.0] - Worker Distribution & Gatekeeper Fix - 2026-01-18
 ### 🔄 Flow Optimization
 - **Worker Load Balancing**: Workers now distribute across different repos initially instead of all working on the same repo.

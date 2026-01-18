@@ -205,12 +205,51 @@ export class StreamingHandler {
     }
 
     /**
-     * Update global identity with streaming context
+     * Update global identity with streaming context (INCREMENTAL)
+     * This is the key to "hormiga" updates - the user context evolves constantly
      */
     async updateGlobalIdentity(username, ctx) {
-        // This would delegate to GlobalIdentityUpdater
-        console.info('[StreamingHandler] Global identity update triggered');
-        // Implementation would go here
+        try {
+            const { GlobalIdentityRefiner } = await import('./GlobalIdentityRefiner.js');
+            const refiner = new GlobalIdentityRefiner();
+
+            Logger.info('StreamingHandler', `Refining global identity for ${username}...`);
+
+            // Refine identity using current context (blueprints + thematic analyses)
+            const refinedIdentity = await refiner.refineGlobalIdentity(username, ctx);
+
+            if (refinedIdentity) {
+                Logger.mapper(`Global identity updated incrementally (${ctx.curatedCount} insights incorporated)`);
+
+                // Update session context for chat (so chat has fresh data)
+                const { AIService } = await import('../aiService.js');
+                if (AIService.setSessionContext) {
+                    const sessionCtx = this._buildSessionContextFromIdentity(refinedIdentity);
+                    AIService.setSessionContext(sessionCtx);
+                }
+            }
+        } catch (e) {
+            Logger.warn('StreamingHandler', `Incremental identity update failed: ${e.message}`);
+        }
+    }
+
+    /**
+     * Build session context from refined identity for chat
+     */
+    _buildSessionContextFromIdentity(identity) {
+        if (!identity) return '';
+
+        const traits = identity.traits?.slice(0, 5).map(t => `- ${t.name}: ${t.score}/10`).join('\n') || '';
+        const bio = identity.bio || 'Developer profile in progress...';
+
+        return `[CURRENT DEVELOPER PROFILE]
+${bio}
+
+[TOP SKILLS]
+${traits}
+
+[VERDICT]
+${identity.verdict || 'Analysis in progress...'}`;
     }
 
     /**
