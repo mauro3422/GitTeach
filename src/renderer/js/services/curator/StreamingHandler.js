@@ -94,14 +94,18 @@ export class StreamingHandler {
 
                 // GATEKEEPER IMPLEMENTATION (Optimization)
                 // Only refine Global Identity if "Critical Mass" is reached
-                // Rule: At least 2 repos with > 2 analyzed files
+                // IMPROVED: Either 1 repo with 5+ files OR 2 repos with 2+ files
                 const allBlueprints = await CacheRepository.getAllRepoBlueprints();
                 const decentRepos = allBlueprints.filter(bp => bp.volume && bp.volume.analyzedFiles > 2).length;
+                const richRepos = allBlueprints.filter(bp => bp.volume && bp.volume.analyzedFiles >= 5).length;
 
-                if (decentRepos < 2) {
-                    console.info('[StreamingHandler] Global Synthesis Skipped (Gatekeeper: ${decentRepos}/2 decent repos)');
+                const criticalMassReached = richRepos >= 1 || decentRepos >= 2;
+
+                if (!criticalMassReached) {
+                    Logger.info('StreamingHandler', `Global Synthesis Skipped (Gatekeeper: ${decentRepos} decent, ${richRepos} rich repos)`);
                 } else {
                     // 3. Update Global Identity (Incremental)
+                    Logger.info('StreamingHandler', `Critical mass reached! Updating Global Identity...`);
                     const ctx = this._buildStreamingContext();
                     await this.updateGlobalIdentity(username, ctx);
                 }

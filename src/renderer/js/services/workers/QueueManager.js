@@ -60,9 +60,10 @@ export class QueueManager {
      * Get next item or batch of items to process.
      * Prioritizes:
      * 0. HIGHEST PRIORITY (Ascending order of priority field) - handled by sort on enqueue
-     * 1. Files with name affinity to last processed (e.g., config -> dependents)
-     * 2. Files from the same repository (stickiness)
-     * 3. Batching of small files
+     * 1. REPO DISTRIBUTION: Ensure workers spread across different repos initially
+     * 2. Files with name affinity to last processed (e.g., config -> dependents)
+     * 3. Files from the same repository (stickiness)
+     * 4. Batching of small files
      *
      * @param {number} workerId - ID of the requesting worker
      * @param {string|null} claimedRepo - Currently claimed repo by this worker
@@ -81,6 +82,37 @@ export class QueueManager {
                 return { isWaiting: true };
             }
             return null;
+        }
+
+        // NEW: REPO DISTRIBUTION - Force workers to spread across repos initially
+        // Track which repos have active workers
+        if (!this.workerRepoMap) this.workerRepoMap = new Map();
+        if (!this.repoWorkerCount) this.repoWorkerCount = new Map();
+
+        // Get unique repos with pending items
+        const pendingRepos = [...new Set(pendingItems.map(i => i.repo))];
+
+        // If worker doesn't have a claimed repo, assign to least-loaded repo
+        if (!claimedRepo && pendingRepos.length > 1) {
+            // Find repo with fewest active workers
+            let minWorkers = Infinity;
+            let targetRepo = null;
+
+            for (const repo of pendingRepos) {
+                const workerCount = this.repoWorkerCount.get(repo) || 0;
+                if (workerCount < minWorkers) {
+                    minWorkers = workerCount;
+                    targetRepo = repo;
+                }
+            }
+
+            if (targetRepo) {
+                // Assign this worker to the least-loaded repo
+                this.workerRepoMap.set(workerId, targetRepo);
+                this.repoWorkerCount.set(targetRepo, (this.repoWorkerCount.get(targetRepo) || 0) + 1);
+                claimedRepo = targetRepo;
+                Logger.worker('POOL', `[Worker ${workerId}] Assigned to repo: ${targetRepo} (Load balancing)`);
+            }
         }
 
         // URGENT OVERRIDE: If we have URGENT items (0) and current claimedRepo is lower priority, 

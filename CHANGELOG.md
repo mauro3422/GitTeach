@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.25.0] - Worker Distribution & Gatekeeper Fix - 2026-01-18
+### 🔄 Flow Optimization
+- **Worker Load Balancing**: Workers now distribute across different repos initially instead of all working on the same repo.
+- **Improved Gatekeeper**: Critical mass now requires either:
+  - 1 repo with 5+ analyzed files, OR
+  - 2 repos with 2+ analyzed files
+- Prevents bottleneck where all workers work on one repo while others wait.
+
+### 🐛 Bug Fixes
+- Fixed workers "stickiness" causing all workers to cluster on a single large repo.
+- Gatekeeper no longer blocks synthesis when user has few but content-rich repos.
+
 ## [2.24.0] - Full CPU Offload - 2026-01-18
 ### 🚀 Complete GPU Liberation
 - **Compaction → CPU**: Knowledge compaction now runs on CPU (8002), not competing with workers.
