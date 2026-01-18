@@ -12,7 +12,8 @@ GitTeach es una aplicación de escritorio (Electron) diseñada para ayudar a los
 - **Memoria Jerárquica**: ADN Técnico, Identidad Técnica, y Memoria Conversacional
 - **Pipeline de Análisis Avanzado**: Scanning → Processing → Curation → Synthesis
 - **True Streaming**: Actualización de perfil en tiempo real (Procesamiento Parcial y Threshold).
-- **Arquitectura SOLID**: Refactor completo para máxima mantenibilidad
+- **Dual-Track Metrics**: Evaluación separada de **Salud de Lógica** (Rigor) y **Salud de Conocimiento** (Elocuencia).
+- **Triple-Server Architecture**: GPU (Chat) + CPU (Curation/Synthesis) + CPU (Embeddings) para paralelismo total.
 - **Sistema de Seguridad**: Firewall integrado y aislamiento de procesos
 - **Tracer Engine v2.1**: Auditoría forense completa del sistema
 
@@ -40,9 +41,10 @@ GitTeach es una aplicación de escritorio (Electron) diseñada para ayudar a los
 *   **Chain of Thought:** IA que razona antes de ejecutar acciones.
 *   **Sistema de Herramientas:** Tools inteligentes (`query_memory`, `read_file`, `analyze_code`, etc.).
 *   **Arquitectura Cortex:** Separación entre razonamiento estratégico y comunicación natural.
-*   **Arquitectura Dual-Server:**
-    *   **Chat (GPU):** LFM 2.5 para respuestas conversacionales.
-    *   **Vectores (CPU):** Nomic Embed Text v1.5 para memoria semántica.
+*   **Arquitectura Triple-Server**:
+    *   **Chat (GPU - 8000):** LFM 2.5 para respuestas conversacionales rápidas.
+    *   **Inteligencia (CPU - 8002):** Mappers y Síntesis de ADN sin el bloqueo del GPU.
+    *   **Vectores (CPU - 8001):** Nomic Embed Text v1.5 para memoria semántica.
 *   **Memoria Jerárquica:**
     *   **Hallazgos:** Vectores semánticos de código analizado.
     *   **ADN Técnico:** Curación profunda de patrones de desarrollo.

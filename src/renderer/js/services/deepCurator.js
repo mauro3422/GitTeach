@@ -21,11 +21,9 @@ import { MetricRefinery } from './curator/MetricRefinery.js';
 import { StreamingHandler } from './curator/StreamingHandler.js';
 import { GlobalIdentityUpdater } from './curator/GlobalIdentityUpdater.js';
 import { SynthesisOrchestrator } from './curator/SynthesisOrchestrator.js';
-import { StreamingRepoProcessor } from './curator/StreamingRepoProcessor.js';
-import { BlueprintGenerator } from './curator/BlueprintGenerator.js';
-import { GlobalIdentityRefiner } from './curator/GlobalIdentityRefiner.js';
 import { TaskDivider } from './TaskDivider.js';
 import { AISlotPriorities } from './ai/AISlotManager.js';
+import { SynthesisPrompts } from '../prompts/curator/SynthesisPrompts.js';
 
 export class DeepCurator {
     constructor(debugLogger = null) {
@@ -134,32 +132,12 @@ export class DeepCurator {
                 ? `\n\n[NOTE] ${remainingCount} additional repositories were analyzed but omitted for context efficiency.`
                 : "";
 
-            prompt = `You are an ELITE TECHNICAL CURATOR. Your goal is to transform Worker-analyzed code into an IMPACT PROFILE for ${username}.
+            prompt = `${SynthesisPrompts.CURATOR_IDENTITY_PROMPT}
             
+            USER: ${username}
             RAW DATA BY REPOSITORY (STRICTLY TRUTHFUL):
             ${structuredFindings}
-            ${additionalContext}
-            
-            CURATION INSTRUCTIONS:
-            1. **TECHNICAL IDENTITY**: Based on all repositories, define the developer's essence.
-            2. **FORENSIC EVIDENCE (CRITICAL)**: DON'T use empty phrases. If you say they know Python, cite the file where you saw it.
-            3. **DETECT REAL PROJECTS**: Separate school assignments from real Game Engines or libraries.
-
-            FORMAT RULES (JSON ONLY):
-            {
-              "bio": "3-4 sentence narrative summary highlighting unique strengths.",
-              "traits": [
-                { "name": "Architecture", "score": 0-100, "details": "Brief detail of detected pattern" },
-                { "name": "Habits", "score": 0-100, "details": "Brief detail on quality/naming" },
-                { "name": "Technology", "score": 0-100, "details": "Brief detail on stack/performance" }
-              ],
-              "key_evidences": [
-                 { "file": "path/to/file", "snippet": "Brief code fragment", "insight": "Why this demonstrates skill" }
-              ],
-              "verdict": "Senior/Mid/Junior + Specialty"
-            }
-            
-            Always respond based ONLY on mapper data.`;
+            ${additionalContext}`;
         }
 
         try {
@@ -190,91 +168,13 @@ export class DeepCurator {
         }
     }
 
-    /**
-     * Generates a dense summary of insights to avoid prompt bloating
-     * @private
-     */
-    _generateInsightsSummary(codeInsights) {
-        if (!codeInsights || codeInsights.length === 0) return "No data.";
-
-        return codeInsights.map(f => {
-            const auditCount = f.auditedSnippets ? (Array.isArray(f.auditedSnippets) ? f.auditedSnippets.length : 0) : 0;
-            return `- ${f.repo}: ${auditCount} files audited. Core tech detected.`;
-        }).join('\n');
-    }
-
-    /**
-     * Internal: Generates and persists a "Technical Projection" for each repo
-     * @private
-     * @returns {Promise<Array>} List of generated blueprints
-     */
-    async _generateRepoBlueprints(username, allFindings, globalContext = null) {
-        // This method is deprecated - now handled by identityUpdater.generateRepoBlueprints
-        Logger.info('DeepCurator', 'Using new blueprint generation via identityUpdater...');
-        return await this.identityUpdater.generateRepoBlueprints(username, allFindings);
-    }
-
-    /**
-     * Internal: Re-calculates and persists the Global Identity based on current blueprints
-     * @private
-     */
     async _refineGlobalIdentity(username, ctx) {
-        // This method is deprecated - now handled by identityUpdater.refineGlobalIdentity
-        Logger.info('DeepCurator', 'Using new global identity update via identityUpdater...');
         return await this.identityUpdater.refineGlobalIdentity(username, ctx);
     }
 
-    /**
-     * STREAMING API: Process a single repo immediately after scanning
-     */
     async processStreamingRepo(username, repoName, coordinator, isPartial = false) {
-        // 1. Fetch findings (Prefer Coordinator as it has real-time state, bypassing WorkerPool buffer)
-        let repoFindings = [];
-        if (coordinator) {
-            repoFindings = coordinator.getAllRichSummaries().filter(f => f.repo === repoName);
-        }
-
-        // Fallback to internal state
-        if (repoFindings.length === 0) {
-            repoFindings = this.accumulatedFindings.filter(f => f.repo === repoName);
-        }
-
-        if (repoFindings.length === 0) {
-            Logger.warn('DeepCurator', `[STREAMING] Skipped ${repoName} (No findings available yet)`);
-            return;
-        }
-
-        Logger.info('DeepCurator', `[STREAMING] Processing finished repo: ${repoName} (${repoFindings.length} findings)`);
-
-        try {
-            // 2. Curate & Synthesize Blueprint (Local)
-            const curation = this.identityUpdater.curateFindings(repoFindings);
-            // Use repoFindings (raw) for metrics but curation.validInsights is for thematic summary inside synthesize
-            const blueprint = await this.identityUpdater.synthesizeBlueprint(repoName, curation.validInsights, repoFindings);
-
-            if (blueprint) {
-                this.streamingHandler.incrementTick('blueprints'); // Tick: Blueprint
-                Logger.reducer(`[${repoName}] Blueprint generated (Streaming). Complexity: ${blueprint.metrics.complexity}`);
-                await CacheRepository.persistRepoBlueprint(repoName, blueprint);
-
-                // GATEKEEPER IMPLEMENTATION (Optimization)
-                // Only refine Global Identity if "Critical Mass" is reached
-                // Rule: At least 2 repos with > 2 analyzed files
-                const allBlueprints = await CacheRepository.getAllRepoBlueprints();
-                const decentRepos = allBlueprints.filter(bp => bp.volume && bp.volume.analyzedFiles > 2).length;
-
-                if (decentRepos < 2) {
-                    Logger.info('DeepCurator', `[STREAMING] Global Synthesis Skipped (Gatekeeper: ${decentRepos}/2 decent repos)`);
-                } else {
-                    // 3. Update Global Identity (Incremental)
-                    const ctx = await this._buildStreamingContext();
-                    await this._refineGlobalIdentity(username, ctx);
-                    this.streamingHandler.incrementTick('global_refinements'); // Tick: Refinement
-                }
-            }
-        } catch (e) {
-            Logger.error('DeepCurator', `Streaming process failed for ${repoName}: ${e.message}`);
-        }
+        // Delegate to StreamingHandler (Now supports all logic V4)
+        return await this.streamingHandler.processStreamingRepo(username, repoName, coordinator, isPartial, this.identityUpdater);
     }
 
     /**
@@ -294,42 +194,7 @@ export class DeepCurator {
         }
     }
 
-    /**
-     * Helper to build a REAL context for streaming updates using cached blueprints
-     * NO MORE PLACEHOLDERS - uses actual thematic analysis from completed repos
-     */
     async _buildStreamingContext() {
-        const rawFindings = this.streamingHandler.getAccumulatedFindings();
-        const curationResult = this.synthesisOrchestrator.curateInsights(rawFindings, this.streamingHandler);
-
-        // REAL DATA: Get all blueprints with their thematic analyses
-        let thematicAnalyses = [];
-        try {
-            const allBlueprints = await CacheRepository.getAllRepoBlueprints();
-            thematicAnalyses = allBlueprints
-                .filter(bp => bp.thematicAnalysis)
-                .map(bp => ({
-                    repo: bp.repoName,
-                    architecture: bp.thematicAnalysis.architecture?.analysis || null,
-                    habits: bp.thematicAnalysis.habits?.analysis || null,
-                    stack: bp.thematicAnalysis.stack?.analysis || null
-                }));
-
-            Logger.info('DeepCurator', `Built streaming context with ${thematicAnalyses.length} repos' real thematic data`);
-        } catch (e) {
-            Logger.warn('DeepCurator', `Could not load blueprints for context: ${e.message}`);
-        }
-
-        // Light-weight health report (Use rawFindings for Churn meta)
-        const healthReport = MetricRefinery.refine(rawFindings, 0);
-
-        return {
-            thematicAnalyses,
-            stats: curationResult.stats,
-            traceability_map: curationResult.traceability_map,
-            rawCount: rawFindings.length,
-            curatedCount: curationResult.validInsights.length,
-            healthReport
-        };
+        return await this.streamingHandler._buildStreamingContext();
     }
 }

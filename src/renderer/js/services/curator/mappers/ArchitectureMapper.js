@@ -10,8 +10,10 @@ export class ArchitectureMapper {
 
         STRICT OUTPUT FORMAT (JSON):
         {
-            "analysis": "Markdown report. Cite specific files and patterns. When you mention a finding, you can (optionally) verify if it aligns with the UIDs provided, but focus on the narrative.",
-            "evidence_uids": ["uid1", "uid2"] // Array of strings. Extract the [UID:...] from the most critical insights used in your analysis.
+            "analysis": "Markdown report. Cite specific files and patterns.",
+            "patterns": ["Pattern1", "Pattern2"], // List detected design patterns (e.g. Factory, Observer, etc.)
+            "architectures": ["Architecture1"], // List high-level architectures (e.g. Hexagonal, MVC, Monolith)
+            "evidence_uids": ["uid1", "uid2"] // Extract the [UID:...] from the most critical insights used.
         }
 
         ### GLOBAL HEALTH AUDIT (Mathematical Truth):
@@ -25,21 +27,23 @@ export class ArchitectureMapper {
                 type: "object",
                 properties: {
                     analysis: { type: "string" },
+                    patterns: { type: "array", items: { type: "string" } },
+                    architectures: { type: "array", items: { type: "string" } },
                     evidence_uids: { type: "array", items: { type: "string" } }
                 },
-                required: ["analysis", "evidence_uids"]
+                required: ["analysis", "patterns", "architectures", "evidence_uids"]
             };
 
             // Use CPU endpoint for parallel execution without blocking GPU workers
             const response = await AIService.callAI_CPU('Mapper: Architecture', `${prompt}\n\nINSIGHTS:\n${insights}`, 0.1, 'json_object', schema);
 
             // Fallback if AI returns plain text error or fails schema
-            if (response.error || typeof response === 'string') return { analysis: response.error || response, evidence_uids: [] };
+            if (response.error || typeof response === 'string') return { analysis: response.error || response, patterns: [], architectures: [], evidence_uids: [] };
 
             return response;
 
         } catch (e) {
-            return { analysis: `Architecture Analysis Error: ${e.message}`, evidence_uids: [] };
+            return { analysis: `Architecture Analysis Error: ${e.message}`, patterns: [], architectures: [], evidence_uids: [] };
         }
     }
 }

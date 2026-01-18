@@ -146,6 +146,14 @@ class CacheService {
         await this.db.put(`meta:partitions:${repoName}`, partitions);
     }
 
+    async persistRepoGoldenKnowledge(repoName, data) {
+        await this.db.put(`meta:golden:${repoName}`, data);
+    }
+
+    async getRepoGoldenKnowledge(repoName) {
+        return await this.db.get(`meta:golden:${repoName}`);
+    }
+
     /**
      * Cache Statistics
      */

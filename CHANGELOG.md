@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.31.0] - Structural Audit & Logic Zombie Purge - 2026-01-18
+### 🧹 Technical Debt Removal
+- **Logic Zombie Purge**: Deleted obsolete modules `BlueprintGenerator.js`, `GlobalIdentityRefiner.js`, and `StreamingRepoProcessor.js` to simplify architecture.
+- **Import Cleanup**: Removed all legacy references to deprecated curator components across `DeepCurator` and `GlobalIdentityUpdater`.
+
+### 🚨 Critical Pipeline Fixes
+- **Streaming Context Alignment**: Fixed `StreamingHandler._buildStreamingContext` to properly aggregate thematic layers (Architecture, Habits, Stack) from blueprints, preventing mismatched context in AI prompts.
+- **Metric Refinement Fix**: Corrected `GlobalIdentityUpdater` to rely on the high-fidelity `healthReport` instead of re-calculating from insufficient raw data.
+- **IPC Bridge Restoration**: Re-verified and confirmed all repo-centric persistence methods (Partitions, Blueprints, Findings) are correctly exposed via preload and main handlers.
+
+### 🛡️ Persistence & Integrity
+- **Key Separation verified**: Confirmed total isolation between `meta:identity:[user]` and `meta:profile:[user]` keys in LevelDB.
+- **Persistence Mock verified**: Confirmed Tracer mirroring logic for `/repos` debugging folders is intact.
+
 ## [2.30.0] - Evolution Ticks & System Visibility - 2026-01-18
 ### 🏁 System Load Visibility
 - **Evolution Ticks**: Implemented internal counters for Compactions, Blueprints, and Global Refinements.

@@ -23,7 +23,50 @@ export class HolisticSynthesizer {
             versatility_index: this._calculateVersatility(blueprints),
             consistency_score: this._calculateConsistency(blueprints),
             evolution_rate: this._calculateEvolution(blueprints),
-            domain_dominance: this._calculateDomainDominance(blueprints)
+            domain_dominance: this._calculateDomainDominance(blueprints),
+            inventory: this._calculateInventory(blueprints)
+        };
+    }
+
+    /**
+     * Aggregate most frequent technologies, patterns, and architectures
+     * extracted from all repository blueprints.
+     */
+    _calculateInventory(blueprints) {
+        const inventory = {
+            technologies: new Map(),
+            patterns: new Map(),
+            architectures: new Map(),
+            languages: new Map()
+        };
+
+        blueprints.forEach(bp => {
+            const thematic = bp.thematicAnalysis;
+            if (!thematic) return;
+
+            // Extract from Stack
+            if (thematic.stack) {
+                (thematic.stack.technologies || []).forEach(t => inventory.technologies.set(t, (inventory.technologies.get(t) || 0) + 1));
+                (thematic.stack.languages || []).forEach(l => inventory.languages.set(l, (inventory.languages.get(l) || 0) + 1));
+            }
+
+            // Extract from Architecture
+            if (thematic.architecture) {
+                (thematic.architecture.patterns || []).forEach(p => inventory.patterns.set(p, (inventory.patterns.get(p) || 0) + 1));
+                (thematic.architecture.architectures || []).forEach(a => inventory.architectures.set(a, (inventory.architectures.get(a) || 0) + 1));
+            }
+        });
+
+        // Convert and sort
+        const sortMap = (map) => Array.from(map.entries())
+            .sort((a, b) => b[1] - a[1])
+            .map(([item, count]) => ({ item, count }));
+
+        return {
+            technologies: sortMap(inventory.technologies),
+            patterns: sortMap(inventory.patterns),
+            architectures: sortMap(inventory.architectures),
+            languages: sortMap(inventory.languages)
         };
     }
 

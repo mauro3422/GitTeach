@@ -16,21 +16,25 @@ export class EvolutionManager {
             "core_languages": ["Lang1", "Lang2"],
             "domain": "Primary domain (e.g. Fintech, GameDev)",
             "patterns": ["Pattern1", "Pattern2"],
+            "traits": [{"name": "TraitName", "score": 85, "details": "why..."}],
+            "anomalies": [{"trait": "Pattern", "impact": "High", "evidence": "..."}],
             "evolution_snapshot": "1 sentence describing this specific evolution step."
         }`;
 
         const context = `
         OLD PROFILE:
-        Bio: ${oldProfile.bio}
-        Traits: ${oldProfile.traits.map(t => t.name).join(', ')}
+        Title: ${oldProfile?.title || 'Unknown'}
+        Bio: ${oldProfile?.bio || 'None'}
+        Traits: ${(oldProfile?.traits || []).map(t => `${t.name}(${t.score})`).join(', ')}
 
         NEW DNA EVIDENCE:
         Bio: ${newDNA.bio}
-        Traits: ${newDNA.traits.map(t => t.name).join(', ')}
+        Traits: ${(newDNA.traits || []).map(t => `${t.name}(${t.score})`).join(', ')}
 
-        DETECTED EVOLUTION:
-        New Skills: ${report.newSkills.join(', ')}
-        Score Shifts: ${report.scoreChanges.map(s => `${s.name} ${s.from}->${s.to}`).join(', ')}
+        DETECTED EVOLUTION REPORT:
+        New Skills: ${report.newSkills.length > 0 ? report.newSkills.join(', ') : 'None'}
+        Score Shifts: ${report.scoreChanges.length > 0 ? report.scoreChanges.map(s => `${s.name} ${s.from}->${s.to}`).join(', ') : 'None'}
+        New Anomalies: ${report.newAnomalies.length > 0 ? report.newAnomalies.map(a => `${a.trait}: ${a.impact}`).join(', ') : 'None'}
         `;
 
         try {
@@ -40,11 +44,9 @@ export class EvolutionManager {
 
             return {
                 ...parsed,
-                thought: newDNA.thought, // Preserve high-level reasoning
-                traits: newDNA.traits,
-                anomalies: newDNA.anomalies,
-                code_health: newDNA.code_health, // Preserve Integrity Scores
-                presentation: newDNA.presentation, // Preserve Radar Data
+                thought: newDNA.thought || parsed.thought, // Preserve high-level reasoning
+                code_health: newDNA.code_health, // Preserve Integrity Scores from DNA
+                presentation: newDNA.presentation, // Preserve Radar Data from DNA
                 last_updated: new Date().toISOString()
             };
         } catch (error) {
@@ -62,8 +64,8 @@ export class EvolutionManager {
             domain: "General Software Development",
             patterns: [],
             evolution_snapshot: "Initial snapshot created.",
-            traits: newDNA.traits,
-            anomalies: newDNA.anomalies,
+            traits: newDNA.traits || [],
+            anomalies: newDNA.anomalies || [],
             code_health: newDNA.code_health, // Preserve Integrity Scores
             presentation: newDNA.presentation, // Preserve Radar Data
             last_updated: new Date().toISOString()

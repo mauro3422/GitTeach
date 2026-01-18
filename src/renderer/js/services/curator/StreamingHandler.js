@@ -20,14 +20,12 @@ export class StreamingHandler {
         this.accumulatedFindings = [];
         this.traceabilityMap = {};
 
-        // EVOLUTION TICKS: Monitoring system load and progress
         this.ticks = {
             compaction: 0,
             blueprints: 0,
             global_refinements: 0,
             analyzed_files: 0
         };
-        this.thematicMapper = new ThematicMapper();
     }
 
     /**
@@ -93,7 +91,7 @@ export class StreamingHandler {
     /**
      * STREAMING API: Process a single repo immediately after scanning
      */
-    async processStreamingRepo(username, repoName, coordinator, isPartial = false) {
+    async processStreamingRepo(username, repoName, coordinator, isPartial = false, identityUpdater = null) {
         // 1. Fetch findings (Prefer Coordinator as it has real-time state, bypassing WorkerPool buffer)
         let repoFindings = [];
         if (coordinator) {
@@ -106,24 +104,25 @@ export class StreamingHandler {
         }
 
         if (repoFindings.length === 0) {
-            console.warn('[StreamingHandler] Skipped ${repoName} (No findings available yet)');
+            Logger.warn('StreamingHandler', `[STREAMING] Skipped ${repoName} (No findings available yet)`);
             return;
         }
 
-        console.info('[StreamingHandler] Processing finished repo: ${repoName} (${repoFindings.length} findings)');
+        Logger.info('StreamingHandler', `[STREAMING] Processing repo: ${repoName} (${repoFindings.length} findings)`);
 
         try {
             // 2. Curate & Synthesize Blueprint (Local)
-            const curation = this.curateFindings(repoFindings);
+            // Use the provided identityUpdater (from DeepCurator) or a fallback logic
+            const curation = identityUpdater ? identityUpdater.curateFindings(repoFindings) : this.curateFindings(repoFindings);
             const blueprint = await this.synthesizeBlueprint(username, repoName, curation.validInsights);
 
             if (blueprint) {
-                console.reducer(`[${repoName}] Blueprint generated (Streaming). Complexity: ${blueprint.metrics.complexity}`);
+                this.incrementTick('blueprints');
+                Logger.reducer(`[${repoName}] Blueprint generated (Streaming). Complexity: ${blueprint.metrics.logic?.modularity || 'N/A'}`);
                 await CacheRepository.persistRepoBlueprint(repoName, blueprint);
 
                 // GATEKEEPER IMPLEMENTATION (Optimization)
                 // Only refine Global Identity if "Critical Mass" is reached
-                // IMPROVED: Either 1 repo with 5+ files OR 2 repos with 2+ files
                 const allBlueprints = await CacheRepository.getAllRepoBlueprints();
                 const decentRepos = allBlueprints.filter(bp => bp.volume && bp.volume.analyzedFiles > 2).length;
                 const richRepos = allBlueprints.filter(bp => bp.volume && bp.volume.analyzedFiles >= 5).length;
@@ -132,15 +131,23 @@ export class StreamingHandler {
 
                 if (!criticalMassReached) {
                     Logger.info('StreamingHandler', `Global Synthesis Skipped (Gatekeeper: ${decentRepos} decent, ${richRepos} rich repos)`);
-                } else {
+                } else if (identityUpdater) {
                     // 3. Update Global Identity (Incremental)
                     Logger.info('StreamingHandler', `Critical mass reached! Updating Global Identity...`);
                     const ctx = await this._buildStreamingContext();
-                    await this.updateGlobalIdentity(username, ctx);
+                    await identityUpdater.refineGlobalIdentity(username, ctx);
+                    this.incrementTick('global_refinements');
+
+                    // Broadcast context evolution to chat
+                    const identity = await CacheRepository.getTechnicalIdentity(username);
+                    const { AIService } = await import('../aiService.js');
+                    if (identity && AIService.setSessionContext) {
+                        AIService.setSessionContext(this._buildSessionContextFromIdentity(identity));
+                    }
                 }
             }
         } catch (e) {
-            console.error('[StreamingHandler] Streaming process failed for ${repoName}: ${e.message}');
+            Logger.error('StreamingHandler', `Streaming process failed for ${repoName}: ${e.message}`);
         }
     }
 
@@ -163,76 +170,11 @@ export class StreamingHandler {
         };
     }
 
-    /**
-     * Synthesize a blueprint from curated insights
-     * NOW WITH THEMATIC MAPPING (CPU parallelism)
-     */
     async synthesizeBlueprint(username, repoName, validInsights) {
-        // Base blueprint
-        const blueprint = {
-            repoName,
-            metrics: {
-                complexity: validInsights.length,
-                patterns: ['streaming']
-            },
-            volume: {
-                analyzedFiles: validInsights.length
-            },
-            generatedAt: new Date().toISOString()
-        };
-
-        // INCREMENTAL MAPPING: If enough insights, run thematic mappers (CPU)
-        // Threshold: At least 5 insights to warrant AI analysis
-        if (validInsights.length >= 5) {
-            try {
-                Logger.mapper(`[${repoName}] Running thematic mapping (CPU)...`);
-
-                // TRY TO USE GOLDEN KNOWLEDGE (curated summary) instead of raw findings
-                let mapperInput = validInsights;
-                let usedGoldenKnowledge = false;
-
-                try {
-                    if (typeof window !== 'undefined' && window.cacheAPI?.getRepoGoldenKnowledge) {
-                        const goldenData = await window.cacheAPI.getRepoGoldenKnowledge(repoName);
-                        if (goldenData?.goldenKnowledge) {
-                            // Convert golden knowledge to mapper-compatible format
-                            mapperInput = [{
-                                repo: repoName,
-                                summary: goldenData.goldenKnowledge,
-                                uid: 'golden_curated',
-                                // Include extracted metrics from compaction
-                                metadata: goldenData.metrics || {}
-                            }];
-                            usedGoldenKnowledge = true;
-                            Logger.mapper(`[${repoName}] Using CURATED golden knowledge (Coherence: ${goldenData.metrics?.coherence_score}/10)`);
-
-                            // Attach compaction metrics to blueprint
-                            blueprint.compactionMetrics = goldenData.metrics;
-                        }
-                    }
-                } catch (e) {
-                    Logger.warn('StreamingHandler', `Could not fetch golden knowledge: ${e.message}`);
-                }
-
-                const mapperResults = await this.thematicMapper.executeMapping(username, mapperInput, null);
-
-                // Attach thematic analysis to blueprint
-                blueprint.thematicAnalysis = {
-                    architecture: mapperResults.architecture,
-                    habits: mapperResults.habits,
-                    stack: mapperResults.stack,
-                    performance: mapperResults.performance,
-                    usedGoldenKnowledge // Track if we used curated data
-                };
-
-                Logger.mapper(`[${repoName}] Thematic mapping completed in ${mapperResults.performance?.totalMs || '?'}ms (Golden: ${usedGoldenKnowledge})`);
-            } catch (e) {
-                Logger.warn('StreamingHandler', `Thematic mapping failed for ${repoName}: ${e.message}`);
-                // Blueprint still valid without thematic analysis
-            }
-        }
-
-        return blueprint;
+        // Delegate to the specialized synthesizer (Centralized V4 logic)
+        const { RepoBlueprintSynthesizer } = await import('./RepoBlueprintSynthesizer.js');
+        const synthesizer = new RepoBlueprintSynthesizer();
+        return await synthesizer.synthesize(repoName, validInsights);
     }
 
     /**
@@ -244,22 +186,41 @@ export class StreamingHandler {
         const curationResult = this.curateFindings(rawFindings);
 
         // REAL DATA: Get all blueprints with their thematic analyses
-        let thematicAnalyses = [];
+        const layers = {
+            architecture: { analysis: '', evidence_uids: [] },
+            habits: { analysis: '', evidence_uids: [] },
+            stack: { analysis: '', evidence_uids: [] }
+        };
+
         try {
             const allBlueprints = await CacheRepository.getAllRepoBlueprints();
-            thematicAnalyses = allBlueprints
-                .filter(bp => bp.thematicAnalysis)
-                .map(bp => ({
-                    repo: bp.repoName,
-                    architecture: bp.thematicAnalysis.architecture?.analysis || null,
-                    habits: bp.thematicAnalysis.habits?.analysis || null,
-                    stack: bp.thematicAnalysis.stack?.analysis || null
-                }));
+            allBlueprints.filter(bp => bp.thematicAnalysis).forEach(bp => {
+                const ta = bp.thematicAnalysis;
+                if (ta.architecture?.analysis) {
+                    layers.architecture.analysis += `\n### [${bp.repoName}]\n${ta.architecture.analysis}`;
+                    layers.architecture.evidence_uids.push(...(ta.architecture.evidence_uids || []));
+                }
+                if (ta.habits?.analysis) {
+                    layers.habits.analysis += `\n### [${bp.repoName}]\n${ta.habits.analysis}`;
+                    layers.habits.evidence_uids.push(...(ta.habits.evidence_uids || []));
+                }
+                if (ta.stack?.analysis) {
+                    layers.stack.analysis += `\n### [${bp.repoName}]\n${ta.stack.analysis}`;
+                    layers.stack.evidence_uids.push(...(ta.stack.evidence_uids || []));
+                }
+            });
 
-            Logger.info('StreamingHandler', `Built streaming context with ${thematicAnalyses.length} repos' real thematic data`);
+            Logger.info('StreamingHandler', `Built streaming context aggregated from ${allBlueprints.length} blueprints`);
         } catch (e) {
-            Logger.warn('StreamingHandler', `Could not load blueprints for context: ${e.message}`);
+            Logger.warn('StreamingHandler', `Could not aggregate blueprints for context: ${e.message}`);
         }
+
+        // Format for DNASynthesizer (Array of 3 layers)
+        const thematicAnalyses = [
+            layers.architecture,
+            layers.habits,
+            layers.stack
+        ];
 
         // Light-weight health report
         const healthReport = MetricRefinery.refine(curationResult.validInsights, 0);
@@ -274,34 +235,6 @@ export class StreamingHandler {
         };
     }
 
-    /**
-     * Update global identity with streaming context (INCREMENTAL)
-     * This is the key to "hormiga" updates - the user context evolves constantly
-     */
-    async updateGlobalIdentity(username, ctx) {
-        try {
-            const { GlobalIdentityRefiner } = await import('./GlobalIdentityRefiner.js');
-            const refiner = new GlobalIdentityRefiner();
-
-            Logger.info('StreamingHandler', `Refining global identity for ${username}...`);
-
-            // Refine identity using current context (blueprints + thematic analyses)
-            const refinedIdentity = await refiner.refineGlobalIdentity(username, ctx);
-
-            if (refinedIdentity) {
-                Logger.mapper(`Global identity updated incrementally (${ctx.curatedCount} insights incorporated)`);
-
-                // Update session context for chat (so chat has fresh data)
-                const { AIService } = await import('../aiService.js');
-                if (AIService.setSessionContext) {
-                    const sessionCtx = this._buildSessionContextFromIdentity(refinedIdentity);
-                    AIService.setSessionContext(sessionCtx);
-                }
-            }
-        } catch (e) {
-            Logger.warn('StreamingHandler', `Incremental identity update failed: ${e.message}`);
-        }
-    }
 
     /**
      * Build session context from refined identity for chat

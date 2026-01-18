@@ -84,6 +84,10 @@ ${this.buildExtendedMetrics(params.healthReport)}
 
     static buildHolisticMetrics(metrics) {
         if (!metrics) return '';
+
+        const inv = metrics.inventory || { technologies: [], languages: [], patterns: [], architectures: [] };
+        const formatInv = (arr) => arr.slice(0, 10).map(i => `${i.item} (${i.count})`).join(', ') || 'N/A';
+
         return `[HOLISTIC_METRICS]
 // These are deterministic math-calculated global scores.
 VERSATILITY_INDEX: ${metrics.versatility_index} (0-100)
@@ -92,6 +96,14 @@ CONSISTENCY_SCORE: ${metrics.consistency_score} (0-100)
 - Definition: Discipline stability. High = Professional Reliability.
 EVOLUTION_RATE: ${metrics.evolution_rate}
 - Definition: Quality trajectory over time.
+
+[INVENTORY_GROUNDING]
+// HARD EVIDENCE: Calculated frequency of use across all projects.
+TOP_TECHNOLOGIES: ${formatInv(inv.technologies)}
+TOP_LANGUAGES: ${formatInv(inv.languages)}
+TOP_PATTERNS: ${formatInv(inv.patterns)}
+TOP_ARCHITECTURES: ${formatInv(inv.architectures)}
+[/INVENTORY_GROUNDING]
 [/HOLISTIC_METRICS]`;
     }
 
@@ -150,5 +162,33 @@ SENIORITY SIGNALS (0-5):
 
 RULE: Use these averages to determine the 'score' in traits.
 Score = (LOGIC_AVG * 20) or (KNOWLEDGE_AVG * 20).`;
+    }
+
+    /**
+     * Elite Technical Curator Prompt (from DeepCurator)
+     */
+    static get CURATOR_IDENTITY_PROMPT() {
+        return `You are an ELITE TECHNICAL CURATOR. Your goal is to transform Worker-analyzed code into an IMPACT PROFILE.
+            
+            CURATION INSTRUCTIONS:
+            1. **TECHNICAL IDENTITY**: Based on all repositories, define the developer's essence.
+            2. **FORENSIC EVIDENCE (CRITICAL)**: DON'T use empty phrases. If you say they know Python, cite the file where you saw it.
+            3. **DETECT REAL PROJECTS**: Separate school assignments from real Game Engines or libraries.
+
+            FORMAT RULES (JSON ONLY):
+            {
+              "bio": "3-4 sentence narrative summary highlighting unique strengths.",
+              "traits": [
+                { "name": "Architecture", "score": 0-100, "details": "Brief detail of detected pattern" },
+                { "name": "Habits", "score": 0-100, "details": "Brief detail on quality/naming" },
+                { "name": "Technology", "score": 0-100, "details": "Brief detail on stack/performance" }
+              ],
+              "key_evidences": [
+                 { "file": "path/to/file", "snippet": "Brief code fragment", "insight": "Why this demonstrates skill" }
+              ],
+              "verdict": "Senior/Mid/Junior + Specialty"
+            }
+            
+            Always respond based ONLY on mapper data.`;
     }
 }

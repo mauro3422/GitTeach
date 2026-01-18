@@ -31,12 +31,15 @@ export class ComparisonEngine {
             }
         }
 
-        // Compare Anomalies
-        const oldAnomalies = (oldProfile.anomalies || []).length;
-        const newAnomaliesCount = (newCuration.anomalies || []).length;
-        if (newAnomaliesCount > oldAnomalies) {
-            report.newAnomalies = newCuration.anomalies.slice(oldAnomalies);
-            isSignificant = true;
+        // Compare Anomalies (Identity-based)
+        const oldAnomaliesSet = new Set((oldProfile.anomalies || []).map(a => a.trait));
+        if (newCuration.anomalies) {
+            for (const anomaly of newCuration.anomalies) {
+                if (!oldAnomaliesSet.has(anomaly.trait)) {
+                    report.newAnomalies.push(anomaly);
+                    isSignificant = true;
+                }
+            }
         }
 
         return { isSignificant, report };

@@ -124,6 +124,41 @@ export function register(ipcMain) {
         return cacheService.getWorkerAudit(workerId);
     });
 
+    // REPO-CENTRIC PERSISTENCE (V3)
+    ipcMain.handle('cache:persist-repo-blueprint', async (event, { repoName, blueprint }) => {
+        await cacheService.persistRepoBlueprint(repoName, blueprint);
+        return { success: true };
+    });
+
+    ipcMain.handle('cache:get-all-repo-blueprints', async () => {
+        return await cacheService.getAllRepoBlueprints();
+    });
+
+    ipcMain.handle('cache:append-repo-raw-finding', async (event, { repoName, finding }) => {
+        await cacheService.appendRepoRawFinding(repoName, finding);
+        return { success: true };
+    });
+
+    ipcMain.handle('cache:persist-repo-curated-memory', async (event, { repoName, nodes }) => {
+        await cacheService.persistRepoCuratedMemory(repoName, nodes);
+        return { success: true };
+    });
+
+    ipcMain.handle('cache:persist-repo-partitions', async (event, { repoName, partitions }) => {
+        await cacheService.persistRepoPartitions(repoName, partitions);
+        return { success: true };
+    });
+
+    // Golden Knowledge
+    ipcMain.handle('cache:persist-repo-golden-knowledge', async (event, { repoName, data }) => {
+        await cacheService.persistRepoGoldenKnowledge(repoName, data);
+        return { success: true };
+    });
+
+    ipcMain.handle('cache:get-repo-golden-knowledge', async (event, repoName) => {
+        return await cacheService.getRepoGoldenKnowledge(repoName);
+    });
+
     console.log('[Handlers] ✅ cacheHandler registered.');
 }
 

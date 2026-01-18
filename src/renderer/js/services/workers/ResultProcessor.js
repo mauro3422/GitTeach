@@ -111,7 +111,13 @@ export class ResultProcessor {
                 summary: safeSummary,
                 workerId: workerId || 999,
                 classification: parsed?.params?.technical_strength || 'General',
-                metadata: parsed?.params?.metadata || {},
+                metadata: parsed?.params?.metadata || parsed || {}, // Fallback to full parsed if metadata missing
+                tags: [
+                    ...(parsed?.params?.logic?.patterns || []),
+                    ...(parsed?.params?.semantic?.dependencies?.frameworks || []),
+                    ...(parsed?.params?.professional?.ecosystem?.ci_cd || []),
+                    ...(parsed?.params?.domain ? [parsed.params.domain] : [])
+                ],
                 params: parsed?.params || { insight: safeSummary, technical_strength: 'General' },
                 file_meta: item.file_meta || {},
                 durationMs: durationMs || 1

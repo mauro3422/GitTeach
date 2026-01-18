@@ -54,7 +54,8 @@ export class InsightPartitioner {
                 summary.includes('discipline') ||
                 summary.includes('defensive') ||
                 summary.includes('clean code') ||
-                tags.some(t => ['testing', 'formatting', 'lint', 'clean code', 'resilience', 'error handling', 'best practices'].includes(t))
+                summary.includes('security') ||
+                tags.some(t => ['testing', 'formatting', 'lint', 'clean code', 'resilience', 'error handling', 'best practices', 'security', 'seniority'].includes(t))
             ) {
                 partitions.habits.push(f);
             }

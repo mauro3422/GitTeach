@@ -15,9 +15,6 @@ import { AISlotPriorities } from '../ai/AISlotPriorities.js';
 import { DNAPromptBuilder } from './DNAPromptBuilder.js';
 import { DNAParser } from './DNAParser.js';
 import { DNASchemaValidator } from './DNASchemaValidator.js';
-import { ProfessionalContextSynthesizer } from './ProfessionalContextSynthesizer.js';
-import { CodeChurnAnalyzer } from './CodeChurnAnalyzer.js';
-import { EcosystemMapper } from './EcosystemMapper.js';
 
 export class DNASynthesizer {
     constructor() {
@@ -111,9 +108,21 @@ export class DNASynthesizer {
                         optimization: { type: "string" },
                         top_antipatterns: { type: "array", items: { type: "string" } }
                     }
+                },
+                anomalies: {
+                    type: "array",
+                    items: {
+                        type: "object",
+                        properties: {
+                            trait: { type: "string" },
+                            impact: { type: "string" },
+                            evidence: { type: "string" }
+                        },
+                        required: ["trait", "impact", "evidence"]
+                    }
                 }
             },
-            required: ["thought", "bio", "traits", "distinctions", "signature_files", "code_health", "verdict", "tech_radar", "professional_context", "resilience_context"]
+            required: ["thought", "bio", "traits", "distinctions", "signature_files", "code_health", "verdict", "tech_radar", "professional_context", "resilience_context", "anomalies"]
         };
     }
 

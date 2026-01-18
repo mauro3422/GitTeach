@@ -47,10 +47,14 @@ export class ProfileAnalyzer {
 
             const githubAPI = this.options.githubAPI || (typeof window !== 'undefined' ? window.githubAPI : null);
 
-            const [repos, audit] = await Promise.all([
+            let audit = null;
+            const response = await Promise.all([
                 githubAPI ? githubAPI.listRepos() : Promise.resolve([]),
                 this.runAuditorAgent(username)
             ]);
+
+            repos = response[0];
+            audit = response[1];
 
             // STREAMING ARCHITECTURE: Bridge Coordinator -> DeepCurator
             // MUST be set BEFORE scan() to catch cached repos that complete immediately
@@ -112,10 +116,12 @@ export class ProfileAnalyzer {
             // SAFETY NET: If WorkerPool failed to populate StreamingHandler, pull from Coordinator
             // This covers the case where workers died early or queue ingestion was silent
             const currentFindings = this.deepCurator.streamingHandler.getAccumulatedFindings();
-            if (currentFindings.length === 0) {
+            const coordinatorCount = this.coordinator.getAllRichSummaries().length;
+
+            if (currentFindings.length < coordinatorCount * 0.8) { // Threshold: 80% coverage
                 const coordinatorFindings = this.coordinator.getAllRichSummaries();
                 if (coordinatorFindings.length > 0) {
-                    console.warn(`[ProfileAnalyzer] ⚠️ WORKER BYPASS: Manually resurrecting ${coordinatorFindings.length} findings from Coordinator.`);
+                    console.warn(`[ProfileAnalyzer] ⚠️ SYNC GAP DETECTED: Coordinator(${coordinatorCount}) vs Tracer(${currentFindings.length}). Resurrecting findings.`);
 
                     const resurrected = coordinatorFindings.map(f => ({
                         repo: f.repo,
@@ -126,13 +132,14 @@ export class ProfileAnalyzer {
                         classification: f.classification || 'General',
                         uid: f.uid || Math.random().toString(36).substring(7),
                         file_meta: f.file_meta || {},
-                        // Preserve metadata and params for thematic aggregators
                         metadata: f.metadata || (f.params?.metadata ? f.params.metadata : {}),
                         params: f.params || { metadata: f.metadata || {} }
                     }));
 
                     this.deepCurator.incorporateBatch(resurrected);
                 }
+            } else {
+                Logger.info('ANALYZER', `✅ Sync Integrity: ${currentFindings.length}/${coordinatorCount} findings processed.`);
             }
 
             // PERSISTENCE V3: Flush all repo memories before synthesis strategy
@@ -145,15 +152,19 @@ export class ProfileAnalyzer {
                 return null;
             }
 
-            const oldIdentity = await CacheRepository.getTechnicalIdentity(username);
-            // Sintetizar Identidad (Personalidad) a partir del ADN Técnico
-            const { finalProfile, report, isSignificant } = await this.intelligenceSynthesizer.synthesizeProfile(oldIdentity, curationResult.dna);
+            // 1. Save Technical Identity (DNA) - High-fidelity structured data
+            await CacheRepository.setTechnicalIdentity(username, curationResult.dna);
 
-            // Forensics: Attach performance metrics for Tracer
+            // 2. Synthesize/Evolve Cognitive Profile (Persona) from the DNA
+            // Use savedProfile (from line 42) which is the Cognitive Profile
+            const { finalProfile, report, isSignificant } = await this.intelligenceSynthesizer.synthesizeProfile(savedProfile, curationResult.dna);
+
+            // Forensics: Attach performance metrics
             finalProfile.performance = curationResult.performance;
 
-            await CacheRepository.setTechnicalIdentity(username, finalProfile);
-            // Log the traceability map for debugging, with a fallback for join
+            // 3. Save Cognitive Profile (Narrative/Portrait)
+            await this.intelligenceSynthesizer.saveToDisk();
+
             Logger.debug('ANALYZER', `### TRACEABILITY MAP:\n${Array.isArray(curationResult.traceability_map) ? curationResult.traceability_map.join('\n') : ''}`);
             if (curationResult.traceability_map) {
                 await CacheRepository.setTechnicalFindings(username, curationResult.traceability_map);
@@ -241,6 +252,11 @@ export class ProfileAnalyzer {
 
                 ReactionEngine.trigger(username, reflection.snapshot, 'system');
             }
+
+            // TELEMETRY: Trace total findings count vs coordinator
+            const totalInCurator = this.deepCurator.streamingHandler.getAccumulatedFindings().length;
+            const totalInCoord = this.coordinator.getAllRichSummaries().length;
+            console.log(`[ProfileAnalyzer] Sync Status: Tracer(${totalInCurator}) | Coord(${totalInCoord})`);
 
             // NOTIFY EXTERNAL LISTENERS (Tracer, UI, etc)
             if (this.onBatchComplete && typeof this.onBatchComplete === 'function') {

@@ -49,7 +49,16 @@ contextBridge.exposeInMainWorld('cacheAPI', {
     setCognitiveProfile: (username, profile) => ipcRenderer.invoke('cache:set-cognitive-profile', { username, profile }),
     // Worker Audit (JSONL)
     getWorkerAudit: (workerId) => ipcRenderer.invoke('cache:get-worker-audit', workerId),
-    appendWorkerLog: (workerId, finding) => ipcRenderer.invoke('cache:append-worker-log', { workerId, finding })
+    appendWorkerLog: (workerId, finding) => ipcRenderer.invoke('cache:append-worker-log', { workerId, finding }),
+    // REPO-CENTRIC PERSISTENCE (V3)
+    persistRepoBlueprint: (repoName, blueprint) => ipcRenderer.invoke('cache:persist-repo-blueprint', { repoName, blueprint }),
+    getAllRepoBlueprints: () => ipcRenderer.invoke('cache:get-all-repo-blueprints'),
+    appendRepoRawFinding: (repoName, finding) => ipcRenderer.invoke('cache:append-repo-raw-finding', { repoName, finding }),
+    persistRepoCuratedMemory: (repoName, nodes) => ipcRenderer.invoke('cache:persist-repo-curated-memory', { repoName, nodes }),
+    persistRepoPartitions: (repoName, partitions) => ipcRenderer.invoke('cache:persist-repo-partitions', { repoName, partitions }),
+    // Golden Knowledge
+    persistRepoGoldenKnowledge: (repoName, data) => ipcRenderer.invoke('cache:persist-repo-golden-knowledge', { repoName, data }),
+    getRepoGoldenKnowledge: (repoName) => ipcRenderer.invoke('cache:get-repo-golden-knowledge', repoName)
 });
 
 // Bridge de utilidad para bypass de red

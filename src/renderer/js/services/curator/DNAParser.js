@@ -63,6 +63,7 @@ export class DNAParser {
             bio: rescuedBio,
             traits: this.generateTraitsFromMap(traceabilityMap, rawResponse),
             verdict: this.extractVerdict(rawResponse),
+            anomalies: [], // Placeholder for forensic consistency
             parsing_error: true,
             raw_error: errorMessage
         };

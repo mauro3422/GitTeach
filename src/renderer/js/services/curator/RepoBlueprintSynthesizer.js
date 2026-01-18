@@ -1,16 +1,13 @@
-/**
- * RepoBlueprintSynthesizer - Synthesizes a technical projection for a single repository
- * 
- * Responsibilities:
- * - Aggregate metrics for a specific repo (SOLID, Complexity, etc).
- * - Generate a dense technical summary of the repo's purpose and architecture.
- * - Create a "Blueprint" object for persistence.
- */
 import { MetricRefinery } from './MetricRefinery.js';
 import { AIService } from '../aiService.js';
 import { AISlotPriorities } from '../ai/AISlotManager.js';
+import { ThematicMapper } from './ThematicMapper.js';
+import { Logger } from '../../utils/logger.js';
 
 export class RepoBlueprintSynthesizer {
+    constructor() {
+        this.thematicMapper = new ThematicMapper();
+    }
     /**
      * Synthesize a blueprint for a repository
      * @param {string} repoName - Name of the repo
@@ -28,7 +25,32 @@ export class RepoBlueprintSynthesizer {
         // 2. Build Thematic Summary via AI with CoT
         const result = await this._generateThematicSummary(repoName, findings, healthReport);
 
-        // 3. Assemble Blueprint
+        // 3. NEW: Thematic Mapping (Architecture, Habits, Stack)
+        // If enough findings, run specialized mapping
+        let thematicAnalysis = null;
+        if (findings.length >= 3) {
+            try {
+                // Try to use Golden Knowledge if available (V4 Optimization)
+                let mapperInput = findings;
+                if (typeof window !== 'undefined' && window.cacheAPI?.getRepoGoldenKnowledge) {
+                    const goldenData = await window.cacheAPI.getRepoGoldenKnowledge(repoName);
+                    if (goldenData?.goldenKnowledge) {
+                        mapperInput = [{
+                            repo: repoName,
+                            summary: goldenData.goldenKnowledge,
+                            uid: 'golden_curated',
+                            metadata: goldenData.metrics || {}
+                        }];
+                        Logger.mapper(`[${repoName}] Using Golden Knowledge for thematic mapping`);
+                    }
+                }
+                thematicAnalysis = await this.thematicMapper.executeMapping(null, mapperInput, null);
+            } catch (e) {
+                Logger.warn('RepoBlueprintSynthesizer', `Thematic mapping failed: ${e.message}`);
+            }
+        }
+
+        // 4. Assemble Blueprint
         return {
             repoName,
             timestamp: new Date().toISOString(),
@@ -37,13 +59,14 @@ export class RepoBlueprintSynthesizer {
                 knowledge: healthReport.knowledge_health,
                 signals: healthReport.seniority_signals,
                 professional: healthReport.extended_metadata?.professional || {},
-                resilience: healthReport.extended_metadata?.resilience_report || {} // NEW: Error forensics
+                resilience: healthReport.extended_metadata?.resilience_report || {}
             },
             volume: healthReport.volume,
             domains: healthReport.domains,
             thought: result.thought,
             summary: result.summary,
-            blueprintVersion: "1.3" // Version bump for resilience
+            thematicAnalysis, // Inject deep mapping
+            blueprintVersion: "1.4" // Version bump
         };
     }
 
