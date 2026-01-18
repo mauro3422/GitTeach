@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.27.0] - Real-time Identity Evolution (Complete Unification) - 2026-01-18
+### 🧬 Identity System Overhaul
+- **Schema Unification**: `GlobalIdentityRefiner.mergeBlueprintInsights` now uses real mapper data
+  - Reads from `blueprint.thematicAnalysis` (new schema) + fallback to `blueprint.technical` (old)
+  - Extracts patterns, architectures, technologies, languages from actual mapper results
+  - Stores `thematicData` with architecture, habits, and stack insights
+
+### 🔄 Real Data Flow (No More Placeholders)
+- **StreamingHandler._buildStreamingContext**: Now async, fetches real blueprints from cache
+  - Replaces hardcoded "Analysis in progress..." with actual thematic analyses
+  - Context includes real architecture/habits/stack data per repo
+
+### 🖥️ CPU Offload
+- **EvolutionManager.evolve**: Moved to CPU server (port 8002)
+  - Identity synthesis no longer blocks GPU workers
+  - Personality evolution happens in parallel with file analysis
+
+### 📊 Impact
+| Component | Before | After |
+|-----------|--------|-------|
+| GlobalIdentityRefiner | Ignored mapper data | Uses thematicAnalysis |
+| StreamingContext | Placeholders | Real blueprint data |
+| EvolutionManager | GPU (blocking) | CPU (parallel) |
+
 ## [2.26.0] - Incremental Identity Updates (Critical Fix) - 2026-01-18
 ### 🚨 Critical Bug Fix
 - **FIXED**: `StreamingHandler.updateGlobalIdentity` was empty (only console.log)!

@@ -34,7 +34,8 @@ export class EvolutionManager {
         `;
 
         try {
-            const response = await AIService.callAI(systemPrompt, context, 0.4, 'json_object');
+            // Use CPU server for identity evolution (avoid blocking GPU workers)
+            const response = await AIService.callAI_CPU(systemPrompt, context, 0.4, 'json_object');
             const parsed = JSON.parse(response);
 
             return {

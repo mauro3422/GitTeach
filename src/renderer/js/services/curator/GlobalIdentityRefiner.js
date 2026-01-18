@@ -75,36 +75,78 @@ export class GlobalIdentityRefiner {
             qualityScores: [],
             totalInsights: 0,
             totalFiles: 0,
-            repositories: blueprints.length
+            repositories: blueprints.length,
+            // NEW: Store thematic data from real mappers
+            thematicData: {
+                architectureInsights: [],
+                habitsInsights: [],
+                stackInsights: []
+            }
         };
 
         blueprints.forEach(blueprint => {
-            if (!blueprint.technical || !blueprint.metrics) return;
+            // FIXED: Accept blueprints with either old schema (technical) or new schema (thematicAnalysis)
+            const hasOldSchema = blueprint.technical && blueprint.metrics;
+            const hasNewSchema = blueprint.thematicAnalysis || blueprint.metrics;
 
-            // Merge technologies with frequency count
-            blueprint.technical.technologies?.forEach(tech => {
-                merged.technologies.set(tech, (merged.technologies.get(tech) || 0) + 1);
-            });
+            if (!hasOldSchema && !hasNewSchema) return;
 
-            // Merge patterns
-            blueprint.technical.patterns?.forEach(pattern => {
-                merged.patterns.set(pattern, (merged.patterns.get(pattern) || 0) + 1);
-            });
+            // NEW SCHEMA: Extract from thematicAnalysis (Real Mapper Data)
+            const thematic = blueprint.thematicAnalysis;
+            if (thematic) {
+                // Architecture mapper results
+                if (thematic.architecture?.analysis) {
+                    merged.thematicData.architectureInsights.push(thematic.architecture.analysis);
+                    // Extract patterns from architecture
+                    thematic.architecture.analysis.patterns?.forEach(p => {
+                        merged.patterns.set(p, (merged.patterns.get(p) || 0) + 1);
+                    });
+                    thematic.architecture.analysis.architectures?.forEach(a => {
+                        merged.architectures.set(a, (merged.architectures.get(a) || 0) + 1);
+                    });
+                }
 
-            // Merge architectures
-            blueprint.technical.architectures?.forEach(arch => {
-                merged.architectures.set(arch, (merged.architectures.get(arch) || 0) + 1);
-            });
+                // Habits mapper results
+                if (thematic.habits?.analysis) {
+                    merged.thematicData.habitsInsights.push(thematic.habits.analysis);
+                }
 
-            // Merge languages
-            blueprint.technical.languages?.forEach(lang => {
-                merged.languages.set(lang, (merged.languages.get(lang) || 0) + 1);
-            });
+                // Stack mapper results
+                if (thematic.stack?.analysis) {
+                    merged.thematicData.stackInsights.push(thematic.stack.analysis);
+                    // Extract technologies from stack
+                    thematic.stack.analysis.technologies?.forEach(tech => {
+                        merged.technologies.set(tech, (merged.technologies.get(tech) || 0) + 1);
+                    });
+                    thematic.stack.analysis.languages?.forEach(lang => {
+                        merged.languages.set(lang, (merged.languages.get(lang) || 0) + 1);
+                    });
+                }
+            }
 
-            // Collect metrics
-            if (blueprint.metrics.complexity) merged.complexity.push(blueprint.metrics.complexity);
-            if (blueprint.metrics.maturity) merged.maturity.push(blueprint.metrics.maturity);
-            if (blueprint.metrics.qualityScore) merged.qualityScores.push(blueprint.metrics.qualityScore);
+            // OLD SCHEMA (Fallback): Extract from blueprint.technical
+            if (blueprint.technical) {
+                blueprint.technical.technologies?.forEach(tech => {
+                    merged.technologies.set(tech, (merged.technologies.get(tech) || 0) + 1);
+                });
+                blueprint.technical.patterns?.forEach(pattern => {
+                    merged.patterns.set(pattern, (merged.patterns.get(pattern) || 0) + 1);
+                });
+                blueprint.technical.architectures?.forEach(arch => {
+                    merged.architectures.set(arch, (merged.architectures.get(arch) || 0) + 1);
+                });
+                blueprint.technical.languages?.forEach(lang => {
+                    merged.languages.set(lang, (merged.languages.get(lang) || 0) + 1);
+                });
+            }
+
+            // Collect metrics (works with both schemas)
+            if (blueprint.metrics?.complexity) merged.complexity.push(blueprint.metrics.complexity);
+            if (blueprint.metrics?.maturity) merged.maturity.push(blueprint.metrics.maturity);
+            if (blueprint.metrics?.qualityScore) merged.qualityScores.push(blueprint.metrics.qualityScore);
+
+            // NEW: Extract from logic/knowledge health if available
+            if (blueprint.metrics?.logic?.overall) merged.qualityScores.push(blueprint.metrics.logic.overall);
 
             // Sum totals
             merged.totalInsights += blueprint.metadata?.insightCount || 0;

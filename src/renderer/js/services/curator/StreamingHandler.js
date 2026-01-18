@@ -106,7 +106,7 @@ export class StreamingHandler {
                 } else {
                     // 3. Update Global Identity (Incremental)
                     Logger.info('StreamingHandler', `Critical mass reached! Updating Global Identity...`);
-                    const ctx = this._buildStreamingContext();
+                    const ctx = await this._buildStreamingContext();
                     await this.updateGlobalIdentity(username, ctx);
                 }
             }
@@ -178,21 +178,33 @@ export class StreamingHandler {
     }
 
     /**
-     * Helper to build a partial context for streaming updates
+     * Helper to build a REAL context for streaming updates using cached blueprints
+     * NO MORE PLACEHOLDERS - uses actual thematic analysis from completed repos
      */
-    _buildStreamingContext() {
+    async _buildStreamingContext() {
         const rawFindings = this.accumulatedFindings;
         const curationResult = this.curateFindings(rawFindings);
 
-        // Use placeholder thematic analysis for speed (Wait for Phase 2 for deep analysis)
-        const thematicAnalyses = [
-            "Analysis in progress (Streaming)...",
-            "Analysis in progress (Streaming)...",
-            "Analysis in progress (Streaming)..."
-        ];
+        // REAL DATA: Get all blueprints with their thematic analyses
+        let thematicAnalyses = [];
+        try {
+            const allBlueprints = await CacheRepository.getAllRepoBlueprints();
+            thematicAnalyses = allBlueprints
+                .filter(bp => bp.thematicAnalysis)
+                .map(bp => ({
+                    repo: bp.repoName,
+                    architecture: bp.thematicAnalysis.architecture?.analysis || null,
+                    habits: bp.thematicAnalysis.habits?.analysis || null,
+                    stack: bp.thematicAnalysis.stack?.analysis || null
+                }));
+
+            Logger.info('StreamingHandler', `Built streaming context with ${thematicAnalyses.length} repos' real thematic data`);
+        } catch (e) {
+            Logger.warn('StreamingHandler', `Could not load blueprints for context: ${e.message}`);
+        }
 
         // Light-weight health report
-        const healthReport = MetricRefinery.refine(curationResult.validInsights, 0); // Total files unknown in streaming
+        const healthReport = MetricRefinery.refine(curationResult.validInsights, 0);
 
         return {
             thematicAnalyses,
