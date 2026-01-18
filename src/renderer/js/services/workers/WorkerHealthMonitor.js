@@ -80,6 +80,12 @@ export class WorkerHealthMonitor {
             // Get next item from queue
             const input = this.queueManager.getNextItem(workerId, claimedRepo, lastProcessedPath);
 
+            // GRACEFUL DRAIN: Handle waiting sentinel
+            if (input?.isWaiting) {
+                await new Promise(r => setTimeout(r, 100));
+                continue; // Reintentar
+            }
+
             if (!input) {
                 if (claimedRepo) {
                     Logger.worker(workerId, `Finished repo [${claimedRepo}]. Clearing affinities.`);

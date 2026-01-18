@@ -64,6 +64,7 @@ if not exist "models\nomic-embed-text-v1.5.Q4_K_M.gguf" (
 )
 
 start "GitTeach Brain (LFM 2.5)" /MIN cmd /k scripts\start_brain_gpu.bat
+start "GitTeach Mappers (LFM CPU)" /MIN cmd /k scripts\start_brain_cpu.bat
 start "GitTeach Vectors (Nomic)" /MIN cmd /k scripts\start_vectors_cpu.bat
 
 echo.

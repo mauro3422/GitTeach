@@ -167,6 +167,13 @@ export class FileAuditor {
         // Folders that contain noise/demos, not architecture
         const noiseDirs = ['/demo/', '/examples/', '/test/', '/tests/', '/spec/', '/vendor/', '/node_modules/', '/dist/', '/build/', '/coverage/'];
 
+        // CURATED EXCEPTIONS: High-value files in toxic directories
+        const curatedExceptions = [
+            'index.js', 'index.ts', 'main.js', 'main.ts',
+            'app.js', 'app.ts', 'example.js', 'example.ts',
+            'demo.js', 'demo.ts', 'usage.js', 'usage.ts'
+        ];
+
         return tree.filter(node => {
             if (node.type !== 'blob') return false;
             const lowerPath = node.path.toLowerCase();
@@ -200,7 +207,13 @@ export class FileAuditor {
                 return toxicTokens.some(toxic => token === toxic || token.startsWith(toxic + '-') || token.endsWith('-' + toxic) || filename.startsWith(toxic));
             });
 
-            if (hasToxicToken) return false;
+            if (hasToxicToken) {
+                // CURATED EXCEPTION: Allow high-value files in toxic directories
+                if (curatedExceptions.includes(filename)) {
+                    return true; // Allow this file
+                }
+                return false;
+            }
 
             return true;
         });

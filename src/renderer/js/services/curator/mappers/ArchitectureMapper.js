@@ -1,5 +1,4 @@
 import { AIService } from '../../aiService.js';
-import { AISlotPriorities } from '../../ai/AISlotManager.js';
 import { Logger } from '../../../utils/logger.js';
 
 export class ArchitectureMapper {
@@ -20,7 +19,7 @@ export class ArchitectureMapper {
         - Modularity: ${healthReport?.averages?.modularity || 'N/A'}/5`;
 
         try {
-            Logger.mapper('Analyzing Architecture (Verified)...');
+            Logger.mapper('Analyzing Architecture (CPU)...');
             // Request JSON Mode
             const schema = {
                 type: "object",
@@ -31,7 +30,8 @@ export class ArchitectureMapper {
                 required: ["analysis", "evidence_uids"]
             };
 
-            const response = await AIService.callAI('Mapper: Architecture', `${prompt}\n\nINSIGHTS:\n${insights}`, 0.1, 'json_object', schema, AISlotPriorities.BACKGROUND);
+            // Use CPU endpoint for parallel execution without blocking GPU workers
+            const response = await AIService.callAI_CPU('Mapper: Architecture', `${prompt}\n\nINSIGHTS:\n${insights}`, 0.1, 'json_object', schema);
 
             // Fallback if AI returns plain text error or fails schema
             if (response.error || typeof response === 'string') return { analysis: response.error || response, evidence_uids: [] };

@@ -106,19 +106,8 @@ export class ProfileAnalyzer {
         try {
             await Promise.all([this.backgroundPromise, this.aiWorkersPromise || Promise.resolve()]);
 
-            // TRACER FIX: Ensure any background items added are actually processed
-            // Since AIWorkerPool might have terminated early if queue was empty initially
-            // We need to import AIService from module scope (it is imported at top)
-            const { AIService } = await import('./aiService.js');
-
-            console.log(`[ProfileAnalyzer] Check Queue: Total=${this.workerPool.totalQueued}, Active=${this.workerPool.isProcessing}`);
-
-            if (this.workerPool.totalQueued > 0) {
-                console.log(`[ProfileAnalyzer] FORCE RESTARTING WorkerPool for ${this.workerPool.totalQueued} pending items...`);
-                await this.workerPool.processQueue(AIService);
-            } else {
-                console.log("[ProfileAnalyzer] Queue empty, no restart needed.");
-            }
+            // GRACEFUL DRAIN: Mark enqueueing as complete so workers know to stop waiting
+            this.workerPool.queueManager.setEnqueueingComplete();
 
             // SAFETY NET: If WorkerPool failed to populate StreamingHandler, pull from Coordinator
             // This covers the case where workers died early or queue ingestion was silent

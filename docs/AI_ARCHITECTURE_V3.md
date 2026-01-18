@@ -1,86 +1,135 @@
-# Arquitectura de IA V3: Thinking RAG System
+# Arquitectura de IA V4: Dual GPU/CPU Pipeline
 
-Este documento describe la arquitectura de la versión 2.4.0 (Reasoning), que introduce el protocolo de "Pensamiento" (Chain of Thought) y la integración autónoma de RAG (Retrieval-Augmented Generation).
+Este documento describe la arquitectura de la versión 2.23.0, que introduce procesamiento paralelo real con servidores dedicados GPU y CPU.
 
-## 1. Visión General del Flujo
+## 1. Infraestructura de Hardware
 
-El sistema ya no dispara herramientas reactivamente. Ahora sigue un ciclo cognitivo estricto:
+| Recurso | Servidor | Puerto | Uso |
+|---------|----------|--------|-----|
+| GPU (8GB VRAM) | LFM 2.5 Q8 | 8000 | Workers + Chat |
+| CPU (6 threads) | LFM 2.5 Q8 | 8002 | Thematic Mappers |
+| CPU (1 thread) | Nomic Embed | 8001 | RAG/Embeddings |
+
+---
+
+## 2. Pipeline de Procesamiento
 
 ```mermaid
 graph TD
-    User[Usuario] -->|Input| Router[Intent Router]
-    
-    subgraph "Thinking Agent (Router)"
-        Router -->|1. Think| Thought[Generar Pensamiento]
-        Thought -->|2. Reason| Reasoning[Justificar Necesidad]
-        Reasoning -->|3. Select| ToolSelect[Seleccionar Herramienta]
+    subgraph "INGESTA"
+        GitHub[GitHub API] --> Scanner[CodeScanner]
+        Scanner --> Queue[QueueManager]
     end
-    
-    ToolSelect -->|Query Memory| Memory[MemoryV3 (Vector Store)]
-    ToolSelect -->|Read File| FileSystem[Sistema de Archivos]
-    ToolSelect -->|Chat| Chat[Respuesta Conversacional]
-    
-    Memory -->|Contexto Inyectado| SystemPrompt[Prompt del Sistema]
-    FileSystem -->|Contenido Archivo| SystemPrompt
-    
-    SystemPrompt -->|Generación| LLM[LFM 2.5 Model]
-    LLM -->|Respuesta Final| User
+
+    subgraph "GPU (8000)"
+        Queue --> W1[Worker 1]
+        Queue --> W2[Worker 2]
+        Queue --> W3[Worker 3]
+        W1 --> Coord[Coordinator]
+        W2 --> Coord
+        W3 --> Coord
+    end
+
+    subgraph "CPU (8002)"
+        Coord -->|onRepoComplete| Arch[ArchitectureMapper]
+        Coord -->|onRepoComplete| Habits[HabitsMapper]
+        Coord -->|onRepoComplete| Stack[StackMapper]
+        Arch --> BP[Blueprint]
+        Habits --> BP
+        Stack --> BP
+    end
+
+    subgraph "SÍNTESIS"
+        BP --> Merge[_mergeThematicAnalyses]
+        Merge --> DNA[DNASynthesizer]
+        DNA --> Identity[technical_identity.json]
+    end
+
+    subgraph "CHAT (GPU)"
+        Identity --> Router[IntentRouter]
+        Router --> Response[Respuesta]
+    end
 ```
 
-## 2. Componentes Clave
+---
 
-### A. Intent Router (El Cerebro)
-*   **Ubicación**: `src/renderer/js/services/ai/IntentRouter.js`
-*   **Función**: Procesa todo input del usuario.
-*   **Novedad**: Parsea un campo `thought` extraído del JSON de respuesta.
-*   **Logs**: `[BRAIN] Thinking: "..."` permite ver el proceso mental en tiempo real.
+## 3. Flujo Temporal (Paralelo Real)
 
-### B. Prompt Builder (La Lógica)
-*   **Ubicación**: `src/renderer/js/services/promptBuilder.js`
-*   **Cambio Crítico**: Implementación de la "Regla Imperativa".
-    > "IMPERATIVE: If your thought mentions 'context', 'information'... YOU MUST SELECT 'query_memory'."
-*   **Estructura CoT**:
-    ```json
-    {
-      "thought": "El usuario quiere X, por lo tanto necesito Y...",
-      "tool": "tool_id"
-    }
-    ```
-
-### C. Memory Agent (RAG)
-*   **Ubicación**: `src/renderer/js/services/memory/MemoryAgent.js`
-*   **Motor**: Nomic Embed Text v1.5 (Puerto 8001).
-*   **Flujo**:
-    1. Recibe query semántica (ej: "contexto del proyecto").
-    2. Genera vector (embedding).
-    3. Busca similitud coseno en la base de datos vectorial local.
-    4. Devuelve chunks relevantes (`systemContext`) que se inyectan silenciosamente en la sesión.
-
-## 3. Verificación y Testing
-
-Para garantizar la estabilidad del sistema de razonamiento, se han creado scripts específicos en `scripts/`:
-
-| Script | Propósito | Comando |
-|--------|-----------|---------|
-| `verify_rag_flow.js` | Simulación completa (End-to-End) usando los servicios reales de la App. | `node scripts/verify_rag_flow.js` |
-| `verify_reasoning.js` | Test unitario aislado del Prompt Logic. Verifica que el modelo obedezca las reglas de pensamiento sin dependencias de UI. | `node scripts/verify_reasoning.js` |
-| `tools/ultimate_multitier_tracer.mjs` | Auditoría forense completa. Genera un `SUMMARY.json` con todos los eventos cognitivos y logs de tráfico. | `node scripts/tools...` |
-
-## 4. Diagrama de Secuencia (Thinking Flow)
-
-```mermaid
-sequenceDiagram
-    participant U as Usuario
-    participant R as Router (Thinking)
-    participant M as Memory Agent
-    participant AI as LFM 2.5
-
-    U->>R: "Generame un README"
-    Note over R: Thinking... "Generar contenido requiere contexto"
-    R->>R: Select Tool: "query_memory"
-    R->>M: query("Generar README")
-    M->>M: Vector Search (Nomic)
-    M-->>R: Retorna Contexto Técnico
-    R->>AI: Prompt + Contexto Inyectado
-    AI-->>U: README Generado (Basado en datos reales)
 ```
+Tiempo ──────────────────────────────────────────────────►
+
+GPU:  ████ Repo1 ████ Repo2 ████ Repo3
+           │         │         │
+CPU:       ███       ███       ███
+        Mappers   Mappers   Mappers
+           │         │         │
+           └─────────┴─────────┴──► DNA Final
+```
+
+Los **mappers ejecutan en paralelo** mientras los workers siguen minando.
+
+---
+
+## 4. Componentes Clave
+
+### A. AIService.callAI_CPU (Nuevo)
+- **Ubicación**: `services/aiService.js`
+- **Función**: Endpoint dedicado para CPU (puerto 8002)
+- **Sin SlotManager**: CPU gestiona sus propios slots
+
+### B. StreamingHandler (Modificado)
+- **Ubicación**: `curator/StreamingHandler.js`
+- **Cambio**: `synthesizeBlueprint` ahora llama a `ThematicMapper` cuando hay 5+ insights
+- **Resultado**: Blueprint incluye `thematicAnalysis`
+
+### C. SynthesisOrchestrator (Optimizado)
+- **Ubicación**: `curator/SynthesisOrchestrator.js`
+- **Cambio**: Verifica blueprints con análisis pre-calculados
+- **Nuevo método**: `_mergeThematicAnalyses()` combina análisis
+
+---
+
+## 5. Estructura de Datos
+
+### Worker Output (por archivo)
+```json
+{
+  "summary": "Descripción técnica...",
+  "logic": { "solid": 4, "modularity": 5 },
+  "knowledge": { "clarity": 4, "discipline": 4 },
+  "signals": { "semantic": 4, "resilience": 3 },
+  "resilience_forensics": { "error_discipline": 3 }
+}
+```
+
+### Blueprint (por repo)
+```json
+{
+  "repoName": "GitTeach",
+  "thematicAnalysis": {
+    "architecture": { "analysis": "...", "evidence_uids": [] },
+    "habits": { "analysis": "...", "evidence_uids": [] },
+    "stack": { "analysis": "...", "evidence_uids": [] }
+  }
+}
+```
+
+---
+
+## 6. Scripts de Verificación
+
+| Script | Propósito |
+|--------|-----------|
+| `start_brain_gpu.bat` | Servidor GPU (workers+chat) |
+| `start_brain_cpu.bat` | Servidor CPU (mappers) |
+| `ultimate_multitier_tracer.mjs` | Auditoría forense completa |
+
+---
+
+## 7. Métricas de Rendimiento
+
+| Métrica | Antes (Serial) | Después (Paralelo) |
+|---------|----------------|-------------------|
+| CPU Idle | ~90% | ~20% |
+| Context Size | 100+ insights | ~30/repo |
+| Tiempo Total | GPU + CPU | max(GPU, CPU) |

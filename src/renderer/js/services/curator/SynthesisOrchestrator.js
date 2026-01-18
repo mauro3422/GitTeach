@@ -53,10 +53,22 @@ export class SynthesisOrchestrator {
         const healthReport = MetricRefinery.refine(validInsights, coordinator.getTotalFilesScanned?.() || 0);
 
         try {
-            // Step 4: Execute Thematic Mapping (Phase 1)
-            Logger.mapper('Executing 3 layers of deep technical analysis...');
-            // OPTIMIZATION: Passing structured array instead of text blob
-            const mapperResults = await this.thematicMapper.executeMapping(username, validInsights, healthReport);
+            // OPTIMIZATION: Check if blueprints already have thematic analysis
+            const { CacheRepository } = await import('../../utils/cacheRepository.js');
+            const existingBlueprints = await CacheRepository.getAllRepoBlueprints();
+            const blueprintsWithAnalysis = existingBlueprints.filter(bp => bp.thematicAnalysis);
+
+            let mapperResults;
+
+            if (blueprintsWithAnalysis.length > 0) {
+                // MERGE PRE-CALCULATED ANALYSES (from per-repo CPU mappers)
+                Logger.mapper(`Merging ${blueprintsWithAnalysis.length} pre-calculated thematic analyses...`);
+                mapperResults = this._mergeThematicAnalyses(blueprintsWithAnalysis);
+            } else {
+                // FALLBACK: Execute full thematic mapping (original behavior)
+                Logger.mapper('Executing 3 layers of deep technical analysis...');
+                mapperResults = await this.thematicMapper.executeMapping(username, validInsights, healthReport);
+            }
 
             // EXTRA STEP: Layered Persistence (Persistence of Themes as independent keys)
             const { LayeredPersistenceManager } = await import('./LayeredPersistenceManager.js');
@@ -200,5 +212,51 @@ export class SynthesisOrchestrator {
         // This would delegate to WorkerPromptBuilder
         // Simplified implementation
         return `Analysis of ${path} in ${repo}: ${usageSnippet.substring(0, 100)}...`;
+    }
+
+    /**
+     * Merge pre-calculated thematic analyses from multiple repo blueprints
+     * @param {Array} blueprints - Blueprints with thematicAnalysis
+     * @returns {Object} Merged mapper results
+     */
+    _mergeThematicAnalyses(blueprints) {
+        const merged = {
+            architecture: { analysis: '', evidence_uids: [] },
+            habits: { analysis: '', evidence_uids: [] },
+            stack: { analysis: '', evidence_uids: [] },
+            performance: { totalMs: 0, layers: {} }
+        };
+
+        blueprints.forEach(bp => {
+            if (!bp.thematicAnalysis) return;
+            const ta = bp.thematicAnalysis;
+
+            // Merge architecture
+            if (ta.architecture?.analysis) {
+                merged.architecture.analysis += `\n### [${bp.repoName}]\n${ta.architecture.analysis}`;
+                merged.architecture.evidence_uids.push(...(ta.architecture.evidence_uids || []));
+            }
+
+            // Merge habits
+            if (ta.habits?.analysis) {
+                merged.habits.analysis += `\n### [${bp.repoName}]\n${ta.habits.analysis}`;
+                merged.habits.evidence_uids.push(...(ta.habits.evidence_uids || []));
+            }
+
+            // Merge stack
+            if (ta.stack?.analysis) {
+                merged.stack.analysis += `\n### [${bp.repoName}]\n${ta.stack.analysis}`;
+                merged.stack.evidence_uids.push(...(ta.stack.evidence_uids || []));
+            }
+
+            // Sum performance
+            if (ta.performance?.totalMs) {
+                merged.performance.totalMs += ta.performance.totalMs;
+            }
+        });
+
+        Logger.mapper(`Merged analyses: Arch=${merged.architecture.evidence_uids.length} UIDs, Habits=${merged.habits.evidence_uids.length} UIDs, Stack=${merged.stack.evidence_uids.length} UIDs`);
+
+        return merged;
     }
 }

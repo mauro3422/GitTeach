@@ -16,6 +16,7 @@ export class QueueManager {
         this.processedCount = 0;
         this.processedShas = new Map(); // SHA -> Summary (Session cache)
         this.activeKeys = new Set(); // repo:path (Prevention of duplicate enqueues)
+        this.isEnqueueingComplete = false; // Graceful drain flag
     }
 
     /**
@@ -49,17 +50,24 @@ export class QueueManager {
     }
 
     /**
+     * Set enqueueing complete flag for graceful drain
+     */
+    setEnqueueingComplete() {
+        this.isEnqueueingComplete = true;
+    }
+
+    /**
      * Get next item or batch of items to process.
      * Prioritizes:
      * 0. HIGHEST PRIORITY (Ascending order of priority field) - handled by sort on enqueue
      * 1. Files with name affinity to last processed (e.g., config -> dependents)
      * 2. Files from the same repository (stickiness)
      * 3. Batching of small files
-     * 
+     *
      * @param {number} workerId - ID of the requesting worker
      * @param {string|null} claimedRepo - Currently claimed repo by this worker
      * @param {string|null} lastProcessedPath - Last processed file path
-     * @returns {Object|null} - Next item, batch object, or null if queue empty
+     * @returns {Object|null} - Next item, batch object, sentinel, or null if queue empty and complete
      */
     getNextItem(workerId, claimedRepo, lastProcessedPath = null) {
         const MAX_BATCH_SIZE = 3;
@@ -67,7 +75,13 @@ export class QueueManager {
 
         // FILTER: Only look at pending items
         const pendingItems = this.queue.filter(i => i.status === 'pending');
-        if (pendingItems.length === 0) return null;
+        if (pendingItems.length === 0) {
+            // GRACEFUL DRAIN: If no items but enqueueing not complete, return sentinel to wait
+            if (!this.isEnqueueingComplete) {
+                return { isWaiting: true };
+            }
+            return null;
+        }
 
         // URGENT OVERRIDE: If we have URGENT items (0) and current claimedRepo is lower priority, 
         // we might want to switch? For now, simple logic: get highest priority available.

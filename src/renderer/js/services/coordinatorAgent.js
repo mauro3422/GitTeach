@@ -12,6 +12,7 @@ export class CoordinatorAgent {
         this.onRepoComplete = null;
         this.completedRepos = new Set();
         this.perfStats = { totalAiMs: 0, count: 0, slowestFile: { path: '', ms: 0 } };
+        this.aiOnlyStats = { totalAiMs: 0, count: 0, avgAiMs: 0 }; // TELEMETRY SPLIT: Real AI metrics only
     }
 
     get inventory() { return this.inventoryManager.data; }
@@ -41,6 +42,13 @@ export class CoordinatorAgent {
             this.perfStats.count++;
             if (rawData.durationMs > this.perfStats.slowestFile.ms) {
                 this.perfStats.slowestFile = { path: filePath, ms: rawData.durationMs };
+            }
+
+            // TELEMETRY SPLIT: Only count REAL AI workers (durationMs > 0)
+            if (rawData.durationMs > 0) {
+                this.aiOnlyStats.totalAiMs += rawData.durationMs;
+                this.aiOnlyStats.count++;
+                this.aiOnlyStats.avgAiMs = Math.round(this.aiOnlyStats.totalAiMs / this.aiOnlyStats.count);
             }
         }
 
@@ -96,7 +104,10 @@ export class CoordinatorAgent {
         stats.performance = {
             totalAiMs: this.perfStats.totalAiMs,
             avgAiMs: this.perfStats.count > 0 ? Math.round(this.perfStats.totalAiMs / this.perfStats.count) : 0,
-            slowestFile: this.perfStats.slowestFile
+            slowestFile: this.perfStats.slowestFile,
+            // TELEMETRY SPLIT: Clean metrics (real AI only)
+            realAiAvgMs: this.aiOnlyStats.avgAiMs,
+            realAiCount: this.aiOnlyStats.count
         };
 
         return stats;

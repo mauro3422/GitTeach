@@ -260,6 +260,51 @@ export const AIService = {
         }
     },
 
+    /**
+     * Call AI on CPU server (Port 8002) - Dedicated for Mappers
+     * Does NOT use slot manager since CPU has its own dedicated slots
+     */
+    async callAI_CPU(systemPrompt, userMessage, temperature, format = null, schema = null) {
+        const CPU_ENDPOINT = 'http://localhost:8002/v1/chat/completions';
+
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 180000);
+
+            const payload = {
+                model: "lfm2.5",
+                messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userMessage }],
+                temperature,
+                n_predict: 4096
+            };
+
+            if (format === 'json_object') {
+                payload.response_format = { type: "json_object" };
+                if (schema) payload.response_format.schema = schema;
+            }
+
+            const response = await fetch(CPU_ENDPOINT, {
+                signal: controller.signal,
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                console.error(`[AIService] ❌ CPU Response ERROR: ${response.status}`);
+                throw new Error(`CPU Status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data.choices[0].message.content;
+        } catch (error) {
+            console.error("[AIService] ❌ CPU AI Error:", error.message);
+            throw error;
+        }
+    },
+
     async getEmbedding(text) {
         return this._embeddingService.getEmbedding(text);
     },

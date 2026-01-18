@@ -1,5 +1,4 @@
 import { AIService } from '../../aiService.js';
-import { AISlotPriorities } from '../../ai/AISlotManager.js';
 import { Logger } from '../../../utils/logger.js';
 
 export class StackMapper {
@@ -13,7 +12,7 @@ export class StackMapper {
         RULE: Distinguish between "using" and "implementing". Cite evidence.`;
 
         try {
-            Logger.mapper('Analyzing Tech Stack...');
+            Logger.mapper('Analyzing Tech Stack (CPU)...');
             const schema = {
                 type: "object",
                 properties: {
@@ -23,7 +22,8 @@ export class StackMapper {
                 required: ["analysis", "evidence_uids"]
             };
 
-            const response = await AIService.callAI('Mapper: Stack', `${prompt}\n\nINSIGHTS:\n${insights}`, 0.1, 'json_object', schema, AISlotPriorities.BACKGROUND);
+            // Use CPU endpoint for parallel execution without blocking GPU workers
+            const response = await AIService.callAI_CPU('Mapper: Stack', `${prompt}\n\nINSIGHTS:\n${insights}`, 0.1, 'json_object', schema);
 
             if (response.error || typeof response === 'string') return { analysis: response.error || response, evidence_uids: [] };
             return response;

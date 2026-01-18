@@ -6,16 +6,20 @@
  * - Accumulate findings in batches
  * - Process streaming repo updates
  * - Build streaming context for identity updates
+ * - Execute thematic mappers per-repo (CPU parallelism)
  */
 import { DebugLogger } from '../../utils/debugLogger.js';
 import { CacheRepository } from '../../utils/cacheRepository.js';
 import { MetricRefinery } from './MetricRefinery.js';
+import { Logger } from '../../utils/logger.js';
+import { ThematicMapper } from './ThematicMapper.js';
 
 export class StreamingHandler {
     constructor() {
         // Internal state for streaming accumulation
         this.accumulatedFindings = [];
         this.traceabilityMap = {};
+        this.thematicMapper = new ThematicMapper();
     }
 
     /**
@@ -82,7 +86,7 @@ export class StreamingHandler {
         try {
             // 2. Curate & Synthesize Blueprint (Local)
             const curation = this.curateFindings(repoFindings);
-            const blueprint = await this.synthesizeBlueprint(repoName, curation.validInsights);
+            const blueprint = await this.synthesizeBlueprint(username, repoName, curation.validInsights);
 
             if (blueprint) {
                 console.reducer(`[${repoName}] Blueprint generated (Streaming). Complexity: ${blueprint.metrics.complexity}`);
@@ -128,9 +132,10 @@ export class StreamingHandler {
 
     /**
      * Synthesize a blueprint from curated insights
+     * NOW WITH THEMATIC MAPPING (CPU parallelism)
      */
-    async synthesizeBlueprint(repoName, validInsights) {
-        // Simplified blueprint synthesis
+    async synthesizeBlueprint(username, repoName, validInsights) {
+        // Base blueprint
         const blueprint = {
             repoName,
             metrics: {
@@ -142,6 +147,28 @@ export class StreamingHandler {
             },
             generatedAt: new Date().toISOString()
         };
+
+        // INCREMENTAL MAPPING: If enough insights, run thematic mappers (CPU)
+        // Threshold: At least 5 insights to warrant AI analysis
+        if (validInsights.length >= 5) {
+            try {
+                Logger.mapper(`[${repoName}] Running thematic mapping (CPU)...`);
+                const mapperResults = await this.thematicMapper.executeMapping(username, validInsights, null);
+
+                // Attach thematic analysis to blueprint
+                blueprint.thematicAnalysis = {
+                    architecture: mapperResults.architecture,
+                    habits: mapperResults.habits,
+                    stack: mapperResults.stack,
+                    performance: mapperResults.performance
+                };
+
+                Logger.mapper(`[${repoName}] Thematic mapping completed in ${mapperResults.performance?.totalMs || '?'}ms`);
+            } catch (e) {
+                Logger.warn('StreamingHandler', `Thematic mapping failed for ${repoName}: ${e.message}`);
+                // Blueprint still valid without thematic analysis
+            }
+        }
 
         return blueprint;
     }

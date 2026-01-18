@@ -1,5 +1,48 @@
 # Changelog
 
+## [2.23.0] - Incremental Mappers per Repo - 2026-01-18
+### 🚀 CPU Parallelism Revolution
+- **Per-Repo Thematic Mapping**: Mappers now execute when each repo completes, not at the end.
+  - Prevents context explosion (30 insights/repo vs 100+ at once)
+  - CPU works in parallel with GPU workers
+  - Profile builds incrementally
+- **Blueprint Enhancement**: Each repo blueprint now includes full `thematicAnalysis`.
+- **Smart Merge**: Final synthesis merges pre-calculated analyses instead of re-computing.
+
+### 🔧 Technical Changes
+- **StreamingHandler.synthesizeBlueprint**: Now calls `ThematicMapper` when repo has 5+ insights.
+- **SynthesisOrchestrator.runDeepCurator**: Checks for pre-calculated analyses in blueprints.
+- **New Method**: `_mergeThematicAnalyses()` combines per-repo analyses efficiently.
+
+### 📊 Expected Gains
+| Metric | Before | After |
+|--------|--------|-------|
+| CPU Idle | ~90% | **~20%** |
+| Context Size | 100+ insights | **~30/repo** |
+| Build Model | Serial | **Incremental** |
+
+## [2.22.0] - Dual GPU/CPU Architecture - 2026-01-18
+### 🚀 Parallel Processing Revolution
+- **Dual Server Architecture**: Mappers now run on dedicated CPU server (Port 8002), freeing GPU for workers.
+  - GPU Brain (8000): 4 slots for Workers + Chat
+  - CPU Mappers (8002): 3 slots for parallel thematic mapping
+  - Embeddings (8001): Unchanged
+- **True Mapper Parallelism**: Architecture, Habits, and Stack mappers now execute simultaneously without competing for GPU slots.
+- **Zero Contention**: Workers never wait for curators; curators never wait for workers.
+
+### 🔧 Technical Changes
+- **New Script**: `start_brain_cpu.bat` - Launches LFM2 Q8 on CPU with 6 threads and 3 parallel slots.
+- **New Method**: `AIService.callAI_CPU()` - Dedicated endpoint for CPU-bound AI calls.
+- **Updated Mappers**: `ArchitectureMapper`, `HabitsMapper`, `StackMapper` now use CPU endpoint.
+- **Launcher Integration**: `start.bat` now launches all 3 servers automatically.
+
+### 📊 Expected Performance Gains
+| Metric | Before | After |
+|--------|--------|-------|
+| GPU Contention | High (mappers compete) | **Zero** |
+| Mapper Execution | Sequential | **Parallel** |
+| Worker Continuity | Interrupted by curators | **Uninterrupted** |
+
 ## [2.21.0] - Intelligence Fidelity & Timeout Resolution - 2026-01-18
 ### 🧠 Intelligence Polish
 - **High-Fidelity Seeds**: Enabled real AI processing for the first 5 files of any run to capture deep behavioral patterns for Habits Forensics.
