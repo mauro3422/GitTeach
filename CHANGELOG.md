@@ -1,5 +1,17 @@
 # Changelog
 
+
+## [2.34.0] - Validación Final y Estabilización Tracer - 2026-01-18
+### 🛡️ Estabilización de Infraestructura IA
+- **Configuración de Puertos Definitiva**: Alineados los puertos del entorno Tracer con la infraestructura real del usuario (8000 Brain GPU, 8001 Embeddings, 8002 Mappers CPU).
+- **Prevención de Crashes (Throttling)**: Implementado "Exponential Backoff" (retraso exponencial) en `AIClient` y ajuste dinámico de workers para prevenir la saturación del servidor `llama.cpp` (Error `GGML_ASSERT`).
+- **Robustez de Tipos**: Corrección defensiva en `InsightsCurator.js` para evitar colapsos al iterar sobre estructuras de datos nulas (`forEach` error).
+- **Inyección de Dependencias**: Solucionada la dependencia circular en `MemoryManager` inyectando correctamente el `EmbeddingService` en el arranque del Tracer.
+
+### 🧹 Limpieza
+- **Silencio de Logs**: Eliminados logs redundantes y molestos de depuración en `IntentOrchestrator` y `ChatPromptBuilder`.
+
+
 ## [2.33.0] - SOLID Audit & Technical Polish - 2026-01-18
 ### 🛡️ System Audit & SOLID Compliance
 - **FileAuditor**: Delegated file filtering logic to specialized `FileFilter.js` module.
