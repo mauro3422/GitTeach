@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import { TOKEN_PATH } from './TracerContext.js';
 
 /**
@@ -29,11 +30,25 @@ export class GithubMock {
             _headers: headers,
             listRepos: async () => {
                 try {
-                    const res = await fetch('https://api.github.com/user/repos?sort=updated&per_page=10', { headers: headers() });
-                    if (!res.ok) return [];
-                    const repos = await res.json();
-                    return Array.isArray(repos) ? repos.slice(0, 10) : [];
-                } catch (e) { return []; }
+                    const response = await fetch(`https://api.github.com/user/repos?per_page=100`, {
+                        headers: {
+                            'Authorization': `token ${authToken}`,
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    });
+
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const data = await response.json();
+
+                    // Log for debug
+                    try { fs.appendFileSync(path.join(process.cwd(), 'debug_network_repos.log'), `[GithubMock] listRepos: SUCCESS. Count: ${data.length}\n`); } catch (e) { }
+
+                    return data;
+                } catch (error) {
+                    console.error('[GithubMock] listRepos Error:', error.message);
+                    try { fs.appendFileSync(path.join(process.cwd(), 'debug_network_repos.log'), `[GithubMock] listRepos: ERROR: ${error.message}\n`); } catch (e) { }
+                    return [];
+                }
             },
             getProfileReadme: async (u) => {
                 try {
@@ -47,19 +62,24 @@ export class GithubMock {
                 try {
                     const treeRes = await fetch(`https://api.github.com/repos/${u}/${r}/git/trees/main?recursive=1`, { headers: headers() });
                     if (!treeRes.ok) {
+                        try { fs.appendFileSync(path.join(process.cwd(), 'debug_tree_fetch.log'), `[GithubMock] main FAIL ${r}: ${treeRes.status}\n`); } catch (e) { }
+                        // Fallback to master
+                        const masterRes = await fetch(`https://api.github.com/repos/${u}/${r}/git/trees/master?recursive=1`, { headers: headers() });
                         if (masterRes.ok) {
                             const data = await masterRes.json();
-                            // TRACER LIMIT: Slice to 15 files max to emulate "10x10" quick mode
-                            if (data.tree) data.tree = data.tree.slice(0, 15);
+                            try { fs.appendFileSync(path.join(process.cwd(), 'debug_tree_fetch.log'), `[GithubMock] master SUCCESS ${r}. Files: ${data.tree?.length}\n`); } catch (e) { }
                             return data;
+                        } else {
+                            try { fs.appendFileSync(path.join(process.cwd(), 'debug_tree_fetch.log'), `[GithubMock] master FAIL ${r}: ${masterRes.status}\n`); } catch (e) { }
                         }
                     } else {
                         const data = await treeRes.json();
-                        // TRACER LIMIT: Slice to 15 files max to emulate "10x10" quick mode
-                        if (data.tree) data.tree = data.tree.slice(0, 15);
+                        try { fs.appendFileSync(path.join(process.cwd(), 'debug_tree_fetch.log'), `[GithubMock] main SUCCESS ${r}. Files: ${data.tree?.length}\n`); } catch (e) { }
                         return data;
                     }
-                } catch (e) { }
+                } catch (e) {
+                    try { fs.appendFileSync(path.join(process.cwd(), 'debug_tree_fetch.log'), `[GithubMock] fetch ERROR ${r}: ${e.message}\n`); } catch (e2) { }
+                }
                 return { tree: [] };
             },
             _getFileMetadata: async (u, r, p) => {
@@ -81,7 +101,10 @@ export class GithubMock {
             getFileContent: async (u, r, p) => {
                 try {
                     const res = await fetch(`https://api.github.com/repos/${u}/${r}/contents/${p}`, { headers: headers() });
-                    if (!res.ok) return { message: 'Not Found' };
+                    if (!res.ok) {
+                        try { fs.appendFileSync(path.join(process.cwd(), 'debug_network.log'), `[GithubMock] FAIL ${p}: ${res.status}\n`); } catch (e) { }
+                        return { message: 'Not Found' };
+                    }
                     const data = await res.json();
 
                     // Fetch metadata using internal headers
@@ -105,7 +128,7 @@ export class GithubMock {
                     } catch (me) {
                         console.error(`[GithubMock] Meta fetch ERROR for ${p}:`, me.message);
                     }
-
+                    console.log(`[GithubMock] Fetch SUCCESS for ${p}. Content Length: ${data.content ? data.content.length : 0}`);
                     return data;
                 } catch (e) { return { message: e.message }; }
             },

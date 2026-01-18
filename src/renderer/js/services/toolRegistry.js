@@ -23,6 +23,7 @@ import { ReadFileTool } from './tools/readFileTool.js';
 import { QueryMemoryTool } from './tools/queryMemoryTool.js';
 import { QueryTechnicalMetricsTool } from './tools/queryTechnicalMetricsTool.js';
 import { QueryThematicAnalysisTool } from './tools/queryThematicAnalysisTool.js';
+import { GenerateProfileReadmeTool } from './tools/generateProfileReadmeTool.js';
 
 const activeTools = [
     new GithubStatsTool(),
@@ -45,7 +46,8 @@ const activeTools = [
     new ReadFileTool(),
     new QueryMemoryTool(),
     new QueryTechnicalMetricsTool(),
-    new QueryThematicAnalysisTool()
+    new QueryThematicAnalysisTool(),
+    new GenerateProfileReadmeTool()
 ];
 
 export const ToolRegistry = {

@@ -40,6 +40,14 @@ export class AIWorkerPool {
         this.results = [];
     }
 
+    get totalQueued() {
+        return this.queueManager.totalQueued;
+    }
+
+    get isProcessing() {
+        return this.healthMonitor.isCurrentlyProcessing();
+    }
+
     // =========================================
     // PUBLIC API (Contract - DO NOT BREAK)
     // =========================================

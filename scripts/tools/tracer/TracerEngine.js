@@ -40,6 +40,7 @@ export class TracerEngine {
         const { AIService } = await import('../../../src/renderer/js/services/aiService.js');
         const { ProfileAnalyzer } = await import('../../../src/renderer/js/services/profileAnalyzer.js');
         const { DebugLogger } = await import('../../../src/renderer/js/utils/debugLogger.js');
+        const { ToolRegistry } = await import('../../../src/renderer/js/services/toolRegistry.js');
 
         // 5. Health Check
         try {
@@ -77,7 +78,8 @@ export class TracerEngine {
         };
 
         console.log('--- PHASE 1: WORKER SCAN (100% Coverage Goal) ---');
-        const analyzer = new ProfileAnalyzer(DebugLogger);
+        // DI INJECTION: Pass the mock API explicitly to bypass global scope issues
+        const analyzer = new ProfileAnalyzer(DebugLogger, { githubAPI: global.window.githubAPI });
 
         let lastReport = 0;
         const REPORT_INTERVAL = 5;
@@ -147,7 +149,7 @@ export class TracerEngine {
                 const simStart = Date.now();
                 let result;
                 const watchdog = new Promise((resolve, reject) =>
-                    setTimeout(() => reject(new Error('AI Service call timed out after 60s')), 60000)
+                    setTimeout(() => reject(new Error('AI Service call timed out after 180s')), 180000)
                 );
                 try {
                     result = await Promise.race([

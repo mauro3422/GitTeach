@@ -22,8 +22,8 @@ import { BackgroundProcessor } from './BackgroundProcessor.js';
 import { AISlotPriorities } from './ai/AISlotManager.js';
 
 // Configuration constants
-const DEFAULT_MAX_ANCHORS = 10;
-const DEFAULT_MAX_REPOS = 10;
+const DEFAULT_MAX_ANCHORS = 50;
+const DEFAULT_MAX_REPOS = 3;
 
 export class CodeScanner {
     constructor(coordinator, workerPool) {

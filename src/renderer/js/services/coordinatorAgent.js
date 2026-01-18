@@ -131,7 +131,7 @@ export class CoordinatorAgent {
                         repo: repo.name,
                         file: f.path,
                         tool: 'analysis',
-                        params: { insight: f.summary.substring(0, 50) + '...', impact: 'Unknown' }
+                        params: { insight: f.summary.substring(0, 200), impact: 'Unknown' }
                     });
                 }
             });

@@ -10,6 +10,8 @@
  */
 import { FileClassifier } from '../../utils/fileClassifier.js';
 import { AnalysisPrompts } from '../../prompts/workers/AnalysisPrompts.js';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export class UserPromptBuilder {
     /**
@@ -23,6 +25,17 @@ export class UserPromptBuilder {
         const repo = items[0].repo;
 
         // Pre-filter check
+        // DEBUG IMPORT TO FILE
+        if (!this.hasLoggedImport) {
+            try {
+                const logPath = path.join(process.cwd(), 'debug_prompt_builder.log');
+                const debugData = `[UserPromptBuilder] AnalysisPrompts TYPE: ${typeof AnalysisPrompts}\n` +
+                    `[UserPromptBuilder] Templates: ${JSON.stringify(AnalysisPrompts ? AnalysisPrompts.USER_PROMPT_TEMPLATES : "NULL")}\n`;
+                fs.writeFileSync(logPath, debugData);
+            } catch (e) { console.error("PromptLog fail", e); }
+            this.hasLoggedImport = true;
+        }
+
         const skipCheck = FileClassifier.shouldSkip(items[0].path, items[0].content);
         if (skipCheck.skip && !isBatch) {
             return { prompt: null, skipReason: skipCheck.reason, langCheck: null };
@@ -41,6 +54,12 @@ export class UserPromptBuilder {
             userPrompt = this.buildBatchPrompt(repo, items);
         } else {
             userPrompt = this.buildSingleFilePrompt(repo, items[0], domainHint, langWarning);
+        }
+
+        if (userPrompt === undefined) {
+            console.error("[UserPromptBuilder] ❌ FATAL: userPrompt is UNDEFINED!");
+        } else {
+            // console.log(`[UserPromptBuilder] Generated prompt length: ${userPrompt.length}`);
         }
 
         return {

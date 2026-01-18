@@ -101,6 +101,16 @@ export class SynthesisOrchestrator {
         // This would delegate to InsightsCurator
         // Simplified implementation for now
         const validInsights = findings.filter(f => f && f.summary);
+
+        // DEBUG: Forensic inspection of why findings are dropped
+        if (findings.length > 0 && validInsights.length === 0) {
+            Logger.error('SynthesisOrchestrator', `FORENSIC ALERT: All ${findings.length} findings dropped! Inspection of first finding:`);
+            console.log("DEBUG_FINDING_DUMP:", JSON.stringify(findings[0], null, 2));
+            if (findings[0].summary === undefined) console.log("DEBUG: summary is undefined");
+            if (findings[0].summary === "") console.log("DEBUG: summary is empty string");
+            if (typeof findings[0].summary === 'object') console.log("DEBUG: summary is OBJECT");
+        }
+
         const repoCount = [...new Set(findings.map(f => f.repo))].length;
 
         // Group by content to find duplicates

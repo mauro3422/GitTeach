@@ -9,6 +9,8 @@
  * - Extract file trees from commits and diffs
  */
 import { Logger } from '../utils/logger.js';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export class RepoTreeFetcher {
     /**
@@ -54,6 +56,12 @@ export class RepoTreeFetcher {
         } else {
             // Own repository: Full analysis
             const treeData = await window.githubAPI.getRepoTree(username, repo.name, true);
+
+            try {
+                const logPath = path.join(process.cwd(), 'debug_tree.log');
+                const logMsg = `[RepoTreeFetcher] Repo: ${repo.name}. TreeData: ${JSON.stringify(treeData?.tree?.length || "ND")}. Msg: ${treeData?.message || "OK"}\n`;
+                fs.appendFileSync(logPath, logMsg);
+            } catch (e) { }
 
             if (treeData && treeData.message && treeData.message.includes("rate limit")) {
                 onStep({ type: 'Error', message: `Database temporarily blocked (Rate Limit).` });

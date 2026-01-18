@@ -156,7 +156,8 @@ export const AIService = {
                 AIToolbox.applyContent(executionResult.content);
             }
 
-            Logger.info('OBSERVATION', `${executionResult.details} (Success: ${executionResult.success})`);
+            const detailsSafe = typeof executionResult.details === 'object' ? JSON.stringify(executionResult.details, null, 2) : executionResult.details;
+            Logger.info('OBSERVATION', `${detailsSafe} (Success: ${executionResult.success})`);
 
             // 4. Respondent Phase (Closed Loop)
             let responsePrompt;

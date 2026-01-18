@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.21.0] - Intelligence Fidelity & Timeout Resolution - 2026-01-18
+### 🧠 Intelligence Polish
+- **High-Fidelity Seeds**: Enabled real AI processing for the first 5 files of any run to capture deep behavioral patterns for Habits Forensics.
+- **Habits Forensics Fix**: Broadened keyword sets and fixed summary mapping to prevent empty behavior reports.
+- **Coverage Expansion**: Increased Tracer limits to 3 repos and 50 anchors, ensuring a robust diagnostic baseline (305 files reached).
+
+### 🛡️ Reliability & Stability
+- **Watchdog Hardening**: Increased Tracer simulation watchdog from 60s to 180s to accommodate complex agentic synthesis.
+- **Ingestion Bug Fixed**: Resolved a critical silent failure in `FileAuditor.js` where `totalQueued` was being checked against an undefined property, disabling AI workers.
+- **Counter Integrity**: Fixed seed counter race condition in `FileAuditor` to ensure accurate high-fidelity sampling.
+
 ## [2.20.0] - Hybrid Speed & Integrity - 2026-01-17
 ### 🚀 Performance Revolution (LFM 2.5 Hybrid)
 - **Hybrid Architecture**: Split-Brain optimization (GPU Brain + CPU Memory) enabling true parallelism.

@@ -26,10 +26,10 @@ export class BackgroundProcessor {
      */
     async processBackgroundFiles(username, allFindings, onStep) {
         let maxBackgroundFiles = 99999;
-        if (typeof window !== 'undefined' && window.IS_TRACER) {
-            Logger.info('BACKGROUND', 'Tracer Mode: Limiting background analysis to 5 files (Total) for verification.');
-            maxBackgroundFiles = 5;
-        }
+        // if (typeof window !== 'undefined' && window.IS_TRACER) {
+        //     Logger.info('BACKGROUND', 'Tracer Mode: Limiting background analysis to 5 files (Total) for verification.');
+        //     maxBackgroundFiles = 5;
+        // }
 
         Logger.background('UnifiedWorkerQueue: Starting background ingestion...');
 
@@ -76,7 +76,7 @@ export class BackgroundProcessor {
         allFindings.forEach(f => {
             if (f.pendingFiles && f.pendingFiles.length > 0) {
                 // In Tracer mode, only take 5 files per repo to avoid saturating with one big repo
-                const files = isTracer ? f.pendingFiles.slice(0, maxPerRepo) : f.pendingFiles;
+                const files = f.pendingFiles; // isTracer ? f.pendingFiles.slice(0, maxPerRepo) : f.pendingFiles;
                 files.forEach(file => {
                     allPending.push({ repo: f.repo, ...file });
                 });

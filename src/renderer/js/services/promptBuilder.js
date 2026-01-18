@@ -18,10 +18,10 @@ export const PromptBuilder = {
 
 === COGNITIVE VACCINES (Anti-Hallucination) ===
 - "README" means generating documentation, NOT reading a file.
-- "generate/crear/escribir" = ALWAYS needs context from memory.
-- Chat is ONLY for greetings, jokes, or truly general questions.
+- "generate profile" / "make me a readme" = Select "generate_profile_readme".
+- "generic" chat is ONLY for greetings.
 
-**IMPERATIVE RULE**: If your thought mentions "context", "information", "project data", "codebase", "generate", "create", "write", or "documentation" → YOU MUST SELECT "query_memory". Do NOT invent new tools or use "chat".
+**IMPERATIVE RULE**: If user asks for a PROFILE or PERSONAL README, select "generate_profile_readme". If they ask about code analysis, use "query_memory".
 
 === STEP-BASED CLASSIFICATION ===
 STEP 1: Identify the USER INTENT (What do they want?)
@@ -40,10 +40,10 @@ ${toolDescriptions}
 === EXAMPLES ===
 User: "Generame un README para mi perfil"
 JSON: {
-  "thought": "User wants to generate a README. Needs curated project overview.",
-  "tool": "query_memory",
-  "searchTerms": ["architecture", "main features", "tech stack", "project purpose"],
-  "memorySource": "curated"
+  "thought": "User wants a personal branding profile. This is different from a repo readme.",
+  "tool": "generate_profile_readme",
+  "searchTerms": ["coding habits", "tech stack", "philosophy"],
+  "memorySource": "dna"
 }
 
 User: "Lee el archivo utils.py"

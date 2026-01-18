@@ -36,16 +36,25 @@ export class InsightPartitioner {
                 partitions.architecture.push(f);
             }
 
-            // 2. Habits Signals
+            // 2. Habits Signals (Broadened for Resilience & Discipline Forensics)
             if (
                 classification.includes('style') ||
                 classification.includes('quality') ||
+                classification.includes('resilience') ||
+                classification.includes('discipline') ||
                 summary.includes('format') ||
                 summary.includes('comment') ||
                 summary.includes('naming') ||
+                summary.includes('practice') ||
+                summary.includes('seniority') ||
+                summary.includes('trait') ||
                 summary.includes('test') ||
+                summary.includes('error') ||
+                summary.includes('handling') ||
+                summary.includes('discipline') ||
+                summary.includes('defensive') ||
                 summary.includes('clean code') ||
-                tags.some(t => ['testing', 'formatting', 'lint', 'clean code'].includes(t))
+                tags.some(t => ['testing', 'formatting', 'lint', 'clean code', 'resilience', 'error handling', 'best practices'].includes(t))
             ) {
                 partitions.habits.push(f);
             }

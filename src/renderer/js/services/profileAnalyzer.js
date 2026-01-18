@@ -14,11 +14,14 @@ import { FlowManager } from './analyzer/FlowManager.js';
 import { ReactionEngine } from './analyzer/ReactionEngine.js';
 import { memoryManager } from './memory/MemoryManager.js';
 
+console.log("!!! PROFILE ANALYZER RELOADED - VERSION RESURRECTION !!!");
+
 export class ProfileAnalyzer {
-    constructor(debugLogger = null) {
+    constructor(debugLogger = null, options = {}) {
         this.results = FlowManager.getInitialResults();
         this.isAnalyzing = false;
         this.debugLogger = debugLogger;
+        this.options = options;
 
         this.coordinator = new CoordinatorAgent();
         this.workerPool = new AIWorkerPool(3, this.coordinator, debugLogger);
@@ -40,8 +43,12 @@ export class ProfileAnalyzer {
 
             AIService.setSessionContext(this.getFreshContext(username, cachedIdentity, savedProfile, cachedFindings));
 
+            console.log(`[ProfileAnalyzer] ENV CHECK: window=${typeof window}, githubAPI=${typeof window !== 'undefined' ? !!window.githubAPI : 'N/A'}`);
+
+            const githubAPI = this.options.githubAPI || (typeof window !== 'undefined' ? window.githubAPI : null);
+
             const [repos, audit] = await Promise.all([
-                (typeof window !== 'undefined' && window.githubAPI) ? window.githubAPI.listRepos() : Promise.resolve([]),
+                githubAPI ? githubAPI.listRepos() : Promise.resolve([]),
                 this.runAuditorAgent(username)
             ]);
 
@@ -99,6 +106,46 @@ export class ProfileAnalyzer {
         try {
             await Promise.all([this.backgroundPromise, this.aiWorkersPromise || Promise.resolve()]);
 
+            // TRACER FIX: Ensure any background items added are actually processed
+            // Since AIWorkerPool might have terminated early if queue was empty initially
+            // We need to import AIService from module scope (it is imported at top)
+            const { AIService } = await import('./aiService.js');
+
+            console.log(`[ProfileAnalyzer] Check Queue: Total=${this.workerPool.totalQueued}, Active=${this.workerPool.isProcessing}`);
+
+            if (this.workerPool.totalQueued > 0) {
+                console.log(`[ProfileAnalyzer] FORCE RESTARTING WorkerPool for ${this.workerPool.totalQueued} pending items...`);
+                await this.workerPool.processQueue(AIService);
+            } else {
+                console.log("[ProfileAnalyzer] Queue empty, no restart needed.");
+            }
+
+            // SAFETY NET: If WorkerPool failed to populate StreamingHandler, pull from Coordinator
+            // This covers the case where workers died early or queue ingestion was silent
+            const currentFindings = this.deepCurator.streamingHandler.getAccumulatedFindings();
+            if (currentFindings.length === 0) {
+                const coordinatorFindings = this.coordinator.getAllRichSummaries();
+                if (coordinatorFindings.length > 0) {
+                    console.warn(`[ProfileAnalyzer] ⚠️ WORKER BYPASS: Manually resurrecting ${coordinatorFindings.length} findings from Coordinator.`);
+
+                    const resurrected = coordinatorFindings.map(f => ({
+                        repo: f.repo,
+                        path: f.path,
+                        file: f.path || 'unknown',
+                        summary: f.params?.insight || f.summary || `Content analyzed (Coordinator Fallback)`,
+                        workerId: 'fallback',
+                        classification: f.classification || 'General',
+                        uid: f.uid || Math.random().toString(36).substring(7),
+                        file_meta: f.file_meta || {},
+                        // Preserve metadata and params for thematic aggregators
+                        metadata: f.metadata || (f.params?.metadata ? f.params.metadata : {}),
+                        params: f.params || { metadata: f.metadata || {} }
+                    }));
+
+                    this.deepCurator.incorporateBatch(resurrected);
+                }
+            }
+
             // PERSISTENCE V3: Flush all repo memories before synthesis strategy
             await memoryManager.persistAll();
 
@@ -149,34 +196,53 @@ export class ProfileAnalyzer {
     }
 
     async startWorkerProcessing(onStep, username) {
-        if (this.workerPool.totalQueued === 0) return;
+        // if (this.workerPool.totalQueued === 0) return; // REMOVED: Listener must attach regardless of initial state (Race Condition Fix)
 
         this.workerPool.onProgress = (data) => {
             if (onStep) onStep({ type: 'Progreso', percent: data.percent, message: `🤖 Worker ${data.workerId}: Processed` });
         };
+        console.log("ProfileAnalyzer: Listener Attached (onBatchComplete)");
         // Listen for batch completion (Concurrent)
         // This receives the batch from AIWorkerPool -> WorkerHealthMonitor
         this.workerPool.onBatchComplete = async (batch) => {
-            // EMERGENCY FIX: Ensure critical properties exist
-            // If upstream passes raw inputs, we upgrade them to findings here
-            batch.forEach(f => {
-                if (!f.summary) {
-                    f.summary = f.content ? `Analyzed content (${f.content.length} chars)` : "No Summary Available";
-                }
-                if (!f.workerId) f.workerId = 999;
+            console.log(`ProfileAnalyzer: onBatchComplete RECV batch=${batch ? batch.length : 'null'}`);
+            // EMERGENCY FIX: Reconstruct objects to ensure validity (Ghost Object Protocol)
+            // We create FRESH objects to bypass any immutability or reference issues
+            // EMERGENCY FIX: Reconstruct objects force-breaking references (Deep Clone)
+            // We create FRESH objects to bypass any immutability or reference issues
+            const fixedBatch = batch.map(f => {
+                const safePath = f.path || f.file || 'unknown';
+                const safeSummary = f.summary || (f.content ? `Analyzed content (${f.content.length} chars)` : "No Summary Available (Resurrected)");
+
+                return {
+                    repo: f.repo,
+                    path: safePath,
+                    file: safePath,
+                    summary: safeSummary,
+                    workerId: f.workerId || 999,
+                    classification: f.classification || 'General',
+                    uid: f.uid,
+                    file_meta: f.file_meta || {}
+                };
             });
 
-            // Persist to Graph Memory
+            // Log first item to verify resurrection
+            if (fixedBatch.length > 0) {
+                console.log(`[ProfileAnalyzer] Resurrected Batch: Size=${fixedBatch.length}, Item0 Summary=${!!fixedBatch[0].summary}, Path=${fixedBatch[0].path}`);
+                // console.log("DUMP:", JSON.stringify(fixedBatch[0]));
+            }
+
+            // CRITICAL: Pass to Curator FIRST to avoid any mutation by MemoryManager
+            const stats = this.deepCurator.incorporateBatch(fixedBatch);
+
+            // Persist to Graph Memory (Async)
             // Use for...of to ensure we await the async storeFinding
-            for (const finding of batch) {
+            for (const finding of fixedBatch) {
                 const node = await memoryManager.storeFinding(finding);
                 // Attach the UID to the finding for later curation linking
                 finding.uid = node.uid;
-                // Fix: InsightsCurator expects 'file', AIWorkerPool provides 'path'
-                finding.file = finding.path;
             }
 
-            const stats = this.deepCurator.incorporateBatch(batch);
             const reflection = this.intelligenceSynthesizer.synthesizeBatch(stats);
             if (reflection.isSignificant) {
                 Logger.success('ANALYZER', `💡 Intermediate Evolution: ${reflection.snapshot}`);

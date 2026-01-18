@@ -11,6 +11,8 @@
  */
 import { Logger } from '../../utils/logger.js';
 import { CacheRepository } from '../../utils/cacheRepository.js';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export class ResultProcessor {
     constructor(queueManager, contextManager, promptBuilder, debugLogger) {
@@ -32,6 +34,7 @@ export class ResultProcessor {
 
         // Pre-filtered
         if (skipReason) {
+            console.log(`[ResultProcessor] SKIPPING ${input.path || 'Batch'}: ${skipReason}`);
             return { prompt: 'PRE-FILTERED', summary: `SKIP: ${skipReason}`, langCheck: { valid: true } };
         }
 
@@ -39,6 +42,7 @@ export class ResultProcessor {
         if (!input.isBatch && input.sha) {
             const sessionCache = this.queueManager.processedShas.get(input.sha);
             if (sessionCache) {
+                console.log(`[ResultProcessor] CACHE HIT ${input.path}`);
                 return { prompt: 'SESSION_CACHE_HIT', summary: sessionCache, langCheck: { valid: true } };
             }
         }
@@ -56,6 +60,20 @@ export class ResultProcessor {
             this.promptBuilder.getResponseSchema(),
             priority
         );
+
+
+        // FORENSIC DEBUG: Log raw output to console (Fallback)
+        console.log(`\n[RAW_WORKER_OUTPUT] START [${input.path || 'BATCH'}] (CWD: ${process.cwd()}) >>>`);
+        console.log(summary);
+        console.log(`<<< [RAW_WORKER_OUTPUT] END\n`);
+
+        try {
+            const logPath = path.join(process.cwd(), 'raw_worker_outputs.log');
+            const logEntry = `\n\n=== [${new Date().toISOString()}] Input: ${input.isBatch ? 'BATCH' : input.path} ===\n${summary}\n================================================`;
+            fs.appendFileSync(logPath, logEntry);
+        } catch (e) {
+            console.error("Forensic Log Error:", e);
+        }
 
         return {
             prompt: `${systemPrompt}\n\n${userPrompt}`,
