@@ -266,7 +266,7 @@ export class DeepCurator {
                     Logger.info('DeepCurator', `[STREAMING] Global Synthesis Skipped (Gatekeeper: ${decentRepos}/2 decent repos)`);
                 } else {
                     // 3. Update Global Identity (Incremental)
-                    const ctx = this._buildStreamingContext();
+                    const ctx = await this._buildStreamingContext();
                     await this._refineGlobalIdentity(username, ctx);
                 }
             }
@@ -293,21 +293,33 @@ export class DeepCurator {
     }
 
     /**
-     * Helper to build a partial context for streaming updates
+     * Helper to build a REAL context for streaming updates using cached blueprints
+     * NO MORE PLACEHOLDERS - uses actual thematic analysis from completed repos
      */
-    _buildStreamingContext() {
+    async _buildStreamingContext() {
         const rawFindings = this.streamingHandler.getAccumulatedFindings();
         const curationResult = this.synthesisOrchestrator.curateInsights(rawFindings, this.streamingHandler);
 
-        // Use placeholder thematic analysis for speed (Wait for Phase 2 for deep analysis)
-        const thematicAnalyses = [
-            "Analysis in progress (Streaming)...",
-            "Analysis in progress (Streaming)...",
-            "Analysis in progress (Streaming)..."
-        ];
+        // REAL DATA: Get all blueprints with their thematic analyses
+        let thematicAnalyses = [];
+        try {
+            const allBlueprints = await CacheRepository.getAllRepoBlueprints();
+            thematicAnalyses = allBlueprints
+                .filter(bp => bp.thematicAnalysis)
+                .map(bp => ({
+                    repo: bp.repoName,
+                    architecture: bp.thematicAnalysis.architecture?.analysis || null,
+                    habits: bp.thematicAnalysis.habits?.analysis || null,
+                    stack: bp.thematicAnalysis.stack?.analysis || null
+                }));
+
+            Logger.info('DeepCurator', `Built streaming context with ${thematicAnalyses.length} repos' real thematic data`);
+        } catch (e) {
+            Logger.warn('DeepCurator', `Could not load blueprints for context: ${e.message}`);
+        }
 
         // Light-weight health report (Use rawFindings for Churn meta)
-        const healthReport = MetricRefinery.refine(rawFindings, 0); // Total files unknown in streaming
+        const healthReport = MetricRefinery.refine(rawFindings, 0);
 
         return {
             thematicAnalyses,

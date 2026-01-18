@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.29.0] - Audit & Concurrency Reinforcement - 2026-01-18
+### 🛡️ Integrity & Security
+- **Mutex Implementation**: Added `isRefining` lock to `GlobalIdentityUpdater` to prevent race conditions during parallel streaming updates.
+- **Async Fix**: Corrected missing `await` in `DeepCurator.processStreamingRepo` for the newly async context building.
+- **Placeholder Purge**: Removed last "Analysis in progress..." remains from `DeepCurator` logic.
+
+### 📜 Documentation
+- **flujo_dato.md**: Created a new living document in project root to track data flow and pipeline architecture.
+
 ## [2.28.0] - Golden Knowledge Flow (Curated Summaries per Repo) - 2026-01-18
 ### 🧠 Repository Knowledge Curation
 - **RepoContextManager.runCompaction**: Now generates structured JSON with:

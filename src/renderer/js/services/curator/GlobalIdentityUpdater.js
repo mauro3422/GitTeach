@@ -16,12 +16,20 @@ export class GlobalIdentityUpdater {
         this.dnaSynthesizer = new DNASynthesizer();
         this.holisticSynthesizer = new HolisticSynthesizer();
         this.blueprintSynthesizer = new RepoBlueprintSynthesizer();
+        this.isRefining = false; // Mutex lock
     }
 
     /**
      * Internal: Re-calculates and persists the Global Identity based on current blueprints
+     * PROTECTED: Prevents race conditions during fast streaming updates
      */
     async refineGlobalIdentity(username, ctx) {
+        if (this.isRefining) {
+            Logger.info('GlobalIdentityUpdater', '[MUTEX] Skipping refinement: Another update is in progress');
+            return;
+        }
+
+        this.isRefining = true;
         const startTime = Date.now();
         try {
             // 1. Fetch History + New State
@@ -66,6 +74,8 @@ export class GlobalIdentityUpdater {
             }
         } catch (e) {
             Logger.error('GlobalIdentityUpdater', `Streaming update failed: ${e.message}`);
+        } finally {
+            this.isRefining = false;
         }
     }
 
