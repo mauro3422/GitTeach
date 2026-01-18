@@ -18,30 +18,43 @@ export class InsightPartitioner {
         if (!Array.isArray(insights)) return partitions;
 
         insights.forEach(f => {
-            const summary = (f.summary || '').toLowerCase();
-            const classification = (f.classification || '').toLowerCase();
-            const tags = (f.tags || []).map(t => t.toLowerCase());
+            // SANEAMIENTO DE ESQUEMA (Anti-Legacy Guard)
+            if (!f || typeof f !== 'object') return;
 
-            // 1. Architecture Signals
+            // Normalize fields with robust fallbacks
+            const summary = (f.summary || f.params?.insight || '').toLowerCase();
+            const classification = (f.classification || f.params?.technical_strength || '').toLowerCase();
+
+            // Handle tags (can be string or array or missing)
+            let tags = [];
+            if (Array.isArray(f.tags)) tags = f.tags;
+            else if (typeof f.tags === 'string') tags = [f.tags];
+            else if (f.params?.tags && Array.isArray(f.params.tags)) tags = f.params.tags;
+
+            const normalizedTags = tags.map(t => String(t).toLowerCase());
+
+            // 1. Architecture Signals (Pattern & Structure)
             if (
                 classification.includes('architecture') ||
                 classification.includes('pattern') ||
+                classification.includes('modular') ||
                 summary.includes('class') ||
                 summary.includes('module') ||
                 summary.includes('structure') ||
                 summary.includes('system') ||
                 summary.includes('pattern') ||
-                tags.some(t => ['solid', 'dry', 'architecture', 'design pattern'].includes(t))
+                normalizedTags.some(t => ['solid', 'dry', 'architecture', 'design pattern', 'modular'].includes(t))
             ) {
                 partitions.architecture.push(f);
             }
 
-            // 2. Habits Signals (Broadened for Resilience & Discipline Forensics)
+            // 2. Habits Signals (Resilience & Style)
             if (
                 classification.includes('style') ||
                 classification.includes('quality') ||
                 classification.includes('resilience') ||
                 classification.includes('discipline') ||
+                classification.includes('seniority') ||
                 summary.includes('format') ||
                 summary.includes('comment') ||
                 summary.includes('naming') ||
@@ -55,28 +68,30 @@ export class InsightPartitioner {
                 summary.includes('defensive') ||
                 summary.includes('clean code') ||
                 summary.includes('security') ||
-                tags.some(t => ['testing', 'formatting', 'lint', 'clean code', 'resilience', 'error handling', 'best practices', 'security', 'seniority'].includes(t))
+                normalizedTags.some(t => ['testing', 'formatting', 'lint', 'clean code', 'resilience', 'error handling', 'best practices', 'security', 'seniority', 'discipline'].includes(t))
             ) {
                 partitions.habits.push(f);
             }
 
-            // 3. Stack Signals
+            // 3. Stack Signals (Tools & Deps)
             if (
                 classification.includes('tech') ||
                 classification.includes('dependency') ||
+                classification.includes('stack') ||
                 summary.includes('uses') ||
                 summary.includes('import') ||
                 summary.includes('library') ||
                 summary.includes('framework') ||
-                tags.some(t => ['dependency', 'library', 'framework', 'tool'].includes(t))
+                normalizedTags.some(t => ['dependency', 'library', 'framework', 'tool', 'stack'].includes(t))
             ) {
                 partitions.stack.push(f);
             }
 
-            // Fallback: If generic, add to Architecture (usually most relevant for general logic)
+            // Fallback: If generic but has content, add to Architecture
             if (partitions.architecture.indexOf(f) === -1 &&
                 partitions.habits.indexOf(f) === -1 &&
-                partitions.stack.indexOf(f) === -1) {
+                partitions.stack.indexOf(f) === -1 &&
+                summary.length > 0) {
                 partitions.architecture.push(f);
             }
         });

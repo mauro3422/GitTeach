@@ -42,7 +42,8 @@ export class TracerEnvironment {
                 FORCE_REAL_AI: process.env.FORCE_REAL_AI === 'true',
                 AI_CONFIG: {
                     endpoint: 'http://localhost:8000/v1/chat/completions',
-                    embeddingEndpoint: 'http://localhost:8001/v1/embeddings'
+                    embeddingEndpoint: 'http://localhost:8001/v1/embeddings',
+                    mapperEndpoint: 'http://localhost:8002/v1/chat/completions'
                 },
                 // Use the REAL PersistenceMock that reads/writes to mock_persistence/
                 cacheAPI: PersistenceMock.createAPI(),

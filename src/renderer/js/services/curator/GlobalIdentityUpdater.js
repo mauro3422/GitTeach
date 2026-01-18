@@ -9,6 +9,7 @@ import { DNASynthesizer } from './DNASynthesizer.js';
 import { HolisticSynthesizer } from './HolisticSynthesizer.js';
 import { RepoBlueprintSynthesizer } from './RepoBlueprintSynthesizer.js';
 import { DebugLogger } from '../../utils/debugLogger.js';
+import { InsightsCurator } from './InsightsCurator.js';
 
 export class GlobalIdentityUpdater {
     constructor(debugLogger = null) {
@@ -16,6 +17,7 @@ export class GlobalIdentityUpdater {
         this.dnaSynthesizer = new DNASynthesizer();
         this.holisticSynthesizer = new HolisticSynthesizer();
         this.blueprintSynthesizer = new RepoBlueprintSynthesizer();
+        this.insightsCurator = new InsightsCurator(); // Centralized curator
         this.isRefining = false; // Mutex lock
     }
 
@@ -129,22 +131,11 @@ export class GlobalIdentityUpdater {
     }
 
     /**
-     * Curate findings for a repository
+     * Curate findings for a repository using the centralized "Funnel of Truth"
      */
     curateFindings(findings) {
-        // Simplified curation - would delegate to InsightsCurator
-        const validInsights = findings.filter(f => f && f.summary);
-        const stats = {
-            repoCount: 1,
-            topStrengths: [{ name: 'General', count: validInsights.length }]
-        };
-
-        return {
-            validInsights,
-            anomalies: [],
-            stats,
-            traceability_map: {}
-        };
+        // Delegate to InsightsCurator for full deduplication and ranking
+        return this.insightsCurator.curate(findings);
     }
 
     /**

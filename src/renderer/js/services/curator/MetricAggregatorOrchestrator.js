@@ -3,6 +3,7 @@
  * Manages the aggregation pipeline and combines results from all domains
  */
 
+import { logManager } from '../../utils/logManager.js';
 import { LogicAggregator } from './LogicAggregator.js';
 import { ProfessionalAggregator } from './ProfessionalAggregator.js';
 import { ResilienceAggregator } from './ResilienceAggregator.js';
@@ -11,6 +12,7 @@ import { KnowledgeAggregator } from './KnowledgeAggregator.js';
 
 export class MetricAggregatorOrchestrator {
     constructor() {
+        this.logger = logManager.child({ component: 'MetricAggregatorOrchestrator' });
         // Initialize all aggregators
         this.aggregators = {
             logic: new LogicAggregator(),
@@ -33,21 +35,21 @@ export class MetricAggregatorOrchestrator {
         }
 
         const hasMeta = nodes.filter(n => n.metadata && Object.keys(n.metadata).length > 0).length;
-        console.log(`[Orchestrator] Aggregating ${nodes.length} nodes (${hasMeta} with metadata)`);
+        this.logger.info(`Aggregating ${nodes.length} nodes (${hasMeta} with metadata)`);
 
         // Execute all aggregators in parallel
         const results = {};
         Object.entries(this.aggregators).forEach(([domain, aggregator]) => {
             try {
                 results[domain] = aggregator.aggregate(nodes, totalFiles);
-                console.log(`[Orchestrator] Domain ${domain} aggregated. Keys:`, Object.keys(results[domain]));
+                this.logger.debug(`Domain ${domain} aggregated. Keys: ${Object.keys(results[domain])}`);
             } catch (error) {
-                console.error(`Error in ${domain} aggregation:`, error);
+                this.logger.error(`Error in ${domain} aggregation: ${error.message}`, { error: error.stack });
                 results[domain] = aggregator.getDefaultStructure();
             }
         });
 
-        console.log(`[Orchestrator] Raw Results: Semantic.dimensions.social=${results.semantic?.dimensions?.social}, Resilience.optimization=${results.resilience?.optimization_score}`);
+        this.logger.debug(`Raw Results captured for ${nodes.length} nodes`);
 
         // Build final report
         const report = {

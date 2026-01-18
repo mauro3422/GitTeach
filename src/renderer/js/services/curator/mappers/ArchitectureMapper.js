@@ -1,49 +1,16 @@
-import { AIService } from '../../aiService.js';
-import { Logger } from '../../../utils/logger.js';
+import { BaseMapper } from './BaseMapper.js';
+import { ThematicPrompts } from '../../../prompts/curator/ThematicPrompts.js';
 
-export class ArchitectureMapper {
-    async map(username, insights, healthReport) {
-        // Updated Protocol for Traceability
-        const prompt = `YOU ARE THE CRITICAL SYSTEM AUDITOR. Identify the REAL ARCHITECTURAL MATURITY of ${username}.
+export class ArchitectureMapper extends BaseMapper {
+    constructor() {
+        super('Architecture');
+    }
 
-        INPUT DATA contains [UID:...] tags. You MUST preserve these UIDs when citing evidence.
+    getPrompt(username, healthReport) {
+        return ThematicPrompts.ARCHITECTURE_PROMPT(username, healthReport);
+    }
 
-        STRICT OUTPUT FORMAT (JSON):
-        {
-            "analysis": "Markdown report. Cite specific files and patterns.",
-            "patterns": ["Pattern1", "Pattern2"], // List detected design patterns (e.g. Factory, Observer, etc.)
-            "architectures": ["Architecture1"], // List high-level architectures (e.g. Hexagonal, MVC, Monolith)
-            "evidence_uids": ["uid1", "uid2"] // Extract the [UID:...] from the most critical insights used.
-        }
-
-        ### GLOBAL HEALTH AUDIT (Mathematical Truth):
-        - SOLID Average: ${healthReport?.averages?.solid || 'N/A'}/5
-        - Modularity: ${healthReport?.averages?.modularity || 'N/A'}/5`;
-
-        try {
-            Logger.mapper('Analyzing Architecture (CPU)...');
-            // Request JSON Mode
-            const schema = {
-                type: "object",
-                properties: {
-                    analysis: { type: "string" },
-                    patterns: { type: "array", items: { type: "string" } },
-                    architectures: { type: "array", items: { type: "string" } },
-                    evidence_uids: { type: "array", items: { type: "string" } }
-                },
-                required: ["analysis", "patterns", "architectures", "evidence_uids"]
-            };
-
-            // Use CPU endpoint for parallel execution without blocking GPU workers
-            const response = await AIService.callAI_CPU('Mapper: Architecture', `${prompt}\n\nINSIGHTS:\n${insights}`, 0.1, 'json_object', schema);
-
-            // Fallback if AI returns plain text error or fails schema
-            if (response.error || typeof response === 'string') return { analysis: response.error || response, patterns: [], architectures: [], evidence_uids: [] };
-
-            return response;
-
-        } catch (e) {
-            return { analysis: `Architecture Analysis Error: ${e.message}`, patterns: [], architectures: [], evidence_uids: [] };
-        }
+    getSchema() {
+        return ThematicPrompts.ARCHITECTURE_SCHEMA;
     }
 }

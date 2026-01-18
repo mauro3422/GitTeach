@@ -1,129 +1,196 @@
 /**
  * SynthesisOrchestrator - Coordinates the deep curation synthesis pipeline
- * Extracted from DeepCurator to comply with SRP
+ * Refactored to use Command Pattern for better separation of concerns
  *
- * Responsibilities:
- * - Orchestrate the main curation pipeline
- * - Coordinate thematic mapping and DNA synthesis
- * - Manage the overall synthesis workflow
+ * SOLID Principles:
+ * - S: Single responsibility for orchestration only
+ * - O: Extensible command system
+ * - L: Substitutable with other orchestrators
+ * - I: Clean orchestration interface
+ * - D: Depends on injected commands
  */
-import { Logger } from '../../utils/logger.js';
+import { logManager } from '../../utils/logManager.js';
 import { DebugLogger } from '../../utils/debugLogger.js';
-import { ThematicMapper } from './ThematicMapper.js';
-import { DNASynthesizer } from './DNASynthesizer.js';
 import { MetricRefinery } from './MetricRefinery.js';
+import { CurateCommand } from './CurateCommand.js';
+import { SynthesizeCommand } from './SynthesizeCommand.js';
 import { AISlotPriorities } from '../ai/AISlotManager.js';
-import { InsightsCurator } from './InsightsCurator.js';
 
 export class SynthesisOrchestrator {
-    constructor() {
-        this.thematicMapper = new ThematicMapper();
-        this.dnaSynthesizer = new DNASynthesizer();
-        this.insightsCurator = new InsightsCurator();
+    constructor(options = {}) {
+        const insightsCurator = options.insightsCurator || (async () => {
+            const { InsightsCurator } = await import('./InsightsCurator.js');
+            return new InsightsCurator();
+        })();
+
+        // Ensure commands have their dependencies even if not provided in options
+        this.curateCommand = options.curateCommand || new CurateCommand(options.insightsCurator || null);
+
+        // We'll lazy-load or use provided options for more complex ones
+        this.synthesizeCommand = options.synthesizeCommand || new SynthesizeCommand(
+            options.dnaSynthesizer || null,
+            options.layeredPersistenceManager || null,
+            options.thematicMapper || null
+        );
+
+        this.metricRefinery = options.metricRefinery || MetricRefinery;
+        this.debugLogger = options.debugLogger || DebugLogger;
+        this.logger = logManager.child({ component: 'SynthesisOrchestrator' });
+    }
+
+    /**
+     * Lazy-init dependencies if they were not provided
+     */
+    async _ensureDependencies() {
+        if (!this.curateCommand.insightsCurator) {
+            const { InsightsCurator } = await import('./InsightsCurator.js');
+            this.curateCommand.insightsCurator = new InsightsCurator();
+        }
+
+        if (!this.synthesizeCommand.dnaSynthesizer) {
+            const { DNASynthesizer } = await import('./DNASynthesizer.js');
+            this.synthesizeCommand.dnaSynthesizer = new DNASynthesizer();
+        }
+
+        if (!this.synthesizeCommand.layeredPersistenceManager) {
+            const { LayeredPersistenceManager } = await import('./LayeredPersistenceManager.js');
+            this.synthesizeCommand.layeredPersistenceManager = LayeredPersistenceManager;
+        }
+
+        if (!this.synthesizeCommand.thematicMapper) {
+            const { ThematicMapper } = await import('./ThematicMapper.js');
+            this.synthesizeCommand.thematicMapper = new ThematicMapper();
+        }
     }
 
     /**
      * Deep Curation Engine (Map-Reduce):
-     * Takes 100% of summaries and reduces them to dense memory.
-     * Uses "Funnel of Truth" logic (Deduplication + Rarity Filter).
+     * Orchestrates the curation and synthesis pipeline using Command Pattern
      */
     async runDeepCurator(username, coordinator, streamingHandler) {
-        // Step 1: Get Raw Rich Data
-        // PREFER internal accumulation (which has UIDs from MemoryManager) over Coordinator (which might be raw)
-        const rawFindings = streamingHandler.getAccumulatedFindings();
-        const coordinatorFindings = coordinator ? coordinator.getAllRichSummaries() : [];
-        const allFindings = rawFindings.length > 0 ? rawFindings : coordinatorFindings;
-
-        if (!allFindings || allFindings.length === 0) {
-            Logger.info('SynthesisOrchestrator', 'No findings available for curation.');
-            return null;
-        }
-
-        // Step 2: Curate (Deduplicate + Filter + Weighting + Referencing)
-        const curationResult = this.curateInsights(allFindings, streamingHandler);
-        const { validInsights, anomalies, stats, traceability_map } = curationResult;
-
-        Logger.reducer(`Curation completed: ${allFindings.length} -> ${validInsights.length} unique insights.`);
-        Logger.reducer(`Diversity: ${stats.repoCount} repositories, ${stats.topStrengths.slice(0, 3).map(s => s.name).join(', ')} predominant.`);
-
-        if (anomalies.length > 0) {
-            Logger.warn('SynthesisOrchestrator', `Detected ${anomalies.length} integrity anomalies.`);
-        }
-
-        // EXTRA STEP: Mathematical Metric Refining (Objectivity Layer)
-        // This grounds the AI in reality before mapping layers
-        const healthReport = MetricRefinery.refine(validInsights, coordinator.getTotalFilesScanned?.() || 0);
-
         try {
-            // OPTIMIZATION: Check if blueprints already have thematic analysis
-            const { CacheRepository } = await import('../../utils/cacheRepository.js');
-            const existingBlueprints = await CacheRepository.getAllRepoBlueprints();
-            const blueprintsWithAnalysis = existingBlueprints.filter(bp => bp.thematicAnalysis);
+            this.logger.info(`Starting deep curation orchestration for ${username}`);
 
-            let mapperResults;
+            // Ensure all commands are initialized
+            await this._ensureDependencies();
 
-            if (blueprintsWithAnalysis.length > 0) {
-                // MERGE PRE-CALCULATED ANALYSES (from per-repo CPU mappers)
-                Logger.mapper(`Merging ${blueprintsWithAnalysis.length} pre-calculated thematic analyses...`);
-                mapperResults = this._mergeThematicAnalyses(blueprintsWithAnalysis);
-            } else {
-                // FALLBACK: Execute full thematic mapping (original behavior)
-                Logger.mapper('Executing 3 layers of deep technical analysis...');
-                mapperResults = await this.thematicMapper.executeMapping(username, validInsights, healthReport);
+            // Step 1: Collect raw findings
+            const rawFindings = streamingHandler?.getAccumulatedFindings() || [];
+            const coordinatorFindings = coordinator ? coordinator.getAllRichSummaries() : [];
+            const allFindings = rawFindings.length > 0 ? rawFindings : coordinatorFindings;
+
+            if (!allFindings || allFindings.length === 0) {
+                this.logger.warn('No findings available for curation');
+                return null;
             }
 
-            // EXTRA STEP: Layered Persistence (Persistence of Themes as independent keys)
-            const { LayeredPersistenceManager } = await import('./LayeredPersistenceManager.js');
-            await Promise.all([
-                LayeredPersistenceManager.storeLayer(username, 'theme', 'architecture', mapperResults.architecture),
-                LayeredPersistenceManager.storeLayer(username, 'theme', 'habits', mapperResults.habits),
-                LayeredPersistenceManager.storeLayer(username, 'theme', 'stack', mapperResults.stack),
-                LayeredPersistenceManager.storeLayer(username, 'metrics', 'health', healthReport)
-            ]);
+            this.logger.debug(`Collected ${allFindings.length} raw findings`);
 
-            const thematicAnalyses = this.thematicMapper.formatForSynthesis(mapperResults);
+            // Step 2: Execute curation using CurateCommand
+            const curationResult = await this.curateCommand.execute(allFindings, { streamingHandler });
+            if (!curationResult.success) {
+                this.logger.error(`Curation failed: ${curationResult.error}`);
+                return { error: curationResult.error };
+            }
 
-            // Step 5: Synthesize DNA (Phase 2 - Reduce)
-            const { dna, traceability_map: finalMap } = await this.dnaSynthesizer.synthesize(
+            const { validInsights, stats, traceability_map } = curationResult;
+            this.logger.info(`Curation successful: ${allFindings.length} -> ${validInsights.length} insights`);
+
+            // Step 3: Generate thematic analyses
+            const thematicAnalyses = await this._executeThematicMapping(username, validInsights, coordinator, stats);
+
+            // Step 4: Execute synthesis using SynthesizeCommand
+            const synthesisParams = {
                 username,
                 thematicAnalyses,
                 stats,
                 traceability_map,
-                allFindings.length,
-                validInsights.length,
-                healthReport
-            );
+                healthReport: this._generateHealthReport(validInsights, coordinator),
+                totalFindings: allFindings.length,
+                validInsightsCount: validInsights.length
+            };
 
-            // Final Step: Store Identity Broker
-            await LayeredPersistenceManager.storeIdentityBroker(username, dna);
+            const synthesisResult = await this.synthesizeCommand.execute(synthesisParams);
+            if (!synthesisResult.success) {
+                this.logger.error(`Synthesis failed: ${synthesisResult.error}`);
+                return { error: synthesisResult.error };
+            }
 
             // Debug logging
-            DebugLogger.logCurator('final_dna_synthesis', dna);
+            this.debugLogger.logCurator('final_dna_synthesis', synthesisResult.dna);
 
-            return { dna, traceability_map: finalMap, performance: mapperResults.performance };
-        } catch (e) {
-            console.error(`[SYNTHESIS_CRASH] Fatal exception in SynthesisOrchestrator:`, e);
-            Logger.error('SynthesisOrchestrator', `Global Synthesis failed: ${e.message}`);
-            return { error: e.message, stack: e.stack };
+            this.logger.info(`Deep curation completed successfully for ${username}`);
+
+            return {
+                dna: synthesisResult.dna,
+                traceability_map: synthesisResult.traceability_map,
+                performance: { synthesisTime: synthesisResult.metadata.synthesisTime }
+            };
+
+        } catch (error) {
+            this.logger.error(`Deep curation orchestration failed: ${error.message}`, { error: error.stack });
+            return { error: error.message, stack: error.stack };
         }
     }
 
     /**
-     * Curate insights using the Funnel of Truth
+     * Execute thematic mapping logic
      */
-    curateInsights(findings, streamingHandler = null) {
-        // Delegate to InsightsCurator for centralized curation logic
-        const curationResult = this.insightsCurator.curate(findings);
+    async _executeThematicMapping(username, validInsights, coordinator, stats) {
+        try {
+            // Check for pre-calculated analyses
+            const { CacheRepository } = await import('../../utils/cacheRepository.js');
+            const existingBlueprints = await CacheRepository.getAllRepoBlueprints();
+            const blueprintsWithAnalysis = existingBlueprints.filter(bp => bp.thematicAnalysis);
 
-        // Merge with any existing traceability map from streamingHandler
-        if (streamingHandler?.getTraceabilityMap()) {
-            this.insightsCurator.mergeTraceabilityMaps(
-                curationResult.traceability_map,
-                streamingHandler.getTraceabilityMap()
-            );
+            if (blueprintsWithAnalysis.length > 0) {
+                // Use merged pre-calculated analyses
+                this.logger.info(`Using ${blueprintsWithAnalysis.length} pre-calculated thematic analyses`);
+                return this.synthesizeCommand.mergeThematicAnalyses(blueprintsWithAnalysis);
+            } else {
+                // Execute full thematic mapping
+                this.logger.info('Executing full thematic mapping analysis');
+                const { ThematicMapper } = await import('./ThematicMapper.js');
+                const thematicMapper = new ThematicMapper();
+                const healthReport = this._generateHealthReport(validInsights, coordinator);
+
+                const mapperResults = await thematicMapper.executeMapping(username, validInsights, healthReport);
+                return thematicMapper.formatForSynthesis(mapperResults);
+            }
+        } catch (error) {
+            this.logger.error(`Thematic mapping failed: ${error.message}`);
+            return {
+                architecture: { analysis: '', evidence_uids: [] },
+                habits: { analysis: '', evidence_uids: [] },
+                stack: { analysis: '', evidence_uids: [] },
+                performance: { totalMs: 0, layers: {} }
+            };
         }
+    }
 
-        return curationResult;
+    /**
+     * Generate health report from insights
+     */
+    _generateHealthReport(validInsights, coordinator) {
+        try {
+            return this.metricRefinery.refine(validInsights, coordinator?.getTotalFilesScanned?.() || 0);
+        } catch (error) {
+            this.logger.warn(`Health report generation failed: ${error.message}`);
+            return { complexity_score: 0, maintainability_index: 0 };
+        }
+    }
+
+    /**
+     * Legacy method for backward compatibility - delegates to CurateCommand
+     */
+    async curateInsights(findings, streamingHandler = null) {
+        const result = await this.curateCommand.execute(findings, { streamingHandler });
+        return result.success ? {
+            validInsights: result.validInsights,
+            anomalies: result.anomalies,
+            stats: result.stats,
+            traceability_map: result.traceability_map
+        } : { validInsights: [], anomalies: [], stats: { repoCount: 0 }, traceability_map: {} };
     }
 
     /**
@@ -176,49 +243,5 @@ export class SynthesisOrchestrator {
         return `Analysis of ${path} in ${repo}: ${usageSnippet.substring(0, 100)}...`;
     }
 
-    /**
-     * Merge pre-calculated thematic analyses from multiple repo blueprints
-     * @param {Array} blueprints - Blueprints with thematicAnalysis
-     * @returns {Object} Merged mapper results
-     */
-    _mergeThematicAnalyses(blueprints) {
-        const merged = {
-            architecture: { analysis: '', evidence_uids: [] },
-            habits: { analysis: '', evidence_uids: [] },
-            stack: { analysis: '', evidence_uids: [] },
-            performance: { totalMs: 0, layers: {} }
-        };
 
-        blueprints.forEach(bp => {
-            if (!bp.thematicAnalysis) return;
-            const ta = bp.thematicAnalysis;
-
-            // Merge architecture
-            if (ta.architecture?.analysis) {
-                merged.architecture.analysis += `\n### [${bp.repoName}]\n${ta.architecture.analysis}`;
-                merged.architecture.evidence_uids.push(...(ta.architecture.evidence_uids || []));
-            }
-
-            // Merge habits
-            if (ta.habits?.analysis) {
-                merged.habits.analysis += `\n### [${bp.repoName}]\n${ta.habits.analysis}`;
-                merged.habits.evidence_uids.push(...(ta.habits.evidence_uids || []));
-            }
-
-            // Merge stack
-            if (ta.stack?.analysis) {
-                merged.stack.analysis += `\n### [${bp.repoName}]\n${ta.stack.analysis}`;
-                merged.stack.evidence_uids.push(...(ta.stack.evidence_uids || []));
-            }
-
-            // Sum performance
-            if (ta.performance?.totalMs) {
-                merged.performance.totalMs += ta.performance.totalMs;
-            }
-        });
-
-        Logger.mapper(`Merged analyses: Arch=${merged.architecture.evidence_uids.length} UIDs, Habits=${merged.habits.evidence_uids.length} UIDs, Stack=${merged.stack.evidence_uids.length} UIDs`);
-
-        return merged;
-    }
 }

@@ -9,7 +9,7 @@
  * - Manage batch buffering and streaming
  * - Log worker audit trails
  */
-import { Logger } from '../../utils/logger.js';
+import { logManager } from '../../utils/logManager.js';
 import { CacheRepository } from '../../utils/cacheRepository.js';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -20,6 +20,7 @@ export class ResultProcessor {
         this.contextManager = contextManager;
         this.promptBuilder = promptBuilder;
         this.debugLogger = debugLogger;
+        this.logger = logManager.child({ component: 'ResultProcessor' });
     }
 
     /**
@@ -34,7 +35,7 @@ export class ResultProcessor {
 
         // Pre-filtered
         if (skipReason) {
-            console.log(`[ResultProcessor] SKIPPING ${input.path || 'Batch'}: ${skipReason}`);
+            this.logger.debug(`SKIPPING ${input.path || 'Batch'}: ${skipReason}`);
             return { prompt: 'PRE-FILTERED', summary: `SKIP: ${skipReason}`, langCheck: { valid: true } };
         }
 
@@ -42,7 +43,7 @@ export class ResultProcessor {
         if (!input.isBatch && input.sha) {
             const sessionCache = this.queueManager.processedShas.get(input.sha);
             if (sessionCache) {
-                console.log(`[ResultProcessor] CACHE HIT ${input.path}`);
+                this.logger.debug(`CACHE HIT ${input.path}`);
                 return { prompt: 'SESSION_CACHE_HIT', summary: sessionCache, langCheck: { valid: true } };
             }
         }
@@ -62,17 +63,19 @@ export class ResultProcessor {
         );
 
 
-        // FORENSIC DEBUG: Log raw output to console (Fallback)
-        console.log(`\n[RAW_WORKER_OUTPUT] START [${input.path || 'BATCH'}] (CWD: ${process.cwd()}) >>>`);
-        console.log(summary);
-        console.log(`<<< [RAW_WORKER_OUTPUT] END\n`);
+        // FORENSIC DEBUG: Log to structured logging
+        this.logger.debug(`AI Response received for ${input.path || 'BATCH'}`, {
+            length: summary?.length,
+            isBatch
+        });
 
+        // Local FS forensic log (kept for ultra-detailed debugging in dev/tracer)
         try {
             const logPath = path.join(process.cwd(), 'raw_worker_outputs.log');
             const logEntry = `\n\n=== [${new Date().toISOString()}] Input: ${input.isBatch ? 'BATCH' : input.path} ===\n${summary}\n================================================`;
             fs.appendFileSync(logPath, logEntry);
         } catch (e) {
-            console.error("Forensic Log Error:", e);
+            this.logger.error("Forensic Log Error:", { error: e.message });
         }
 
         return {
@@ -124,8 +127,7 @@ export class ResultProcessor {
             };
 
             // Critical Debug
-            if (!summary) console.warn(`[ResultProcessor] ⚠️ Summary missing for ${item.path}`);
-            // console.log(`[ResultProcessor] Created result for ${item.path}:`, JSON.stringify(resultItem));
+            if (!summary) this.logger.warn(`Summary missing for ${item.path}`);
 
             results.push(resultItem);
             batchBuffer.push(resultItem); // BRIDGE TO MEMORY SYSTEM V3
@@ -150,7 +152,7 @@ export class ResultProcessor {
 
         // Debug logging
         if (!this.debugLogger.isActive()) {
-            console.warn(`[ResultProcessor] ⚠️ DebugLogger INACTIVE. Enabled: ${this.debugLogger.enabled}, Session: ${this.debugLogger.sessionPath}`);
+            this.logger.warn(`DebugLogger INACTIVE. Enabled: ${this.debugLogger.enabled}, Session: ${this.debugLogger.sessionPath}`);
         }
 
         this.debugLogger.logWorker(workerId, {
@@ -192,7 +194,7 @@ export class ResultProcessor {
 
         this.queueManager.markProcessed(items.length);
 
-        Logger.worker(workerId, `Error: ${error.message}`);
+        this.logger.error(`Worker ${workerId} error: ${error.message}`);
     }
 
     /**

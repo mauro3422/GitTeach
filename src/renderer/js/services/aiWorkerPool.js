@@ -1,4 +1,4 @@
-import { Logger } from '../utils/logger.js';
+import { logManager } from '../utils/logManager.js';
 import { QueueManager } from './workers/QueueManager.js';
 import { RepoContextManager } from './workers/RepoContextManager.js';
 import { WorkerPromptBuilder } from './workers/WorkerPromptBuilder.js';
@@ -16,11 +16,12 @@ import { WorkerHealthMonitor } from './workers/WorkerHealthMonitor.js';
  */
 export class AIWorkerPool {
     constructor(workerCount = 3, coordinator = null, debugLogger = null) {
+        this.logger = logManager.child({ component: 'AIWorkerPool' });
         this.workerCount = workerCount;
         this.coordinator = coordinator;
         this.debugLogger = debugLogger || (typeof DebugLogger !== 'undefined' ? DebugLogger : { isActive: () => false });
 
-        console.log(`[AIWorkerPool] Constructor - Injected Logger: ${!!debugLogger}, IsActive: ${this.debugLogger.isActive()}`);
+        this.logger.debug(`Constructor - Injected Logger: ${!!debugLogger}, IsActive: ${this.debugLogger.isActive()}`);
 
         // Compose specialized modules
         this.queueManager = new QueueManager();
@@ -112,7 +113,7 @@ export class AIWorkerPool {
                 }
             );
         } catch (error) {
-            console.error(`[Worker ${workerId}] Fatal error:`, error);
+            this.logger.error(`[Worker ${workerId}] Fatal error: ${error.message}`, { error: error.stack });
         }
     }
 

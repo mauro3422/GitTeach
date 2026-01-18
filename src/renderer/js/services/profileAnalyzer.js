@@ -9,6 +9,7 @@
  * - I: Clean public interface
  * - D: Depends on injected modules
  */
+import { logManager } from '../utils/logManager.js';
 import { AIService } from './aiService.js';
 import { CoordinatorAgent } from './coordinatorAgent.js';
 import { AIWorkerPool } from './aiWorkerPool.js';
@@ -19,10 +20,9 @@ import { AnalysisPipeline } from './analyzer/AnalysisPipeline.js';
 import { BatchProcessor } from './analyzer/BatchProcessor.js';
 import { ContextBuilder } from './analyzer/ContextBuilder.js';
 
-console.log("!!! PROFILE ANALYZER RELOADED - VERSION RESURRECTION !!!");
-
 export class ProfileAnalyzer {
     constructor(debugLogger = null, options = {}) {
+        this.logger = logManager.child({ component: 'ProfileAnalyzer' });
         this.debugLogger = debugLogger;
         this.options = options;
 
@@ -67,7 +67,7 @@ export class ProfileAnalyzer {
         });
 
         // Start the worker queue processing
-        this.workerPool.processQueue(AIService).catch(err => console.warn('[AI WORKERS] Error:', err));
+        this.workerPool.processQueue(AIService).catch(err => this.logger.error(`[AI WORKERS] Error: ${err.message}`, { error: err.stack }));
     }
 
     getFreshContext(username, technicalIdentity, cognitiveProfile = null, curationEvidence = null) {

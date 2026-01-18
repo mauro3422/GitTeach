@@ -8,12 +8,15 @@
  * - Integrate with FileClassifier for pre-filtering and hints
  * - Validate language integrity and provide warnings
  */
+import { logManager } from '../../utils/logManager.js';
 import { FileClassifier } from '../../utils/fileClassifier.js';
 import { AnalysisPrompts } from '../../prompts/workers/AnalysisPrompts.js';
-import * as fs from 'fs';
-import * as path from 'path';
 
 export class UserPromptBuilder {
+    constructor() {
+        this.logger = logManager.child({ component: 'UserPromptBuilder' });
+    }
+
     /**
      * Build the user prompt for a file or batch
      * @param {Object} input - Single item or batch object
@@ -25,14 +28,10 @@ export class UserPromptBuilder {
         const repo = items[0].repo;
 
         // Pre-filter check
-        // DEBUG IMPORT TO FILE
         if (!this.hasLoggedImport) {
-            try {
-                const logPath = path.join(process.cwd(), 'debug_prompt_builder.log');
-                const debugData = `[UserPromptBuilder] AnalysisPrompts TYPE: ${typeof AnalysisPrompts}\n` +
-                    `[UserPromptBuilder] Templates: ${JSON.stringify(AnalysisPrompts ? AnalysisPrompts.USER_PROMPT_TEMPLATES : "NULL")}\n`;
-                fs.writeFileSync(logPath, debugData);
-            } catch (e) { console.error("PromptLog fail", e); }
+            this.logger.debug('AnalysisPrompts initialized', {
+                hasTemplates: !!AnalysisPrompts?.USER_PROMPT_TEMPLATES
+            });
             this.hasLoggedImport = true;
         }
 
@@ -57,9 +56,7 @@ export class UserPromptBuilder {
         }
 
         if (userPrompt === undefined) {
-            console.error("[UserPromptBuilder] ❌ FATAL: userPrompt is UNDEFINED!");
-        } else {
-            // console.log(`[UserPromptBuilder] Generated prompt length: ${userPrompt.length}`);
+            this.logger.error("FATAL: userPrompt is UNDEFINED!");
         }
 
         return {

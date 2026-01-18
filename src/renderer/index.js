@@ -7,7 +7,13 @@ import {
     DashboardManager
 } from './js/core/index.js';
 
-// 1. Module initialization
+import { AIService } from './js/services/aiService.js';
+import { memoryManager } from './js/services/memory/MemoryManager.js';
+
+// 1. Service Wiring (Resolve circular dependencies)
+memoryManager.setEmbeddingService(AIService);
+
+// 2. Module initialization
 AuthView.init(async () => {
     // Show dashboard immediately
     AppOrchestrator.showView('dashboard');

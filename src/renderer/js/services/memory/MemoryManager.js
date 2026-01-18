@@ -8,12 +8,11 @@
  * - Provide a clean interface for memory retrieval.
  */
 import { MemoryNode } from './MemoryNode.js';
-import { Logger } from '../../utils/logger.js';
+import { logManager } from '../../utils/logManager.js';
 import { CacheRepository } from '../../utils/cacheRepository.js';
-import { AIService } from '../aiService.js';
 
 export class MemoryManager {
-    constructor() {
+    constructor(options = {}) {
         this.nodes = new Map(); // Global memory map [UID -> Node]
         this.repoIndexes = new Map(); // Index by repository [RepoName -> [UIDs]]
 
@@ -24,7 +23,18 @@ export class MemoryManager {
         this.lastFlushTime = 0;
         this.flushTimer = null;
 
-        Logger.info('MemoryManager', 'Decoupled Memory V3 initialized (Batching Enabled).');
+        // Dependency injection to resolve circular dependencies
+        this.embeddingService = options.embeddingService || null;
+
+        this.logger = logManager.child({ component: 'MemoryManager' });
+        this.logger.info('Decoupled Memory V3 initialized (Batching Enabled).');
+    }
+
+    /**
+     * Set the embedding service (to resolve circular dependencies)
+     */
+    setEmbeddingService(embeddingService) {
+        this.embeddingService = embeddingService;
     }
 
     /**
@@ -54,7 +64,7 @@ export class MemoryManager {
         // PERSISTENCE V3: Append Raw Finding immediately
         // We don't await this to keep the main flow fast, as it's just a safeguard log
         CacheRepository.appendRepoRawFinding(finding.repo, finding).catch(err => {
-            console.warn(`[MemoryManager] Failed to append raw finding for ${finding.repo}`, err);
+            this.logger.warn(`Failed to append raw finding for ${finding.repo}`, err);
         });
 
         return node;
@@ -71,7 +81,7 @@ export class MemoryManager {
         const nodes = this.getRepoMemory(repoName);
         if (nodes.length === 0) return;
 
-        Logger.info('MemoryManager', `Persisting ${nodes.length} curated nodes for ${repoName}...`);
+        this.logger.info(`Persisting ${nodes.length} curated nodes for ${repoName}...`);
         await CacheRepository.persistRepoCuratedMemory(repoName, nodes);
     }
 
@@ -79,7 +89,7 @@ export class MemoryManager {
      * Persist memory for ALL repositories (Flush)
      */
     async persistAll() {
-        Logger.info('MemoryManager', 'Flushing all repo memories to persistence...');
+        this.logger.info('Flushing all repo memories to persistence...');
 
         // Ensure all pending embeddings are processed
         await this.flushEmbeddingBuffer();
@@ -90,7 +100,7 @@ export class MemoryManager {
 
     /**
      * Add a node to the memory and update indexes
-     * @param {MemoryNode} node 
+     * @param {MemoryNode} node
      */
     async addNode(node) {
         this.nodes.set(node.uid, node);
@@ -104,7 +114,7 @@ export class MemoryManager {
             repoList.push(node.uid);
         }
 
-        Logger.debug('MemoryManager', `Node stored: ${node.uid} [${node.classification}] in ${node.repo}`);
+        this.logger.debug(`Node stored: ${node.uid} [${node.classification}] in ${node.repo}`);
 
         // Trigger batch-aware indexing
         this.indexNode(node);
@@ -167,8 +177,15 @@ export class MemoryManager {
         }
 
         try {
+            // Check if embedding service is available
+            if (!this.embeddingService) {
+                this.logger.warn('Embedding service not available, skipping batch processing');
+                batch.forEach(node => node.vectorStatus = 'failed');
+                return;
+            }
+
             // Call Batch API
-            const embeddings = await AIService.batchEmbeddings(texts);
+            const embeddings = await this.embeddingService.batchEmbeddings(texts);
 
             // Assign results back to nodes
             batch.forEach((node, index) => {
@@ -178,15 +195,15 @@ export class MemoryManager {
                     node.vectorStatus = 'ready';
                 } else {
                     node.vectorStatus = 'failed';
-                    Logger.warn('MemoryManager', `Embedding generation failed for node ${node.uid}`);
+                    this.logger.warn(`Embedding generation failed for node ${node.uid}`);
                 }
             });
 
-            Logger.info('MemoryManager', `Batch processed ${batch.length} embeddings.`);
+            this.logger.info(`Batch processed ${batch.length} embeddings.`);
 
         } catch (error) {
-            Logger.error('MemoryManager', `Batch embedding failed: ${error.message}`);
-            // Revert vectorStatus to pending or failed? 
+            this.logger.error(`Batch embedding failed: ${error.message}`);
+            // Revert vectorStatus to pending or failed?
             // Currently failing the batch
             batch.forEach(node => node.vectorStatus = 'failed');
         }
@@ -235,7 +252,7 @@ export class MemoryManager {
     clear() {
         this.nodes.clear();
         this.repoIndexes.clear();
-        Logger.info('MemoryManager', 'Memory cache cleared.');
+        this.logger.info('Memory cache cleared.');
     }
 }
 

@@ -9,8 +9,11 @@
  * - Embedding caching and optimization
  */
 
+import { logManager } from '../../utils/logManager.js';
+
 export class EmbeddingService {
     constructor() {
+        this.logger = logManager.child({ component: 'EmbeddingService' });
         this.cache = new Map();
         this.maxCacheSize = 1000;
     }
@@ -37,7 +40,7 @@ export class EmbeddingService {
 
         if (this.isTracerMode() && !isForcedReal) {
             if (!this._hasLoggedTracer) {
-                console.log('🧪 [EmbeddingService] Tracer Mode: Using deterministic mock embeddings.');
+                this.logger.info('🧪 Tracer Mode: Using deterministic mock embeddings.');
                 this._hasLoggedTracer = true;
             }
             return this.getMockEmbedding(text);
@@ -46,12 +49,11 @@ export class EmbeddingService {
         try {
             const embedding = await this.callEmbeddingAPI(text);
 
-            // Cache the result
             this.setCache(cacheKey, embedding);
 
             return embedding;
         } catch (error) {
-            console.warn("[EmbeddingService] Embedding generation failed:", error.message);
+            this.logger.warn(`Embedding generation failed: ${error.message}`);
             return this.getFallbackEmbedding(text);
         }
     }
@@ -71,7 +73,7 @@ export class EmbeddingService {
         const isTracer = this.isTracerMode();
         const isForcedReal = _window?.FORCE_REAL_AI === true;
 
-        console.log(`📡 [EmbeddingService] Batch Request: isTracer=${isTracer}, isForcedReal=${isForcedReal}, texts=${texts.length}`);
+        this.logger.info(`Batch Request: isTracer=${isTracer}, isForcedReal=${isForcedReal}, texts=${texts.length}`);
 
         if (isTracer && !isForcedReal) {
             return texts.map(text => this.getMockEmbedding(text));
@@ -115,7 +117,7 @@ export class EmbeddingService {
                     this.setCache(cacheKey, embedding);
                 });
             } catch (error) {
-                console.warn("[EmbeddingService] Batch embedding failed:", error.message);
+                this.logger.warn(`Batch embedding failed: ${error.message}`);
 
                 // Use fallbacks for failed embeddings
                 uncachedIndices.forEach(resultIndex => {
@@ -184,8 +186,7 @@ export class EmbeddingService {
         const _window = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global.window : {});
         const ENDPOINT = this.getEmbeddingEndpoint();
 
-        const logMsg = `[${new Date().toISOString()}] 📡 Requesting batch: ${texts.length} texts -> ${ENDPOINT}\n`;
-        console.log(logMsg.trim());
+        this.logger.debug(`Requesting batch: ${texts.length} texts -> ${ENDPOINT}`);
 
         try {
             const fs = await import('fs');
@@ -248,7 +249,7 @@ export class EmbeddingService {
                 }
 
                 const delay = Math.pow(2, attempt - 1) * baseDelay + (Math.random() * 500);
-                console.warn(`[EmbeddingService] Retry ${attempt}/${maxRetries} after ${Math.round(delay)}ms: ${error.message}`);
+                this.logger.warn(`Retry ${attempt}/${maxRetries} after ${Math.round(delay)}ms: ${error.message}`);
                 await new Promise(r => setTimeout(r, delay));
             }
         }

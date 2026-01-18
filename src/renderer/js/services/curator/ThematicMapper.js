@@ -5,13 +5,14 @@
  * - Delegate technical analysis to Architecture, Habits, and Stack mappers
  * - Execute analysis in parallel for performance
  */
-import { Logger } from '../../utils/logger.js';
+import { logManager } from '../../utils/logManager.js';
 import { ArchitectureMapper } from './mappers/ArchitectureMapper.js';
 import { HabitsMapper } from './mappers/HabitsMapper.js';
 import { StackMapper } from './mappers/StackMapper.js';
 
 export class ThematicMapper {
     constructor() {
+        this.logger = logManager.child({ component: 'ThematicMapper' });
         this.architectureMapper = new ArchitectureMapper();
         this.habitsMapper = new HabitsMapper();
         this.stackMapper = new StackMapper();
@@ -31,7 +32,7 @@ export class ThematicMapper {
         const { InsightPartitioner } = await import('./InsightPartitioner.js');
         const partitions = InsightPartitioner.partition(insightsArray);
 
-        Logger.mapper(`🔍 SEMANTIC PARTITIONING: Architecture (${partitions.architecture.length}), Habits (${partitions.habits.length}), Stack (${partitions.stack.length})`);
+        this.logger.info(`🔍 SEMANTIC PARTITIONING: Architecture (${partitions.architecture.length}), Habits (${partitions.habits.length}), Stack (${partitions.stack.length})`);
 
         // DEBUG PERSISTENCE (Tracer only)
         if (typeof window !== 'undefined' && window.cacheAPI?.persistPartitionDebug) {
@@ -41,7 +42,7 @@ export class ThematicMapper {
                 window.cacheAPI.persistPartitionDebug('stack', partitions.stack)
             ]);
         }
-        Logger.mapper('Executing Parallel Thematic Mapping (Architecture, Habits, Stack)...');
+        this.logger.info('Executing Parallel Thematic Mapping (Architecture, Habits, Stack)...');
 
         const startTime = Date.now();
         const results_meta = { start: startTime };
@@ -68,7 +69,7 @@ export class ThematicMapper {
         ]);
 
         const totalDuration = Date.now() - startTime;
-        Logger.mapper(`Thematic Layers completed successfully in ${totalDuration}ms ✅`);
+        this.logger.info(`Thematic Layers completed successfully in ${totalDuration}ms ✅`);
 
         return {
             architecture,

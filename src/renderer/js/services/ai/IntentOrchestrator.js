@@ -10,7 +10,7 @@
  * - D: Depends on specialized modules for routing, prompting, and tool execution
  */
 
-import { Logger } from '../../utils/logger.js';
+import { logManager } from '../../utils/logManager.js';
 import { ToolRegistry } from '../toolRegistry.js';
 import { PromptBuilder } from '../promptBuilder.js';
 import { AIToolbox } from '../aiToolbox.js';
@@ -22,6 +22,7 @@ import { ParameterConstructor } from './ParameterConstructor.js';
 
 export class IntentOrchestrator {
     constructor(aiClient, contextManager) {
+        this.logger = logManager.child({ component: 'IntentOrchestrator' });
         this.aiClient = aiClient;
         this.contextManager = contextManager;
     }
@@ -97,7 +98,7 @@ export class IntentOrchestrator {
             }
 
             const detailsSafe = typeof executionResult.details === 'object' ? JSON.stringify(executionResult.details, null, 2) : executionResult.details;
-            Logger.info('OBSERVATION', `${detailsSafe} (Success: ${executionResult.success})`);
+            this.logger.info(`OBSERVATION: ${detailsSafe} (Success: ${executionResult.success})`);
 
             // 4. Respondent Phase (Closed Loop)
             let responsePrompt;
@@ -127,7 +128,7 @@ export class IntentOrchestrator {
             };
 
         } catch (error) {
-            console.error("IntentOrchestrator Error:", error);
+            this.logger.error(`IntentOrchestrator Error: ${error.message}`, { error: error.stack });
             return { action: "chat", message: `Technical error: ${error.message || error}` };
         }
     }

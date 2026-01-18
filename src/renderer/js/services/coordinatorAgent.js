@@ -2,10 +2,12 @@
  * CoordinatorAgent - Orchestrates workers and verifies analysis completion
  * Maintains inventory of repos/files and assigns tasks to workers
  */
+import { logManager } from '../utils/logManager.js';
 import { InventoryManager, ProgressReporter } from './coordinator/index.js';
 
 export class CoordinatorAgent {
     constructor() {
+        this.logger = logManager.child({ component: 'CoordinatorAgent' });
         this.inventoryManager = new InventoryManager();
         this.reporter = new ProgressReporter();
         this.workerCount = 4;
@@ -66,7 +68,7 @@ export class CoordinatorAgent {
         // Fire partial event every 3 files (Threshold)
         if (this.repoProgress[repoName] > 0 && this.repoProgress[repoName] % 3 === 0) {
             if (this.onRepoBatchReady) {
-                console.log(`[Coordinator] 🌊 PARTIAL BATCH: ${repoName} (${this.repoProgress[repoName]} files)`);
+                this.logger.info(`🌊 PARTIAL BATCH: ${repoName} (${this.repoProgress[repoName]} files)`);
                 this.onRepoBatchReady(repoName);
             }
         }

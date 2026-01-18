@@ -148,15 +148,17 @@ export class InsightsCurator {
                 targetMap[key] = [];
             }
             // Add unique entries (by UID or File)
-            value.forEach(sourceRef => {
-                const alreadyExists = targetMap[key].some(r =>
-                    (r.uid && r.uid === sourceRef.uid) ||
-                    (r.file === sourceRef.file && r.repo === sourceRef.repo && r.summary === sourceRef.summary)
-                );
-                if (!alreadyExists) {
-                    targetMap[key].push(sourceRef);
-                }
-            });
+            if (Array.isArray(value)) {
+                value.forEach(sourceRef => {
+                    const alreadyExists = targetMap[key].some(r =>
+                        (r.uid && r.uid === sourceRef.uid) ||
+                        (r.file === sourceRef.file && r.repo === sourceRef.repo && r.summary === sourceRef.summary)
+                    );
+                    if (!alreadyExists) {
+                        targetMap[key].push(sourceRef);
+                    }
+                });
+            }
         }
         return targetMap;
     }

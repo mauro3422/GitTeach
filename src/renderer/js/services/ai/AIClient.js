@@ -10,11 +10,13 @@
  * - D: Depends on AIHealthMonitor for health tracking
  */
 
+import { logManager } from '../../utils/logManager.js';
 import { AIHealthMonitor } from './AIHealthMonitor.js';
 import { aiSlotManager } from './AISlotManager.js';
 
 export class AIClient {
     constructor() {
+        this.logger = logManager.child({ component: 'AIClient' });
         this.healthMonitor = new AIHealthMonitor();
         this.healthMonitor.startHealthCheck();
 
@@ -36,13 +38,13 @@ export class AIClient {
         this.consecutiveFailures++;
         if (this.consecutiveFailures >= this.FAILURE_THRESHOLD) {
             this.circuitOpenUntil = Date.now() + this.COOLDOWN_MS;
-            console.error(`[AIClient] 🚨 CIRCUIT BREAKER OPENED for ${this.COOLDOWN_MS}ms after ${this.consecutiveFailures} failures.`);
+            this.logger.error(`🚨 CIRCUIT BREAKER OPENED for ${this.COOLDOWN_MS}ms after ${this.consecutiveFailures} failures.`);
         }
     }
 
     _onSuccess() {
         if (this.consecutiveFailures > 0) {
-            console.log(`[AIClient] Circuit reset after success.`);
+            this.logger.info(`Circuit reset after success.`);
         }
         this.consecutiveFailures = 0;
         this.circuitOpenUntil = 0;
@@ -96,18 +98,18 @@ export class AIClient {
                     attempt++;
                     if (attempt >= maxRetries) throw err;
 
-                    // Exponential backoff: 1s, 2s, 4s...
-                    const delay = Math.pow(2, attempt - 1) * 1000;
-                    console.warn(`[AIClient] Retry ${attempt}/${maxRetries} after ${delay}ms...`);
+                    // Exponential backoff: 2s, 4s, 8s... (Increased for stability)
+                    const delay = Math.pow(2, attempt) * 2000;
+                    this.logger.warn(`Retry ${attempt}/${maxRetries} after ${delay}ms...`);
                     await new Promise(r => setTimeout(r, delay));
                 }
             }
             clearTimeout(timeoutId);
 
             if (!response.ok) {
-                console.error(`[AIClient] ❌ Response ERROR: ${response.status}`);
+                this.logger.error(`Response ERROR: ${response.status}`);
             } else if (!this._hasLoggedOnline) {
-                console.log(`[AIClient] ✅ AI Server ONLINE`);
+                this.logger.info(`✅ AI Server ONLINE`);
                 this._hasLoggedOnline = true;
             }
 
@@ -120,7 +122,7 @@ export class AIClient {
         } catch (error) {
             this.updateHealth(false);
             this._onFailure();
-            console.error("[AIClient] ❌ AI Error:", error.message);
+            this.logger.error(`AI Error: ${error.message}`);
             throw error;
         } finally {
             aiSlotManager.release();
@@ -132,8 +134,8 @@ export class AIClient {
      * Does NOT use slot manager since CPU has its own dedicated slots
      */
     async callAI_CPU(systemPrompt, userMessage, temperature, format = null, schema = null) {
-        this._checkCircuit();
-        const CPU_ENDPOINT = 'http://localhost:8002/v1/chat/completions';
+        const _window = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global.window : {});
+        const CPU_ENDPOINT = (_window?.AI_CONFIG?.mapperEndpoint) || 'http://localhost:8002/v1/chat/completions';
 
         try {
             const controller = new AbortController();
@@ -161,7 +163,7 @@ export class AIClient {
             clearTimeout(timeoutId);
 
             if (!response.ok) {
-                console.error(`[AIClient] ❌ CPU Response ERROR: ${response.status}`);
+                this.logger.error(`CPU Response ERROR: ${response.status}`);
                 this._onFailure();
                 throw new Error(`CPU Status: ${response.status}`);
             }
@@ -171,7 +173,7 @@ export class AIClient {
             return data.choices[0].message.content;
         } catch (error) {
             this._onFailure();
-            console.error("[AIClient] ❌ CPU AI Error:", error.message);
+            this.logger.error(`CPU AI Error: ${error.message}`);
             throw error;
         }
     }

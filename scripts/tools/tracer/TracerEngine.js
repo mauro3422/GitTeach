@@ -41,6 +41,12 @@ export class TracerEngine {
         const { ProfileAnalyzer } = await import('../../../src/renderer/js/services/profileAnalyzer.js');
         const { DebugLogger } = await import('../../../src/renderer/js/utils/debugLogger.js');
         const { ToolRegistry } = await import('../../../src/renderer/js/services/toolRegistry.js');
+        const { EmbeddingService } = await import('../../../src/renderer/js/services/ai/EmbeddingService.js');
+        const { memoryManager } = await import('../../../src/renderer/js/services/memory/MemoryManager.js');
+
+        // 4.1 Dependency Injection for Tracer
+        const embeddingService = new EmbeddingService();
+        memoryManager.setEmbeddingService(embeddingService);
 
         // 5. Health Check
         try {
@@ -164,13 +170,16 @@ export class TracerEngine {
                 console.log(`📢 AI RESPONSE: ${result.message.substring(0, 150)}... (${simDuration}ms)`);
 
                 // Check Context-Light Protections
-                if (AIService.currentSessionContext.includes("INSTRUCCIÓN PARA EL ROUTER") &&
-                    AIService.currentSessionContext.indexOf("INSTRUCCIÓN PARA EL ROUTER") < 500) {
+                const context = AIService.currentSessionContext || '';
+                const isStringContext = typeof context === 'string';
+
+                if (isStringContext && context.includes("INSTRUCCIÓN PARA EL ROUTER") &&
+                    context.indexOf("INSTRUCCIÓN PARA EL ROUTER") < 500) {
                     console.log("✅ CONTEXT-LIGHT: Router Instructions found at THE TOP.");
                 }
 
                 // Check RAG / Tool Usage logic
-                if (AIService.currentSessionContext.includes("RELEVANT TECHNICAL MEMORY (RAG)")) {
+                if (isStringContext && context.includes("RELEVANT TECHNICAL MEMORY (RAG)")) {
                     console.log("✅ TOOL-AUGMENTED: RAG section successfully injected into context.");
                 }
 

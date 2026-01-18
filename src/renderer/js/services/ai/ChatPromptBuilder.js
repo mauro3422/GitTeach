@@ -18,10 +18,15 @@ export class ChatPromptBuilder {
      * @returns {string} System prompt completo
      */
     static build(username, sessionContext, brainThought = null, brainWhisper = null) {
-        const hasRAG = sessionContext && sessionContext.includes('RELEVANT TECHNICAL MEMORY');
+        // Ensure sessionContext is a string or empty
+        const safeContext = (typeof sessionContext === 'string')
+            ? sessionContext
+            : (sessionContext ? JSON.stringify(sessionContext) : '');
 
-        let basePrompt = (sessionContext && sessionContext.length > 50)
-            ? PersonaPrompts.formatRichPrompt(username, sessionContext)
+        const hasRAG = safeContext.includes('RELEVANT TECHNICAL MEMORY');
+
+        let basePrompt = (safeContext.length > 50)
+            ? PersonaPrompts.formatRichPrompt(username, safeContext)
             : PersonaPrompts.formatBasicPrompt(username);
 
         if (hasRAG) {
