@@ -19,7 +19,35 @@ export class StreamingHandler {
         // Internal state for streaming accumulation
         this.accumulatedFindings = [];
         this.traceabilityMap = {};
+
+        // EVOLUTION TICKS: Monitoring system load and progress
+        this.ticks = {
+            compaction: 0,
+            blueprints: 0,
+            global_refinements: 0,
+            analyzed_files: 0
+        };
         this.thematicMapper = new ThematicMapper();
+    }
+
+    /**
+     * Increment a specific evolution tick
+     */
+    incrementTick(type) {
+        if (this.ticks[type] !== undefined) {
+            this.ticks[type]++;
+        }
+    }
+
+    /**
+     * Get current ticks for context injection
+     */
+    getEvolutionStatus() {
+        return {
+            ...this.ticks,
+            coverage_status: this.ticks.analyzed_files < 10 ? 'INITIAL_SCAN' :
+                this.ticks.analyzed_files < 50 ? 'GATHERING_MASS' : 'DEEP_DIVE'
+        };
     }
 
     /**
@@ -30,6 +58,7 @@ export class StreamingHandler {
         if (!batchFindings || batchFindings.length === 0) return null;
 
         this.accumulatedFindings.push(...batchFindings);
+        this.ticks.analyzed_files += batchFindings.length; // Update analyzed files tick
 
         // Update traceability map on the fly
         batchFindings.forEach(finding => {
@@ -276,14 +305,23 @@ export class StreamingHandler {
 
     /**
      * Build session context from refined identity for chat
+     * NOW INCLUDES: Evolution Ticks for system load visibility
      */
     _buildSessionContextFromIdentity(identity) {
         if (!identity) return '';
 
         const traits = identity.traits?.slice(0, 5).map(t => `- ${t.name}: ${t.score}/10`).join('\n') || '';
         const bio = identity.bio || 'Developer profile in progress...';
+        const status = this.getEvolutionStatus();
 
-        return `[CURRENT DEVELOPER PROFILE]
+        return `[SYSTEM LOAD & EVOLUTION STATUS]
+- Internal Compactions: ${status.compaction}
+- Repo Blueprints: ${status.blueprints}
+- Global Refinements: ${status.global_refinements}
+- Files Analyzed: ${status.analyzed_files}
+- Coverage Phase: ${status.coverage_status}
+
+[CURRENT DEVELOPER PROFILE]
 ${bio}
 
 [TOP SKILLS]

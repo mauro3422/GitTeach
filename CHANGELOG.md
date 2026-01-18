@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.30.0] - Evolution Ticks & System Visibility - 2026-01-18
+### 🏁 System Load Visibility
+- **Evolution Ticks**: Implemented internal counters for Compactions, Blueprints, and Global Refinements.
+- **Chat Awareness**: Injected real-time system load into the chat context so the IA knows its own evolution progress.
+- **Port Isolation**: Verified total separation between Chat (8000) and Identity Curation (8002) to ensure zero lag.
+
 ## [2.29.0] - Audit & Concurrency Reinforcement - 2026-01-18
 ### 🛡️ Integrity & Security
 - **Mutex Implementation**: Added `isRefining` lock to `GlobalIdentityUpdater` to prevent race conditions during parallel streaming updates.

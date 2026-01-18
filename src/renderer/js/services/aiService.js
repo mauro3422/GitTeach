@@ -46,7 +46,7 @@ export const AIService = {
     setSessionContext(context) {
         this.baseContext = context;
         this.rebuildContext();
-        Logger.info('AIService', 'Session context updated (Base Identity).');
+        // Logger.info('AIService', 'Session context updated (Base Identity).');
     },
 
     injectRAGContext(contextBlock) {

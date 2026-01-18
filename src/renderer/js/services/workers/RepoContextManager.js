@@ -121,6 +121,12 @@ Synthesize and evaluate:`;
 
                 // Atomically update
                 ctx.goldenKnowledge = compactionResult.synthesis || response;
+
+                // TICKS: Increment compaction tick in StreamingHandler if available
+                if (typeof window !== 'undefined' && window.deepCurator?.streamingHandler) {
+                    window.deepCurator.streamingHandler.incrementTick('compaction');
+                }
+
                 ctx.compactionMetrics = {
                     project_type: compactionResult.project_type,
                     coherence_score: compactionResult.coherence_score,

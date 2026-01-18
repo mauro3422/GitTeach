@@ -253,6 +253,7 @@ export class DeepCurator {
             const blueprint = await this.identityUpdater.synthesizeBlueprint(repoName, curation.validInsights, repoFindings);
 
             if (blueprint) {
+                this.streamingHandler.incrementTick('blueprints'); // Tick: Blueprint
                 Logger.reducer(`[${repoName}] Blueprint generated (Streaming). Complexity: ${blueprint.metrics.complexity}`);
                 await CacheRepository.persistRepoBlueprint(repoName, blueprint);
 
@@ -268,6 +269,7 @@ export class DeepCurator {
                     // 3. Update Global Identity (Incremental)
                     const ctx = await this._buildStreamingContext();
                     await this._refineGlobalIdentity(username, ctx);
+                    this.streamingHandler.incrementTick('global_refinements'); // Tick: Refinement
                 }
             }
         } catch (e) {
