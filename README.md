@@ -10,10 +10,11 @@ GitTeach es una aplicación de escritorio (Electron) diseñada para ayudar a los
 - **Integridad Forense**: Sistema Tracer v2.1 con validación de datos 100% blindada.
 - **Sistema de Herramientas**: Tools como `query_memory`, `read_file`, `analyze_code`
 - **Memoria Jerárquica**: ADN Técnico, Identidad Técnica, y Memoria Conversacional
-- **Pipeline de Análisis Avanzado**: Scanning → Processing → Curation → Synthesis
+- **Pipeline de Análisis Avanzado (SOLID)**: Scanning → Processing → Curation → Synthesis (Arquitectura desacoplada en sub-módulos especializados).
 - **True Streaming**: Actualización de perfil en tiempo real (Procesamiento Parcial y Threshold).
 - **Dual-Track Metrics**: Evaluación separada de **Salud de Lógica** (Rigor) y **Salud de Conocimiento** (Elocuencia).
 - **Triple-Server Architecture**: GPU (Chat) + CPU (Curation/Synthesis) + CPU (Embeddings) para paralelismo total.
+- **Micro-Arquitectura de Inteligencia**: Decoplamiento de Context, Client y Orchestrator para máxima mantenibilidad.
 - **Sistema de Seguridad**: Firewall integrado y aislamiento de procesos
 - **Tracer Engine v2.1**: Auditoría forense completa del sistema
 

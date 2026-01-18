@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.32.0] - SOLID Refactoring & Deep Modularization - 2026-01-18
+### 🏗️ Architectural Overhaul (SOLID)
+- **AI Intelligence Layer**: Decoupled `aiService.js` into `ContextManager`, `AIClient`, and `IntentOrchestrator`. Implemented Facade pattern for backward compatibility.
+- **Analysis Pipeline**: Modularized `profileAnalyzer.js` into `AnalysisPipeline` (orchestration) and `BatchProcessor` (worker handling/normalization).
+- **Curation & Streaming Layer**: Refactored `deepCurator.js` and `StreamingHandler.js` by extracting `EvolutionState`, `EvidenceStore`, and `InsightGenerator`.
+- **Ghost Object Protocol**: Centralized data normalization in `BatchProcessor` to ensure findings integrity during worker-to-memory transitions.
+
+### 🔧 Fixes & Refinement
+- **DeepCurator Facade Fix**: Restored "live" access to `accumulatedFindings` and corrected `_buildStreamingContext` delegation.
+- **Dependency Inversion**: Implemented injection-ready sub-modules across all core services.
+
 ## [2.31.0] - Structural Audit & Logic Zombie Purge - 2026-01-18
 ### 🧹 Technical Debt Removal
 - **Logic Zombie Purge**: Deleted obsolete modules `BlueprintGenerator.js`, `GlobalIdentityRefiner.js`, and `StreamingRepoProcessor.js` to simplify architecture.

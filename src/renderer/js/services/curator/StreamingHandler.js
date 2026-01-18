@@ -1,39 +1,43 @@
 /**
  * StreamingHandler - Manages real-time processing and streaming updates
- * Extracted from DeepCurator to comply with SRP
+ * Refactored to use SOLID composition: EvolutionState, EvidenceStore.
  *
- * Responsibilities:
- * - Accumulate findings in batches
- * - Process streaming repo updates
- * - Build streaming context for identity updates
- * - Execute thematic mappers per-repo (CPU parallelism)
+ * SOLID Principles:
+ * - S: Orchestrates streaming operations using specialized modules
+ * - O: Extensible via module composition
+ * - L: N/A
+ * - I: Clean interface for streaming operations
+ * - D: Depends on injected modules for state management
  */
 import { DebugLogger } from '../../utils/debugLogger.js';
 import { CacheRepository } from '../../utils/cacheRepository.js';
 import { MetricRefinery } from './MetricRefinery.js';
 import { Logger } from '../../utils/logger.js';
 import { ThematicMapper } from './ThematicMapper.js';
+import { EvolutionState } from './EvolutionState.js';
+import { EvidenceStore } from './EvidenceStore.js';
 
 export class StreamingHandler {
     constructor() {
-        // Internal state for streaming accumulation
-        this.accumulatedFindings = [];
-        this.traceabilityMap = {};
-
-        this.ticks = {
-            compaction: 0,
-            blueprints: 0,
-            global_refinements: 0,
-            analyzed_files: 0
-        };
+        // Compose specialized modules
+        this.evolutionState = new EvolutionState();
+        this.evidenceStore = new EvidenceStore();
     }
 
     /**
      * Increment a specific evolution tick
      */
     incrementTick(type) {
-        if (this.ticks[type] !== undefined) {
-            this.ticks[type]++;
+        // Map legacy tick types to EvolutionState
+        const tickMap = {
+            compaction: 'compaction',
+            blueprints: 'blueprints',
+            global_refinements: 'refinements',
+            analyzed_files: 'files'
+        };
+
+        if (tickMap[type]) {
+            this.evolutionState.updateMetrics({ [tickMap[type]]: this.evolutionState.getStatus().metrics[tickMap[type]] + 1 });
         }
     }
 
@@ -41,10 +45,15 @@ export class StreamingHandler {
      * Get current ticks for context injection
      */
     getEvolutionStatus() {
+        const status = this.evolutionState.getStatus();
+        const files = status.metrics.files || 0;
         return {
-            ...this.ticks,
-            coverage_status: this.ticks.analyzed_files < 10 ? 'INITIAL_SCAN' :
-                this.ticks.analyzed_files < 50 ? 'GATHERING_MASS' : 'DEEP_DIVE'
+            compaction: status.metrics.compaction || 0,
+            blueprints: status.metrics.blueprints || 0,
+            global_refinements: status.metrics.refinements || 0,
+            analyzed_files: files,
+            coverage_status: files < 10 ? 'INITIAL_SCAN' :
+                files < 50 ? 'GATHERING_MASS' : 'DEEP_DIVE'
         };
     }
 
@@ -55,36 +64,19 @@ export class StreamingHandler {
     incorporateBatch(batchFindings) {
         if (!batchFindings || batchFindings.length === 0) return null;
 
-        this.accumulatedFindings.push(...batchFindings);
-        this.ticks.analyzed_files += batchFindings.length; // Update analyzed files tick
+        // Delegate to EvidenceStore
+        this.evidenceStore.accumulateFindings(batchFindings);
 
-        // Update traceability map on the fly
-        batchFindings.forEach(finding => {
-            const domain = finding.classification || 'General';
-            if (!this.traceabilityMap[domain]) {
-                this.traceabilityMap[domain] = [];
-            }
-            // Normalize for downstream consumers
-            const filePath = finding.file || finding.path || 'unknown';
-            const uid = finding.uid || finding.params?.uid || null;
-
-            if (!uid || filePath === 'unknown') {
-                // Skip broken references or log them
-                return;
-            }
-
-            this.traceabilityMap[domain].push({
-                uid: uid,
-                repo: finding.repo,
-                file: filePath,
-                summary: finding.summary
-            });
+        // Update evolution metrics
+        this.evolutionState.updateMetrics({
+            files: this.evolutionState.getStatus().metrics.files + batchFindings.length
         });
 
         // Return current state snapshot
+        const stats = this.evidenceStore.getStats();
         return {
-            totalFindings: this.accumulatedFindings.length,
-            domains: Object.keys(this.traceabilityMap)
+            totalFindings: stats.totalFindings,
+            domains: Object.keys(this.evidenceStore.getTraceabilityMap())
         };
     }
 
@@ -100,7 +92,7 @@ export class StreamingHandler {
 
         // Fallback to internal state
         if (repoFindings.length === 0) {
-            repoFindings = this.accumulatedFindings.filter(f => f.repo === repoName);
+            repoFindings = this.evidenceStore.getAccumulatedFindings().filter(f => f.repo === repoName);
         }
 
         if (repoFindings.length === 0) {
@@ -166,7 +158,7 @@ export class StreamingHandler {
             validInsights,
             anomalies: [],
             stats,
-            traceability_map: this.traceabilityMap
+            traceability_map: this.evidenceStore.getTraceabilityMap()
         };
     }
 
@@ -182,7 +174,7 @@ export class StreamingHandler {
      * NO MORE PLACEHOLDERS - uses actual thematic analysis from completed repos
      */
     async _buildStreamingContext() {
-        const rawFindings = this.accumulatedFindings;
+        const rawFindings = this.evidenceStore.getAccumulatedFindings();
         const curationResult = this.curateFindings(rawFindings);
 
         // REAL DATA: Get all blueprints with their thematic analyses
@@ -268,13 +260,13 @@ ${identity.verdict || 'Analysis in progress...'}`;
      * Get accumulated findings
      */
     getAccumulatedFindings() {
-        return this.accumulatedFindings;
+        return this.evidenceStore.getAccumulatedFindings();
     }
 
     /**
      * Get traceability map
      */
     getTraceabilityMap() {
-        return this.traceabilityMap;
+        return this.evidenceStore.getTraceabilityMap();
     }
 }
