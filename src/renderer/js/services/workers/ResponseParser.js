@@ -23,79 +23,141 @@ export class ResponseParser {
             return { tool: 'skip' };
         }
 
+        let data = null;
         try {
+            // Priority 1: Full JSON parse
             // LFM2 with response_format: 'json_object' should return pure JSON
-            const data = JSON.parse(trimmed);
-
-            if (data.domain && (data.logic || data.metrics)) {
-                // Handle legacy 'metrics' or new 'logic/knowledge'
-                const logic = data.logic || data.metrics || {};
-                const knowledge = data.knowledge || { clarity: 0, discipline: 0, depth: 0 };
-                const signals = data.signals || { semantic: 0, resilience: 0, resources: 0, auditability: 0, domain_fidelity: 0 };
-                // NEW: Capture semantic, dimensions, and professional context
-                const semantic = data.semantic || {};
-                const dimensions = data.dimensions || {};
-                const professional = data.professional || {};
-                const resilience_forensics = data.resilience_forensics || {};
-
-                const cappedLogic = this._applyProgrammaticCaps(data.domain, data.summary || "", data.thought || "", logic, filePath);
-
-                return {
-                    tool: 'analysis',
-                    params: {
-                        insight: data.summary || "Code analyzed",
-                        technical_strength: data.domain || "General",
-                        impact: data.evidence || "N/A",
-                        confidence: data.confidence || 0.5,
-                        complexity: data.complexity || 3,
-                        metadata: {
-                            ...cappedLogic,
-                            knowledge,
-                            signals,
-                            semantic,
-                            dimensions,
-                            professional,
-                            resilience_forensics,
-                            // Preserve file system metadata if injected before
-                            file_meta: data.file_meta || {}
-                        },
-                        thought: data.thought
-                    }
-                };
-            }
+            data = JSON.parse(trimmed);
         } catch (e) {
-            // Fallback for cases where model might still wrap JSON in markers
+            // Priority 2: Regex extraction for JSON block
             const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 try {
-                    const data = JSON.parse(jsonMatch[0]);
-                    const logic = data.logic || data.metrics || { solid: 0 };
-                    const knowledge = data.knowledge || { clarity: 0 };
-                    const signals = data.signals || { semantic: 0 };
-
-                    const cappedLogic = this._applyProgrammaticCaps(data.domain || "General", data.summary || "", data.thought || "", logic, filePath);
-                    return {
-                        tool: 'analysis',
-                        params: {
-                            insight: data.summary || "Technical analysis",
-                            technical_strength: data.domain || "General",
-                            impact: data.evidence || "See code",
-                            confidence: data.confidence || 0.6,
-                            complexity: data.complexity || 2,
-                            metadata: {
-                                ...cappedLogic,
-                                knowledge,
-                                signals
-                            },
-                            thought: data.thought || ""
-                        }
-                    };
-                } catch (innerE) { }
+                    data = JSON.parse(jsonMatch[0]);
+                } catch (innerE) {
+                    // Priority 3: Scavenger Mode - Extract sub-blocks specifically
+                    // This handles cases where the global object is broken but sub-objects are intact
+                    data = this._scavengeBrokenJson(trimmed);
+                }
+            } else {
+                data = this._scavengeBrokenJson(trimmed);
             }
+        }
+
+        if (data) {
+            // Handle legacy 'metrics' or new 'logic/knowledge'
+            const logic = data.logic || data.metrics || { solid: 0, modularity: 0, complexity: 0 };
+            const knowledge = data.knowledge || { clarity: 0, discipline: 0, depth: 0 };
+            const signals = data.signals || { semantic: 0, resilience: 0, resources: 0, auditability: 0, domain_fidelity: 0 };
+
+            // Collect fragments for professional and dimensions if they are at top-level
+            const professional = data.professional || {
+                code_quality: data.code_quality,
+                collaboration: data.collaboration,
+                growth: data.growth,
+                ecosystem: data.ecosystem
+            };
+
+            const dimensions = data.dimensions || {
+                social: data.social,
+                security: data.security,
+                testability: data.testability
+            };
+
+            const semantic = data.semantic || {};
+            const resilience_forensics = data.resilience_forensics || {};
+
+            const cappedLogic = this._applyProgrammaticCaps(data.domain || "General", data.summary || "", data.thought || "", logic, filePath);
+
+            return {
+                tool: 'analysis',
+                params: {
+                    insight: data.summary || "Code analyzed",
+                    technical_strength: data.domain || "General",
+                    impact: data.evidence || "N/A",
+                    confidence: data.confidence || 0.5,
+                    complexity: data.complexity || 3,
+                    metadata: {
+                        ...cappedLogic,
+                        knowledge,
+                        signals,
+                        semantic,
+                        dimensions,
+                        professional,
+                        resilience_forensics,
+                        // Preserve file system metadata if injected before
+                        file_meta: data.file_meta || {}
+                    },
+                    thought: data.thought || ""
+                }
+            };
         }
 
         // Fallback for legacy or loose parsing
         return this._looseParse(trimmed, filePath);
+    }
+
+    /**
+     * Scavenger Mode: Extract sub-blocks from a broken JSON string
+     * handles both wrapped and flattened structures
+     * @private
+     */
+    _scavengeBrokenJson(text) {
+        const result = {};
+
+        // 1. Direct block extraction (for wrapped structures)
+        const blocks = ['logic', 'knowledge', 'signals', 'semantic', 'professional', 'resilience_forensics', 'dimensions'];
+
+        blocks.forEach(block => {
+            const regex = new RegExp(`"${block}"\\s*:\\s*(\\{[\\s\\S]*?\\})(?:\\s*,|\\s*\\})`);
+            const match = text.match(regex);
+            if (match) {
+                try {
+                    result[block] = JSON.parse(match[1]);
+                } catch (e) {
+                    try { result[block] = JSON.parse(match[1] + '}'); } catch (e2) { }
+                }
+            }
+        });
+
+        // 2. Fragment scavenging (for flattened or orphaned structures)
+        // If professional wasn't found as a block, look for its children
+        if (!result.professional) {
+            result.professional = {};
+            const profTiers = ['code_quality', 'collaboration', 'growth', 'ecosystem'];
+            profTiers.forEach(tier => {
+                const regex = new RegExp(`"${tier}"\\s*:\\s*(\\{[\\s\\S]*?\\})(?:\\s*,|\\s*\\})`);
+                const match = text.match(regex);
+                if (match) {
+                    try { result.professional[tier] = JSON.parse(match[1]); } catch (e) {
+                        try { result.professional[tier] = JSON.parse(match[1] + '}'); } catch (e2) { }
+                    }
+                }
+            });
+            // If nothing found, clean up
+            if (Object.keys(result.professional).length === 0) delete result.professional;
+        }
+
+        // 3. Dimensions scavenging
+        if (!result.dimensions) {
+            const dims = ['social', 'security', 'testability'];
+            const dimMatch = {};
+            dims.forEach(dim => {
+                const regex = new RegExp(`"${dim}"\\s*:\\s*(\\d+)`);
+                const match = text.match(regex);
+                if (match) dimMatch[dim] = parseInt(match[1]);
+            });
+            if (Object.keys(dimMatch).length > 0) result.dimensions = dimMatch;
+        }
+
+        // Basic top-level fields
+        const domainMatch = text.match(/"domain"\s*:\s*"([^"]+)"/);
+        if (domainMatch) result.domain = domainMatch[1];
+
+        const summaryMatch = text.match(/"summary"\s*:\s*"([^"]+)"/);
+        if (summaryMatch) result.summary = summaryMatch[1];
+
+        return Object.keys(result).length > 0 ? result : null;
     }
 
     /**
@@ -113,9 +175,13 @@ export class ResponseParser {
             const domain = domainMatch ? domainMatch[1] : 'General';
             const insight = insightMatch ? insightMatch[1].substring(0, 150) : "Technical analysis";
             const evidence = evidenceMatch ? evidenceMatch[1] : 'See code';
-            const metrics = { solid: 2, modularity: 2, readability: 2, patterns: [] };
 
-            const cappedMetrics = this._applyProgrammaticCaps(domain, insight, "", metrics, filePath);
+            // FULL DEFAULT STRUCTURE for metadata
+            const logic = { solid: 2, modularity: 2, readability: 2, patterns: [] };
+            const knowledge = this.getDefaultKnowledge();
+            const signals = this.getDefaultSignals();
+
+            const cappedLogic = this._applyProgrammaticCaps(domain, insight, "", logic, filePath);
 
             return {
                 tool: 'analysis',
@@ -125,7 +191,15 @@ export class ResponseParser {
                     impact: evidence,
                     confidence: 0.5,
                     complexity: 2,
-                    metadata: cappedMetrics
+                    metadata: {
+                        ...cappedLogic,
+                        knowledge,
+                        signals,
+                        professional: {},
+                        semantic: {},
+                        resilience_forensics: {},
+                        file_meta: {}
+                    }
                 }
             };
         }
@@ -139,7 +213,8 @@ export class ResponseParser {
      * @returns {string} Processed summary
      */
     postProcessSummary(summary, langCheck) {
-        if (!langCheck.valid) {
+        // Ensure langCheck is safe
+        if (langCheck && !langCheck.valid) {
             return `⚠️ INTEGRITY ANOMALY: ${langCheck.anomaly} | ${summary}`;
         }
         return summary;

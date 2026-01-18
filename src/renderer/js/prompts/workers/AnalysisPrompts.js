@@ -47,7 +47,8 @@ export class AnalysisPrompts {
 - **Testability**: Design facilitates testing (dependency injection, pure functions).
 
 ### RESPONSE STRUCTURE (STRICT JSON):
-You must respond with:
+You must respond with valid, minified or pretty-printed JSON. Ensure every object is closed and all commas are correctly placed. Do NOT truncate the JSON.
+
 {
   "thought": "Internal reasoning...",
   "domain": "Technical domain",
@@ -80,7 +81,10 @@ You must respond with:
      "security": 0-5,
      "testability": 0-5
   }
-}`;
+}
+### CRITICAL: 
+Ensure all metric objects (logic, knowledge, signals, dimensions) are present even if scores are 0.
+`;
     }
 
     /**

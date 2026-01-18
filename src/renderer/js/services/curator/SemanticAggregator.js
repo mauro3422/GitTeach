@@ -28,6 +28,7 @@ export class SemanticAggregator extends IMetricAggregator {
         nodes.forEach(node => {
             const sem = node.metadata?.semantic || {};
             const dim = node.metadata?.dimensions || {};
+            const nodePath = node.path || node.file || 'unknown';
 
             // Business contexts
             if (sem.business_context) {

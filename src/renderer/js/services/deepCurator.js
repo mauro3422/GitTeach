@@ -250,7 +250,7 @@ export class DeepCurator {
             // 2. Curate & Synthesize Blueprint (Local)
             const curation = this.identityUpdater.curateFindings(repoFindings);
             // Use repoFindings (raw) for metrics but curation.validInsights is for thematic summary inside synthesize
-            const blueprint = await this.identityUpdater.synthesizeBlueprint(repoName, curation.validInsights);
+            const blueprint = await this.identityUpdater.synthesizeBlueprint(repoName, curation.validInsights, repoFindings);
 
             if (blueprint) {
                 Logger.reducer(`[${repoName}] Blueprint generated (Streaming). Complexity: ${blueprint.metrics.complexity}`);

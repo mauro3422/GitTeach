@@ -222,7 +222,9 @@ export class ProfileAnalyzer {
                     workerId: f.workerId || 999,
                     classification: f.classification || 'General',
                     uid: f.uid,
-                    file_meta: f.file_meta || {}
+                    file_meta: f.file_meta || {},
+                    metadata: f.metadata || {},
+                    params: f.params || {}
                 };
             });
 
@@ -249,6 +251,11 @@ export class ProfileAnalyzer {
                 if (onStep) onStep({ type: 'DeepMemoryReady', message: `🧠 ${reflection.snapshot}`, data: null });
 
                 ReactionEngine.trigger(username, reflection.snapshot, 'system');
+            }
+
+            // NOTIFY EXTERNAL LISTENERS (Tracer, UI, etc)
+            if (this.onBatchComplete && typeof this.onBatchComplete === 'function') {
+                await this.onBatchComplete(fixedBatch);
             }
         };
 

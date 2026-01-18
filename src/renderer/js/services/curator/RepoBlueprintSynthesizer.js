@@ -22,7 +22,8 @@ export class RepoBlueprintSynthesizer {
 
         // 1. Calculate Repo-Specific Metrics (Dual-Track)
         // PREFER rawFindings for metadata (churn) if provided
-        const healthReport = MetricRefinery.refine(rawFindings || findings, (rawFindings || findings).length);
+        const sourceNodes = (rawFindings && rawFindings.length > 0) ? rawFindings : findings;
+        const healthReport = MetricRefinery.refine(sourceNodes, sourceNodes.length);
 
         // 2. Build Thematic Summary via AI with CoT
         const result = await this._generateThematicSummary(repoName, findings, healthReport);

@@ -32,6 +32,7 @@ export class LogicAggregator extends IMetricAggregator {
 
         codeNodes.forEach(node => {
             const m = node.metadata || {};
+            const nodePath = node.path || node.file || 'unknown';
 
             // SOLID principles (only for code nodes)
             if (m.solid !== undefined && m.solid !== null) {
@@ -44,9 +45,13 @@ export class LogicAggregator extends IMetricAggregator {
                 totals.modularity += Math.max(0, m.modularity);
             }
 
-            // Complexity (can be meaningful for docs too, but weighted differently)
-            if (node.params && node.params.complexity !== undefined) {
-                totals.complexity += Math.max(0, node.params.complexity);
+            // Complexity - Robust scavenging
+            const complexityValue = node.params?.complexity || m.complexity || node.metadata?.signals?.complexity || 0;
+            if (complexityValue > 0) {
+                totals.complexity += Math.max(0, complexityValue);
+            } else {
+                // FALLBACK: Default to 3 if it's a code node but complexity is missing
+                totals.complexity += 3;
             }
         });
 

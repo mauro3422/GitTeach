@@ -7,6 +7,7 @@ import { LogicAggregator } from './LogicAggregator.js';
 import { ProfessionalAggregator } from './ProfessionalAggregator.js';
 import { ResilienceAggregator } from './ResilienceAggregator.js';
 import { SemanticAggregator } from './SemanticAggregator.js';
+import { KnowledgeAggregator } from './KnowledgeAggregator.js';
 
 export class MetricAggregatorOrchestrator {
     constructor() {
@@ -15,7 +16,8 @@ export class MetricAggregatorOrchestrator {
             logic: new LogicAggregator(),
             professional: new ProfessionalAggregator(),
             resilience: new ResilienceAggregator(),
-            semantic: new SemanticAggregator()
+            semantic: new SemanticAggregator(),
+            knowledge: new KnowledgeAggregator()
         };
     }
 
@@ -30,16 +32,22 @@ export class MetricAggregatorOrchestrator {
             return this._getEmptyReport();
         }
 
+        const hasMeta = nodes.filter(n => n.metadata && Object.keys(n.metadata).length > 0).length;
+        console.log(`[Orchestrator] Aggregating ${nodes.length} nodes (${hasMeta} with metadata)`);
+
         // Execute all aggregators in parallel
         const results = {};
         Object.entries(this.aggregators).forEach(([domain, aggregator]) => {
             try {
                 results[domain] = aggregator.aggregate(nodes, totalFiles);
+                console.log(`[Orchestrator] Domain ${domain} aggregated. Keys:`, Object.keys(results[domain]));
             } catch (error) {
                 console.error(`Error in ${domain} aggregation:`, error);
                 results[domain] = aggregator.getDefaultStructure();
             }
         });
+
+        console.log(`[Orchestrator] Raw Results: Semantic.dimensions.social=${results.semantic?.dimensions?.social}, Resilience.optimization=${results.resilience?.optimization_score}`);
 
         // Build final report
         const report = {
@@ -50,20 +58,20 @@ export class MetricAggregatorOrchestrator {
                 complexity: results.logic.complexity
             },
 
-            // Knowledge health (from semantic dimensions for now)
+            // Knowledge health
             knowledge_health: {
-                clarity: "0.00", // TODO: Extract from future knowledge aggregator
-                discipline: "0.00",
-                depth: "0.00"
+                clarity: results.knowledge.clarity,
+                discipline: results.knowledge.discipline,
+                depth: results.knowledge.depth
             },
 
             // Seniority signals (derived from multiple aggregators)
             seniority_signals: {
-                semantic: results.semantic.dimensions.social, // Using social as semantic proxy
-                resilience: results.resilience.defensive_posture_score,
-                resources: results.professional.quality.maintainability,
-                auditability: results.resilience.error_discipline_score,
-                domain_fidelity: "0.00" // TODO: Implement domain fidelity scoring
+                semantic: results.semantic?.dimensions?.social || "0.00",
+                resilience: results.resilience?.defensive_posture_score || "0.00",
+                resources: results.resilience?.optimization_score || "0.00", // Map to optimization
+                auditability: results.resilience?.error_discipline_score || "0.00",
+                domain_fidelity: results.resilience?.domain_fidelity_score || "0.00"
             },
 
             // Volume statistics

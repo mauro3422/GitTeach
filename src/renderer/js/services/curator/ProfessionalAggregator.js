@@ -28,6 +28,11 @@ export class ProfessionalAggregator extends IMetricAggregator {
         nodes.forEach(node => {
             const prof = node.metadata?.professional || {};
             const meta = node.file_meta || node.metadata?.file_meta || {};
+            const nodePath = node.path || node.file || 'unknown';
+
+            if (Object.keys(prof).length > 0) {
+                console.log(`[ProfessionalAgg] Found metadata for ${nodePath}: quality=${!!prof.code_quality}, eco=${!!prof.ecosystem}`);
+            }
 
             // Code Quality metrics
             if (prof.code_quality) {
@@ -44,8 +49,8 @@ export class ProfessionalAggregator extends IMetricAggregator {
                         totals.ecosystem.tools.set(tool, (totals.ecosystem.tools.get(tool) || 0) + 1);
                     });
                 }
-                if (prof.ecosystem.strategy) {
-                    const strategy = prof.ecosystem.strategy;
+                if (prof.ecosystem.pushed_to) {
+                    const strategy = prof.ecosystem.pushed_to;
                     totals.ecosystem.strategies.set(strategy, (totals.ecosystem.strategies.get(strategy) || 0) + 1);
                 }
             }
@@ -73,7 +78,7 @@ export class ProfessionalAggregator extends IMetricAggregator {
                 }
             }
 
-            // Code Churn data
+            // Code Churn data from meta
             if (meta.last_modified) {
                 totals.churn.dates.push(new Date(meta.last_modified).getTime());
                 if (meta.author) {
@@ -139,5 +144,15 @@ export class ProfessionalAggregator extends IMetricAggregator {
             growth: { dominant_vibe: "Unknown", skill_signals: [] },
             churn: { avg_age_days: "Unknown", unique_authors: 0 }
         };
+    }
+
+    /**
+     * Enhanced validation for professional-specific requirements
+     * @param {Array<MemoryNode>} nodes - Nodes to validate
+     * @returns {boolean} True if valid for professional aggregation
+     */
+    validate(nodes) {
+        if (!super.validate(nodes)) return false;
+        return nodes.some(node => node.metadata?.professional || node.metadata?.dimensions);
     }
 }
