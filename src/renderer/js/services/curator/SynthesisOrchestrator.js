@@ -13,11 +13,13 @@ import { ThematicMapper } from './ThematicMapper.js';
 import { DNASynthesizer } from './DNASynthesizer.js';
 import { MetricRefinery } from './MetricRefinery.js';
 import { AISlotPriorities } from '../ai/AISlotManager.js';
+import { InsightsCurator } from './InsightsCurator.js';
 
 export class SynthesisOrchestrator {
     constructor() {
         this.thematicMapper = new ThematicMapper();
         this.dnaSynthesizer = new DNASynthesizer();
+        this.insightsCurator = new InsightsCurator();
     }
 
     /**
@@ -110,58 +112,18 @@ export class SynthesisOrchestrator {
      * Curate insights using the Funnel of Truth
      */
     curateInsights(findings, streamingHandler = null) {
-        // This would delegate to InsightsCurator
-        // Simplified implementation for now
-        const validInsights = findings.filter(f => f && f.summary);
+        // Delegate to InsightsCurator for centralized curation logic
+        const curationResult = this.insightsCurator.curate(findings);
 
-        // DEBUG: Forensic inspection of why findings are dropped
-        if (findings.length > 0 && validInsights.length === 0) {
-            Logger.error('SynthesisOrchestrator', `FORENSIC ALERT: All ${findings.length} findings dropped! Inspection of first finding:`);
-            console.log("DEBUG_FINDING_DUMP:", JSON.stringify(findings[0], null, 2));
-            if (findings[0].summary === undefined) console.log("DEBUG: summary is undefined");
-            if (findings[0].summary === "") console.log("DEBUG: summary is empty string");
-            if (typeof findings[0].summary === 'object') console.log("DEBUG: summary is OBJECT");
+        // Merge with any existing traceability map from streamingHandler
+        if (streamingHandler?.getTraceabilityMap()) {
+            this.insightsCurator.mergeTraceabilityMaps(
+                curationResult.traceability_map,
+                streamingHandler.getTraceabilityMap()
+            );
         }
 
-        const repoCount = [...new Set(findings.map(f => f.repo))].length;
-
-        // Group by content to find duplicates
-        const contentMap = new Map();
-        validInsights.forEach(f => {
-            const key = f.summary?.substring(0, 50) || '';
-            if (!contentMap.has(key)) {
-                contentMap.set(key, []);
-            }
-            contentMap.get(key).push(f);
-        });
-
-        // Keep only unique insights (first occurrence)
-        const deduplicated = Array.from(contentMap.values()).map(group => group[0]);
-
-        // Calculate top strengths
-        const strengthMap = new Map();
-        deduplicated.forEach(f => {
-            const domain = f.classification || 'General';
-            strengthMap.set(domain, (strengthMap.get(domain) || 0) + 1);
-        });
-
-        const topStrengths = Array.from(strengthMap.entries())
-            .sort((a, b) => b[1] - a[1])
-            .map(([name, count]) => ({ name, count }));
-
-        const stats = {
-            repoCount,
-            totalInsights: findings.length,
-            uniqueInsights: deduplicated.length,
-            topStrengths
-        };
-
-        return {
-            validInsights: deduplicated,
-            anomalies: [],
-            stats,
-            traceability_map: streamingHandler?.getTraceabilityMap() || {}
-        };
+        return curationResult;
     }
 
     /**

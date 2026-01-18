@@ -7,6 +7,7 @@
  * - Detect anomalies and integrity issues
  * - Build traceability map linking concepts to source files
  * - Calculate statistics (repo count, top strengths)
+ * - Centralize traceability map fusion (DRY)
  */
 
 export class InsightsCurator {
@@ -131,5 +132,32 @@ export class InsightsCurator {
             const uidTag = i.uid ? `[ID:${i.uid}] ` : '';
             return `${uidTag}[${i.repo}/${i.file}]: ${weightPrefix}${anomalyPrefix}${i.params.insight} | Evidence: ${i.params.evidence || 'N/A'} (Strength: ${i.params.technical_strength})`;
         }).join('\n');
+    }
+
+    /**
+     * Merge multiple traceability maps into a single one
+     * @param {Object} targetMap - Map to merge into
+     * @param {Object} sourceMap - Map to merge from
+     * @returns {Object} The merged map
+     */
+    mergeTraceabilityMaps(targetMap, sourceMap) {
+        if (!sourceMap) return targetMap;
+
+        for (const [key, value] of Object.entries(sourceMap)) {
+            if (!targetMap[key]) {
+                targetMap[key] = [];
+            }
+            // Add unique entries (by UID or File)
+            value.forEach(sourceRef => {
+                const alreadyExists = targetMap[key].some(r =>
+                    (r.uid && r.uid === sourceRef.uid) ||
+                    (r.file === sourceRef.file && r.repo === sourceRef.repo && r.summary === sourceRef.summary)
+                );
+                if (!alreadyExists) {
+                    targetMap[key].push(sourceRef);
+                }
+            });
+        }
+        return targetMap;
     }
 }

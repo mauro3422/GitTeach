@@ -17,12 +17,42 @@ export class AIClient {
     constructor() {
         this.healthMonitor = new AIHealthMonitor();
         this.healthMonitor.startHealthCheck();
+
+        // Circuit Breaker state
+        this.consecutiveFailures = 0;
+        this.circuitOpenUntil = 0;
+        this.FAILURE_THRESHOLD = 3;
+        this.COOLDOWN_MS = 60000; // 1 minute
+    }
+
+    _checkCircuit() {
+        if (this.circuitOpenUntil > Date.now()) {
+            const remaining = Math.ceil((this.circuitOpenUntil - Date.now()) / 1000);
+            throw new Error(`Circuit Breaker OPEN. AI offline. Try again in ${remaining}s.`);
+        }
+    }
+
+    _onFailure() {
+        this.consecutiveFailures++;
+        if (this.consecutiveFailures >= this.FAILURE_THRESHOLD) {
+            this.circuitOpenUntil = Date.now() + this.COOLDOWN_MS;
+            console.error(`[AIClient] 🚨 CIRCUIT BREAKER OPENED for ${this.COOLDOWN_MS}ms after ${this.consecutiveFailures} failures.`);
+        }
+    }
+
+    _onSuccess() {
+        if (this.consecutiveFailures > 0) {
+            console.log(`[AIClient] Circuit reset after success.`);
+        }
+        this.consecutiveFailures = 0;
+        this.circuitOpenUntil = 0;
     }
 
     /**
      * Call AI on main endpoint (GPU)
      */
     async callAI(systemPrompt, userMessage, temperature, format = null, schema = null, priority = 'URGENT') {
+        this._checkCircuit();
         const _window = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global.window : {});
         const ENDPOINT = (_window?.AI_CONFIG?.endpoint) || 'http://localhost:8000/v1/chat/completions';
 
@@ -85,9 +115,11 @@ export class AIClient {
 
             const data = await response.json();
             this.updateHealth(true);
+            this._onSuccess();
             return data.choices[0].message.content;
         } catch (error) {
             this.updateHealth(false);
+            this._onFailure();
             console.error("[AIClient] ❌ AI Error:", error.message);
             throw error;
         } finally {
@@ -100,6 +132,7 @@ export class AIClient {
      * Does NOT use slot manager since CPU has its own dedicated slots
      */
     async callAI_CPU(systemPrompt, userMessage, temperature, format = null, schema = null) {
+        this._checkCircuit();
         const CPU_ENDPOINT = 'http://localhost:8002/v1/chat/completions';
 
         try {
@@ -129,12 +162,15 @@ export class AIClient {
 
             if (!response.ok) {
                 console.error(`[AIClient] ❌ CPU Response ERROR: ${response.status}`);
+                this._onFailure();
                 throw new Error(`CPU Status: ${response.status}`);
             }
 
             const data = await response.json();
+            this._onSuccess();
             return data.choices[0].message.content;
         } catch (error) {
+            this._onFailure();
             console.error("[AIClient] ❌ CPU AI Error:", error.message);
             throw error;
         }

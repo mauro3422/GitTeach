@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.33.0] - SOLID Audit & Technical Polish - 2026-01-18
+### 🛡️ System Audit & SOLID Compliance
+- **FileAuditor**: Delegated file filtering logic to specialized `FileFilter.js` module.
+- **SynthesisOrchestrator**: Centralized all curation logic by delegating to `InsightsCurator.js`.
+- **StreamingHandler**: Decoupled evidence storage (`EvidenceStore.js`) and curation logic.
+- **InsightsCurator**: Implemented centralized traceability map fusion (DRY) to eliminate redundant logic.
+
+### 🚀 Resiliencia & Performance
+- **AI Circuit Breaker**: Implemented failure detection in `AIClient.js`. The system now pauses automated attempts for 60s after 3 consecutive errors, preventing session degradation during AI server outages.
+- **File Tree Filtering**: Introduced draconian assets policy and smart toxic token detection via `FileFilter.js`.
+
+### 🧹 Cleanup
+- Eliminated internal method nesting and syntax inconsistencies in curators.
+- Purged temporary diagnostic logs and forensic traces.
+
+
 ## [2.32.0] - SOLID Refactoring & Deep Modularization - 2026-01-18
 ### 🏗️ Architectural Overhaul (SOLID)
 - **AI Intelligence Layer**: Decoupled `aiService.js` into `ContextManager`, `AIClient`, and `IntentOrchestrator`. Implemented Facade pattern for backward compatibility.

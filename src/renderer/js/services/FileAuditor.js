@@ -11,6 +11,7 @@
 import { CacheRepository } from '../utils/cacheRepository.js';
 import { DebugLogger } from '../utils/debugLogger.js';
 import { AISlotPriorities } from './ai/AISlotManager.js';
+import { FileFilter } from './analyzer/FileFilter.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -23,6 +24,7 @@ export class FileAuditor {
         this.coordinator = coordinator;
         this.workerPool = workerPool;
         this.seedsProcessed = 0; // Local counter for High-Fidelity Seeds (Tracer)
+        this.fileFilter = new FileFilter();
     }
 
     /**
@@ -150,73 +152,8 @@ export class FileAuditor {
      * @returns {Array} Filtered anchor files
      */
     identifyAnchorFiles(tree) {
-        // FILTER V3: Strict exclusions based on "Anti-Smoke" audit
-        const excludeExtensions = [
-            // Media
-            '.png', '.jpg', '.jpeg', '.gif', '.svg', '.mp4', '.ico',
-            // Documents/Archives
-            '.pdf', '.zip', '.tar', '.gz', '.rar',
-            // Executables/Binary
-            '.exe', '.dll', '.bin', '.so', '.dylib', '.class', '.o', '.obj',
-            // Fonts (CRITICAL source of hallucinations)
-            '.ttf', '.otf', '.woff', '.woff2', '.eot',
-            // Engine/Config Noise
-            '.import', '.lock', '.meta', '.map', '.min.js', '.min.css'
-        ];
-
-        // Folders that contain noise/demos, not architecture
-        const noiseDirs = ['/demo/', '/examples/', '/test/', '/tests/', '/spec/', '/vendor/', '/node_modules/', '/dist/', '/build/', '/coverage/'];
-
-        // CURATED EXCEPTIONS: High-value files in toxic directories
-        const curatedExceptions = [
-            'index.js', 'index.ts', 'main.js', 'main.ts',
-            'app.js', 'app.ts', 'example.js', 'example.ts',
-            'demo.js', 'demo.ts', 'usage.js', 'usage.ts'
-        ];
-
-        return tree.filter(node => {
-            if (node.type !== 'blob') return false;
-            const lowerPath = node.path.toLowerCase();
-
-            // 1. Extension Filter
-            const isExcludedExt = excludeExtensions.some(ext => lowerPath.endsWith(ext));
-            if (isExcludedExt) return false;
-
-            // 2. Hidden Files
-            if (lowerPath.includes('/.') || lowerPath.startsWith('.')) return false;
-
-            // 3. Smart Path Filter (Token-based)
-            const pathTokens = lowerPath.split(/[\\/]/); // Split by / or \
-            const filename = pathTokens[pathTokens.length - 1];
-
-            // Critical: "Assets" folder logic
-            // Only allow assets if they are documentation
-            // Critical: "Assets" folder logic
-            // FILTER V4: Draconian Assets Policy
-            // Only allow README.md in assets. Block licenses, txts, etc inside assets as they are usually noise.
-            if (pathTokens.includes('assets') || pathTokens.includes('static') || pathTokens.includes('public')) {
-                if (filename.toLowerCase() !== 'readme.md') return false;
-            }
-
-            // Critical: "Demo" / "Test" / "Vendor" logic
-            // Block if ANY part of the path contains these words
-            const toxicTokens = ['demo', 'example', 'test', 'spec', 'vendor', 'node_modules', 'dist', 'build', 'coverage', 'mock', 'fixture', 'icomoon'];
-
-            const hasToxicToken = pathTokens.some(token => {
-                // Exact match of folder name OR filename starting with token
-                return toxicTokens.some(toxic => token === toxic || token.startsWith(toxic + '-') || token.endsWith('-' + toxic) || filename.startsWith(toxic));
-            });
-
-            if (hasToxicToken) {
-                // CURATED EXCEPTION: Allow high-value files in toxic directories
-                if (curatedExceptions.includes(filename)) {
-                    return true; // Allow this file
-                }
-                return false;
-            }
-
-            return true;
-        });
+        // Delegate to FileFilter for specialized file filtering logic
+        return this.fileFilter.identifyAnchorFiles(tree);
     }
 
     /**

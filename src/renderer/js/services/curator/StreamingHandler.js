@@ -16,12 +16,14 @@ import { Logger } from '../../utils/logger.js';
 import { ThematicMapper } from './ThematicMapper.js';
 import { EvolutionState } from './EvolutionState.js';
 import { EvidenceStore } from './EvidenceStore.js';
+import { InsightsCurator } from './InsightsCurator.js';
 
 export class StreamingHandler {
     constructor() {
         // Compose specialized modules
         this.evolutionState = new EvolutionState();
         this.evidenceStore = new EvidenceStore();
+        this.insightsCurator = new InsightsCurator();
     }
 
     /**
@@ -147,19 +149,16 @@ export class StreamingHandler {
      * Curate findings using the Funnel of Truth
      */
     curateFindings(findings) {
-        // This would delegate to InsightsCurator - simplified for now
-        const validInsights = findings.filter(f => f && f.summary);
-        const stats = {
-            repoCount: [...new Set(findings.map(f => f.repo))].length,
-            topStrengths: [{ name: 'General', count: validInsights.length }]
-        };
+        // Delegate to InsightsCurator for centralized curation logic
+        const curationResult = this.insightsCurator.curate(findings);
 
-        return {
-            validInsights,
-            anomalies: [],
-            stats,
-            traceability_map: this.evidenceStore.getTraceabilityMap()
-        };
+        // Merge with existing traceability map from EvidenceStore
+        this.insightsCurator.mergeTraceabilityMaps(
+            curationResult.traceability_map,
+            this.evidenceStore.getTraceabilityMap()
+        );
+
+        return curationResult;
     }
 
     async synthesizeBlueprint(username, repoName, validInsights) {

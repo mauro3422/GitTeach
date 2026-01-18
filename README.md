@@ -4,14 +4,12 @@
 
 GitTeach es una aplicación de escritorio (Electron) diseñada para ayudar a los desarrolladores a gestionar sus perfiles de GitHub y mejorar sus habilidades mediante un asistente de IA local con arquitectura Thinking RAG.
 
-## 🎯 **Novedades v2.5.0 (Hybrid Speed)**
+## 🎯 **Novedades v2.33.0 (SOLID & Resilience)**
+- **Audit & SOLID Compliance**: Pipeline de análisis 100% modular (Filter → Process → Curate → Synthesize).
+- **AI Circuit Breaker**: Resiliencia ante caídas del servidor IA (Pausa de 60s tras fallos persistentes).
 - **Hybrid Architecture**: CPU/GPU Split para máxima velocidad (LFM 2.5 + Nomic Embed).
 - **Continuous Batching**: Paralelismo real en inferencia de IA (-cb).
 - **Integridad Forense**: Sistema Tracer v2.1 con validación de datos 100% blindada.
-- **Sistema de Herramientas**: Tools como `query_memory`, `read_file`, `analyze_code`
-- **Memoria Jerárquica**: ADN Técnico, Identidad Técnica, y Memoria Conversacional
-- **Pipeline de Análisis Avanzado (SOLID)**: Scanning → Processing → Curation → Synthesis (Arquitectura desacoplada en sub-módulos especializados).
-- **True Streaming**: Actualización de perfil en tiempo real (Procesamiento Parcial y Threshold).
 - **Dual-Track Metrics**: Evaluación separada de **Salud de Lógica** (Rigor) y **Salud de Conocimiento** (Elocuencia).
 - **Triple-Server Architecture**: GPU (Chat) + CPU (Curation/Synthesis) + CPU (Embeddings) para paralelismo total.
 - **Micro-Arquitectura de Inteligencia**: Decoplamiento de Context, Client y Orchestrator para máxima mantenibilidad.
@@ -56,11 +54,12 @@ GitTeach es una aplicación de escritorio (Electron) diseñada para ayudar a los
     *   Detección automática de tecnologías y patrones.
 *   **Cache Offline Inteligente:** Sistema `aiSnippet` para análisis sin internet.
 
-### 🔍 **Sistema de Análisis de Perfil**
-*   **Pipeline de 4 Fases:** Scanning → Processing → Curation → Synthesis.
+### 🔍 **Sistema de Análisis de Perfil (SOLID)**
+*   **Pipeline Desacoplado:** Scanning (FileAuditor) → Filtering (FileFilter) → Processing (Workers) → Curation (InsightsCurator) → Synthesis.
+*   **AI Circuit Breaker:** Protección contra fallos de red/servidor en `AIClient.js`.
 *   **Análisis de Forks:** Detección automática de contribuciones en repositorios forked.
-*   **Filtrado Anti-Noise:** Eliminación inteligente de archivos irrelevantes.
-*   **Curación de Insights:** Deduplicación y weighting por importancia.
+*   **Filtrado Anti-Noise:** Eliminación inteligente de archivos irrelevantes via `FileFilter`.
+*   **Curación de Insights:** Deduplicación (Jaccard) y weighting centralizado.
 *   **Síntesis de ADN Técnico:** Creación de perfiles técnicos objetivos.
 
 ### 🛡️ **Privacidad y Rendimiento**
