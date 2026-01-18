@@ -271,6 +271,38 @@ export class PersistenceMock {
                 return true;
             },
 
+            // --- GOLDEN KNOWLEDGE (Curated Summaries per Repo) ---
+            persistRepoGoldenKnowledge: async (repoName, data) => {
+                const db = await getDb();
+                await db.put(`curated:golden:${repoName}`, data);
+
+                // JSON Mirror - visible in repo folder
+                try {
+                    const repoDir = PersistenceMock._ensureRepoDir(repoName);
+                    if (repoDir) {
+                        const filePath = path.join(repoDir, 'golden_knowledge.json');
+                        fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+                        console.log(`[Tracer] 📜 Golden knowledge saved: ${filePath}`);
+                    }
+                } catch (e) { }
+
+                return true;
+            },
+
+            getRepoGoldenKnowledge: async (repoName) => {
+                const db = await getDb();
+                return await db.get(`curated:golden:${repoName}`);
+            },
+
+            getAllGoldenKnowledge: async () => {
+                const db = await getDb();
+                const results = await db.getByPrefix('curated:golden:');
+                return results.map(entry => ({
+                    repoName: entry.key.replace('curated:golden:', ''),
+                    ...entry.value
+                }));
+            },
+
             // --- DEBUG / TRACER ---
             persistPartitionDebug: async (layer, data) => {
                 try {

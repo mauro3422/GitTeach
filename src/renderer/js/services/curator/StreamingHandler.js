@@ -157,17 +157,46 @@ export class StreamingHandler {
         if (validInsights.length >= 5) {
             try {
                 Logger.mapper(`[${repoName}] Running thematic mapping (CPU)...`);
-                const mapperResults = await this.thematicMapper.executeMapping(username, validInsights, null);
+
+                // TRY TO USE GOLDEN KNOWLEDGE (curated summary) instead of raw findings
+                let mapperInput = validInsights;
+                let usedGoldenKnowledge = false;
+
+                try {
+                    if (typeof window !== 'undefined' && window.cacheAPI?.getRepoGoldenKnowledge) {
+                        const goldenData = await window.cacheAPI.getRepoGoldenKnowledge(repoName);
+                        if (goldenData?.goldenKnowledge) {
+                            // Convert golden knowledge to mapper-compatible format
+                            mapperInput = [{
+                                repo: repoName,
+                                summary: goldenData.goldenKnowledge,
+                                uid: 'golden_curated',
+                                // Include extracted metrics from compaction
+                                metadata: goldenData.metrics || {}
+                            }];
+                            usedGoldenKnowledge = true;
+                            Logger.mapper(`[${repoName}] Using CURATED golden knowledge (Coherence: ${goldenData.metrics?.coherence_score}/10)`);
+
+                            // Attach compaction metrics to blueprint
+                            blueprint.compactionMetrics = goldenData.metrics;
+                        }
+                    }
+                } catch (e) {
+                    Logger.warn('StreamingHandler', `Could not fetch golden knowledge: ${e.message}`);
+                }
+
+                const mapperResults = await this.thematicMapper.executeMapping(username, mapperInput, null);
 
                 // Attach thematic analysis to blueprint
                 blueprint.thematicAnalysis = {
                     architecture: mapperResults.architecture,
                     habits: mapperResults.habits,
                     stack: mapperResults.stack,
-                    performance: mapperResults.performance
+                    performance: mapperResults.performance,
+                    usedGoldenKnowledge // Track if we used curated data
                 };
 
-                Logger.mapper(`[${repoName}] Thematic mapping completed in ${mapperResults.performance?.totalMs || '?'}ms`);
+                Logger.mapper(`[${repoName}] Thematic mapping completed in ${mapperResults.performance?.totalMs || '?'}ms (Golden: ${usedGoldenKnowledge})`);
             } catch (e) {
                 Logger.warn('StreamingHandler', `Thematic mapping failed for ${repoName}: ${e.message}`);
                 // Blueprint still valid without thematic analysis

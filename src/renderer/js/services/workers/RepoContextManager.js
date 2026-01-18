@@ -67,6 +67,7 @@ export class RepoContextManager {
 
     /**
      * Internal: Run compaction without blocking the worker (Now on CPU)
+     * ENHANCED: Now extracts coherence/health metrics and persists to disk
      */
     async runCompaction(repoName) {
         const ctx = this.repoContexts.get(repoName);
@@ -77,28 +78,88 @@ export class RepoContextManager {
             try {
                 Logger.worker('POOL', `[${repoName}] Compacting technical memory on CPU (${ctx.recentFindings.length} files)...`);
 
+                const systemPrompt = `You are a Repository Knowledge Curator. Your job is to:
+1. MERGE new discoveries into the existing knowledge base
+2. EVALUATE the coherence and health of the codebase
+3. Return a structured JSON with the synthesis AND metrics
+
+Output JSON format:
+{
+    "synthesis": "Dense paragraph (max 150 words) summarizing the accumulated architectural understanding",
+    "project_type": "e.g., API, CLI, Library, Web App, etc.",
+    "coherence_score": 1-10 (how well the codebase hangs together architecturally),
+    "health_indicators": {
+        "has_tests": true/false,
+        "has_docs": true/false,
+        "has_config": true/false,
+        "modular": true/false
+    },
+    "dominant_patterns": ["Pattern1", "Pattern2"],
+    "tech_stack_signals": ["Tech1", "Tech2"]
+}`;
+
                 const userPrompt = `REPO: ${repoName}
-                EXISTING GOLDEN KNOWLEDGE:
-                ${ctx.goldenKnowledge || 'None yet.'}
 
-                NEW DISCOVERIES TO MERGE:
-                ${ctx.recentFindings.map(f => `- ${f.path}: ${f.summary}`).join('\n')}
+EXISTING GOLDEN KNOWLEDGE:
+${ctx.goldenKnowledge || 'None yet (first compaction).'}
 
-                Synthesize into a short, DENSE paragraph (Max 120 words) representing the accumulated architectural understanding:`;
+NEW DISCOVERIES TO MERGE (${ctx.recentFindings.length} files):
+${ctx.recentFindings.map(f => `- ${f.path}: ${f.summary}`).join('\n')}
+
+Synthesize and evaluate:`;
 
                 // Use CPU server to avoid blocking GPU workers
-                const compacted = await AIService.callAI_CPU('Compaction', userPrompt, 0.1);
+                const response = await AIService.callAI_CPU(systemPrompt, userPrompt, 0.2, 'json_object');
+
+                let compactionResult;
+                try {
+                    compactionResult = JSON.parse(response);
+                } catch (e) {
+                    // Fallback if JSON parsing fails
+                    compactionResult = { synthesis: response, coherence_score: 5 };
+                }
 
                 // Atomically update
-                ctx.goldenKnowledge = compacted;
+                ctx.goldenKnowledge = compactionResult.synthesis || response;
+                ctx.compactionMetrics = {
+                    project_type: compactionResult.project_type,
+                    coherence_score: compactionResult.coherence_score,
+                    health_indicators: compactionResult.health_indicators,
+                    dominant_patterns: compactionResult.dominant_patterns,
+                    tech_stack_signals: compactionResult.tech_stack_signals,
+                    files_compacted: ctx.recentFindings.length,
+                    last_updated: new Date().toISOString()
+                };
                 ctx.recentFindings = [];
-                Logger.worker('POOL', `[${repoName}] Knowledge compacted successfully ✅`);
+
+                // PERSIST to disk for traceability
+                await this._persistGoldenKnowledge(repoName, ctx);
+
+                Logger.worker('POOL', `[${repoName}] Knowledge compacted ✅ (Coherence: ${compactionResult.coherence_score}/10)`);
             } catch (e) {
                 console.warn(`[Compaction Error] ${repoName}:`, e);
             } finally {
                 ctx.compactionInProgress = false;
             }
         }, 0);
+    }
+
+    /**
+     * Persist golden knowledge to disk for traceability
+     */
+    async _persistGoldenKnowledge(repoName, ctx) {
+        try {
+            if (typeof window !== 'undefined' && window.cacheAPI?.persistRepoGoldenKnowledge) {
+                await window.cacheAPI.persistRepoGoldenKnowledge(repoName, {
+                    goldenKnowledge: ctx.goldenKnowledge,
+                    metrics: ctx.compactionMetrics,
+                    timestamp: new Date().toISOString()
+                });
+                Logger.worker('POOL', `[${repoName}] Golden knowledge persisted to disk`);
+            }
+        } catch (e) {
+            Logger.warn('RepoContextManager', `Failed to persist golden knowledge: ${e.message}`);
+        }
     }
 
     /**

@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.28.0] - Golden Knowledge Flow (Curated Summaries per Repo) - 2026-01-18
+### 🧠 Repository Knowledge Curation
+- **RepoContextManager.runCompaction**: Now generates structured JSON with:
+  - `synthesis`: Dense paragraph summarizing repo understanding
+  - `coherence_score`: 1-10 rating of architectural coherence
+  - `health_indicators`: has_tests, has_docs, has_config, modular
+  - `dominant_patterns`: Detected design patterns
+  - `tech_stack_signals`: Technologies identified
+
+### 💾 Persistence
+- **Golden Knowledge saved to disk**: `repos/[name]/golden_knowledge.json`
+- Added `persistRepoGoldenKnowledge`, `getRepoGoldenKnowledge`, `getAllGoldenKnowledge` to tracer
+
+### 🔄 Mapper Optimization
+- **Mappers now receive curated text**: Instead of 50 raw summaries, mappers get 1 curated paragraph
+- Less cognitive load for mappers = faster + more coherent analysis
+- Blueprint tracks `usedGoldenKnowledge` and `compactionMetrics`
+
+### 📊 New Metrics Available
+| Metric | Source | Purpose |
+|--------|--------|---------|
+| coherence_score | Compaction | How well code hangs together |
+| health_indicators | Compaction | Quick health snapshot |
+| dominant_patterns | Compaction | Design patterns detected |
+| tech_stack_signals | Compaction | Technologies identified |
+
 ## [2.27.0] - Real-time Identity Evolution (Complete Unification) - 2026-01-18
 ### 🧬 Identity System Overhaul
 - **Schema Unification**: `GlobalIdentityRefiner.mergeBlueprintInsights` now uses real mapper data
