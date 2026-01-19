@@ -75,9 +75,10 @@ class EventQueueBuffer {
      * @private
      */
     _inferPort(eventType) {
-        if (eventType.includes('gpu')) return 8000;
+        if (eventType.includes('gpu') || eventType.includes('slot')) return 8000;
         if (eventType.includes('cpu') || eventType.includes('mapper')) return 8002;
         if (eventType.includes('embedding')) return 8001;
+        if (eventType.includes('api') || eventType.includes('cache')) return 'INTERNAL';
         return null;
     }
 
@@ -90,6 +91,7 @@ class EventQueueBuffer {
         if (eventType.endsWith(':end') || eventType.includes('completed')) return 'done';
         if (eventType.includes('error')) return 'error';
         if (eventType.includes('queued')) return 'queued';
+        if (eventType.includes('store')) return 'done';
         return 'queued';
     }
 

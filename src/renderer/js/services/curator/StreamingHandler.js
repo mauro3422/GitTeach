@@ -105,6 +105,9 @@ export class StreamingHandler {
         Logger.info('StreamingHandler', `[STREAMING] Processing repo: ${repoName} (${repoFindings.length} findings)`);
 
         try {
+            const { pipelineEventBus } = await import('../pipeline/PipelineEventBus.js');
+            pipelineEventBus.emit('streaming:active', { repo: repoName, status: 'start' });
+
             // 2. Curate & Synthesize Blueprint (Local)
             // Use the provided identityUpdater (from DeepCurator) or a fallback logic
             const curation = identityUpdater ? identityUpdater.curateFindings(repoFindings) : this.curateFindings(repoFindings);
@@ -132,6 +135,9 @@ export class StreamingHandler {
                     await identityUpdater.refineGlobalIdentity(username, ctx);
                     this.incrementTick('global_refinements');
 
+                    const { pipelineEventBus } = await import('../pipeline/PipelineEventBus.js');
+                    pipelineEventBus.emit('streaming:active', { repo: repoName, status: 'end' });
+
                     // Broadcast context evolution to chat
                     const identity = await CacheRepository.getTechnicalIdentity(username);
                     const { AIService } = await import('../aiService.js');
@@ -141,6 +147,9 @@ export class StreamingHandler {
                 }
             }
         } catch (e) {
+            import('../pipeline/PipelineEventBus.js').then(({ pipelineEventBus }) => {
+                pipelineEventBus.emit('streaming:error', { repo: repoName, error: e.message });
+            });
             Logger.error('StreamingHandler', `Streaming process failed for ${repoName}: ${e.message}`);
         }
     }

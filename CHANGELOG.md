@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.41.0] - Real-Time Hardware Vigilance & Data Fidelity - 2026-01-19
+### 💓 Hardware Monitoring: AI Fleet Heartbeat
+- **Real-Time Connectivity**: Integrated visualizer with `AIFleetService` to monitor AI server health (Ports 8000, 8001, 8002) every 3 seconds.
+- **Fault Visualization**: Nodes now reflect real-world server failures with red "OFFLINE" badges and dashed indicators.
+- **Direct Telemetry**: Linked renderer-side `FleetMonitor` to the pipeline event bus for instant health updates.
+
+### 🛣️ Data Flow & Visual Fidelity
+- **Pipeline Highway**: Implemented visual "Traveling Packages" to show the movement of data between stages instead of instant count jumps.
+- **State Machine Refinement**: Differentiated `active` (pulsing emerald) from `pending` (steady holding green) states, ensuring slots accurately represent processing vs result-holding.
+- **Successor-Pull Mechanism**: Handover logic now requires the successor to start the transfer before the predecessor clears its state.
+
+### 📊 UI & Auditability Enhancements
+- **Grouped History**: Inspection drawer now organizes processing logs by repository, providing a cleaner hierarchical view of multis-repo sessions.
+- **Debug Simulator**: Exposed `window.PIPELINE_DEBUG` methods for manual verification of flow logic and server fault handling.
 
 ## [2.40.0] - SOLID Modularization & Deep Glass Aesthetics - 2026-01-19
 ### 🧱 Architectural Refactor: SOLID Pipeline Visualizer

@@ -29,6 +29,10 @@ export class FleetMonitor {
         // 2. Subscribe to real-time updates
         this.unsubscribe = window.fleetAPI.onStatusUpdate((newState) => {
             this.state = newState;
+
+            // EMIT: System event for visualizer heartbeat
+            pipelineEventBus.emit('system:fleet-status', newState);
+
             this.notify();
         });
 

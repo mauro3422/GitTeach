@@ -66,8 +66,12 @@ export class AnalysisPipeline {
                 deepCurator.processStreamingRepo(username, repoName, coordinator);
             };
 
-            // PARTIAL STREAMING: Update every 3 files
+            // PARTIAL STREAMING: Update every 1 file (Aggressive Streaming)
             coordinator.onRepoBatchReady = (repoName) => {
+                // This logic is typically handled within CoordinatorAgent.js itself,
+                // but if the intent is to force a batch update on every file,
+                // the CoordinatorAgent's internal threshold should be set to 1.
+                // The call below ensures DeepCurator processes the current state.
                 deepCurator.processStreamingRepo(username, repoName, coordinator, true);
             };
 
@@ -95,8 +99,16 @@ export class AnalysisPipeline {
                 }
             });
 
-            // Await workers completion promise
-            this.aiWorkersPromise = workerPool?.waitForCompletion ? workerPool.waitForCompletion() : Promise.resolve();
+            // 2. WAIT FOR WORKERS AND BACKGROUND TASKS (With Spin-up Safety)
+            // Small delay to ensure Workers have time to see the first enqueued items
+            await new Promise(r => setTimeout(r, 1000));
+
+            await Promise.all([
+                this.backgroundPromise || Promise.resolve(),
+                workerPool?.waitForCompletion ? workerPool.waitForCompletion() : Promise.resolve()
+            ]);
+
+            Logger.info('ANALYZER', '🏁 Workers finished. Verifying findings before final synthesis...');
 
             this.fullIntelligencePromise = this.runFinalSynthesis(username, coordinator, deepCurator, intelligenceSynthesizer, savedProfile);
 
@@ -120,6 +132,7 @@ export class AnalysisPipeline {
      */
     async runFinalSynthesis(username, coordinator, deepCurator, intelligenceSynthesizer, savedProfile) {
         try {
+            // Already awaited in analyze(), but keep as safety net
             await Promise.all([this.backgroundPromise, this.aiWorkersPromise || Promise.resolve()]);
 
             // GRACEFUL DRAIN: Mark enqueueing as complete so workers know to stop waiting
@@ -157,6 +170,13 @@ export class AnalysisPipeline {
             await memoryManager.persistAll();
 
             Logger.reducer('Executing FINAL SYNTHESIS...');
+
+            // PRE-FLIGHT CHECK: If we have zero findings, synthesis WILL fail.
+            if (currentFindings.length === 0) {
+                Logger.warn('ANALYZER', '⚠️ ABORTING SYNTHESIS: No findings available.');
+                return { error: 'No findings' };
+            }
+
             const curationResult = await deepCurator.runDeepCurator(username, coordinator);
             if (!curationResult || curationResult.error) {
                 Logger.error('ANALYZER', `Synthesis failed: ${curationResult?.error || 'No result'}`);

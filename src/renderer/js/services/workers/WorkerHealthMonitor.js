@@ -10,6 +10,7 @@
  */
 import { Logger } from '../../utils/logger.js';
 import { pipelineController } from '../pipeline/PipelineController.js';
+import { pipelineEventBus } from '../pipeline/PipelineEventBus.js';
 
 export class WorkerHealthMonitor {
     constructor(queueManager, resultProcessor) {
@@ -145,6 +146,13 @@ export class WorkerHealthMonitor {
                 this.updateWorkerStats(workerId, 'filesProcessed', 1);
             }
 
+            // PIPELINE EVENT: Slot activity
+            pipelineEventBus.emit(`worker:slot:${workerId}`, {
+                repo: claimedRepo,
+                file: isBatch ? 'batch' : input.path,
+                status: 'start'
+            });
+
             try {
                 const startTime = Date.now();
 
@@ -178,6 +186,12 @@ export class WorkerHealthMonitor {
 
                 // If we were STEPPING, notify controller that this step finished
                 pipelineController.stepComplete();
+
+                pipelineEventBus.emit(`worker:slot:${workerId}`, {
+                    repo: claimedRepo,
+                    file: isBatch ? 'batch' : input.path,
+                    status: 'end'
+                });
 
             } catch (error) {
                 this.resultProcessor.handleError(workerId, items, error, isBatch, claimedRepo);

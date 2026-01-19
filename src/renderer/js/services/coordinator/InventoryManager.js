@@ -27,8 +27,11 @@ export class InventoryManager {
     }
 
     registerFiles(repoName, tree, treeSha, maxFiles = 9999) {
-        const repo = this.data.repos.find(r => r.name === repoName);
-        if (!repo) return;
+        const repo = this.data.repos.find(r => r.name.toLowerCase() === repoName.toLowerCase());
+        if (!repo) {
+            console.warn(`[InventoryManager] Repo not found for registration: ${repoName}`);
+            return;
+        }
 
         // Reset old file count for this repo to avoid accumulation bugs
         const oldActiveCount = repo.files ? repo.files.filter(f => f.type === 'blob' && f.status !== 'skipped').length : 0;
@@ -62,7 +65,7 @@ export class InventoryManager {
         const batch = [];
         for (const repo of this.data.repos) {
             const pendingFiles = repo.files.filter(f =>
-                f.status === 'pending' &&
+                (f.status === 'pending' || f.status === 'processing') && // Allow re-getting processing if needed (safety)
                 f.type === 'blob' &&
                 (ignorePriority || f.priority > 10)
             );
@@ -83,7 +86,7 @@ export class InventoryManager {
     }
 
     markCompleted(repoName, filePath, summary, rawData) {
-        const repo = this.data.repos.find(r => r.name === repoName);
+        const repo = this.data.repos.find(r => r.name.toLowerCase() === repoName.toLowerCase());
         if (!repo) return;
 
         const file = repo.files.find(f => f.path === filePath);
@@ -145,7 +148,7 @@ export class InventoryManager {
      * Checks if a specific repository has finished processing all files
      */
     isRepoComplete(repoName) {
-        const repo = this.data.repos.find(r => r.name === repoName);
+        const repo = this.data.repos.find(r => r.name.toLowerCase() === repoName.toLowerCase());
         if (!repo) return false;
 
         // A repo is complete if it has files and NONE are pending or processing

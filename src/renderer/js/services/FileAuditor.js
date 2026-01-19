@@ -108,11 +108,15 @@ export class FileAuditor {
                 onStep({ type: 'Progreso', percent: stats.progress, message: `Downloading ${file.path}...` });
             }
 
+            pipelineEventBus.emit('api:fetch', { repo: repoName, file: file.path, status: 'start' });
             const contentRes = await window.githubAPI.getFileContent(username, repoName, file.path);
+            pipelineEventBus.emit('api:fetch', { repo: repoName, file: file.path, status: 'end' });
+
             if (contentRes && contentRes.content) {
                 const codeSnippet = atob(contentRes.content.replace(/\n/g, '')).substring(0, MAX_CODE_SNIPPET_LENGTH);
 
                 // Save to cache
+                pipelineEventBus.emit('cache:store', { repo: repoName, file: file.path });
                 await CacheRepository.setFileSummary(
                     username, repoName, file.path,
                     contentRes.sha,
@@ -181,7 +185,11 @@ export class FileAuditor {
      */
     identifyAnchorFiles(tree) {
         // Delegate to FileFilter for specialized file filtering logic
-        return this.fileFilter.identifyAnchorFiles(tree);
+        const anchors = this.fileFilter.identifyAnchorFiles(tree);
+        anchors.forEach(f => {
+            pipelineEventBus.emit('file:classified', { file: f.path });
+        });
+        return anchors;
     }
 
     /**

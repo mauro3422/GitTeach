@@ -137,6 +137,7 @@ export class AIWorkerPool {
             );
         } catch (error) {
             this.logger.error(`[Worker ${workerId}] Fatal error: ${error.message}`, { error: error.stack });
+            throw error; // Propagate to Promise.all so pool knows it failed
         }
     }
 

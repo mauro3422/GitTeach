@@ -35,12 +35,16 @@ export const PipelineUI = {
         const history = nodeHistory[selectedNode] || [];
         const state = nodeStates[selectedNode] || 'idle';
 
+        const isSlot = selectedNode.startsWith('worker_') && selectedNode !== 'workers_hub';
+        const displayTitle = (isSlot && stats.currentLabel) ? stats.currentLabel : node.label;
+        const displaySubtitle = (isSlot && stats.repo) ? `Repo: ${stats.repo}` : (node.sublabel || 'Logical Agent');
+
         drawer.innerHTML = `
             <div class="drawer-header">
                 <span class="drawer-icon">${node.icon}</span>
                 <div class="drawer-title-group">
-                    <div class="drawer-title">${node.label}</div>
-                    <div class="drawer-subtitle">${node.sublabel || 'Logical Agent'}</div>
+                    <div class="drawer-title">${displayTitle}</div>
+                    <div class="drawer-subtitle">${displaySubtitle}</div>
                 </div>
                 <button class="drawer-close" id="drawer-close">×</button>
             </div>
@@ -49,25 +53,45 @@ export const PipelineUI = {
                     <h4>STATISTICS</h4>
                     <div class="drawer-stat-grid">
                         <div class="drawer-stat">
-                            <span class="stat-label">Processed</span>
+                            <span class="stat-label">In Flight</span>
                             <span class="stat-value">${stats.count}</span>
                         </div>
                         <div class="drawer-stat">
                             <span class="stat-label">Status</span>
-                            <span class="stat-value state-${state}">${state.toUpperCase()}</span>
+                            <span class="stat-value state-${state.toLowerCase()}">${state === 'active' ? 'PROCESSING' :
+                state === 'pending' ? 'HOLDING RESULT' :
+                    state.toUpperCase()
+            }</span>
                         </div>
                     </div>
                 </div>
                 <div class="drawer-section">
-                    <h4>RECENT ACTIVITY</h4>
+                    <h4>RECENT ACTIVITY (BY REPO)</h4>
                     <div class="drawer-history">
                         ${history.length === 0 ? '<div class="history-empty">No events yet</div>' :
-                history.map(h => `
-                            <div class="history-item">
-                                <span class="history-time">${h.time}</span>
-                                <span class="history-display">${h.display}</span>
+                (() => {
+                    // Group history by repository
+                    const groups = {};
+                    history.forEach(h => {
+                        const repo = h.repo || 'System';
+                        if (!groups[repo]) groups[repo] = [];
+                        groups[repo].push(h);
+                    });
+
+                    return Object.entries(groups).map(([repo, items]) => `
+                        <div class="history-group">
+                            <div class="history-group-header">${repo}</div>
+                            <div class="history-group-items">
+                                ${items.map(i => `
+                                    <div class="history-item">
+                                        <span class="history-time">${i.time}</span>
+                                        <span class="history-display">${i.file}</span>
+                                    </div>
+                                `).join('')}
                             </div>
-                          `).join('')}
+                        </div>
+                    `).join('');
+                })()}
                     </div>
                 </div>
             </div>
