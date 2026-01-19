@@ -92,7 +92,7 @@ app.whenReady().then(() => {
     aiMonitorService.startMonitor();
 
     // 4. Start AI Fleet Monitoring
-    aiFleetService.start(5000);
+    aiFleetService.start();
 
     // 5. Create the main window
     createWindow();

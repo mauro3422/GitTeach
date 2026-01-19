@@ -14,6 +14,7 @@ import { logManager } from '../../utils/logManager.js';
 import { AIHealthMonitor } from './AIHealthMonitor.js';
 import { AISlotManager, aiSlotManager, AISlotPriorities } from './AISlotManager.js';
 import { aiConnectionKeepAlive } from './AIConnectionKeepAlive.js';
+import { pipelineEventBus } from '../pipeline/PipelineEventBus.js';
 
 export class AIClient {
     constructor() {
@@ -88,8 +89,15 @@ export class AIClient {
         const _window = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global.window : {});
         const ENDPOINT = (_window?.AI_CONFIG?.endpoint) || 'http://127.0.0.1:8000/v1/chat/completions';
         const isUrgent = priority === AISlotPriorities.URGENT;
+        const eventPayload = {
+            port: 8000,
+            type: 'gpu-inference',
+            priority
+        };
 
         await aiSlotManager.acquire(priority);
+        // NUEVO: Emitir evento de inicio
+        pipelineEventBus.emit('ai:gpu:start', eventPayload);
         try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 180000);
@@ -159,10 +167,14 @@ export class AIClient {
             const data = await response.json();
             this.updateHealth(true);
             this._onSuccess('main');
+            // NUEVO: Emitir evento de fin exitoso
+            pipelineEventBus.emit('ai:gpu:end', { ...eventPayload, success: true });
             return data.choices[0].message.content;
         } catch (error) {
             this.updateHealth(false);
             this._onFailure('main');
+            // NUEVO: Emitir evento de fin con error
+            pipelineEventBus.emit('ai:gpu:end', { ...eventPayload, success: false, error: error.message });
 
             if (error.message.includes('fetch failed')) {
                 this.logger.error(`🚨 CRITICAL NETWORK FAILURE: Connection reset or server crash. Check llama.cpp.`);
@@ -184,6 +196,13 @@ export class AIClient {
 
         await this.cpuSlotManager.acquire();
         const startTime = Date.now();
+        const eventPayload = {
+            port: 8002,
+            type: 'cpu-inference'
+        };
+
+        // NUEVO: Emitir evento de inicio
+        pipelineEventBus.emit('ai:cpu:start', eventPayload);
 
         try {
             const _window = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global.window : {});
@@ -246,9 +265,13 @@ export class AIClient {
             const elapsed = Date.now() - startTime;
             this.logger.info(`CPU AI Success in ${elapsed}ms`);
             this._onSuccess('cpu');
+            // NUEVO: Emitir evento de fin exitoso
+            pipelineEventBus.emit('ai:cpu:end', { ...eventPayload, success: true });
             return data.choices[0].message.content;
         } catch (error) {
             const elapsed = Date.now() - startTime;
+            // NUEVO: Emitir evento de fin con error
+            pipelineEventBus.emit('ai:cpu:end', { ...eventPayload, success: false, error: error.message });
             if (error.name === 'AbortError') {
                 this.logger.error(`❌ CPU AI ABORTED after ${elapsed}ms. Reason: ${error.message}`);
             } else {

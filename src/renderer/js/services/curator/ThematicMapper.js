@@ -9,6 +9,7 @@ import { logManager } from '../../utils/logManager.js';
 import { ArchitectureMapper } from './mappers/ArchitectureMapper.js';
 import { HabitsMapper } from './mappers/HabitsMapper.js';
 import { StackMapper } from './mappers/StackMapper.js';
+import { pipelineEventBus } from '../pipeline/PipelineEventBus.js';
 
 export class ThematicMapper {
     constructor() {
@@ -49,22 +50,55 @@ export class ThematicMapper {
 
         const [architecture, habits, stack] = await Promise.all([
             (async () => {
+                const eventPayload = { port: 8002, type: 'mapper', mapper: 'architecture' };
+                // NUEVO: Emitir evento de inicio
+                pipelineEventBus.emit('mapper:start', eventPayload);
                 const s = Date.now();
-                const res = await this.architectureMapper.map(username, this._formatInsights(partitions.architecture), healthReport);
-                res.durationMs = Date.now() - s;
-                return res;
+                try {
+                    const res = await this.architectureMapper.map(username, this._formatInsights(partitions.architecture), healthReport);
+                    res.durationMs = Date.now() - s;
+                    // NUEVO: Emitir evento de fin exitoso
+                    pipelineEventBus.emit('mapper:end', { ...eventPayload, success: true });
+                    return res;
+                } catch (error) {
+                    // NUEVO: Emitir evento de fin con error
+                    pipelineEventBus.emit('mapper:end', { ...eventPayload, success: false, error: error.message });
+                    throw error;
+                }
             })(),
             (async () => {
+                const eventPayload = { port: 8002, type: 'mapper', mapper: 'habits' };
+                // NUEVO: Emitir evento de inicio
+                pipelineEventBus.emit('mapper:start', eventPayload);
                 const s = Date.now();
-                const res = await this.habitsMapper.map(username, this._formatInsights(partitions.habits), healthReport);
-                res.durationMs = Date.now() - s;
-                return res;
+                try {
+                    const res = await this.habitsMapper.map(username, this._formatInsights(partitions.habits), healthReport);
+                    res.durationMs = Date.now() - s;
+                    // NUEVO: Emitir evento de fin exitoso
+                    pipelineEventBus.emit('mapper:end', { ...eventPayload, success: true });
+                    return res;
+                } catch (error) {
+                    // NUEVO: Emitir evento de fin con error
+                    pipelineEventBus.emit('mapper:end', { ...eventPayload, success: false, error: error.message });
+                    throw error;
+                }
             })(),
             (async () => {
+                const eventPayload = { port: 8002, type: 'mapper', mapper: 'stack' };
+                // NUEVO: Emitir evento de inicio
+                pipelineEventBus.emit('mapper:start', eventPayload);
                 const s = Date.now();
-                const res = await this.stackMapper.map(username, this._formatInsights(partitions.stack));
-                res.durationMs = Date.now() - s;
-                return res;
+                try {
+                    const res = await this.stackMapper.map(username, this._formatInsights(partitions.stack));
+                    res.durationMs = Date.now() - s;
+                    // NUEVO: Emitir evento de fin exitoso
+                    pipelineEventBus.emit('mapper:end', { ...eventPayload, success: true });
+                    return res;
+                } catch (error) {
+                    // NUEVO: Emitir evento de fin con error
+                    pipelineEventBus.emit('mapper:end', { ...eventPayload, success: false, error: error.message });
+                    throw error;
+                }
             })()
         ]);
 

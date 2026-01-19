@@ -28,15 +28,14 @@ class AIFleetService {
     setLimits(newLimits) {
         console.log('[AIFleetService] Updating limits:', newLimits);
         this.limits = { ...this.limits, ...newLimits };
-        this.pollFleet(); // Immediate refresh with new limits
     }
 
     /**
      * Start the fleet monitoring loop
      */
     start() {
-        if (this.intervalId) return;
-        console.log(`[AIFleetService] Starting fleet monitor (Split Frequency: 200ms/500ms)...`);
+        if (this.isPolling) return;
+        console.log(`[AIFleetService] Starting fleet monitor (Relaxed polling: 3s for health check)...`);
 
         // Use a recursive timeout for better control over per-port frequencies
         this.isPolling = true;
@@ -49,7 +48,7 @@ class AIFleetService {
         const now = Date.now();
         const promises = this.ports.map(async port => {
             const lastPoll = this.lastPollTimes?.[port] || 0;
-            const threshold = port === 8001 ? 200 : 500;
+            const threshold = 3000; // Relajar polling a 3 segundos (solo health check)
 
             if (now - lastPoll >= threshold) {
                 if (!this.lastPollTimes) this.lastPollTimes = {};
@@ -95,8 +94,13 @@ class AIFleetService {
             this.broadcastFleetState();
         }
 
-        // Schedule next check in 100ms (min granularity)
-        setTimeout(() => this.runMonitoringLoop(), 100);
+        // Limpiar slots con sticky expirado y broadcast si hubo cambios
+        if (this.cleanExpiredSlots()) {
+            this.broadcastFleetState();
+        }
+
+        // Schedule next check in 500ms (relaxed, only for cleanup and health)
+        setTimeout(() => this.runMonitoringLoop(), 500);
     }
 
     /**
@@ -222,6 +226,70 @@ class AIFleetService {
 
         console.log('[AIFleetService] Fleet Verification Complete.');
         return this.fleetState;
+    }
+
+    /**
+     * NUEVO: Handle pipeline activity events for real-time slot updates
+     */
+    onPipelineActivity(event) {
+        const { port, type } = event.payload || {};
+        if (!port) return;
+
+        const state = this.fleetState[port];
+        if (!state) return;
+
+        // Determinar si es inicio o fin
+        const isStart = event.event.endsWith(':start');
+        const isEnd = event.event.endsWith(':end');
+
+        if (isStart) {
+            // Marcar un slot como processing
+            const idleSlot = state.slots.find(s => s.state === 'idle');
+            if (idleSlot) {
+                idleSlot.state = 'processing';
+                idleSlot.lastProcessingTime = Date.now();
+                idleSlot.eventSource = event.event;
+            }
+        } else if (isEnd) {
+            // Encontrar el slot que corresponde a este evento
+            const busySlot = state.slots.find(s =>
+                s.state === 'processing' && s.eventSource === event.event.replace(':end', ':start')
+            );
+            if (busySlot) {
+                // Mantener visualmente "processing" por 3 segundos más (sticky)
+                busySlot.stickyUntil = Date.now() + 3000;
+                busySlot.eventSource = null; // Limpiar para permitir nuevos eventos
+            }
+        }
+
+        // Limpiar slots expirados (sticky timeout)
+        this.cleanExpiredSlots();
+
+        this.broadcastFleetState();
+    }
+
+    /**
+     * Clean slots whose sticky timeout has expired
+     */
+    cleanExpiredSlots() {
+        const now = Date.now();
+        let changed = false;
+
+        this.ports.forEach(port => {
+            const state = this.fleetState[port];
+            if (!state || !state.slots) return;
+
+            state.slots.forEach(slot => {
+                if (slot.stickyUntil && now >= slot.stickyUntil) {
+                    slot.state = 'idle';
+                    slot.stickyUntil = null;
+                    slot.lastProcessingTime = 0;
+                    changed = true;
+                }
+            });
+        });
+
+        return changed;
     }
 
     /**

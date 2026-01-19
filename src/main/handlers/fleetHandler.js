@@ -13,7 +13,6 @@ export function register(ipcMain) {
 
     // Manual refresh trigger
     ipcMain.handle('fleet:refresh', async () => {
-        await aiFleetService.pollFleet();
         return aiFleetService.getFleetState();
     });
 
@@ -26,6 +25,11 @@ export function register(ipcMain) {
     // Proactive Verification
     ipcMain.handle('fleet:verify', async () => {
         return await aiFleetService.verifyFleet();
+    });
+
+    // NUEVO: Agregar handler para eventos de actividad
+    ipcMain.on('fleet:pipeline-activity', (event, data) => {
+        aiFleetService.onPipelineActivity(data);
     });
 
     console.log('[Handlers] ✅ fleetHandler registered.');

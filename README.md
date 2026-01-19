@@ -4,17 +4,16 @@
 
 GitTeach es una aplicación de escritorio (Electron) diseñada para ayudar a los desarrolladores a gestionar sus perfiles de GitHub y mejorar sus habilidades mediante un asistente de IA local con arquitectura Thinking RAG.
 
-## 🎯 **Novedades v2.35.0 (AI Fleet Telemetry & Visuals)**
-- **Real-Time Telemetry**: Sistema de monitoreo de slots 100% real (No-Trampa), sincronizado con llama.cpp.
-- **Split Polling (200ms/500ms)**: Captura instantánea de tareas rápidas (Embeddings/Mappers).
+## 🎯 **Novedades v2.36.0 (Pipeline Event System)**
+- **Event-Driven Telemetry**: Sistema de eventos en tiempo real para monitoreo instantáneo de actividad IA.
+- **PipelineEventBus**: Hub central de telemetría con historial y subscripciones wildcard.
+- **AuditLogger**: Persistencia JSONL para análisis forense del pipeline ("caja negra").
+- **Polling Optimizado**: Reducido de 100ms a 3s (30x menos overhead de CPU).
+- **Embedding Detection Fix**: Detección instantánea de embeddings ultra-rápidos via eventos.
 - **Crystal Glass UI**: Estética premium con indicadores de actividad transparentes y reactivos.
-- **Audit & SOLID Compliance**: Pipeline de análisis 100% modular (Filter → Process → Curate → Synthesize).
 - **AI Circuit Breaker**: Resiliencia ante caídas del servidor IA.
 - **Hybrid Architecture**: CPU/GPU Split para máxima velocidad (LFM 2.5 + Nomic Embed).
-- **Dual-Track Metrics**: Evaluación separada de **Salud de Lógica** y **Salud de Conocimiento**.
 - **Triple-Server Architecture**: GPU (Chat) + CPU (Curation/Synthesis) + CPU (Embeddings) para paralelismo total.
-- **Micro-Arquitectura de Inteligencia**: Decoplamiento de Context, Client y Orchestrator para máxima mantenibilidad.
-- **Sistema de Seguridad**: Firewall integrado y aislamiento de procesos
 - **Tracer Engine v2.1**: Auditoría forense completa del sistema
 
 ## 📚 **Documentación Técnica**

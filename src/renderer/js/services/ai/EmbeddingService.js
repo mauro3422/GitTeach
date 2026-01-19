@@ -1,15 +1,16 @@
 /**
- * EmbeddingService - Handles vector embeddings generation and processing
- * Extracted from AIService to comply with SRP
- *
- * Responsibilities:
- * - Generate text embeddings using AI service
- * - Handle embedding fallbacks and error recovery
- * - Batch embedding processing
- * - Embedding caching and optimization
- */
+* EmbeddingService - Handles vector embeddings generation and processing
+* Extracted from AIService to comply with SRP
+*
+* Responsibilities:
+* - Generate text embeddings using AI service
+* - Handle embedding fallbacks and error recovery
+* - Batch embedding processing
+* - Embedding caching and optimization
+*/
 
 import { logManager } from '../../utils/logManager.js';
+import { pipelineEventBus } from '../pipeline/PipelineEventBus.js';
 
 // Environment check
 const isNode = typeof process !== 'undefined' && process.versions?.node;
@@ -143,6 +144,14 @@ export class EmbeddingService {
      */
     async callEmbeddingAPI(text) {
         const ENDPOINT = this.getEmbeddingEndpoint();
+        const eventPayload = {
+            port: 8001,
+            type: 'embedding',
+            textLength: text.length
+        };
+
+        // NUEVO: Emitir evento de inicio
+        pipelineEventBus.emit('embedding:start', eventPayload);
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
@@ -188,11 +197,23 @@ export class EmbeddingService {
             }
 
             if (data && data.data && data.data.length > 0 && data.data[0].embedding) {
+                // NUEVO: Emitir evento de fin exitoso
+                pipelineEventBus.emit('embedding:end', {
+                    ...eventPayload,
+                    success: true,
+                    vectorSize: data.data[0].embedding.length
+                });
                 return data.data[0].embedding;
             }
 
             throw new Error('Invalid embedding response format');
         } catch (error) {
+            // NUEVO: Emitir evento de fin con error
+            pipelineEventBus.emit('embedding:end', {
+                ...eventPayload,
+                success: false,
+                error: error.message
+            });
             if (error.name === 'AbortError') {
                 throw new Error('Embedding request timeout');
             }
@@ -208,6 +229,15 @@ export class EmbeddingService {
     async batchEmbeddingAPI(texts) {
         const _window = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global.window : {});
         const ENDPOINT = this.getEmbeddingEndpoint();
+        const eventPayload = {
+            port: 8001,
+            type: 'batch-embedding',
+            batchSize: texts.length,
+            totalTextLength: texts.reduce((sum, t) => sum + t.length, 0)
+        };
+
+        // NUEVO: Emitir evento de inicio para batch
+        pipelineEventBus.emit('embedding:start', eventPayload);
 
         this.logger.debug(`Requesting batch: ${texts.length} texts -> ${ENDPOINT}`);
 
@@ -244,7 +274,14 @@ export class EmbeddingService {
                 if (response.ok) {
                     const data = await response.json();
                     if (data && data.data && Array.isArray(data.data)) {
-                        return data.data.map(item => item.embedding).filter(emb => emb);
+                        const embeddings = data.data.map(item => item.embedding).filter(emb => emb);
+                        // NUEVO: Emitir evento de fin exitoso para batch
+                        pipelineEventBus.emit('embedding:end', {
+                            ...eventPayload,
+                            success: true,
+                            vectorCount: embeddings.length
+                        });
+                        return embeddings;
                     }
                     throw new Error('Invalid batch embedding response format');
                 }
@@ -268,6 +305,13 @@ export class EmbeddingService {
                             fs.appendFileSync('embedding_debug.log', `‼ Final Error: ${error.message}\n`);
                         } catch (e) { }
                     }
+
+                    // NUEVO: Emitir evento de fin con error para batch
+                    pipelineEventBus.emit('embedding:end', {
+                        ...eventPayload,
+                        success: false,
+                        error: error.message
+                    });
 
                     if (error.name === 'AbortError') {
                         throw new Error('Batch embedding request timeout');

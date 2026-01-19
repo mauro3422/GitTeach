@@ -1,6 +1,29 @@
 # Changelog
 
 
+## [2.36.0] - Pipeline Event System & Real-Time Telemetry - 2026-01-19
+### 🏭 Event-Driven Architecture
+- **PipelineEventBus**: New central hub for pipeline telemetry events with wildcard subscriptions and history tracking.
+- **AuditLogger**: Optional JSONL persistence for forensic analysis ("black box" for the AI pipeline).
+- **Event Instrumentation**: All AI services now emit `start/end` events:
+  - `EmbeddingService`: `embedding:start/end` for single and batch operations
+  - `AIClient`: `ai:gpu:start/end` and `ai:cpu:start/end` for inference calls
+  - `ThematicMapper`: `mapper:start/end` for each mapper (architecture, habits, stack)
+
+### ⚡ Performance Optimization
+- **Relaxed Polling**: Reduced polling frequency from 100-500ms to **3000ms** (only for health checks).
+- **Loop Optimization**: Monitoring loop interval increased from 100ms to **500ms**.
+- **Event-Based Detection**: AI activity is now detected **instantly** via events instead of racing against fast operations.
+
+### 🐛 Critical Fix: Embedding Visibility
+- **Root Cause**: Embedding operations (~50ms) were faster than the 100ms polling, making them invisible.
+- **Solution**: Direct event emission to `AIFleetService.onPipelineActivity()` ensures immediate UI updates.
+- **Sticky Cleanup**: Added `cleanExpiredSlots()` to properly reset slots after 3-second visibility window.
+
+### 🔧 Infrastructure
+- **IPC Bridge**: Added `fleet:pipeline-activity` channel for Renderer → Main process event forwarding.
+- **Preload Extension**: `fleetAPI.sendActivity()` method for event transmission.
+
 ## [2.35.0] - AI Fleet Telemetry & Visual Refinement - 2026-01-18
 ### 📡 Telemetry & Responsiveness
 - **Server-Side Truth**: Restored real `/slots` polling to ensure AI activity lights are 100% server-driven (No "cheating" optimistic pulses).

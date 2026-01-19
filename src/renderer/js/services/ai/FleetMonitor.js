@@ -1,4 +1,5 @@
 // src/renderer/js/services/ai/FleetMonitor.js
+import { pipelineEventBus } from '../pipeline/PipelineEventBus.js';
 
 /**
  * FleetMonitor - SOLID service for reacting to AI Server Fleet telemetry.
@@ -9,6 +10,7 @@ export class FleetMonitor {
         this.state = {};
         this.listeners = new Set();
         this.unsubscribe = null;
+        this.eventUnsubscribe = null;
     }
 
     /**
@@ -28,6 +30,12 @@ export class FleetMonitor {
         this.unsubscribe = window.fleetAPI.onStatusUpdate((newState) => {
             this.state = newState;
             this.notify();
+        });
+
+        // NUEVO: Subscribirse al EventBus local para feedback instantáneo
+        this.eventUnsubscribe = pipelineEventBus.on('*', (event) => {
+            // Opcional: Log de debugging
+            console.debug('[FleetMonitor] Pipeline event:', event.event);
         });
 
         console.log('[FleetMonitor] Initialized and subscribed to telemetry.');
@@ -65,6 +73,9 @@ export class FleetMonitor {
     destroy() {
         if (this.unsubscribe) {
             this.unsubscribe();
+        }
+        if (this.eventUnsubscribe) {
+            this.eventUnsubscribe();
         }
         this.listeners.clear();
     }

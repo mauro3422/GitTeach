@@ -76,6 +76,8 @@ contextBridge.exposeInMainWorld('fleetAPI', {
     refresh: () => ipcRenderer.invoke('fleet:refresh'),
     setLimits: (limits) => ipcRenderer.invoke('fleet:set-limits', limits),
     verify: () => ipcRenderer.invoke('fleet:verify'),
+    // NUEVO: Enviar actividad de pipeline
+    sendActivity: (event) => ipcRenderer.send('fleet:pipeline-activity', event),
     onStatusUpdate: (callback) => {
         const listener = (event, data) => callback(data);
         ipcRenderer.on('fleet:status-update', listener);
