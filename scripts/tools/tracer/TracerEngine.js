@@ -5,6 +5,7 @@ import { TracerEnvironment } from './TracerEnvironment.js';
 import { GithubMock } from './GithubMock.js';
 import { Globals } from './Globals.js';
 import { loggerCapture } from './LoggerCapture.js';
+import { aiLogCopier } from './AILogCopier.js';
 
 /**
  * TracerEngine - Master orchestrator for diagnostic runs
@@ -29,6 +30,9 @@ export class TracerEngine {
 
         // 2. Start Forensic Logging
         loggerCapture.start();
+
+        // 2.1 Capture AI Server log positions for session-aware extraction
+        aiLogCopier.captureStartPositions();
 
         console.log(`\n🧬 TRACER ENGINE START: ${SESSION_ID}`);
 
@@ -109,13 +113,21 @@ export class TracerEngine {
                     lastReport = p;
                     if (p === 100) console.log("");
 
-                    this.generateSummary('RUNNING');
+                    this.generateSummary(AIService.isFatal ? 'FAILED_CRITICAL' : 'RUNNING');
                 }
             } else if (step.type === 'DeepMemoryReady') {
                 console.log(`\n🧠 AUTONOMOUS REACTION: ${step.message}`);
-                this.generateSummary('RUNNING');
+                this.generateSummary(AIService.isFatal ? 'FAILED_CRITICAL' : 'RUNNING');
             }
         });
+
+        // CHECK FOR EMERGENCY STOP
+        if (AIService.isFatal) {
+            console.error('\n🚨 EMERGENCY STOP: AI Service is in a fatal state. Skipping further phases.');
+            this.generateSummary('FAILED_CRITICAL');
+            console.log(`\n❌ TRACE ABORTED DUE TO CRITICAL AI FAILURE. Sessions: ${SESSION_ID}`);
+            return; // Terminate run early
+        }
 
         // Ensure stats are fresh after analyze() returns (Phase 1 finished)
         this.latestStats = analyzer.coordinator.getStats();
@@ -267,6 +279,9 @@ export class TracerEngine {
             console.warn("⚠️ Could not save context_user.json or blueprints:", e.message);
         }
 
+        // Copy AI server logs to session folder (only session-relevant portion)
+        aiLogCopier.copyLogsToSession();
+
         console.log(`\n✅ TRACE COMPLETE. Sessions: ${SESSION_ID}`);
     }
 
@@ -285,8 +300,10 @@ export class TracerEngine {
             metrics: {
                 filesAnalyzed: stats.analyzed,
                 filesOnDisk: totalFilesOnDisk,
-                coveragePercent: totalFilesOnDisk > 0 ? Math.round((stats.analyzed / totalFilesOnDisk) * 100) : 0
+                coveragePercent: totalFilesOnDisk > 0 ? Math.round((stats.analyzed / totalFilesOnDisk) * 100) : 0,
+                isRecoverable: status !== 'FAILED_CRITICAL'
             },
+            failureReason: status === 'FAILED_CRITICAL' ? "AI Service definitively offline or hanging after multiple attempts. Integrity check required." : null,
             metabolicDelta: {
                 evolved: JSON.stringify(this.metabolicSnapshot.before) !== JSON.stringify(this.metabolicSnapshot.after),
                 architectureLayered: !!this.metabolicSnapshot.after?.architecture,

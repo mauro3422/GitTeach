@@ -66,12 +66,35 @@ export class AIWorkerPool {
     async processQueue(aiService) {
         if (!aiService) throw new Error("AIService is required for AIWorkerPool");
 
+        // Start health monitor broadcasting
+        this.healthMonitor.startProcessing();
+
         const workers = [];
         for (let i = 0; i < this.workerCount; i++) {
             workers.push(this._runWorker(aiService, i + 1));
         }
 
-        await Promise.all(workers);
+        this.processingPromise = Promise.all(workers);
+        await this.processingPromise;
+
+        // End health monitor broadcasting
+        this.healthMonitor.endProcessing();
+    }
+
+    /**
+     * Wait for all current worker tasks to complete
+     */
+    async waitForCompletion() {
+        if (this.processingPromise) {
+            await this.processingPromise;
+        }
+    }
+
+    /**
+     * Gracefully stop all current worker tasks
+     */
+    stop() {
+        this.healthMonitor.requestStop();
     }
 
     // =========================================

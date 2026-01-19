@@ -30,13 +30,25 @@ export class BaseMapper {
         try {
             this.logger.debug(`Executing ${this.mapperName} analysis (CPU)...`);
 
-            const response = await AIService.callAI_CPU(
+            let response = await AIService.callAI_CPU(
                 `Mapper: ${this.mapperName}`,
                 `${prompt}\n\nINSIGHTS:\n${insights}`,
                 0.1,
                 'json_object',
                 schema
             );
+
+            // Robust Parsing: If response is a string, try to parse JSON
+            if (typeof response === 'string') {
+                try {
+                    const jsonMatch = response.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        response = JSON.parse(jsonMatch[0]);
+                    }
+                } catch (e) {
+                    this.logger.warn(`${this.mapperName} JSON Parse failed`, { error: e.message });
+                }
+            }
 
             if (response.error || typeof response === 'string') {
                 this.logger.warn(`${this.mapperName} AI returned error or invalid format`, { error: response.error || response });

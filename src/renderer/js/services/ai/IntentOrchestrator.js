@@ -19,6 +19,7 @@ import { SystemEventHandler } from './SystemEventHandler.js';
 import { ChatPromptBuilder } from './ChatPromptBuilder.js';
 import { IntentRouter } from './IntentRouter.js';
 import { ParameterConstructor } from './ParameterConstructor.js';
+import { AISlotPriorities } from './AISlotManager.js';
 
 export class IntentOrchestrator {
     constructor(aiClient, contextManager) {
@@ -54,10 +55,10 @@ export class IntentOrchestrator {
                 whisper = routerResult.whisper;
             }
 
-            // 2. Vocalization Phase (Chat Flow)
+            // 2. Vocalization Phase (Chat Flow) - URGENT priority for instant response
             if (intent === 'chat') {
                 const systemPrompt = ChatPromptBuilder.build(username, this.contextManager.getCurrentContext(), thought, whisper);
-                const response = await this.aiClient.callAI(systemPrompt, input, 0.2);
+                const response = await this.aiClient.callAI(systemPrompt, input, 0.2, null, null, AISlotPriorities.URGENT);
                 return { action: "chat", message: response };
             }
 

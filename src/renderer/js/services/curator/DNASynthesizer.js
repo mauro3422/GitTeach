@@ -158,7 +158,12 @@ export class DNASynthesizer {
         const { TaskDivider } = await import('../TaskDivider.js');
 
         // Handle both legacy strings and new structured objects
-        const compressedReports = thematicAnalyses.map(report => {
+        // INTERFACE FIX: Convert object to array for internal processing if needed
+        const analysesArray = Array.isArray(thematicAnalyses)
+            ? thematicAnalyses
+            : [thematicAnalyses.architecture, thematicAnalyses.habits, thematicAnalyses.stack].filter(Boolean);
+
+        const compressedReports = analysesArray.map(report => {
             if (typeof report === 'string') return TaskDivider.smartCompress(report, 5000);
 
             // It's a structured object { analysis, evidence_uids }

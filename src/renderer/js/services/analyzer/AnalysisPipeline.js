@@ -26,7 +26,7 @@ export class AnalysisPipeline {
     /**
      * Main analysis orchestration
      */
-    async analyze(username, coordinator, codeScanner, deepCurator, intelligenceSynthesizer, options = {}) {
+    async analyze(username, coordinator, codeScanner, deepCurator, intelligenceSynthesizer, options = {}, onStep = null, workerPool = null) {
         if (this.isAnalyzing) return;
         this.isAnalyzing = true;
 
@@ -39,7 +39,7 @@ export class AnalysisPipeline {
 
             AIService.setSessionContext(this.getFreshContext(username, cachedIdentity, savedProfile, cachedFindings));
 
-            console.log(`[AnalysisPipeline] ENV CHECK: window=${typeof window}, githubAPI=${typeof window !== 'undefined' ? !!window.githubAPI : 'N/A'}`);
+            if (onStep) onStep({ type: 'Status', message: `🚀 Initializing ${options.maxRepos || 10} repos analysis (Up to ${options.maxAnchors || 10} files/repo)` });
 
             const githubAPI = options.githubAPI || (typeof window !== 'undefined' ? window.githubAPI : null);
 
@@ -49,8 +49,17 @@ export class AnalysisPipeline {
                 this.runAuditorAgent(username)
             ]);
 
-            repos = response[0];
+            const maxRepos = options.maxRepos || 10;
+            repos = (response[0] || []).slice(0, maxRepos);
             audit = response[1];
+
+            // 1. ACTIVATE WORKERS EARLY (Parallelism Engine)
+            if (workerPool) {
+                Logger.info('ANALYZER', '🚀 Activating AI Worker Pool (Parallel Mode)...');
+                workerPool.processQueue(AIService).catch(err => {
+                    Logger.error('ANALYZER', `Worker Pool Crash: ${err.message}`);
+                });
+            }
 
             // STREAMING ARCHITECTURE: Bridge Coordinator -> DeepCurator
             coordinator.onRepoComplete = (repoName) => {
@@ -65,7 +74,8 @@ export class AnalysisPipeline {
             let codeInsights = [];
             let allFindings = [];
             if (typeof window !== 'undefined' && !window.AI_OFFLINE) {
-                allFindings = await codeScanner.scan(username, repos);
+                // Pass options to scanner for strict 10x10 capping
+                allFindings = await codeScanner.scan(username, repos, onStep, options);
                 codeInsights = codeScanner.curateFindings(allFindings);
             }
 
@@ -78,18 +88,25 @@ export class AnalysisPipeline {
             this.results = FlowManager.finalizeResults(username, repos, aiInsight, langData, codeInsights, coordinator);
             this.results.audit = audit;
 
-            // Start worker processing (will be handled by caller)
-            // this.startWorkerProcessing(onStep, username);
-
             // UNIFIED QUEUE: Processing background files via CodeScanner (Low Priority)
-            this.backgroundPromise = codeScanner.processBackgroundFiles(username, allFindings);
+            this.backgroundPromise = codeScanner.processBackgroundFiles(username, allFindings).then(() => {
+                if (workerPool?.queueManager) {
+                    workerPool.queueManager.setEnqueueingComplete();
+                }
+            });
+
+            // Await workers completion promise
+            this.aiWorkersPromise = workerPool?.waitForCompletion ? workerPool.waitForCompletion() : Promise.resolve();
 
             this.fullIntelligencePromise = this.runFinalSynthesis(username, coordinator, deepCurator, intelligenceSynthesizer, savedProfile);
+
+            // SYNC FIX: Await the full synthesis before returning results
+            // This ensures TracerView doesn't generate summary prematurely
+            await this.fullIntelligencePromise;
 
             return this.results;
         } catch (error) {
             console.error("❌ Analysis Error:", error);
-            // Even if scanning fails, try to finalize with what we have
             const langData = FlowManager.processLanguages(repos || []);
             this.results = FlowManager.finalizeResults(username, repos || [], { summary: "Error parcial durante el escaneo." }, langData, [], coordinator);
             return this.results;

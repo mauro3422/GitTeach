@@ -8,8 +8,8 @@ export class LoggerSession {
         this.sessionPath = null;
     }
 
-    async start() {
-        this.sessionId = new Date().toISOString().replace(/[:.]/g, '-');
+    async start(customSessionId = null) {
+        this.sessionId = customSessionId || new Date().toISOString().replace(/[:.]/g, '-');
         const debugAPI = this.transport.getDebugAPI();
 
         if (debugAPI?.createSession) {
@@ -19,7 +19,7 @@ export class LoggerSession {
                 return result.path;
             }
         } else if (this.transport.isNode && this.transport.fs) {
-            const ROOT = process.cwd();
+            const ROOT = typeof process !== 'undefined' ? process.cwd() : '.';
             this.sessionPath = this.transport.path.join(ROOT, 'logs', 'sessions', this.sessionId);
             this.transport.fs.mkdirSync(this.sessionPath, { recursive: true });
             return this.sessionPath;

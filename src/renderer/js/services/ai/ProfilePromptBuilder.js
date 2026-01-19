@@ -15,22 +15,26 @@ export const ProfilePromptBuilder = {
      */
     getDraftPrompt(username, identity) {
         return `SYSTEM: You are a World-Class Technical Recruiter and Personal Branding Expert.
-Your client is "${username}". Your goal is to write the CORE CONTENT for their GitHub Profile README.
+Your client is "${username}". 
+
+=== COGNITIVE VACCINES ===
+- "DO NOT invent skills (e.g., if no Rust files, DO NOT say Rust expert)".
+- "Documentation != Product" (Focus on the developer, not project setup).
+- "NO 'npm install' instructions".
 
 === SOURCE MATERIAL (DNA) ===
+<developer_dna>
 ${JSON.stringify(identity, null, 2)}
+</developer_dna>
 
-=== CRITICAL RULES ===
-1. **NO PROJECT INSTRUCTIONS**: Do not write "How to install", "Usage", "Contributing". This is a USER profile, NOT a repo readme.
-2. **FOCUS ON THE PERSON**:
-   - What motivates them? (See 'habits' and 'philosophy')
-   - What is their *actual* stack? (See 'stack_proficiency')
-   - What are their strengths? (See 'solid_score' or 'architecture')
-3. **TONE**: Professional, Passionate, but grounded in data. Avoid flattery.
+=== PROTOCOL ===
+STEP 1: Extract the top 3 strengths from 'habits' and 'philosophy'.
+STEP 2: Map the actual 'stack_proficiency' from the data.
+STEP 3: Compose the markdown sections.
 
-=== REQUIRED SECTIONS (Generate Content Only) ===
+=== SECTIONS ===
 - **Bio/Intro**: A 2-line hook about who they are.
-- **Philosophy**: 3 bullet points on how they approach code (e.g., "Modular First", "Performance Obsessed").
+- **Philosophy**: 3 bullet points on how they approach code.
 - **Tech Stack**: Grouped logically (Languages, Frameworks, Tools).
 - **Recent Highlights**: Mention 1-2 key repos if available in the DNA.
 
@@ -43,27 +47,33 @@ OUTPUT: Markdown content.
      * Compares the Draft against the Hard Data to catch hallucinations or boring text.
      */
     getCritiquePrompt(draft, identity) {
-        return `SYSTEM: You are the "Truth Anchor". You critique personal profiles for validity.
+        return `<system_role>
+You are the "Truth Anchor". You critique personal profiles for validity.
+</system_role>
 
-=== HARD DATA ===
+<hard_data>
 ${JSON.stringify(identity, null, 2)}
+</hard_data>
 
-=== DRAFT TO REVIEW ===
+<draft_to_review>
 ${draft}
+</draft_to_review>
 
-=== YOUR TASK ===
+<task>
 Critique the draft. Answer these questions:
-1. **Validity**: Does the draft claim skills not present in the Hard Data? (e.g., claims Rust expert but 0 Rust files).
-2. **Relevance**: Did it accidentally include "npm install" or project-setup steps? (Major Error).
-3. **Voice**: Does it sound like a generic human or a specific developer based on the data?
+1. **Validity**: Does the draft claim skills not present in the Hard Data? (CRITICAL: Every mentioned tech/skill MUST have a corresponding entry in the DNA).
+2. **Relevance**: Did it accidentally include "npm install", documentation headers, or project-setup steps? (This is a USER profile, not a project readme).
+3. **Voice**: Does it sound like a specific, data-driven developer or a generic template?
+</task>
 
-OUTPUT: JSON
+<output_format>
+JSON:
 {
   "valid": boolean,
   "critique": "Specific feedback on what to fix...",
   "correction_needed": boolean
 }
-`;
+</output_format>`;
     },
 
     /**
@@ -71,22 +81,28 @@ OUTPUT: JSON
      * Applies formatting, emojis, and structure.
      */
     getFinalizePrompt(draft, critique) {
-        return `SYSTEM: You are a Markdown Artist.
-Your job is to take the content and make it visually STUNNING.
+        return `<system_role>
+You are a Markdown Artist. Your job is to take content and make it visually STUNNING.
+</system_role>
 
-=== DRAFT CONTENT ===
+<draft_content>
 ${draft}
+</draft_content>
 
-=== CRITIQUE FEEDBACK (Apply these fixes) ===
+<critique_feedback>
+(Apply these fixes):
 ${critique}
+</critique_feedback>
 
-=== VISUAL GUIDELINES ===
+<visual_guidelines>
 - Use Badges (shields.io style text) for stacks.
 - Use Emojis for headers.
 - Use a clear, centered layout for the header.
 - **NO "npm install"**.
+</visual_guidelines>
 
-OUTPUT: The Final README.md code block.
-`;
+<output_format>
+Final README.md code block.
+</output_format>`;
     }
 };

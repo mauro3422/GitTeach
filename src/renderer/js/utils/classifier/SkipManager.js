@@ -5,7 +5,7 @@ import { BINARY_EXTENSIONS, NOISE_EXTENSIONS, NOISE_FILENAMES, CHANGELOG_PATTERN
  */
 export class SkipManager {
     static shouldSkip(filePath, contentPreview = '') {
-        const fileName = filePath.split('/').pop().toLowerCase();
+        const fileName = filePath.split(/[\\\/]/).pop().toLowerCase();
         const ext = '.' + fileName.split('.').pop();
 
         // 1. Binary files
@@ -23,10 +23,10 @@ export class SkipManager {
             return { skip: true, reason: 'Lock/system file' };
         }
 
-        // 4. Changelog patterns
-        if (CHANGELOG_PATTERNS.some(p => fileName.includes(p))) {
-            return { skip: true, reason: 'Changelog/history file' };
-        }
+        // 4. Changelog patterns - DISABLED for LFM2 (We want to profile discipline)
+        // if (CHANGELOG_PATTERNS.some(p => fileName.includes(p))) {
+        //     return { skip: true, reason: 'Changelog/history file' };
+        // }
 
         // 5. Content check
         const trimmed = (contentPreview || '').trim();
@@ -35,33 +35,34 @@ export class SkipManager {
         }
 
         // 6. README/Text/Documentation validation
-        const docKeywords = /design|guide|architecture|notes|plan|workflow|manual|specification|requirements|roadmap/i;
         const lowFileName = fileName.toLowerCase();
 
         if (ext === '.md' || ext === '.txt') {
-            // Essential documentation should NOT be skipped if it has content
+            // Essential documentation should NEVER be skipped if it has content (LFM2 Standard)
             const isEssentialDoc = (
                 lowFileName.includes('readme') ||
                 lowFileName.includes('design') ||
                 lowFileName.includes('architecture') ||
                 lowFileName.includes('changelog') ||
-                lowFileName.includes('roadmap')
-            );
-
-            if (isEssentialDoc && trimmed.length > 200) {
-                return { skip: false }; // Let it through for semantic analysis
-            }
-
-            const isPlaceholderOrReportOrNoise = (
-                trimmed.length < 150 ||
-                /^#\s*\w+\s*$/m.test(trimmed) ||
-                /todo|placeholder|coming soon|wip/i.test(trimmed) ||
-                /audit|report|summary|verification/i.test(fileName) || // Skip session logs/reports
+                lowFileName.includes('roadmap') ||
+                lowFileName.includes('manual') ||
+                lowFileName.includes('optimization') ||
                 filePath.toLowerCase().includes('/docs/') ||
                 filePath.toLowerCase().includes('/design/')
             );
 
-            if (isPlaceholderOrReportOrNoise) return { skip: true, reason: 'Low-value documentation/Noise' };
+            if (isEssentialDoc && trimmed.length > 50) {
+                return { skip: false }; // Let it through for semantic analysis
+            }
+
+            const isPlaceholderOrNoise = (
+                trimmed.length < 100 ||
+                /^#\s*\w+\s*$/m.test(trimmed) ||
+                /todo|placeholder|coming soon|wip/i.test(trimmed) ||
+                /audit|report|summary|verification/i.test(fileName) // Skip session logs/reports
+            );
+
+            if (isPlaceholderOrNoise) return { skip: true, reason: 'Low-value documentation/Noise' };
         }
 
         // 6.5 JSON/Data Architecture validation

@@ -39,6 +39,8 @@ export class FileFilter {
      * @returns {Array} Filtered anchor files
      */
     identifyAnchorFiles(tree) {
+        const isTracer = typeof window !== 'undefined' && window.IS_TRACER;
+
         return tree.filter(node => {
             if (node.type !== 'blob') return false;
             const lowerPath = node.path.toLowerCase();
@@ -56,19 +58,31 @@ export class FileFilter {
 
             // Critical: "Assets" folder logic
             // FILTER V4: Draconian Assets Policy
-            if (pathTokens.includes('assets') || pathTokens.includes('static') || pathTokens.includes('public')) {
+            if (!isTracer && (pathTokens.includes('assets') || pathTokens.includes('static') || pathTokens.includes('public'))) {
                 if (filename.toLowerCase() !== 'readme.md') return false;
             }
 
             // Critical: "Demo" / "Test" / "Vendor" logic
+            // RELAXED FOR TRACER: Allow diagnostic scripts even if they use "test" or "mock"
             const hasToxicToken = pathTokens.some(token => {
-                // Exact match of folder name OR filename starting with token
-                return this.toxicTokens.some(toxic =>
-                    token === toxic ||
-                    token.startsWith(toxic + '-') ||
-                    token.endsWith('-' + toxic) ||
-                    filename.startsWith(toxic)
-                );
+                return this.toxicTokens.some(toxic => {
+                    // In Tracer mode, we basically want EVERYTHING except node_modules/dist/build
+                    if (isTracer) {
+                        const skipList = ['node_modules', 'dist', 'build', 'vendor', 'icomoon'];
+                        if (skipList.includes(toxic)) {
+                            return token === toxic;
+                        }
+                        // For 'test', 'mock', 'demo', 'example', 'coverage', 'fixture', 'spec':
+                        // Only skip if it's EXACTLY the folder name, but let file prefixes through
+                        return token === toxic && token !== filename;
+                    }
+
+                    // Standard (Normal) mode: Draconian filtering
+                    return token === toxic ||
+                        token.startsWith(toxic + '-') ||
+                        token.endsWith('-' + toxic) ||
+                        filename.startsWith(toxic);
+                });
             });
 
             if (hasToxicToken) {
@@ -80,6 +94,6 @@ export class FileFilter {
             }
 
             return true;
-        });
+        }).slice(0, 10); // Limit to 10 files per repo for quick global profiling
     }
 }

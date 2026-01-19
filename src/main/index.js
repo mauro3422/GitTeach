@@ -25,6 +25,7 @@ const __dirname = path.dirname(__filename);
 // --- Services ---
 import firewallService from './services/firewallService.js';
 import aiMonitorService from './services/aiMonitorService.js';
+import aiFleetService from './services/aiFleetService.js';
 
 // --- IPC Handlers ---
 import authHandler from './handlers/authHandler.js';
@@ -32,6 +33,7 @@ import dataHandler from './handlers/dataHandler.js';
 import cacheHandler from './handlers/cacheHandler.js';
 import utilsHandler from './handlers/utilsHandler.js';
 import debugHandler from './handlers/debugHandler.js';
+import fleetHandler from './handlers/fleetHandler.js';
 
 // --- NOTE: LFM 2.5 model runs via llama-server.exe (llama.cpp) ---
 // Endpoint: http://localhost:8000/v1/chat/completions
@@ -46,6 +48,7 @@ function registerAllHandlers() {
     cacheHandler.register(ipcMain);
     utilsHandler.register(ipcMain);
     debugHandler.register(ipcMain);
+    fleetHandler.register(ipcMain);
     console.log('[Main] ✅ All handlers registered.');
 }
 
@@ -53,9 +56,12 @@ function registerAllHandlers() {
  * Creates the main application window.
  */
 function createWindow() {
+    const isTracer = process.argv.includes('--tracer');
+    const startFile = isTracer ? '../renderer/tracer.html' : '../renderer/index.html';
+
     const win = new BrowserWindow({
-        width: 1000,
-        height: 800,
+        width: isTracer ? 1280 : 1000,
+        height: isTracer ? 900 : 800,
         backgroundColor: '#0d1117',
         webPreferences: {
             preload: path.join(__dirname, '../preload/index.js'),
@@ -65,10 +71,10 @@ function createWindow() {
     });
 
     win.setMenuBarVisibility(false);
-    win.loadFile(path.join(__dirname, '../renderer/index.html'));
+    win.loadFile(path.join(__dirname, startFile));
 
     // DEBUG: Only open DevTools in development
-    if (process.env.NODE_ENV !== 'production') {
+    if (process.env.NODE_ENV !== 'production' || isTracer) {
         win.webContents.openDevTools({ mode: 'detach' });
     }
 }
@@ -85,7 +91,10 @@ app.whenReady().then(() => {
     // 3. Start AI health monitor
     aiMonitorService.startMonitor();
 
-    // 4. Create the main window
+    // 4. Start AI Fleet Monitoring
+    aiFleetService.start(5000);
+
+    // 5. Create the main window
     createWindow();
 
     app.on('activate', () => {
@@ -95,5 +104,6 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
     aiMonitorService.stopMonitor();
+    aiFleetService.stop();
     if (process.platform !== 'darwin') app.quit();
 });

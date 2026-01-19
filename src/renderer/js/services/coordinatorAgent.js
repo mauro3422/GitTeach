@@ -26,9 +26,9 @@ export class CoordinatorAgent {
         this.reporter.report('Inventory initialized', `${repos.length} repos detected`, this.inventory);
     }
 
-    registerRepoFiles(repoName, tree, treeSha) {
-        this.inventoryManager.registerFiles(repoName, tree, treeSha);
-        this.reporter.report('Repo scanned', `${repoName}: ${tree.length} files`, this.inventory);
+    registerRepoFiles(repoName, tree, treeSha, maxFiles = 9999) {
+        this.inventoryManager.registerFiles(repoName, tree, treeSha, maxFiles);
+        this.reporter.report('Repo scanned', `${repoName}: ${tree.length} files (Capped at ${maxFiles})`, this.inventory);
     }
 
     getNextBatch(batchSize = 5, ignorePriority = false) {

@@ -47,10 +47,7 @@ export class CodeScanner {
         const maxRepos = options.maxRepos || (window.IS_TRACER ? DEFAULT_MAX_REPOS : 50000);
         const maxAnchors = options.maxAnchors || (window.IS_TRACER ? DEFAULT_MAX_ANCHORS : 50000);
 
-        // Sort by updated date (descending) and slice for 10x10 logic
-        // If IS_TRACER is false (Chat mode), we want to scan MORE repos? 
-        // The previous logic had a hard slice. Users might want "unlimited".
-        // sticking to existing logic for now.
+        // Sort by updated date (descending) and slice for dynamic logic
         const targetRepos = [...repos].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).slice(0, maxRepos);
 
         // Initialize coordinator with target repos
@@ -72,8 +69,8 @@ export class CodeScanner {
                 const { treeFiles, treeSha } = await this.getRepoTree(username, repo, onStep, allFindings);
                 if (!treeFiles || treeFiles.length === 0) return;
 
-                // Register files in coordinator
-                this.coordinator.registerRepoFiles(repo.name, treeFiles, treeSha);
+                // Register files in coordinator with strict capping
+                this.coordinator.registerRepoFiles(repo.name, treeFiles, treeSha, maxAnchors);
 
                 // Check if repo changed since last time (cache)
                 const needsFullScan = await CacheRepository.hasRepoChanged(username, repo.name, treeSha);
@@ -143,7 +140,16 @@ export class CodeScanner {
      * Audits a list of files, downloading content and saving to cache
      */
     async auditFiles(username, repoName, files, needsFullScan, onStep, priority = AISlotPriorities.NORMAL) {
-        return this.fileAuditor.auditFiles(username, repoName, files, needsFullScan, onStep, priority);
+        // Filter out files that were technically "skipped" by the inventory capping
+        const repoEntry = this.coordinator.inventory.repos.find(r => r.name === repoName);
+        const filtered = files.filter(f => {
+            const coordFile = repoEntry?.files.find(cf => cf.path === f.path);
+            if (coordFile && coordFile.status === 'skipped') return false;
+            return true;
+        });
+
+        if (filtered.length === 0) return [];
+        return this.fileAuditor.auditFiles(username, repoName, filtered, needsFullScan, onStep, priority);
     }
 
     /**

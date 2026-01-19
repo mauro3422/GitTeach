@@ -13,8 +13,11 @@ export class LoggerTransport {
     async init() {
         if (this.isNode && !this.fs) {
             try {
-                this.fs = await import('fs');
-                this.path = await import('path');
+                // Use default to avoid destructuring issues with some ESM loaders
+                const fsModule = await import('fs');
+                this.fs = fsModule.default || fsModule;
+                const pathModule = await import('path');
+                this.path = pathModule.default || pathModule;
             } catch (e) {
                 console.error('[LoggerTransport] Failed to load native modules:', e);
             }

@@ -16,6 +16,7 @@ export class WorkerHealthMonitor {
         this.resultProcessor = resultProcessor;
         this.workerStats = new Map();
         this.isProcessing = false;
+        this.stopRequested = false;
         this.channel = new BroadcastChannel('giteach-monitoring');
         this.broadcastInterval = null;
     }
@@ -59,6 +60,14 @@ export class WorkerHealthMonitor {
     }
 
     /**
+     * Request all workers to stop
+     */
+    requestStop() {
+        this.logger.info('Stop requested by user.');
+        this.stopRequested = true;
+    }
+
+    /**
      * Run individual worker process
      * @param {number} workerId - Worker identifier
      * @param {Object} aiService - AI service instance
@@ -77,6 +86,12 @@ export class WorkerHealthMonitor {
         this.initializeWorkerStats(workerId);
 
         while (true) {
+            // EMERGENCY STOP: Check if AI Service is in fatal state or user requested stop
+            if (aiService.isFatal || this.stopRequested) {
+                Logger.worker(workerId, aiService.isFatal ? '🚨 FATAL AI STATE DETECTED.' : '🛑 STOP REQUESTED.');
+                break;
+            }
+
             // Get next item from queue
             const input = this.queueManager.getNextItem(workerId, claimedRepo, lastProcessedPath);
 
@@ -133,9 +148,7 @@ export class WorkerHealthMonitor {
 
                 // Parse response
                 const parsed = this.resultProcessor.promptBuilder.parseResponse(summary, isBatch ? null : input.path);
-                const finalSummary = parsed?.tool === 'skip'
-                    ? "SKIP: Content not relevant or empty."
-                    : summary;
+                const finalSummary = summary;
 
                 // Process results
                 const { results, batchBuffer } = await this.resultProcessor.processResults(

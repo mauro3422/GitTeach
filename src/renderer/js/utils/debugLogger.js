@@ -20,10 +20,10 @@ class DebugLoggerService {
         console.log(`[DebugLogger] ${enabled ? 'ENABLED' : 'DISABLED'}`);
     }
 
-    async startSession() {
+    async startSession(sessionId = null) {
         if (!this.enabled) return null;
         await this.transport.init();
-        return await this.session.start();
+        return await this.session.start(sessionId);
     }
 
     async logWorker(id, data) { if (this.enabled && this.sessionId) await this.collectors.logWorker(id, data); }

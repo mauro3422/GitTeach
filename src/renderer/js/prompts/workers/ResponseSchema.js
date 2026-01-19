@@ -103,9 +103,19 @@ export class ResponseSchema {
                             }
                         }
                     }
+                },
+                resilience_forensics: {
+                    type: "object",
+                    properties: {
+                        error_discipline: { type: "integer" },
+                        defensive_posture: { type: "integer" },
+                        optimization_score: { type: "integer" },
+                        antipatterns: { type: "array", items: { type: "string" } }
+                    },
+                    required: ["error_discipline", "defensive_posture", "optimization_score", "antipatterns"]
                 }
             },
-            required: ["thought", "domain", "confidence", "complexity", "summary", "evidence", "logic", "knowledge", "signals", "semantic", "dimensions", "professional"]
+            required: ["thought", "domain", "confidence", "complexity", "summary", "evidence", "logic", "knowledge", "signals", "semantic", "dimensions", "professional", "resilience_forensics"]
         };
     }
 }

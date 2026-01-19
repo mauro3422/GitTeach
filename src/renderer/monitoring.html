@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GitTeach // Monitor</title>
     <link rel="stylesheet" href="css/monitoring.css">
 </head>
+
 <body>
     <div class="monitor-container">
         <!-- Header: Stats Summary -->
@@ -21,7 +23,7 @@
         <main class="monitor-grid">
             <!-- Left: Worker Array -->
             <section class="panel workers-panel">
-                <h3>ACTIVE_UNITS</h3>
+                <h3>🚀 ACTIVE_UNITS</h3>
                 <div id="workers-grid" class="workers-grid">
                     <!-- Worker Cards injected here -->
                 </div>
@@ -29,10 +31,10 @@
 
             <!-- Right: Performance & Queue -->
             <section class="panel status-panel">
-                <h3>SYSTEM_STATUS</h3>
+                <h3>📊 SYSTEM_STATUS</h3>
                 <div class="progress-section">
                     <div class="progress-bar-container">
-                         <div id="progress-fill" class="fill" style="width: 0%"></div>
+                        <div id="progress-fill" class="fill" style="width: 0%"></div>
                     </div>
                     <div class="progress-label">
                         <span id="progress-text">0%</span>
@@ -44,10 +46,11 @@
 
         <!-- Footer: Log Stream -->
         <footer class="panel logs-panel">
-            <h3>TELEMETRY_STREAM</h3>
+            <h3>📜 TELEMETRY_STREAM</h3>
             <div id="log-stream" class="terminal-view"></div>
         </footer>
     </div>
     <script type="module" src="js/views/monitoring.js"></script>
 </body>
+
 </html>

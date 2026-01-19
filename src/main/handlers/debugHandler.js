@@ -6,7 +6,10 @@ import fs from 'fs';
 import { app } from 'electron';
 
 // Debug sessions base directory
-const DEBUG_BASE_DIR = path.join(app.getPath('userData'), 'debug_sessions');
+const DEBUG_BASE_DIR = path.join(process.cwd(), 'logs', 'sessions');
+if (!fs.existsSync(DEBUG_BASE_DIR)) {
+    fs.mkdirSync(DEBUG_BASE_DIR, { recursive: true });
+}
 
 /**
  * Ensure directory exists, create recursively if needed

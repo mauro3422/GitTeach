@@ -112,7 +112,9 @@ export class LogManager {
 
         // Add console transport by default in development OR Tracer
         const isTracer = typeof window !== 'undefined' && window.IS_TRACER;
-        if (process.env.NODE_ENV !== 'production' || isTracer) {
+        const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
+
+        if (isDev || isTracer) {
             this.addTransport(new ConsoleTransport());
         }
 

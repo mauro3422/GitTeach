@@ -109,14 +109,32 @@ ${ctx.recentFindings.map(f => `- ${f.path}: ${f.summary}`).join('\n')}
 Synthesize and evaluate:`;
 
                 // Use CPU server to avoid blocking GPU workers
-                const response = await AIService.callAI_CPU(systemPrompt, userPrompt, 0.2, 'json_object');
+                let response;
+                let compactionAttempt = 0;
+                const maxCompactionRetries = 2;
+
+                while (compactionAttempt < maxCompactionRetries) {
+                    try {
+                        response = await AIService.callAI_CPU(systemPrompt, userPrompt, 0.2, 'json_object');
+                        if (response) break;
+                    } catch (e) {
+                        compactionAttempt++;
+                        if (compactionAttempt >= maxCompactionRetries) throw e;
+                        await new Promise(r => setTimeout(r, 5000)); // Wait 5s between compaction retries
+                    }
+                }
 
                 let compactionResult;
                 try {
+                    // Try robust parsing first if available at some point, or just JSON.parse
                     compactionResult = JSON.parse(response);
                 } catch (e) {
-                    // Fallback if JSON parsing fails
-                    compactionResult = { synthesis: response, coherence_score: 5 };
+                    // Fallback to text synthesis if JSON fails
+                    compactionResult = {
+                        synthesis: typeof response === 'string' ? response.substring(0, 1000) : "Synthesis failed",
+                        coherence_score: 5,
+                        health_indicators: { has_tests: false, has_docs: true, has_config: true, modular: true }
+                    };
                 }
 
                 // Atomically update

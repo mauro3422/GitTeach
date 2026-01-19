@@ -25,10 +25,7 @@ import { EmbeddingService } from './ai/EmbeddingService.js';
 import { ContextManager } from './ai/ContextManager.js';
 import { AIClient } from './ai/AIClient.js';
 import { IntentOrchestrator } from './ai/IntentOrchestrator.js';
-
-if (typeof window !== 'undefined') {
-    window.AI_OFFLINE = true;
-}
+import { memoryManager } from './memory/MemoryManager.js';
 
 export const AIService = {
     // Compose specialized modules
@@ -41,6 +38,11 @@ export const AIService = {
     _getIntentOrchestrator() {
         if (!this._intentOrchestrator) {
             this._intentOrchestrator = new IntentOrchestrator(this._aiClient, this._contextManager);
+
+            // WIRE UP MEMORY PIPELINE: Inject embedding service into memoryManager
+            if (memoryManager && memoryManager.setEmbeddingService) {
+                memoryManager.setEmbeddingService(this._embeddingService);
+            }
         }
         return this._intentOrchestrator;
     },
@@ -48,6 +50,10 @@ export const AIService = {
     // Backward compatibility properties
     get currentSessionContext() {
         return this._contextManager.getCurrentContext();
+    },
+
+    get isFatal() {
+        return this._aiClient.isFatal.main || this._aiClient.isFatal.cpu;
     },
 
     setSessionContext(context) {
@@ -97,3 +103,8 @@ export const AIService = {
 };
 
 AIService.startHealthCheck();
+
+// PROACTIVE WIRE UP: Ensure MemoryManager is ready for worker findings
+if (memoryManager && memoryManager.setEmbeddingService) {
+    memoryManager.setEmbeddingService(AIService._embeddingService);
+}

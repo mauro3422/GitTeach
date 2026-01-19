@@ -11,8 +11,9 @@
  */
 import { logManager } from '../../utils/logManager.js';
 import { CacheRepository } from '../../utils/cacheRepository.js';
-import * as fs from 'fs';
-import * as path from 'path';
+
+// Environment check
+const isNode = typeof process !== 'undefined' && process.versions?.node;
 
 export class ResultProcessor {
     constructor(queueManager, contextManager, promptBuilder, debugLogger) {
@@ -53,14 +54,30 @@ export class ResultProcessor {
         const priority = isBatch ? (input.items[0].priority || 1) : (input.priority || 1);
 
         // Use temperature 0.0 and JSON schema for high-fidelity extraction (LFM2 Optimization)
-        let summary = await aiService.callAI(
-            systemPrompt,
-            userPrompt,
-            0.0, // Forced cold temperature
-            'json_object',
-            this.promptBuilder.getResponseSchema(),
-            priority
-        );
+        let summary;
+        let summarizeAttempt = 0;
+        const maxSummarizeRetries = 2;
+
+        while (summarizeAttempt < maxSummarizeRetries) {
+            try {
+                summary = await aiService.callAI(
+                    systemPrompt,
+                    userPrompt,
+                    0.0, // Forced cold temperature
+                    'json_object',
+                    this.promptBuilder.getResponseSchema(),
+                    priority
+                );
+                break; // Success
+            } catch (err) {
+                if (err.message.includes('Circuit Breaker OPEN')) {
+                    this.logger.warn(`Circuit Breaker OPEN. Waiting 10s before retry ${summarizeAttempt + 1}...`);
+                    await new Promise(r => setTimeout(r, 10000));
+                }
+                summarizeAttempt++;
+                if (summarizeAttempt >= maxSummarizeRetries) throw err;
+            }
+        }
 
 
         // FORENSIC DEBUG: Log to structured logging
@@ -70,12 +87,17 @@ export class ResultProcessor {
         });
 
         // Local FS forensic log (kept for ultra-detailed debugging in dev/tracer)
-        try {
-            const logPath = path.join(process.cwd(), 'raw_worker_outputs.log');
-            const logEntry = `\n\n=== [${new Date().toISOString()}] Input: ${input.isBatch ? 'BATCH' : input.path} ===\n${summary}\n================================================`;
-            fs.appendFileSync(logPath, logEntry);
-        } catch (e) {
-            this.logger.error("Forensic Log Error:", { error: e.message });
+        if (isNode) {
+            try {
+                // Use dynamic import to avoid bundler issues in browser
+                const fs = await import('fs');
+                const path = await import('path');
+                const logPath = path.join(process.cwd(), 'raw_worker_outputs.log');
+                const logEntry = `\n\n=== [${new Date().toISOString()}] Input: ${input.isBatch ? 'BATCH' : input.path} ===\n${summary}\n================================================`;
+                fs.appendFileSync(logPath, logEntry);
+            } catch (e) {
+                this.logger.error("Forensic Log Error:", { error: e.message });
+            }
         }
 
         return {

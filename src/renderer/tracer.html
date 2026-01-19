@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitTeach // Tracer Controls</title>
+
+    <!-- Use new redesigned styles -->
+    <link rel="stylesheet" href="css/monitoring.css">
+
+    <style>
+        .monitor-container {
+            display: grid;
+            grid-template-rows: auto 1.5fr minmax(200px, 1.2fr);
+            height: 100vh;
+            padding: 24px;
+            gap: 20px;
+        }
+
+        .tracer-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 24px;
+            overflow: hidden;
+        }
+
+        .config-overlay {
+            background: linear-gradient(135deg, rgba(35, 134, 54, 0.05), transparent);
+        }
+
+        .run-btn {
+            width: 100%;
+            margin-top: 15px;
+            font-size: 1rem;
+            font-weight: 700;
+            padding: 14px;
+            border-radius: 12px;
+            cursor: pointer;
+            border: none;
+            background: linear-gradient(90deg, var(--accent), #3fb950);
+            color: white;
+            box-shadow: 0 4px 15px rgba(35, 134, 54, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s;
+        }
+
+        .run-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(35, 134, 54, 0.5);
+        }
+
+        .run-btn:disabled {
+            background: var(--text-muted);
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .repo-list {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .repo-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--accent);
+            font-size: 0.9rem;
+        }
+
+        /* Server Fleet Panel */
+        .fleet-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .fleet-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .fleet-name {
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .fleet-slots {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--accent);
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-badge.online {
+            background: rgba(35, 134, 54, 0.2);
+            color: #3fb950;
+        }
+
+        .status-badge.offline {
+            background: rgba(218, 54, 51, 0.2);
+            color: #ff7b72;
+        }
+
+        .log-panel {
+            grid-row: 3;
+            min-height: 0;
+        }
+
+        .terminal-view {
+            scrollbar-width: thin;
+        }
+
+        .progress-section {
+            margin-top: 10px;
+        }
+
+        /* Fleet Observability Styles */
+        .fleet-info {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 6px;
+        }
+
+        .fleet-status {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .slots-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 4px 0;
+        }
+
+        .slot-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(4px);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .slot-dot.idle {
+            background: rgba(63, 185, 80, 0.05);
+            border-color: rgba(63, 185, 80, 0.15);
+            box-shadow: inset 0 0 4px rgba(63, 185, 80, 0.05);
+        }
+
+        .slot-dot.ready {
+            background: rgba(63, 185, 80, 0.9) !important;
+            box-shadow: 0 0 25px rgba(63, 185, 80, 0.7), 0 0 10px rgba(63, 185, 80, 0.4) inset !important;
+            border-color: #3fb950 !important;
+            transform: scale(1.1);
+        }
+
+        .slot-dot.processing {
+            background: #3fb950;
+            box-shadow: 0 0 20px #3fb950, 0 0 8px #3fb950 inset;
+            animation: pulse-active 0.8s ease-in-out infinite;
+            border-color: #56d364;
+            opacity: 1 !important;
+        }
+
+        .slot-dot.testing {
+            background: #f1e05a;
+            box-shadow: 0 0 15px #f1e05a, 0 0 5px #f1e05a inset;
+            animation: pulse-testing 0.5s ease-in-out infinite;
+            border-color: #e3b341;
+        }
+
+        .slot-dot.error {
+            background: #da3633;
+            box-shadow: 0 0 12px #da3633;
+            border-color: #f85149;
+        }
+
+        @keyframes pulse-active {
+            0% {
+                box-shadow: 0 0 4px #3fb950;
+                transform: scale(1);
+                filter: brightness(1);
+            }
+
+            50% {
+                box-shadow: 0 0 20px #3fb950, 0 0 10px #3fb950;
+                transform: scale(1.2);
+                filter: brightness(1.5);
+            }
+
+            100% {
+                box-shadow: 0 0 4px #3fb950;
+                transform: scale(1);
+                filter: brightness(1);
+            }
+        }
+
+        @keyframes pulse-testing {
+            0% {
+                box-shadow: 0 0 4px #f1e05a;
+                transform: scale(0.9);
+                opacity: 0.6;
+            }
+
+            50% {
+                box-shadow: 0 0 20px #f1e05a, 0 0 10px #f1e05a;
+                transform: scale(1.1);
+                opacity: 1;
+            }
+
+            100% {
+                box-shadow: 0 0 4px #f1e05a;
+                transform: scale(0.9);
+                opacity: 0.6;
+            }
+        }
+
+        /* Config Styles */
+        .config-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .config-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .config-item label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .config-item input {
+            width: 60px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: white;
+            padding: 4px 8px;
+            text-align: center;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="monitor-container">
+        <header class="monitor-header">
+            <div class="brand">GITEACH_TRACER_V3</div>
+            <div class="global-stats">
+                <span id="ai-status" class="status-badge">AI: CHECKING...</span>
+                <span id="session-id">SESSION: --</span>
+            </div>
+        </header>
+
+        <main class="tracer-grid">
+            <!-- Left: Configuration -->
+            <section class="panel config-overlay">
+                <h3>🎯 ANALYSIS_TARGETS</h3>
+                <div class="config-group">
+                    <div class="config-item">
+                        <label>MAX_REPOS</label>
+                        <input type="number" id="cfg-max-repos" value="10" min="1" max="50">
+                    </div>
+                    <div class="config-item">
+                        <label>MAX_FILES_PER_REPO</label>
+                        <input type="number" id="cfg-max-files" value="10" min="1" max="100">
+                    </div>
+                </div>
+
+                <div class="repo-list" id="repo-targets">
+                    <div class="repo-item">
+                        <span>mauro3422/GitTeach</span>
+                        <span class="badge">ACTIVE</span>
+                    </div>
+                </div>
+
+                <button id="btn-run-tracer" class="run-btn">
+                    ▶ START_FLIGHT_RECODER
+                </button>
+            </section>
+
+            <!-- Middle: Server Fleet -->
+            <section class="panel fleet-panel">
+                <h3>📡 SERVER_FLEET (Live)</h3>
+                <div class="fleet-grid" id="server-fleet">
+                    <!-- Port 8000 -->
+                    <div class="fleet-item" id="fleet-8000">
+                        <div class="fleet-info">
+                            <span class="fleet-name">BRAIN (GPU:8000)</span>
+                            <span class="fleet-status">DISCONNECTED</span>
+                        </div>
+                        <div class="slots-grid"></div>
+                    </div>
+                    <!-- Port 8002 -->
+                    <div class="fleet-item" id="fleet-8002">
+                        <div class="fleet-info">
+                            <span class="fleet-name">MAPPERS (CPU:8002)</span>
+                            <span class="fleet-status">DISCONNECTED</span>
+                        </div>
+                        <div class="slots-grid"></div>
+                    </div>
+                    <!-- Port 8001 -->
+                    <div class="fleet-item" id="fleet-8001">
+                        <div class="fleet-info">
+                            <span class="fleet-name">VECTORS (EMB:8001)</span>
+                            <span class="fleet-status">DISCONNECTED</span>
+                        </div>
+                        <div class="slots-grid"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right: Live Progress -->
+            <section class="panel status-panel">
+                <h3>📊 PIPELINE_STATUS</h3>
+                <div class="progress-section">
+                    <div class="progress-bar-container">
+                        <div id="progress-fill" class="fill" style="width: 0%"></div>
+                    </div>
+                    <div class="progress-label">
+                        <span id="progress-text">IDLE</span>
+                        <span id="queue-text">0/0 files</span>
+                    </div>
+                </div>
+
+                <div id="active-worker-info"
+                    style="margin-top: 15px; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted); height: 80px; overflow-y: auto;">
+                    Waiting for engine initialization...
+                </div>
+            </section>
+        </main>
+
+        <!-- Bottom: Real-time Telemetry -->
+        <footer class="panel log-panel">
+            <h3>📜 TRACER_LOGS</h3>
+            <div id="log-stream" class="terminal-view"></div>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="js/views/TracerView.js"></script>
+</body>
+
+</html>

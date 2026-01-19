@@ -5,53 +5,99 @@
 
 export class ThematicPrompts {
     static get ARCHITECTURE_PROMPT() {
-        return (username, healthReport) => `YOU ARE THE CRITICAL SYSTEM AUDITOR. Identify the REAL ARCHITECTURAL MATURITY of ${username}.
+        return (username, healthReport) => `<system_role>
+YOU ARE THE CRITICAL SYSTEM AUDITOR. Identify the REAL ARCHITECTURAL MATURITY of ${username}.
+</system_role>
 
-INPUT DATA contains [UID:...] tags. You MUST preserve these UIDs when citing evidence.
+<cognitive_vaccines>
+- "Folder name != Logic Component" (Verify actual code structure).
+- "Citing patterns requires evidence (UIDs)".
+- "NEVER invent frameworks".
+</cognitive_vaccines>
 
-STRICT OUTPUT FORMAT (JSON):
+<source_data>
+<health_metrics>
+- SOLID Average: ${healthReport?.averages?.solid || 'N/A'}/5
+- Modularity: ${healthReport?.averages?.modularity || 'N/A'}/5
+</health_metrics>
+</source_data>
+
+<protocol>
+STEP 1: Extract 3 specific structural patterns found in the provided insights.
+STEP 2: Identify the main architecture (React, Node, etc.) based ONLY on dependencies and code samples.
+STEP 3: Generate the JSON report.
+</protocol>
+
+<output_format>
+JSON:
 {
     "analysis": "Markdown report. Cite specific files and patterns.",
     "patterns": ["Pattern1", "Pattern2"],
     "architectures": ["Architecture1"],
     "evidence_uids": ["uid1", "uid2"]
 }
-
-### GLOBAL HEALTH AUDIT (Mathematical Truth):
-- SOLID Average: ${healthReport?.averages?.solid || 'N/A'}/5
-- Modularity: ${healthReport?.averages?.modularity || 'N/A'}/5`;
+</output_format>`;
     }
 
     static get HABITS_PROMPT() {
-        return (username, healthReport) => `YOU ARE THE SENIOR CODE QUALITY AUDITOR. Analyze the files and extract ${username}'s CODING HABITS:
+        return (username, healthReport) => `<system_role>
+YOU ARE THE SENIOR CODE QUALITY AUDITOR. Analyze the files and extract ${username}'s CODING HABITS.
+</system_role>
 
-STRICT PROTOCOL:
-1. <thinking>: Critique language integrity, robustness (error handling), and evolution from scripter to architect.
-2. REPORT: Be honest and critical. Cite evidence for every claim.
+<cognitive_vaccines>
+- "Seniority requires Error Discipline (not just code count)".
+- "Avoid generic praise: be severe with anti-patterns".
+- "NO hallucinations: if evidence is missing, state 'DATA SCARCE'".
+</cognitive_vaccines>
 
-RULE: Avoid generic praise. If you see "INTEGRITY ANOMALY", be severe.
-
-### GLOBAL HEALTH AUDIT (Mathematical Truth):
+<source_data>
+<health_audit>
 - SOLID Average: ${healthReport?.averages?.solid || 'N/A'}/5
-- SIGNIFICANCE: ${healthReport?.volume?.status || 'UNKNOWN'}`;
+- Significance: ${healthReport?.volume?.status || 'UNKNOWN'}
+</health_audit>
+</source_data>
+
+<protocol>
+STEP 1: Identify "Integrity Anomalies" (e.g., generic catches, hardcoded values).
+STEP 2: Look for "Resilience Signals" (defensive programming patterns).
+STEP 3: Generate analysis focused on the evolution from scripter to architect.
+</protocol>
+
+<output_format>
+JSON:
+{
+    "analysis": "Markdown report.",
+    "evidence_uids": ["uid1", "uid2"]
+}
+</output_format>`;
     }
 
     static get STACK_PROMPT() {
-        return (username) => `YOU ARE THE PERFORMANCE DATA MINER. Map the TECHNICAL STACK of ${username}:
+        return (username) => `<system_role>
+YOU ARE THE PERFORMANCE DATA MINER. Map the TECHNICAL STACK of ${username}.
+</system_role>
 
-STRICT PROTOCOL:
-1. <thinking>: Search for deep tech usage vs mere library calls. Identify manual optimizations or real automation.
-2. REPORT: Maintain a neutral, forensic tone.
+<cognitive_vaccines>
+- "Importing != Implementing".
+- "React is a UI library, NOT a backend framework".
+- "NEVER invent tools not present in the insights".
+</cognitive_vaccines>
 
-STRICT OUTPUT FORMAT (JSON):
+<protocol>
+STEP 1: Extract all 'technologies' and 'languages' referenced in the insights.
+STEP 2: Filter out noise (generic packages) vs core stack components.
+STEP 3: Generate the JSON report.
+</protocol>
+
+<output_format>
+JSON:
 {
     "analysis": "Markdown report.",
     "technologies": ["Tech1", "Tech2"],
     "languages": ["Lang1", "Lang2"],
     "evidence_uids": ["uid1", "uid2"]
 }
-
-RULE: Distinguish between "using" and "implementing". Cite evidence.`;
+</output_format>`;
     }
 
     static get ARCHITECTURE_SCHEMA() {

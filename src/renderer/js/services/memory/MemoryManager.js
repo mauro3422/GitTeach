@@ -61,9 +61,10 @@ export class MemoryManager {
 
         await this.addNode(node);
 
-        // PERSISTENCE V3: Append Raw Finding immediately
-        // We don't await this to keep the main flow fast, as it's just a safeguard log
-        CacheRepository.appendRepoRawFinding(finding.repo, finding).catch(err => {
+        const persistenceFinding = { ...finding, uid: node.uid };
+        CacheRepository.appendRepoRawFinding(finding.repo, persistenceFinding).then(() => {
+            this.logger.info(`✅ LevelDB Sync: Node ${node.uid} persisted to session storage.`);
+        }).catch(err => {
             this.logger.warn(`Failed to append raw finding for ${finding.repo}`, err);
         });
 
@@ -114,7 +115,7 @@ export class MemoryManager {
             repoList.push(node.uid);
         }
 
-        this.logger.debug(`Node stored: ${node.uid} [${node.classification}] in ${node.repo}`);
+        this.logger.info(`Node stored: ${node.uid} [${node.classification}] in ${node.repo} (Source: ${node.path})`);
 
         // Trigger batch-aware indexing
         this.indexNode(node);

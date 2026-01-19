@@ -19,9 +19,9 @@ export class ResponseParser {
     parseResponse(summary, filePath = null) {
         const trimmed = summary.trim();
 
-        if (trimmed.toUpperCase().startsWith('SKIP') || trimmed.includes('[SKIP]')) {
-            return { tool: 'skip' };
-        }
+        // if (trimmed.toUpperCase().startsWith('SKIP') || trimmed.includes('[SKIP]')) {
+        //     return { tool: 'skip' };
+        // }
 
         let data = null;
         try {

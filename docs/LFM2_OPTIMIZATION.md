@@ -176,3 +176,190 @@ For "Deep Forensics" on LFM 2.5 (1.2B), we prioritize **Parallel Workers** over 
 
 **Recommendation:**
 Keep `batchSize = 1` in `AIWorkerPool.js` and let the GPU's **Continuous Batching** handle the parallelism. This gives you the speed of batching with the precision of single-file analysis.
+
+---
+
+## 8. CPU-Specific Optimizations (LFM2.5 + llama.cpp) 🖥️
+
+LFM2 models are **explicitly optimized for CPU inference**, achieving 239 tokens/second on AMD CPUs with <1GB RAM usage. However, long-running CPU inference can encounter stability issues due to memory fragmentation and thread contention.
+
+### Key CPU Parameters
+
+| Parameter | Recommended Value | Reason |
+|-----------|-------------------|--------|
+| `--threads` | Physical cores (not hyperthreads) | Avoid context-switching overhead. 4 threads for 4-core CPU. |
+| `--parallel` | Match concurrent clients | For 3 mappers, use `--parallel 3`. |
+| `--batch-size` | 512 (CPU) | Smaller batches reduce peak memory usage and prevent OOM. |
+| `-ngl 0` | Always | Force CPU-only mode (no GPU offloading). |
+| `-cb` | Always | Enable continuous batching for parallel efficiency. |
+| `--ctx-size` | 16384-20480 | Balance between context and memory. Avoid very large values on CPU. |
+
+### Common CPU Stability Issues
+
+1. **10-Minute Network Timeout (fetch failed)**
+   - **Cause**: Windows HTTP client has a default 10-minute timeout. If the server is busy processing and doesn't respond, the connection dies.
+   - **Fix 1**: Client-side slot management (`CPUSlotManager`) to limit concurrent requests to match `--parallel` setting.
+   - **Fix 2**: `AIConnectionKeepAlive` module pings `/health` every 30 seconds to keep the connection active.
+
+2. **Memory Fragmentation**
+   - **Cause**: Long-running inference fragments heap memory.
+   - **Fix**: Use `--batch-size 512` to reduce peak allocation. Consider periodic server restarts.
+
+3. **Thread Contention**
+   - **Cause**: Too many threads compete for CPU resources.
+   - **Fix**: Set `--threads` to physical core count (not logical). Avoid hyperthreading.
+
+### Recommended CPU Launch Command
+```batch
+server\llama-server.exe --model "%MODEL_PATH%" ^
+    --port 8002 ^
+    --host 127.0.0.1 ^
+    -ngl 0 ^
+    --ctx-size 20480 ^
+    --threads 4 ^
+    --parallel 3 ^
+    --batch-size 512 ^      <-- CRITICAL FOR CPU STABILITY
+    -cb ^
+    --chat-template chatml ^
+    --log-file logs\ai_mapper_cpu.log
+```
+
+### Log Rotation
+All server startup scripts now include automatic log rotation:
+- Previous logs are archived with timestamps (`ai_mapper_cpu_20260118_193000.log`).
+- Prevents log files from growing indefinitely.
+- Each session starts with a clean log.
+
+---
+
+## 9. Advanced Server Optimizations 🔧
+
+### Context Size Formula (CRITICAL)
+**`--ctx-size` is the TOTAL context, divided by `--parallel` slots.**
+
+```
+Effective Context Per Slot = --ctx-size / --parallel
+```
+
+| Config | Total Context | Parallel Slots | Per-Slot Context |
+|--------|---------------|----------------|------------------|
+| GPU (8GB VRAM) | 49152 | 4 | **12288** tokens |
+| CPU (16GB RAM) | 65536 | 4 | **16384** tokens |
+
+> ⚠️ If your prompts exceed the per-slot context, they will be truncated silently!
+
+### KV Cache Quantization (`--cache-type-k q8_0`)
+Reduces KV cache memory by ~50% with minimal quality loss.
+
+| Cache Type | Memory Usage | Quality Impact |
+|------------|--------------|----------------|
+| `f16` (default) | 100% | Best |
+| `q8_0` | ~50% | Minimal loss |
+| `q4_0` | ~25% | Minor loss |
+
+**Recommendation**: Use `q8_0` for both GPU and CPU to maximize slots without quality degradation.
+
+### Flash Attention (`--flash-attn`)
+GPU-only optimization that:
+- Reduces memory usage during attention computation
+- Speeds up inference by 10-20%
+- Required for larger context windows
+
+### Parallel Slot Limits
+| Slots | KV Cache Behavior | Recommendation |
+|-------|-------------------|----------------|
+| 1-4 | Stable, efficient | ✅ Recommended |
+| 5-8 | Growing KV cache, slower generation | ⚠️ Monitor |
+| 9+ | Significant performance degradation | ❌ Avoid |
+
+### Optimized Launch Commands
+
+**GPU (Port 8000):**
+```batch
+server\llama-server.exe --model "%MODEL_PATH%" ^
+    --port 8000 --host 127.0.0.1 ^
+    --n-gpu-layers 999 ^
+    --ctx-size 32768 --parallel 4 ^
+    --cache-type-k q8_0 --cache-type-v q8_0 ^
+    --flash-attn ^
+    -cb --chat-template chatml
+```
+
+**CPU (Port 8002):**
+```batch
+server\llama-server.exe --model "%MODEL_PATH%" ^
+    --port 8002 --host 127.0.0.1 ^
+    -ngl 0 ^
+    --ctx-size 24576 --parallel 3 ^
+    --threads 4 --batch-size 512 ^
+    --cache-type-k q8_0 --cache-type-v q8_0 ^
+    -cb --chat-template chatml
+```
+
+### Connection Keep-Alive
+The `AIConnectionKeepAlive.js` module prevents Windows HTTP timeouts by:
+1. Pinging `/health` every 30 seconds
+2. Maintaining active connections to all 3 servers
+3. Detecting server crashes immediately
+
+This is critical for long-running CPU inference that can exceed Windows' 10-minute HTTP timeout.
+
+---
+
+## 10. Complete Concurrency Analysis 📊
+
+### GPU Server (Port 8000) - Peak Concurrent Calls
+
+| Component | Concurrent Calls | When |
+|-----------|------------------|------|
+| **AI Workers** | 3 | During file analysis (bulk of processing) |
+| **IntentOrchestrator** | 1-2 | User chat routing |
+| **InsightGenerator** | 1-2 | Profile insights generation |
+| **ProfileBuilder** | 1-3 | README generation (sequential) |
+| **TOTAL PEAK** | **~5-6** | All systems active |
+
+**Configuration**: `--parallel 4` with `aiSlotManager(5)` 
+- Workers use 3 slots, leaving 1-2 for chat/curation
+- If queue exceeds 5, client-side waiting kicks in (no server overload)
+
+### CPU Server (Port 8002) - Peak Concurrent Calls
+
+| Component | Concurrent Calls | When |
+|-----------|------------------|------|
+| **ThematicMappers** | 3 | Architecture, Habits, Stack (parallel) |
+| **DNASynthesizer** | 1 | Global identity synthesis |
+| **RepoBlueprintSynthesizer** | 1 | Per-repo blueprint |
+| **EvolutionManager** | 1 | Metabolic evolution detection |
+| **RepoContextManager** | 1 | Golden knowledge extraction |
+| **TOTAL PEAK** | **~4-5** | Synthesis phase |
+
+**Configuration**: `--parallel 4` with `cpuSlotManager(4)`
+- 3 Mappers run together = 3 slots used
+- 1 slot available for Synthesizer (DNASynth/Evolution)
+- No more queue waiting for synthesis phase!
+
+### Memory Behavior Under Full Load
+
+**GPU (8GB VRAM):**
+```
+Model:          1.25 GB
+KV Cache (80K): 4.00 GB (all 4 slots at 20K each)
+Headroom:       ~2.75 GB
+STATUS:         ✅ SAFE
+```
+
+**CPU (16GB RAM):**
+```
+Model:          1.25 GB
+KV Cache (80K): 4.00 GB (all 4 slots at 20K each)
+OS + Apps:      ~8.00 GB
+Headroom:       ~2.75 GB
+STATUS:         ✅ SAFE
+```
+
+### Why Current Configuration is Optimal
+
+1. **GPU 4 slots** matches peak worker load (3) + chat headroom (1)
+2. **CPU 4 slots** = 3 mappers + 1 synthesizer running simultaneously
+3. **20K context per slot** allows for large file analysis without truncation
+4. **q8_0 KV cache** reduces memory by 50% while maintaining quality

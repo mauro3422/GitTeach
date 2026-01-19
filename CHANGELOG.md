@@ -1,6 +1,20 @@
 # Changelog
 
 
+## [2.35.0] - AI Fleet Telemetry & Visual Refinement - 2026-01-18
+### 📡 Telemetry & Responsiveness
+- **Server-Side Truth**: Restored real `/slots` polling to ensure AI activity lights are 100% server-driven (No "cheating" optimistic pulses).
+- **Split-Frequency Polling**: Implemented ultra-fast 200ms polling for Port 8001 (Embeddings) to reliably capture sub-second tasks, with 500ms for other ports.
+- **Sticky Persistence**: Enhanced persistence logic to keep active slots visible for 3 seconds, ensuring human visibility of rapid AI tasks.
+- **Slot Alignment**: Corrected embedding server configuration to exactly 2 parallel slots in `start_vectors_cpu.bat`.
+
+### 🎨 UI & Aesthetics
+- **Crystal Glass Design**: Refined slot-dot CSS with a sleek glassmorphism aesthetic (highly transparent green for IDLE, solid vibrant green for PROCESSING).
+- **Dynamic Slot Mapping**: Improved UI logic to cycle through available slots and avoid visual "stutter" during parallel activity.
+
+### 🧪 Verification
+- **Fleet Audit Tool**: Created `scripts/test_fleet_lights.js` for deep telemetry audit and programmatic visual verification of all AI slots.
+
 ## [2.34.0] - Validación Final y Estabilización Tracer - 2026-01-18
 ### 🛡️ Estabilización de Infraestructura IA
 - **Configuración de Puertos Definitiva**: Alineados los puertos del entorno Tracer con la infraestructura real del usuario (8000 Brain GPU, 8001 Embeddings, 8002 Mappers CPU).

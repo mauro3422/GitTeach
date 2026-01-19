@@ -38,11 +38,13 @@ export class ProfileAnalyzer {
         this.batchProcessor = new BatchProcessor(this.deepCurator, this.intelligenceSynthesizer);
     }
 
-    async analyze(username, onStep = null) {
-        // Delegate to AnalysisPipeline
-        const results = await this.analysisPipeline.analyze(username, this.coordinator, this.codeScanner, this.deepCurator, this.intelligenceSynthesizer, this.options);
+    async analyze(username, onStep = null, options = {}) {
+        const mergedOptions = { ...this.options, ...options };
 
-        // Set up streaming event handlers (specific to ProfileAnalyzer facade)
+        // 1. SET UP LISTENERS BEFORE PIPELINE STARTS (CRITICAL)
+        this.batchProcessor.setupWorkerListeners(this.workerPool, username, onStep);
+
+        // 2. Set up streaming event handlers
         this.coordinator.onRepoComplete = (repoName) => {
             this.deepCurator.processStreamingRepo(username, repoName, this.coordinator);
             if (onStep) onStep({ type: 'StreamingUpdate', message: `⚡ Streaming Blueprint: ${repoName} (Final)` });
@@ -53,10 +55,19 @@ export class ProfileAnalyzer {
             if (onStep) onStep({ type: 'StreamingUpdate', message: `🌊 Partial Update: ${repoName}` });
         };
 
-        // Start worker processing
-        this.startWorkerProcessing(onStep, username);
+        // Delegate to AnalysisPipeline
+        const results = await this.analysisPipeline.analyze(username, this.coordinator, this.codeScanner, this.deepCurator, this.intelligenceSynthesizer, mergedOptions, onStep, this.workerPool);
 
         return results;
+    }
+
+    /**
+     * Stop the current analysis process
+     */
+    stop() {
+        this.logger.info('Analysis STOP requested.');
+        this.workerPool.stop();
+        this.analysisPipeline.stop?.(); // Also try to stop synthesis if supported
     }
 
     async startWorkerProcessing(onStep, username) {

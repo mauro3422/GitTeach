@@ -57,14 +57,30 @@ contextBridge.exposeInMainWorld('cacheAPI', {
     persistRepoCuratedMemory: (repoName, nodes) => ipcRenderer.invoke('cache:persist-repo-curated-memory', { repoName, nodes }),
     persistRepoPartitions: (repoName, partitions) => ipcRenderer.invoke('cache:persist-repo-partitions', { repoName, partitions }),
     // Golden Knowledge
-    persistRepoGoldenKnowledge: (repoName, data) => ipcRenderer.invoke('cache:persist-repo-golden-knowledge', { repoName, data }),
-    getRepoGoldenKnowledge: (repoName) => ipcRenderer.invoke('cache:get-repo-golden-knowledge', repoName)
+    persistRepoGoldenKnowledge: (owner, repo, data) => ipcRenderer.invoke('cache:persist-repo-golden-knowledge', { owner, repo, data }),
+    getRepoGoldenKnowledge: (owner, repo) => ipcRenderer.invoke('cache:get-repo-golden-knowledge', { owner, repo }),
+    generateSummary: (stats) => ipcRenderer.invoke('cache:generate-summary', stats),
+    switchSession: (sessionId) => ipcRenderer.invoke('cache:switch-session', sessionId)
 });
 
 // Bridge de utilidad para bypass de red
 contextBridge.exposeInMainWorld('utilsAPI', {
     getImageBase64: (url) => ipcRenderer.invoke('utils:get-image-base64', url),
-    checkAIHealth: () => ipcRenderer.invoke('utils:check-ai-health')
+    checkAIHealth: () => ipcRenderer.invoke('utils:check-ai-health'),
+    checkServerFleet: (ports) => ipcRenderer.invoke('utils:check-server-fleet', ports)
+});
+
+// AI Fleet Telemetry API
+contextBridge.exposeInMainWorld('fleetAPI', {
+    getStatus: () => ipcRenderer.invoke('fleet:get-status'),
+    refresh: () => ipcRenderer.invoke('fleet:refresh'),
+    setLimits: (limits) => ipcRenderer.invoke('fleet:set-limits', limits),
+    verify: () => ipcRenderer.invoke('fleet:verify'),
+    onStatusUpdate: (callback) => {
+        const listener = (event, data) => callback(data);
+        ipcRenderer.on('fleet:status-update', listener);
+        return () => ipcRenderer.removeListener('fleet:status-update', listener);
+    }
 });
 
 // Debug API para análisis de flujo IA

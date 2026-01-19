@@ -16,7 +16,8 @@ export async function performHealthCheck() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 1000);
 
-        const res = await fetch('http://localhost:8000/v1/models', {
+        const url = 'http://127.0.0.1:8000/v1/models';
+        const res = await fetch(url, {
             signal: controller.signal,
             headers: { 'Cache-Control': 'no-cache' }
         });
@@ -24,12 +25,14 @@ export async function performHealthCheck() {
 
         const isOnline = res.ok;
         if (isOnline !== lastAIStatus) {
+            console.log(`[AIMonitor] Status changed: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
             lastAIStatus = isOnline;
             broadcastStatus(isOnline);
         }
         return isOnline;
     } catch (e) {
         if (lastAIStatus !== false) {
+            console.warn(`[AIMonitor] Service went OFFLINE: ${e.message}`);
             lastAIStatus = false;
             broadcastStatus(false);
         }

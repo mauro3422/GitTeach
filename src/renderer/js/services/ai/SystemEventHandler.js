@@ -19,22 +19,31 @@ export class SystemEventHandler {
      * @returns {Promise<{message: string, tool: string}>}
      */
     static async handle(input, username, sessionContext, callAI) {
-        const eventType = input.replace("SYSTEM_EVENT:", "").trim();
+        try {
+            const eventType = input.replace("SYSTEM_EVENT:", "").trim();
 
-        if (eventType === "INITIAL_GREETING") {
-            return this.handleInitialGreeting(username, callAI);
+            if (eventType === "INITIAL_GREETING") {
+                return this.handleInitialGreeting(username, callAI);
+            }
+
+            if (eventType.startsWith("DNA_EVOLUTION_DETECTED")) {
+                return this.handleDNAEvolution(input, username, sessionContext, callAI);
+            }
+
+            if (eventType === "DEEP_MEMORY_READY_ACKNOWLEDGE") {
+                return this.handleDeepMemoryReady(username, sessionContext, callAI);
+            }
+
+            // Generic System Event (e.g., Streaming Updates)
+            return this.handleGenericEvent(input, sessionContext, callAI);
+        } catch (error) {
+            console.error(`[SystemEventHandler Error]`, error);
+            return {
+                message: `[Observación Silenciosa] El sistema ha detectado una actividad relevante (${input.substring(0, 30)}...), pero la interpretación profunda está en pausa técnica.`,
+                tool: 'chat',
+                error: error.message
+            };
         }
-
-        if (eventType.startsWith("DNA_EVOLUTION_DETECTED")) {
-            return this.handleDNAEvolution(input, username, sessionContext, callAI);
-        }
-
-        if (eventType === "DEEP_MEMORY_READY_ACKNOWLEDGE") {
-            return this.handleDeepMemoryReady(username, sessionContext, callAI);
-        }
-
-        // Generic System Event (e.g., Streaming Updates)
-        return this.handleGenericEvent(input, sessionContext, callAI);
     }
 
     /**

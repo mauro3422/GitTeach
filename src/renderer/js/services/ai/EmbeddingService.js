@@ -11,6 +11,9 @@
 
 import { logManager } from '../../utils/logManager.js';
 
+// Environment check
+const isNode = typeof process !== 'undefined' && process.versions?.node;
+
 export class EmbeddingService {
     constructor() {
         this.logger = logManager.child({ component: 'EmbeddingService' });
@@ -146,9 +149,20 @@ export class EmbeddingService {
 
         try {
             const payload = {
-                model: "lfm2.5",
-                input: text
+                model: "nomic-embed-text-v1.5",
+                input: text.startsWith('search_document:') ? text : `search_document: ${text}`
             };
+
+            // SESSION LOGGING (User Request: session-based trace)
+            const isTracer = typeof window !== 'undefined' && window.IS_TRACER;
+            if (isTracer && typeof window !== 'undefined' && window.debugAPI) {
+                const sessionId = document.getElementById('session-id')?.textContent?.replace('SESSION: ', '') || 'current';
+                window.debugAPI.appendLog(sessionId, 'embeddings', `request_${Date.now()}.json`, {
+                    endpoint: ENDPOINT,
+                    input: text.substring(0, 100) + '...',
+                    length: text.length
+                });
+            }
 
             const response = await fetch(ENDPOINT, {
                 signal: controller.signal,
@@ -164,6 +178,15 @@ export class EmbeddingService {
             }
 
             const data = await response.json();
+
+            if (isTracer && typeof window !== 'undefined' && window.debugAPI) {
+                const sessionId = document.getElementById('session-id')?.textContent?.replace('SESSION: ', '') || 'current';
+                window.debugAPI.appendLog(sessionId, 'embeddings', `response_${Date.now()}.json`, {
+                    status: response.status,
+                    vectorSize: data.data?.[0]?.embedding?.length || 0
+                });
+            }
+
             if (data && data.data && data.data.length > 0 && data.data[0].embedding) {
                 return data.data[0].embedding;
             }
@@ -188,10 +211,12 @@ export class EmbeddingService {
 
         this.logger.debug(`Requesting batch: ${texts.length} texts -> ${ENDPOINT}`);
 
-        try {
-            const fs = await import('fs');
-            (fs.appendFileSync || fs.default.appendFileSync)('embedding_debug.log', logMsg);
-        } catch (e) { }
+        if (isNode) {
+            try {
+                const fs = await import('fs');
+                (fs.appendFileSync || fs.default.appendFileSync)('embedding_debug.log', `[Batch Request] ${texts.length} texts\n`);
+            } catch (e) { }
+        }
 
         let attempt = 0;
         const maxRetries = 4;
@@ -203,8 +228,8 @@ export class EmbeddingService {
 
             try {
                 const payload = {
-                    model: "lfm2.5",
-                    input: texts
+                    model: "nomic-embed-text-v1.5",
+                    input: texts.map(t => t.startsWith('search_document:') ? t : `search_document: ${t}`)
                 };
 
                 const response = await fetch(ENDPOINT, {
@@ -237,10 +262,12 @@ export class EmbeddingService {
                 const isRetryable = error.name !== 'AbortError' && !error.message.includes('client error');
 
                 if (attempt >= maxRetries || !isRetryable) {
-                    try {
-                        const fs = await import('fs');
-                        fs.appendFileSync('embedding_debug.log', `‼ Final Error: ${error.message}\n`);
-                    } catch (e) { }
+                    if (isNode) {
+                        try {
+                            const fs = await import('fs');
+                            fs.appendFileSync('embedding_debug.log', `‼ Final Error: ${error.message}\n`);
+                        } catch (e) { }
+                    }
 
                     if (error.name === 'AbortError') {
                         throw new Error('Batch embedding request timeout');
@@ -270,7 +297,7 @@ export class EmbeddingService {
             return _window.AI_CONFIG.endpoint.replace('/chat/completions', '/embeddings');
         }
 
-        return 'http://localhost:8000/v1/embeddings';
+        return 'http://127.0.0.1:8001/v1/embeddings';
     }
 
     /**

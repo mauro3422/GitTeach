@@ -45,11 +45,19 @@ export class BackgroundProcessor {
         const filesToProcess = allPending.slice(0, maxBackgroundFiles);
 
         // Process in throttled batches to avoid network saturation (Downloading is the bottleneck)
-        const BATCH_SIZE = 5;
+        const BATCH_SIZE = (typeof window !== 'undefined' && window.IS_TRACER) ? 2 : 5;
+
         for (let i = 0; i < filesToProcess.length; i += BATCH_SIZE) {
-            if (window.AI_OFFLINE) break;
+            if (typeof window !== 'undefined' && window.AI_OFFLINE) break;
 
             const batch = filesToProcess.slice(i, i + BATCH_SIZE);
+
+            try {
+                const logMsg = `[BackgroundProcessor] Enqueueing Batch: i=${i}, size=${batch.length}, sample=${batch[0]?.path}\n`;
+                const isWin = typeof process !== 'undefined' ? process.platform === 'win32' : true;
+                const debugLogPath = isWin ? 'debug_auditor.log' : '/tmp/debug_auditor.log';
+                if (typeof fs !== 'undefined' && fs.appendFileSync) fs.appendFileSync(debugLogPath, logMsg);
+            } catch (e) { }
 
             // Group batch by repo to minimize context switching
             const batchByRepo = this.groupFilesByRepo(batch);
@@ -64,7 +72,7 @@ export class BackgroundProcessor {
     }
 
     /**
-     * Extracts pending files from all findings
+     * Extracts pending files from all findings, respecting coordinator capping
      * @param {Array} allFindings - All repository findings
      * @returns {Array} Pending files array
      */
@@ -75,8 +83,18 @@ export class BackgroundProcessor {
 
         allFindings.forEach(f => {
             if (f.pendingFiles && f.pendingFiles.length > 0) {
-                // In Tracer mode, only take 5 files per repo to avoid saturating with one big repo
-                const files = f.pendingFiles; // isTracer ? f.pendingFiles.slice(0, maxPerRepo) : f.pendingFiles;
+                // Get current repo state from coordinator to check for 'skipped' flags
+                const repoEntry = this.fileAuditor.coordinator.inventory.repos.find(r => r.name === f.repo);
+
+                // Filter out files that were technically "skipped" by the inventory capping
+                const activeFiles = f.pendingFiles.filter(file => {
+                    const coordFile = repoEntry?.files.find(cf => cf.path === file.path);
+                    return coordFile && coordFile.status !== 'skipped';
+                });
+
+                // In Tracer mode, only take limited files per repo
+                const files = isTracer ? activeFiles.slice(0, maxPerRepo) : activeFiles;
+
                 files.forEach(file => {
                     allPending.push({ repo: f.repo, ...file });
                 });

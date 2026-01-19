@@ -155,8 +155,12 @@ export function register(ipcMain) {
         return { success: true };
     });
 
-    ipcMain.handle('cache:get-repo-golden-knowledge', async (event, repoName) => {
-        return await cacheService.getRepoGoldenKnowledge(repoName);
+    ipcMain.handle('cache:generate-summary', async (event, stats) => {
+        return await cacheService.generateRunSummary(stats);
+    });
+
+    ipcMain.handle('cache:switch-session', async (event, sessionId) => {
+        return await cacheService.switchSession(sessionId);
     });
 
     console.log('[Handlers] ✅ cacheHandler registered.');

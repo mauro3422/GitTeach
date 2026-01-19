@@ -41,9 +41,9 @@ export class TracerEnvironment {
                 IS_TRACER: true,
                 FORCE_REAL_AI: process.env.FORCE_REAL_AI === 'true',
                 AI_CONFIG: {
-                    endpoint: 'http://localhost:8000/v1/chat/completions',
-                    embeddingEndpoint: 'http://localhost:8001/v1/embeddings',
-                    mapperEndpoint: 'http://localhost:8002/v1/chat/completions'
+                    endpoint: 'http://127.0.0.1:8002/v1/chat/completions',
+                    embeddingEndpoint: 'http://127.0.0.1:8001/v1/embeddings',
+                    mapperEndpoint: 'http://127.0.0.1:8002/v1/chat/completions'
                 },
                 // Use the REAL PersistenceMock that reads/writes to mock_persistence/
                 cacheAPI: PersistenceMock.createAPI(),
@@ -85,9 +85,6 @@ export class TracerEnvironment {
                 } catch (e) { }
             }
 
-            // Patch AI_CONFIG to use 127.0.0.1 to avoid Node 17+ localhost resolution issues
-            global.window.AI_CONFIG.endpoint = global.window.AI_CONFIG.endpoint.replace('localhost', '127.0.0.1');
-            global.window.AI_CONFIG.embeddingEndpoint = global.window.AI_CONFIG.embeddingEndpoint.replace('localhost', '127.0.0.1');
         }
 
         fs.writeFileSync(PID_FILE, process.pid.toString());

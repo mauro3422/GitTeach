@@ -99,15 +99,14 @@ export class ThematicMapper {
     /**
      * Format results for consumption by DNASynthesizer
      * @param {Object} results - Raw mapper results
-     * @returns {Array} Formatted array of results
+     * @returns {Object} Formatted object of results
      */
     formatForSynthesis(results) {
-        // Return full objects (analysis + uids)
-        // If error/fallback, ensure structure exists
-        return [
-            results.architecture || { analysis: 'No architecture analysis', evidence_uids: [] },
-            results.habits || { analysis: 'No habits analysis', evidence_uids: [] },
-            results.stack || { analysis: 'No stack analysis', evidence_uids: [] }
-        ];
+        return {
+            architecture: results.architecture || { analysis: 'No architecture analysis', evidence_uids: [] },
+            habits: results.habits || { analysis: 'No habits analysis', evidence_uids: [] },
+            stack: results.stack || { analysis: 'No stack analysis', evidence_uids: [] },
+            performance: results.performance || { totalMs: 0, layers: {} }
+        };
     }
 }

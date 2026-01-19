@@ -1,4 +1,5 @@
 import path from 'path';
+import fs from 'node:fs';
 import { app } from 'electron';
 import { LevelDBManager } from './db/LevelDBManager.js';
 
@@ -8,28 +9,90 @@ import { LevelDBManager } from './db/LevelDBManager.js';
  */
 class CacheService {
     constructor() {
-        const userDataPath = app.getPath('userData');
-        const dbPath = path.join(userDataPath, 'giteach-leveldb');
+        this.userDataPath = app.getPath('userData');
+        this.globalDbPath = path.join(this.userDataPath, 'giteach-leveldb');
 
-        this.db = new LevelDBManager(dbPath);
-        this.db.open().catch(err => console.error('[CacheService] DB Init Failed:', err));
+        // Always open Global DB for file cache
+        this.globalDb = new LevelDBManager(this.globalDbPath);
+        this.globalDb.open().catch(err => console.error('[CacheService] Global DB Init Failed:', err));
+
+        // Session DB (Analysis Results)
+        this.sessionDb = null;
+        this.currentSessionId = null;
+
+        // Mirroring path (User Request: Human readable logs)
+        this.mirrorPath = path.join(process.cwd(), 'logs', 'tracer_logs');
+        this.currentMirrorPath = this.mirrorPath;
+
+        if (!fs.existsSync(this.mirrorPath)) {
+            fs.mkdirSync(this.mirrorPath, { recursive: true });
+        }
     }
 
-    // --- REPO CACHE ---
-
-    async getRepoCache(owner, repo) {
-        // Legacy support or new impl? LevelDB handles granular keys.
-        // Returning null to force re-fetch or implementing if critical.
-        return null;
+    /**
+     * Helper to get the active DB for Results (Session if active, else Global)
+     */
+    get resultsDb() {
+        return this.sessionDb || this.globalDb;
     }
 
-    async setRepoCache(owner, repo, data) {
-        // Deprecated in favor of granular storage
+    /**
+     * Switches the active session for Results isolation
+     */
+    async switchSession(sessionId) {
+        if (!sessionId) {
+            // Revert results to global
+            if (!this.sessionDb) return;
+            console.log('[CacheService] Switching results back to Global DB');
+            await this.sessionDb.close();
+            this.sessionDb = null;
+            this.currentSessionId = null;
+            this.currentMirrorPath = this.mirrorPath;
+            return;
+        }
+
+        // Create a session-specific path inside logs/sessions
+        const sessionPath = path.join(process.cwd(), 'logs', 'sessions', sessionId);
+        const sessionDbPath = path.join(sessionPath, 'db');
+        if (!fs.existsSync(sessionDbPath)) {
+            fs.mkdirSync(sessionDbPath, { recursive: true });
+        }
+
+        console.log(`[CacheService] Switching results to Session: ${sessionId}`);
+        if (this.sessionDb) await this.sessionDb.close();
+
+        this.sessionDb = new LevelDBManager(sessionDbPath);
+        await this.sessionDb.open();
+
+        this.currentSessionId = sessionId;
+        this.currentMirrorPath = sessionPath; // Redirect mirrors to session folder
     }
+
+    /**
+     * Helper to mirror data to readable JSON files
+     */
+    async mirrorToDisk(subfolder, filename, data, append = false) {
+        try {
+            const baseDir = this.currentMirrorPath || this.mirrorPath;
+            const dir = path.join(baseDir, subfolder);
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            const filePath = path.join(dir, filename);
+
+            if (append) {
+                fs.appendFileSync(filePath, JSON.stringify(data) + '\n');
+            } else {
+                fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+            }
+        } catch (e) {
+            console.error(`[CacheService] Mirror failed: ${e.message}`);
+        }
+    }
+
+    // --- FILE CACHE (ALWAYS GLOBAL) ---
 
     async needsUpdate(owner, repo, path, sha) {
         const key = `raw:file:${repo}:${path}`;
-        const cached = await this.db.get(key);
+        const cached = await this.globalDb.get(key);
         if (!cached) return true;
         return cached.meta?.sha !== sha;
     }
@@ -42,83 +105,44 @@ class CacheService {
             meta: { sha, ...fileMeta },
             updatedAt: new Date().toISOString()
         };
-        await this.db.put(key, data);
+        await this.globalDb.put(key, data);
     }
 
     async getFileSummary(owner, repo, path) {
         const key = `raw:file:${repo}:${path}`;
-        return await this.db.get(key);
+        return await this.globalDb.get(key);
     }
 
     async setRepoTreeSha(owner, repo, sha) {
-        await this.db.put(`meta:repo:tree:${owner}:${repo}`, sha);
+        await this.globalDb.put(`meta:repo:tree:${owner}:${repo}`, sha);
     }
 
     async hasRepoChanged(owner, repo, currentSha) {
-        const stored = await this.db.get(`meta:repo:tree:${owner}:${repo}`);
+        const stored = await this.globalDb.get(`meta:repo:tree:${owner}:${repo}`);
         return stored !== currentSha;
     }
 
-    // --- WORKER AUDIT ---
-
-    async setWorkerAudit(id, finding) {
-        // Log stream: append accessible via prefixes
-        const timestamp = new Date().toISOString();
-        const rand = Math.random().toString(36).substring(7);
-        const key = `log:worker:${id}:${timestamp}:${rand}`;
-        await this.db.put(key, finding);
-    }
-
-    async getWorkerAudit(id) {
-        return await this.db.getByPrefix(`log:worker:${id}`);
-    }
-
-    // --- INTELLIGENCE ---
-
-    async setTechnicalIdentity(user, identity) {
-        await this.db.put(`meta:identity:${user}`, identity);
-    }
-
-    async getTechnicalIdentity(user) {
-        return await this.db.get(`meta:identity:${user}`);
-    }
-
-    async setTechnicalFindings(user, findings) {
-        await this.db.put(`meta:findings:${user}`, findings);
-    }
-
-    async getTechnicalFindings(user) {
-        return await this.db.get(`meta:findings:${user}`);
-    }
-
-    async setCognitiveProfile(user, profile) {
-        await this.db.put(`meta:profile:${user}`, profile);
-    }
-
-    async getCognitiveProfile(user) {
-        return await this.db.get(`meta:profile:${user}`);
-    }
-
-    // --- REPO-CENTRIC PERSISTENCE (V3) ---
+    // --- REPO CACHE / ANALYSIS RESULTS (SESSION SCOPED) ---
 
     async appendRepoRawFinding(repoName, finding) {
         const timestamp = new Date().toISOString();
         const rand = Math.random().toString(36).substring(7);
         const key = `raw:finding:${repoName}:${timestamp}:${rand}`;
-        await this.db.put(key, finding);
+        await this.resultsDb.put(key, finding);
+
+        // MIRROR
+        this.mirrorToDisk(path.join('repos', repoName), 'raw_findings.jsonl', finding, true);
     }
 
     async persistRepoCuratedMemory(repoName, nodes) {
-        // Atomic batch write
         const ops = nodes.map(node => ({
             type: 'put',
             key: `mem:node:${node.uid}`,
             value: node
         }));
 
-        // Update index
         const indexKey = `idx:repo:${repoName}:nodes`;
-        const existingIndex = (await this.db.get(indexKey)) || [];
+        const existingIndex = (await this.resultsDb.get(indexKey)) || [];
         const newUids = nodes.map(n => n.uid);
         const combinedIndex = [...new Set([...existingIndex, ...newUids])];
 
@@ -128,47 +152,101 @@ class CacheService {
             value: combinedIndex
         });
 
-        await this.db.batch(ops);
-    }
-
-    async getAllRepoBlueprints() {
-        // Blueprints are stored as 'meta:blueprint:{repo}'
-        const blueprints = await this.db.getByPrefix('meta:blueprint:');
-        return blueprints.map(entry => entry.value);
+        await this.resultsDb.batch(ops);
+        this.mirrorToDisk(path.join('repos', repoName), 'curated_memory.json', nodes);
     }
 
     async persistRepoBlueprint(repoName, blueprint) {
-        await this.db.put(`meta:blueprint:${repoName}`, blueprint);
+        await this.resultsDb.put(`meta:blueprint:${repoName}`, blueprint);
+        this.mirrorToDisk(path.join('repos', repoName), 'blueprint.json', blueprint);
+    }
+
+    async getAllRepoBlueprints() {
+        const blueprints = await this.resultsDb.getByPrefix('meta:blueprint:');
+        return blueprints.map(entry => entry.value);
+    }
+
+    // --- INTELLIGENCE / IDENTITY (SESSION SCOPED) ---
+
+    async setTechnicalIdentity(user, identity) {
+        await this.resultsDb.put(`meta:identity:${user}`, identity);
+    }
+
+    async getTechnicalIdentity(user) {
+        return await this.resultsDb.get(`meta:identity:${user}`);
+    }
+
+    async setTechnicalFindings(user, findings) {
+        await this.resultsDb.put(`meta:findings:${user}`, findings);
+    }
+
+    async getTechnicalFindings(user) {
+        return await this.resultsDb.get(`meta:findings:${user}`);
+    }
+
+    async setCognitiveProfile(user, profile) {
+        await this.resultsDb.put(`meta:profile:${user}`, profile);
+    }
+
+    async getCognitiveProfile(user) {
+        return await this.resultsDb.get(`meta:profile:${user}`);
+    }
+
+    // --- UTILS / LOGS ---
+
+    async setWorkerAudit(id, finding) {
+        const timestamp = new Date().toISOString();
+        const rand = Math.random().toString(36).substring(7);
+        const key = `log:worker:${id}:${timestamp}:${rand}`;
+        await this.resultsDb.put(key, finding);
+    }
+
+    async getWorkerAudit(id) {
+        return await this.resultsDb.getByPrefix(`log:worker:${id}`);
     }
 
     async persistRepoPartitions(repoName, partitions) {
-        // Persist partitioned insights for fast querying by layer
-        await this.db.put(`meta:partitions:${repoName}`, partitions);
+        await this.resultsDb.put(`meta:partitions:${repoName}`, partitions);
     }
 
     async persistRepoGoldenKnowledge(repoName, data) {
-        await this.db.put(`meta:golden:${repoName}`, data);
+        await this.resultsDb.put(`meta:golden:${repoName}`, data);
     }
 
     async getRepoGoldenKnowledge(repoName) {
-        return await this.db.get(`meta:golden:${repoName}`);
+        return await this.resultsDb.get(`meta:golden:${repoName}`);
     }
 
-    /**
-     * Cache Statistics
-     */
+    async generateRunSummary(stats) {
+        const summary = {
+            id: this.currentSessionId || `TRACE_${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            stats: stats,
+            performance: stats.performance || {},
+            reposAnalyzed: stats.reposAnalyzed || [],
+            coverage: {
+                totalFiles: stats.totalFiles || 0,
+                analyzed: stats.analyzed || 0,
+                percent: stats.progress || 0
+            }
+        };
+
+        await this.mirrorToDisk('', 'SUMMARY.json', summary);
+        return summary;
+    }
+
     async getStats() {
-        // Rough estimate or implement db.iterator().all() count
-        return { type: 'LevelDB', status: this.db.status };
+        return {
+            type: 'LevelDB',
+            status: this.globalDb.status,
+            sessionActive: !!this.sessionDb
+        };
     }
 
-    /**
-     * Clear All Cache
-     */
     async clearCache() {
-        console.warn('LevelDB clear not fully implemented (requires iterator delete)');
-        // TODO: iterate and delete all
+        console.warn('LevelDB clear not fully implemented');
     }
 }
+
 
 export default new CacheService();
