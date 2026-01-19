@@ -20,6 +20,7 @@ import { RepoTreeFetcher } from './RepoTreeFetcher.js';
 import { FileAuditor } from './FileAuditor.js';
 import { BackgroundProcessor } from './BackgroundProcessor.js';
 import { AISlotPriorities } from './ai/AISlotManager.js';
+import { pipelineEventBus } from './pipeline/PipelineEventBus.js';
 
 // Configuration constants
 const DEFAULT_MAX_ANCHORS = 50;
@@ -64,6 +65,7 @@ export class CodeScanner {
                 const stats = this.coordinator.getStats();
                 onStep({ type: 'Progreso', percent: stats.progress, message: `Scanning ${repo.name}...` });
             }
+            pipelineEventBus.emit('coordinator:scanning', { repo: repo.name });
 
             try {
                 const { treeFiles, treeSha } = await this.getRepoTree(username, repo, onStep, allFindings);
@@ -71,6 +73,10 @@ export class CodeScanner {
 
                 // Register files in coordinator with strict capping
                 this.coordinator.registerRepoFiles(repo.name, treeFiles, treeSha, maxAnchors);
+
+                treeFiles.slice(0, maxAnchors).forEach(f => {
+                    pipelineEventBus.emit('file:queued', { repo: repo.name, file: f.path });
+                });
 
                 // Check if repo changed since last time (cache)
                 const needsFullScan = await CacheRepository.hasRepoChanged(username, repo.name, treeSha);

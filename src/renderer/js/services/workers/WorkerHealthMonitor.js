@@ -9,6 +9,7 @@
  * - Provide worker status reports and diagnostics
  */
 import { Logger } from '../../utils/logger.js';
+import { pipelineController } from '../pipeline/PipelineController.js';
 
 export class WorkerHealthMonitor {
     constructor(queueManager, resultProcessor) {
@@ -92,6 +93,12 @@ export class WorkerHealthMonitor {
                 break;
             }
 
+            // PAUSE/STEP CHECK: Pipeline Controller synchronization
+            if (!pipelineController.canProceed()) {
+                await new Promise(r => setTimeout(r, 200));
+                continue;
+            }
+
             // Get next item from queue
             const input = this.queueManager.getNextItem(workerId, claimedRepo, lastProcessedPath);
 
@@ -168,6 +175,9 @@ export class WorkerHealthMonitor {
 
                 this.updateWorkerStats(workerId, 'processingTimeMs', durationMs);
                 this.updateWorkerStats(workerId, 'successfulOperations', 1);
+
+                // If we were STEPPING, notify controller that this step finished
+                pipelineController.stepComplete();
 
             } catch (error) {
                 this.resultProcessor.handleError(workerId, items, error, isBatch, claimedRepo);

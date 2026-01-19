@@ -4,17 +4,12 @@
 
 GitTeach es una aplicación de escritorio (Electron) diseñada para ayudar a los desarrolladores a gestionar sus perfiles de GitHub y mejorar sus habilidades mediante un asistente de IA local con arquitectura Thinking RAG.
 
-## 🎯 **Novedades v2.36.0 (Pipeline Event System)**
-- **Event-Driven Telemetry**: Sistema de eventos en tiempo real para monitoreo instantáneo de actividad IA.
-- **PipelineEventBus**: Hub central de telemetría con historial y subscripciones wildcard.
-- **AuditLogger**: Persistencia JSONL para análisis forense del pipeline ("caja negra").
-- **Polling Optimizado**: Reducido de 100ms a 3s (30x menos overhead de CPU).
-- **Embedding Detection Fix**: Detección instantánea de embeddings ultra-rápidos via eventos.
-- **Crystal Glass UI**: Estética premium con indicadores de actividad transparentes y reactivos.
-- **AI Circuit Breaker**: Resiliencia ante caídas del servidor IA.
-- **Hybrid Architecture**: CPU/GPU Split para máxima velocidad (LFM 2.5 + Nomic Embed).
-- **Triple-Server Architecture**: GPU (Chat) + CPU (Curation/Synthesis) + CPU (Embeddings) para paralelismo total.
-- **Tracer Engine v2.1**: Auditoría forense completa del sistema
+## 🎯 **Novedades v2.40.0 (SOLID Pipeline & Deep Glass)**
+- **SOLID Refactor**: Pipeline visualizer modularizado en componentes especializados (Constants, Renderer, Interaction, UI).
+- **Deep Glass Engine**: Estética inmersiva con fondos líquidos monocromáticos y `backdrop-filter` ultra-profundo.
+- **Canvas-Driven Flow**: Visualización lógica de alta fidelidad con micro-animaciones y sistema de partículas.
+- **Interactive Inspection**: Drawer de auditoría en tiempo real para cada etapa del procesamiento AI.
+- **Pan & Zoom Controls**: Sistema de navegación por el canvas con controles táctiles y de mouse premium.
 
 ## 📚 **Documentación Técnica**
 - **[Arquitectura Completa](docs/architecture/)**: Diagramas y documentación detallada

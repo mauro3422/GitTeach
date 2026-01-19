@@ -12,6 +12,8 @@ import { CacheRepository } from '../utils/cacheRepository.js';
 import { DebugLogger } from '../utils/debugLogger.js';
 import { AISlotPriorities } from './ai/AISlotManager.js';
 import { FileFilter } from './analyzer/FileFilter.js';
+import { pipelineController } from './pipeline/PipelineController.js';
+import { pipelineEventBus } from './pipeline/PipelineEventBus.js';
 
 // Environment check
 const isNode = typeof process !== 'undefined' && process.versions?.node;
@@ -40,6 +42,11 @@ export class FileAuditor {
      */
     async auditFiles(username, repoName, files, needsFullScan, onStep, priority = AISlotPriorities.NORMAL) {
         return await Promise.all(files.map(async (file) => {
+            // PAUSE/STEP CHECK: Pipeline Controller synchronization
+            while (!pipelineController.canProceed()) {
+                await new Promise(r => setTimeout(r, 300));
+            }
+
             // Check cache first - SHA verification is now ALWAYS active (Cache-First)
             const needsUpdate = await CacheRepository.needsUpdate(username, repoName, file.path, file.sha);
 
@@ -51,6 +58,7 @@ export class FileAuditor {
                 if (cached && cached.aiSnippet) {
                     this.coordinator.markCompleted(repoName, file.path, cached.summary, { file_meta: cached.file_meta || {} });
                     DebugLogger.logCacheHit(repoName, file.path, cached.summary);
+                    pipelineEventBus.emit('file:cached', { repo: repoName, file: file.path });
 
                     // FEED WORKER: Even if cached, we might want to re-analyze if it's high priority or in Tracer mode
                     // For URGENT files or TRACER mode, we force enqueue with local content
@@ -72,6 +80,7 @@ export class FileAuditor {
                 if (cached) {
                     this.coordinator.markCompleted(repoName, file.path, cached.summary, { file_meta: cached.file_meta || {} });
                     DebugLogger.logCacheHit(repoName, file.path, cached.summary);
+                    pipelineEventBus.emit('file:cached', { repo: repoName, file: file.path });
 
                     // Force re-analysis if Tracer
                     if (isNode) {
@@ -121,6 +130,7 @@ export class FileAuditor {
                             fs.appendFileSync(path.join(process.cwd(), 'debug_auditor.log'), `[FileAuditor] FRESH Enqueue ${file.path}\n`);
                         } catch (e) { }
                     }
+                    pipelineEventBus.emit('file:queued', { repo: repoName, file: file.path });
                     this.workerPool.enqueue(repoName, file.path, codeSnippet, contentRes.sha, priority, contentRes.file_meta || {});
                 }
 

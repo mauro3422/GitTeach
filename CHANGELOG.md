@@ -1,6 +1,109 @@
 # Changelog
 
 
+## [2.40.0] - SOLID Modularization & Deep Glass Aesthetics - 2026-01-19
+### 🧱 Architectural Refactor: SOLID Pipeline Visualizer
+Modularized the monolithic `PipelineCanvas.js` (>800 lines) into specialized, maintainable components:
+- **PipelineConstants.js**: Centralized visual schema (Nodes, Connections, Event Mapping).
+- **PipelineRenderer.js**: Dedicated canvas engine for high-fidelity drawing and particles.
+- **PipelineInteraction.js**: Isolated mouse tracking, coordinate transformation, and panning logic.
+- **PipelineUI.js**: Encapsulated inspection drawer and DOM-related interactions.
+- **PipelineCanvas.js (Orchestrator)**: Lightweight controller that synchronizes data and modules.
+
+### 🎨 Aesthetic Overhaul: Soft Emerald Deep Glass
+Implemented a high-end, immersive visual theme for the entire Tracer UI:
+- **Deep Glass Effect**: Globalized fixed liquid background with `backdrop-filter: blur(60px)` on all UI panels.
+- **Soft Emerald Palette**: Transitioned to a monochrome green liquid background (Lime, Emerald, Sea) with reduced brightness for better contrast.
+- **Premium Controls**: Redesigned pipeline buttons (Play/Pause/Step) as glassmorphism pieces with vibrant glowing hover states.
+
+### 🔧 Fixes & Optimizations
+- **Initialization Robustness**: Resolved `TypeError` in `PipelineCanvas` event subscription and added fallback for zero-width initialization.
+- **Live Sync**: Fixed event property mapping (`type`/`payload`) to ensure real-time telemetry accuracy in the visualizer.
+
+## [2.39.0] - Canvas Pipeline Flow Visualizer - 2026-01-19
+### 🎨 New Feature: Flow-Based Canvas Debugger
+Replaced DOM-based assembly lanes with a high-performance **Canvas-based** logical flow visualizer:
+- **Logical Agent View**: Visualizes agents/stages (Workers, Streaming, Compaction, Mappers, DNA Synth, **Intelligence**) instead of server slots.
+- **Functional Integration**: Real Play/Pause/Step support. Pauses workers, downloads, and background processing instantly.
+- **Inspection Drawer**: Click any node to see its real-time processing history, statistics, and current state.
+- **Particle System**: Success (Green) and Error (Red) particles flow between nodes to represent data transit.
+- **Responsive Canvas**: Auto-scales to window size while maintaining high-DPI rendering.
+
+### 📦 New Files Created
+- `PipelineCanvas.js` - Main animation, rendering, and inspection engine.
+- `debugger-canvas.css` - Styles for the canvas, header, and inspection drawer.
+
+### 🔧 Modified Files
+- `WorkerHealthMonitor.js`, `FileAuditor.js`, `BackgroundProcessor.js` - Integrated `PipelineController` for synchronized pausing.
+- `tracer.html` - Swapped lane debugger for canvas wrapper.
+- `TracerView.js` - Migrated initialization and toggle logic to use `PipelineCanvas`.
+
+## [2.38.0] - Pipeline Debugger Visualizer - 2026-01-19
+### 🎮 New Feature: Assembly Line Debugger
+Visual "assembly line" debugger for the AI pipeline with Play/Pause/Step controls:
+- **3 Visual Lanes**: GPU Workers (8000), Mappers (8002), Embeddings (8001)
+- **Real-Time Slot Display**: See which slots are processing
+- **Play/Pause/Step**: Control execution flow for debugging
+- **Event Buffer**: Accumulates pipeline events for visualization
+- **Toggle Button**: Show/hide debugger panel in tracer
+
+### 📦 New Files Created
+**JS Services** (`src/renderer/js/services/pipeline/`):
+- `PipelineController.js` - Play/Pause/Step state management
+- `EventQueueBuffer.js` - Pipeline event accumulator
+
+**JS View** (`src/renderer/js/views/`):
+- `DebugPipelineView.js` - Visual debugger component
+
+**CSS Modules** (`src/renderer/style/debugger/`):
+- `index.css` - Entry point with imports
+- `debugger-base.css` - Layout, controls, state indicators
+- `debugger-lanes.css` - Assembly line lanes
+- `debugger-items.css` - Queue items and animations
+
+### 🔧 Modified Files
+- `tracer.html` - Added debugger section with toggle button
+- `TracerView.js` - Integrated DebugPipelineView initialization
+
+## [2.37.0] - Real-Time Fleet Telemetry & CSS Modularization - 2026-01-19
+### ⚡ Real-Time Fleet Response
+- **Removed 3-Second Sticky Delay**: Slots now turn off **immediately** when the server reports idle or when `:end` events are received.
+- **True Real-Time UI**: No more artificial visual persistence - what you see is the actual server state.
+- **Stale Tracking Cleanup**: Replaced `cleanExpiredSlots()` with `cleanStaleEventTracking()` - only resets slots stuck for >30 seconds (edge case protection).
+
+### 🐛 Bug Fixes
+- **Missing IPC Handler**: Added `cache:get-repo-golden-knowledge` handler that was causing blueprint synthesis to fail with "No handler registered" error.
+- **Progress Bar Fix**: Progress now calculates percentage from actual `stats.analyzed / stats.totalFiles` instead of unreliable event percent.
+- **Dynamic Status Messages**: Replaced static "Waiting for engine initialization..." with dynamic phase-based messages (Scanning, Analyzing, Curating, Synthesizing).
+
+### 🎨 Tracer UX Improvements
+- **Premium Glassmorphism**: Applied frosted glass effect to all tracer panels with subtle green/blue accents.
+- **Panel Visual Hierarchy**: Config panel (green), Fleet panel (blue), Status panel (neutral) for clear visual distinction.
+- **Worker Status Box**: New styled container for real-time worker feedback.
+
+### 🎨 CSS Architecture Modularization
+- **New Directory Structure**: Created `style/pages/` for page-specific CSS.
+- **Moved**: `css/monitoring.css` → `style/pages/monitoring.css`.
+- **New Component**: Created `style/components/fleet.css` with shared fleet panel styles (slot dots, status badges, animations).
+- **Reduced Duplication**: Removed ~140 lines of duplicate inline CSS from `tracer.html`.
+
+### 📁 File Structure After Modularization
+```
+src/renderer/style/
+├── base.css              (reset & variables)
+├── auth.css              (login page)
+├── dashboard.css         (main layout)
+├── design_system.css     (tokens)
+├── pages/
+│   └── monitoring.css    (monitoring & tracer base styles)
+└── components/
+    ├── chat.css
+    ├── widgets.css
+    ├── progress.css
+    ├── sidebar.css
+    └── fleet.css         (NEW - reusable fleet panel)
+```
+
 ## [2.36.0] - Pipeline Event System & Real-Time Telemetry - 2026-01-19
 ### 🏭 Event-Driven Architecture
 - **PipelineEventBus**: New central hub for pipeline telemetry events with wildcard subscriptions and history tracking.

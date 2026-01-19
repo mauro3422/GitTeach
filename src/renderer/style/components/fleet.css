@@ -1,0 +1,160 @@
+/* 
+  fleet.css - AI Fleet Panel Component
+  Reusable component for displaying AI server slots in tracer and monitoring views.
+  Extracted from tracer.html inline styles for modularization.
+*/
+
+/* Fleet Panel Container */
+.fleet-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.fleet-item {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 14px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.fleet-name {
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.fleet-slots {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--accent);
+}
+
+/* Fleet Status Observability */
+.fleet-info {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 6px;
+}
+
+.fleet-status {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+/* Slot Dots Grid */
+.slots-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 4px 0;
+}
+
+/* Individual Slot Dot */
+.slot-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(4px);
+    transition: all 0.15s ease-out; /* Fast for real-time */
+}
+
+/* Slot States */
+.slot-dot.idle {
+    background: rgba(63, 185, 80, 0.05);
+    border-color: rgba(63, 185, 80, 0.15);
+    box-shadow: inset 0 0 4px rgba(63, 185, 80, 0.05);
+}
+
+.slot-dot.ready {
+    background: rgba(63, 185, 80, 0.9) !important;
+    box-shadow: 0 0 25px rgba(63, 185, 80, 0.7), 0 0 10px rgba(63, 185, 80, 0.4) inset !important;
+    border-color: #3fb950 !important;
+    transform: scale(1.1);
+}
+
+.slot-dot.processing {
+    background: #3fb950;
+    box-shadow: 0 0 20px #3fb950, 0 0 8px #3fb950 inset;
+    animation: pulse-active 0.8s ease-in-out infinite;
+    border-color: #56d364;
+    opacity: 1 !important;
+}
+
+.slot-dot.testing {
+    background: #f1e05a;
+    box-shadow: 0 0 15px #f1e05a, 0 0 5px #f1e05a inset;
+    animation: pulse-testing 0.5s ease-in-out infinite;
+    border-color: #e3b341;
+}
+
+.slot-dot.error {
+    background: #da3633;
+    box-shadow: 0 0 12px #da3633;
+    border-color: #f85149;
+}
+
+/* Status Badge */
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 100px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-badge.online {
+    background: rgba(35, 134, 54, 0.2);
+    color: #3fb950;
+}
+
+.status-badge.offline {
+    background: rgba(218, 54, 51, 0.2);
+    color: #ff7b72;
+}
+
+/* Animations */
+@keyframes pulse-active {
+    0% {
+        box-shadow: 0 0 4px #3fb950;
+        transform: scale(1);
+        filter: brightness(1);
+    }
+
+    50% {
+        box-shadow: 0 0 20px #3fb950, 0 0 10px #3fb950;
+        transform: scale(1.2);
+        filter: brightness(1.5);
+    }
+
+    100% {
+        box-shadow: 0 0 4px #3fb950;
+        transform: scale(1);
+        filter: brightness(1);
+    }
+}
+
+@keyframes pulse-testing {
+    0% {
+        box-shadow: 0 0 4px #f1e05a;
+        transform: scale(0.9);
+        opacity: 0.6;
+    }
+
+    50% {
+        box-shadow: 0 0 20px #f1e05a, 0 0 10px #f1e05a;
+        transform: scale(1.1);
+        opacity: 1;
+    }
+
+    100% {
+        box-shadow: 0 0 4px #f1e05a;
+        transform: scale(0.9);
+        opacity: 0.6;
+    }
+}

@@ -1,0 +1,16 @@
+/* 
+  index.css - Debugger Styles Entry Point
+  Main import file for all debugger CSS modules.
+*/
+
+/* Base layout, controls, and common elements */
+@import url('./debugger-base.css');
+
+/* Assembly line lanes */
+@import url('./debugger-lanes.css');
+
+/* Queue items, animations, and inspection */
+@import url('./debugger-items.css');
+
+/* Canvas-based pipeline visualizer */
+@import url('./debugger-canvas.css');

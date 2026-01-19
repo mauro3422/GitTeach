@@ -155,6 +155,15 @@ export function register(ipcMain) {
         return { success: true };
     });
 
+    ipcMain.handle('cache:get-repo-golden-knowledge', async (event, { owner, repo }) => {
+        try {
+            return await cacheService.getRepoGoldenKnowledge(owner, repo);
+        } catch (error) {
+            console.warn('[CacheHandler] Golden knowledge not found:', owner, repo);
+            return null;
+        }
+    });
+
     ipcMain.handle('cache:generate-summary', async (event, stats) => {
         return await cacheService.generateRunSummary(stats);
     });

@@ -10,6 +10,7 @@
  */
 import { Logger } from '../utils/logger.js';
 import { AISlotPriorities } from './ai/AISlotManager.js';
+import { pipelineController } from './pipeline/PipelineController.js';
 
 export class BackgroundProcessor {
     constructor(fileAuditor) {
@@ -48,6 +49,11 @@ export class BackgroundProcessor {
         const BATCH_SIZE = (typeof window !== 'undefined' && window.IS_TRACER) ? 2 : 5;
 
         for (let i = 0; i < filesToProcess.length; i += BATCH_SIZE) {
+            // PAUSE CHECK: Wait if pipeline is paused
+            while (!pipelineController.canProceed() && !window.AI_OFFLINE) {
+                await new Promise(r => setTimeout(r, 500));
+            }
+
             if (typeof window !== 'undefined' && window.AI_OFFLINE) break;
 
             const batch = filesToProcess.slice(i, i + BATCH_SIZE);

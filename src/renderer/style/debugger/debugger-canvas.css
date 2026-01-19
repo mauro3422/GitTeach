@@ -1,0 +1,363 @@
+/* 
+  debugger-canvas.css - Canvas Pipeline Visualizer Styles
+  Styles for the canvas-based pipeline flow visualization.
+*/
+
+/* =============================================
+   CANVAS CONTAINER
+   ============================================= */
+
+.canvas-wrapper {
+    display: none;
+    flex-direction: column;
+    height: auto;
+    min-height: 720px;
+    margin: 30px 0;
+    padding: 0;
+    position: relative;
+    /* Neon Liquid milky glass */
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(60px) saturate(220%);
+    -webkit-backdrop-filter: blur(60px) saturate(220%);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 24px;
+    overflow: visible;
+    box-shadow:
+        0 30px 70px rgba(0, 0, 0, 0.7),
+        inset 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+
+#debugger-container {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    width: 100%;
+}
+
+/* =============================================
+   CANVAS HEADER
+   ============================================= */
+
+.canvas-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 25px;
+    background: rgba(35, 134, 54, 0.08);
+    backdrop-filter: blur(5px);
+    border-bottom: 1px solid rgba(35, 134, 54, 0.2);
+    border-radius: 20px 20px 0 0;
+}
+
+.canvas-title {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-main);
+    letter-spacing: 0.5px;
+}
+
+/* =============================================
+   CANVAS CONTROLS - Premium Glass
+   ============================================= */
+
+.header-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.header-controls button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: #e6edf3;
+    cursor: pointer;
+    font-size: 1.1rem;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.header-controls button:hover {
+    background: rgba(63, 185, 80, 0.25);
+    border-color: rgba(63, 185, 80, 0.4);
+    box-shadow: 0 0 20px rgba(63, 185, 80, 0.2);
+    transform: translateY(-2px);
+    color: #3fb950;
+}
+
+.header-controls button:active {
+    transform: translateY(0) scale(0.95);
+    background: rgba(63, 185, 80, 0.15);
+}
+
+#canvas-pause:hover {
+    color: #f1e05a;
+    background: rgba(241, 224, 90, 0.2);
+    border-color: rgba(241, 224, 90, 0.4);
+    box-shadow: 0 0 20px rgba(241, 224, 90, 0.2);
+}
+
+#canvas-step:hover {
+    color: #2f81f7;
+    background: rgba(47, 129, 247, 0.2);
+    border-color: rgba(47, 129, 247, 0.4);
+    box-shadow: 0 0 20px rgba(47, 129, 247, 0.2);
+}
+
+.canvas-btn.step:hover {
+    background: rgba(47, 129, 247, 0.3);
+}
+
+/* =============================================
+   CANVAS STATS
+   ============================================= */
+
+.canvas-stats {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.canvas-stats span {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.canvas-stats .state-idle {
+    color: #8b949e;
+}
+
+.canvas-stats .state-running {
+    color: #3fb950;
+}
+
+.canvas-stats .state-paused {
+    color: #f1e05a;
+}
+
+.canvas-stats .state-stepping {
+    color: #2f81f7;
+}
+
+/* =============================================
+   CANVAS ELEMENT
+   ============================================= */
+
+#pipeline-canvas {
+    display: block;
+    width: 100%;
+    height: 600px;
+    /* Matched with JS displayHeight */
+    background: transparent;
+}
+
+/* =============================================
+   NODE LEGEND (optional)
+   ============================================= */
+
+.canvas-legend {
+    display: flex;
+    gap: 20px;
+    padding: 16px 24px 30px 24px;
+    /* Even more bottom padding for rounded corners */
+    background: rgba(0, 0, 0, 0.3);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    flex-wrap: wrap;
+    align-items: center;
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.legend-dot.idle {
+    background: #8b949e;
+}
+
+.legend-dot.active {
+    background: #3fb950;
+    box-shadow: 0 0 8px #3fb950;
+}
+
+.legend-dot.error {
+    background: #ff7b72;
+}
+
+/* =============================================
+   INSPECTION DRAWER
+   ============================================= */
+
+.pipeline-drawer {
+    position: absolute;
+    top: 0;
+    right: -450px;
+    /* Hidden by default */
+    width: 400px;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(50px) saturate(200%);
+    -webkit-backdrop-filter: blur(50px) saturate(200%);
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: -15px 0 45px rgba(0, 0, 0, 0.6);
+    z-index: 1000;
+    transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 0 20px 20px 0;
+}
+
+.pipeline-drawer.open {
+    right: 0;
+}
+
+.drawer-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.drawer-icon {
+    font-size: 1.5rem;
+}
+
+.drawer-title-group {
+    flex: 1;
+}
+
+.drawer-title {
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.drawer-subtitle {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.drawer-close {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.drawer-close:hover {
+    color: white;
+}
+
+.drawer-content {
+    padding: 16px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.drawer-section {
+    margin-bottom: 24px;
+}
+
+.drawer-section h4 {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    font-family: var(--font-mono);
+}
+
+.drawer-stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.drawer-stat {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 10px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-label {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+}
+
+.stat-value {
+    font-size: 1rem;
+    font-weight: bold;
+    font-family: var(--font-mono);
+}
+
+.stat-value.state-active {
+    color: #3fb950;
+}
+
+.stat-value.state-idle {
+    color: #8b949e;
+}
+
+.stat-value.state-error {
+    color: #ff7b72;
+}
+
+.drawer-history {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.history-item {
+    background: rgba(255, 255, 255, 0.02);
+    border-left: 2px solid rgba(35, 134, 54, 0.3);
+    padding: 8px 10px;
+    border-radius: 0 4px 4px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.history-time {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    color: var(--text-muted);
+}
+
+.history-display {
+    font-size: 0.75rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.history-empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    padding: 20px;
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+}

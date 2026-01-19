@@ -67,18 +67,11 @@ class AIFleetService {
             const port = this.ports[index];
             const oldState = this.fleetState[port];
 
-            // STICKY PROCESSING: If a slot was processing recently, keep it for 3s to show in UI
+            // REAL-TIME: No sticky delay - slots reflect actual server state
             if (oldState && oldState.online && res.online) {
                 res.slots.forEach((newSlot, i) => {
-                    const oldSlot = oldState.slots[i];
-                    if (oldSlot && oldSlot.state === 'processing' && newSlot.state === 'idle') {
-                        const lastTime = oldSlot.lastProcessingTime || Date.now();
-                        // Keep 'processing' for 3000ms (to catch fast embedding/mapper pings)
-                        if (Date.now() - lastTime < 3000) {
-                            newSlot.state = 'processing';
-                            newSlot.lastProcessingTime = lastTime;
-                        }
-                    } else if (newSlot.state === 'processing') {
+                    // Just track processing time for metrics, no artificial extension
+                    if (newSlot.state === 'processing') {
                         newSlot.lastProcessingTime = Date.now();
                     }
                 });
@@ -94,10 +87,8 @@ class AIFleetService {
             this.broadcastFleetState();
         }
 
-        // Limpiar slots con sticky expirado y broadcast si hubo cambios
-        if (this.cleanExpiredSlots()) {
-            this.broadcastFleetState();
-        }
+        // Clean any stale event tracking
+        this.cleanStaleEventTracking();
 
         // Schedule next check in 500ms (relaxed, only for cleanup and health)
         setTimeout(() => this.runMonitoringLoop(), 500);
@@ -251,45 +242,47 @@ class AIFleetService {
                 idleSlot.eventSource = event.event;
             }
         } else if (isEnd) {
-            // Encontrar el slot que corresponde a este evento
+            // REAL-TIME: Immediately mark slot as idle when operation ends
             const busySlot = state.slots.find(s =>
                 s.state === 'processing' && s.eventSource === event.event.replace(':end', ':start')
             );
             if (busySlot) {
-                // Mantener visualmente "processing" por 3 segundos más (sticky)
-                busySlot.stickyUntil = Date.now() + 3000;
-                busySlot.eventSource = null; // Limpiar para permitir nuevos eventos
+                busySlot.state = 'idle';
+                busySlot.eventSource = null;
+                busySlot.lastProcessingTime = 0;
             }
         }
 
-        // Limpiar slots expirados (sticky timeout)
-        this.cleanExpiredSlots();
+        // Clean any orphaned event tracking
+        this.cleanStaleEventTracking();
 
         this.broadcastFleetState();
     }
 
     /**
-     * Clean slots whose sticky timeout has expired
+     * Clean stale event tracking (orphaned eventSource without matching end)
+     * This handles edge cases where an :end event was missed
      */
-    cleanExpiredSlots() {
+    cleanStaleEventTracking() {
         const now = Date.now();
-        let changed = false;
+        const STALE_THRESHOLD = 30000; // 30 seconds max for any operation
 
         this.ports.forEach(port => {
             const state = this.fleetState[port];
             if (!state || !state.slots) return;
 
             state.slots.forEach(slot => {
-                if (slot.stickyUntil && now >= slot.stickyUntil) {
-                    slot.state = 'idle';
-                    slot.stickyUntil = null;
-                    slot.lastProcessingTime = 0;
-                    changed = true;
+                // If a slot has been "processing" for too long without an end event, reset it
+                if (slot.state === 'processing' && slot.lastProcessingTime) {
+                    if (now - slot.lastProcessingTime > STALE_THRESHOLD) {
+                        console.warn(`[AIFleetService] Stale slot detected on port ${port}, resetting.`);
+                        slot.state = 'idle';
+                        slot.eventSource = null;
+                        slot.lastProcessingTime = 0;
+                    }
                 }
             });
         });
-
-        return changed;
     }
 
     /**

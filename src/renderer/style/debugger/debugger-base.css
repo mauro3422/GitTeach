@@ -1,0 +1,264 @@
+/* 
+  debugger-base.css - Pipeline Debugger Base Styles
+  Layout, controls, and common elements for the debugger panel.
+*/
+
+/* =============================================
+   DEBUGGER CONTAINER
+   ============================================= */
+
+.debugger-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 24px;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(60px) saturate(220%);
+    -webkit-backdrop-filter: blur(60px) saturate(220%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    box-shadow:
+        0 15px 50px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.debugger-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(35, 134, 54, 0.15);
+}
+
+.debugger-title {
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.debugger-title::before {
+    content: '🎮';
+}
+
+/* =============================================
+   CONTROL BAR (Play/Pause/Step)
+   ============================================= */
+
+.debugger-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    border: 1px solid rgba(35, 134, 54, 0.15);
+}
+
+.control-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: all 0.2s ease;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-main);
+}
+
+.control-btn:hover:not(:disabled) {
+    background: rgba(35, 134, 54, 0.2);
+    transform: scale(1.05);
+}
+
+.control-btn:active:not(:disabled) {
+    transform: scale(0.95);
+}
+
+.control-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* Play Button */
+.control-btn.play {
+    background: linear-gradient(135deg, rgba(35, 134, 54, 0.3), rgba(35, 134, 54, 0.15));
+    border: 1px solid rgba(35, 134, 54, 0.4);
+}
+
+.control-btn.play:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(35, 134, 54, 0.5), rgba(35, 134, 54, 0.3));
+    box-shadow: 0 0 20px rgba(35, 134, 54, 0.3);
+}
+
+/* Pause Button */
+.control-btn.pause {
+    background: linear-gradient(135deg, rgba(241, 224, 90, 0.3), rgba(241, 224, 90, 0.15));
+    border: 1px solid rgba(241, 224, 90, 0.4);
+}
+
+.control-btn.pause:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(241, 224, 90, 0.5), rgba(241, 224, 90, 0.3));
+    box-shadow: 0 0 20px rgba(241, 224, 90, 0.3);
+}
+
+/* Step Button */
+.control-btn.step {
+    background: linear-gradient(135deg, rgba(47, 129, 247, 0.3), rgba(47, 129, 247, 0.15));
+    border: 1px solid rgba(47, 129, 247, 0.4);
+}
+
+.control-btn.step:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(47, 129, 247, 0.5), rgba(47, 129, 247, 0.3));
+    box-shadow: 0 0 20px rgba(47, 129, 247, 0.3);
+}
+
+/* =============================================
+   STATUS COUNTERS
+   ============================================= */
+
+.debugger-stats {
+    display: flex;
+    gap: 16px;
+    margin-left: auto;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    min-width: 70px;
+}
+
+.stat-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
+
+.stat-value {
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.stat-item.errors .stat-value {
+    color: #ff7b72;
+}
+
+/* =============================================
+   STATE INDICATOR
+   ============================================= */
+
+.state-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 100px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.state-indicator.running {
+    background: rgba(35, 134, 54, 0.2);
+    color: #3fb950;
+    border: 1px solid rgba(35, 134, 54, 0.4);
+}
+
+.state-indicator.paused {
+    background: rgba(241, 224, 90, 0.2);
+    color: #f1e05a;
+    border: 1px solid rgba(241, 224, 90, 0.4);
+}
+
+.state-indicator.idle {
+    background: rgba(139, 148, 158, 0.2);
+    color: #8b949e;
+    border: 1px solid rgba(139, 148, 158, 0.3);
+}
+
+.state-indicator::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.state-indicator.running::before {
+    animation: pulse-state 1s ease-in-out infinite;
+}
+
+@keyframes pulse-state {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.5;
+        transform: scale(0.8);
+    }
+}
+
+/* =============================================
+   DEBUGGER TOGGLE & WRAPPER
+   ============================================= */
+
+.debugger-wrapper {
+    margin: 16px 0;
+}
+
+.debugger-toggle-wrapper {
+    display: flex;
+    justify-content: center;
+    padding: 8px 0;
+}
+
+.toggle-debugger-btn {
+    padding: 8px 20px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    background: rgba(35, 134, 54, 0.1);
+    border: 1px solid rgba(35, 134, 54, 0.25);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.toggle-debugger-btn:hover {
+    background: rgba(35, 134, 54, 0.2);
+    border-color: rgba(35, 134, 54, 0.4);
+    color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(35, 134, 54, 0.2);
+}
+
+.toggle-debugger-btn.active {
+    background: rgba(35, 134, 54, 0.25);
+    border-color: var(--accent);
+    color: var(--accent);
+}

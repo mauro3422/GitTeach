@@ -9,6 +9,10 @@ import { logManager } from '../utils/logManager.js';
 import { AIService } from '../services/aiService.js';
 import { memoryManager } from '../services/memory/MemoryManager.js';
 import { fleetMonitor } from '../services/ai/FleetMonitor.js';
+import { PipelineCanvas } from './PipelineCanvas.js';
+import { DebugLogger } from '../utils/debugLogger.js';
+import { pipelineController } from '../services/pipeline/PipelineController.js';
+import { eventQueueBuffer } from '../services/pipeline/EventQueueBuffer.js';
 
 export const TracerView = {
     els: {},
@@ -17,35 +21,52 @@ export const TracerView = {
     state: 'IDLE', // IDLE, VERIFYING, READY, RUNNING, STOPPING
 
     async init() {
-        window.IS_TRACER = true; // Enable real-AI seeds for metrics
-        window.FORCE_REAL_AI = true; // Force real embeddings to see Port 8001 activity
-        this.cacheElements();
-        this.bindEvents();
-        this.checkAIStatus();
-        this.loadRecentSession();
+        try {
+            window.IS_TRACER = true;
+            window.FORCE_REAL_AI = true;
 
-        // Enable forensic logging for Trace transparency
-        DebugLogger.setEnabled(true);
+            console.log('[TracerView] Caching elements...');
+            this.cacheElements();
 
-        // 1. Initialize Fleet Monitor (Observability System)
-        await fleetMonitor.init();
+            console.log('[TracerView] Binding events...');
+            this.bindEvents();
 
-        // 2. Subscribe to Fleet updates (SOLID: O/D)
-        fleetMonitor.subscribe((state) => this.renderFleet(state));
+            console.log('[TracerView] Pre-flight checks...');
+            this.checkAIStatus();
+            this.loadRecentSession();
 
-        // 3. RESTORE LOG TRANSPORT: Pipe system logs to UI console (CRITICAL)
-        logManager.addTransport({
-            log: (level, msg, ctx) => this.renderLog(level, msg, ctx)
-        });
+            // Enable forensic logging
+            DebugLogger.setEnabled(true);
 
-        this.els.sessionId.textContent?.replace('SESSION: ', '');
-        window.CURRENT_SESSION_ID = this.els.sessionId.textContent?.replace('SESSION: ', '');
+            // Initialize Services
+            await fleetMonitor.init();
+            fleetMonitor.subscribe((state) => this.renderFleet(state));
 
-        this.updateButtonUI();
-        console.log('[TracerView] Initialized');
+            logManager.addTransport({
+                log: (level, msg, ctx) => this.renderLog(level, msg, ctx)
+            });
 
-        // AUTO-START HEALTH CHECK: Verify fleet immediately on boot
-        setTimeout(() => this.verifyFleet(), 500);
+            // Safeguard sessionId access
+            const sessionEl = this.els.sessionId;
+            if (sessionEl) {
+                const rawId = sessionEl.textContent?.replace('SESSION: ', '') || 'UNKNOWN';
+                window.CURRENT_SESSION_ID = rawId;
+                console.log(`[TracerView] Session ID: ${rawId}`);
+            }
+
+            this.updateButtonUI();
+
+            // Initialize Pipeline Canvas AFTER caching
+            if (this.els.debuggerContainer) {
+                console.log('[TracerView] Initializing PipelineCanvas...');
+                PipelineCanvas.init(this.els.debuggerContainer);
+            }
+
+            console.log('[TracerView] Initialization Complete');
+            setTimeout(() => this.verifyFleet(), 500);
+        } catch (e) {
+            console.error('[TracerView] FATAL_INIT_ERROR:', e);
+        }
     },
 
     cacheElements() {
@@ -63,15 +84,65 @@ export const TracerView = {
                 8000: document.getElementById('fleet-8000'),
                 8001: document.getElementById('fleet-8001'),
                 8002: document.getElementById('fleet-8002')
-            }
+            },
+            // Debugger elements
+            debuggerSection: document.getElementById('debugger-section'),
+            debuggerContainer: document.getElementById('debugger-container'),
+            btnToggleDebugger: document.getElementById('btn-toggle-debugger')
         };
-        // Expose sessionId globally for logger
-        const rawId = this.els.sessionId.textContent?.replace('SESSION: ', '');
-        window.CURRENT_SESSION_ID = rawId;
     },
 
     bindEvents() {
         this.els.btnRun.addEventListener('click', () => this.handleAction());
+
+        // Toggle debugger visibility
+        if (this.els.btnToggleDebugger) {
+            this.els.btnToggleDebugger.addEventListener('click', () => this.toggleDebugger());
+        }
+    },
+
+    /**
+     * Toggle Pipeline Canvas visibility
+     */
+    toggleDebugger() {
+        console.log('[TracerView] Toggling Debugger...');
+        const section = this.els.debuggerSection;
+        const btn = this.els.btnToggleDebugger;
+
+        if (!section) {
+            console.error('[TracerView] FATAL: debuggerSection (DOM id: debugger-section) not found in cache');
+            return;
+        }
+
+        const isCurrentlyHidden = section.classList.contains('hidden') || section.style.display === 'none';
+
+        console.log('[TracerView] Debugger current state:', {
+            isCurrentlyHidden,
+            classList: section.className,
+            display: section.style.display
+        });
+
+        if (isCurrentlyHidden) {
+            // SHOW
+            section.classList.remove('hidden');
+            section.style.display = 'flex';
+            if (btn) btn.classList.add('active');
+
+            console.log('[TracerView] Debugger FORCED TO VISIBLE');
+
+            // Critical for Canvas geometry
+            setTimeout(() => {
+                console.log('[TracerView] Recalculating Canvas Geometry...');
+                PipelineCanvas.resizeCanvas();
+            }, 50);
+        } else {
+            // HIDE
+            section.classList.add('hidden');
+            section.style.display = 'none';
+            if (btn) btn.classList.remove('active');
+
+            console.log('[TracerView] Debugger FORCED TO HIDDEN');
+        }
     },
 
     /**
@@ -256,6 +327,10 @@ export const TracerView = {
             const sessionId = `TRACE_${username}_${Date.now()}`;
             await DebugLogger.startSession(sessionId);
 
+            // Sync Visualizer state
+            eventQueueBuffer.clear();
+            pipelineController.play();
+
             // ISOLATION: Switch LevelDB and Mirroring to the session folder
             if (window.cacheAPI && window.cacheAPI.switchSession) {
                 this.renderLog('INFO', `Switching to session database: ${sessionId}/db`);
@@ -270,12 +345,16 @@ export const TracerView = {
                 if (this.state === 'STOPPING') return; // Ignore updates while stopping
 
                 if (step.type === 'Progreso') {
-                    this.updateUI(step.percent, this.analyzer.coordinator.getStats());
+                    const stats = this.analyzer.coordinator.getStats();
+                    this.updateUI(stats, step.phase || 'PROCESSING');
                 } else if (step.type === 'WorkerUpdate') {
                     this.els.workerInfo.textContent = `[Worker ${step.workerId}] ${step.message}`;
-                    this.renderLog('DEBUG', `[Worker ${step.workerId}] ${step.message}`);
+                    // Also update stats on worker updates
+                    const stats = this.analyzer.coordinator.getStats();
+                    this.updateUI(stats, 'ANALYZING');
                 } else if (step.type === 'StreamingUpdate') {
                     this.renderLog('INFO', step.message);
+                    this.els.workerInfo.textContent = step.message;
                 }
             };
 
@@ -298,6 +377,7 @@ export const TracerView = {
 
             await window.cacheAPI.generateSummary(stats);
             await DebugLogger.endSession();
+            pipelineController.stop();
 
             this.renderLog('INFO', `Summary generated in logs/tracer_logs/SUMMARY.json`);
             this.updateUI(100, stats);
@@ -333,6 +413,7 @@ export const TracerView = {
 
         this.state = 'IDLE';
         this.updateButtonUI();
+        pipelineController.stop();
         this.renderLog('INFO', 'Analysis aborted by user.');
     },
 
@@ -349,13 +430,41 @@ export const TracerView = {
         });
     },
 
-    updateUI(percent, stats) {
-        const safePercent = isNaN(percent) ? 0 : percent;
-        this.els.progressFill.style.width = `${safePercent}%`;
-        this.els.progressText.textContent = `${Math.round(safePercent)}%`;
-        this.els.queueText.textContent = `${stats.analyzed || 0} / ${stats.totalFiles || '?'} files`;
+    updateUI(stats, phase = 'PROCESSING') {
+        const analyzed = stats.analyzed || 0;
+        const total = stats.totalFiles || 0;
+
+        // Calculate real percentage from stats
+        const percent = total > 0 ? Math.round((analyzed / total) * 100) : 0;
+
+        this.els.progressFill.style.width = `${percent}%`;
+        this.els.progressText.textContent = `${percent}%`;
+        this.els.queueText.textContent = `${analyzed} / ${total} files`;
+
+        // Update status message based on phase
+        const phaseMessages = {
+            'SCANNING': '🔍 Scanning repositories...',
+            'QUEUING': '📋 Building file queue...',
+            'ANALYZING': '🧠 AI analyzing files...',
+            'PROCESSING': '⚙️ Processing...',
+            'CURATING': '✨ Curating insights...',
+            'SYNTHESIZING': '🧬 Synthesizing profile...',
+            'COMPLETE': '✅ Analysis complete!'
+        };
+
+        if (this.els.workerInfo && phase !== 'WorkerUpdate') {
+            const msg = phaseMessages[phase] || phaseMessages['PROCESSING'];
+            // Only update if not showing a specific worker message
+            if (!this.els.workerInfo.textContent.startsWith('[Worker')) {
+                this.els.workerInfo.textContent = msg;
+            }
+        }
     }
 };
 
 // Start
-document.addEventListener('DOMContentLoaded', () => TracerView.init());
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => TracerView.init());
+} else {
+    TracerView.init();
+}
