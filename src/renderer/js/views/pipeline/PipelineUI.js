@@ -83,9 +83,9 @@ export const PipelineUI = {
                             <div class="history-group-header">${repo}</div>
                             <div class="history-group-items">
                                 ${items.map(i => `
-                                    <div class="history-item">
+                                    <div class="history-item ${i.done ? 'done' : ''}">
                                         <span class="history-time">${i.time}</span>
-                                        <span class="history-display">${i.file}</span>
+                                        <span class="history-display">${i.file} ${i.done ? '<span class="done-mark">✅</span>' : ''}</span>
                                     </div>
                                 `).join('')}
                             </div>

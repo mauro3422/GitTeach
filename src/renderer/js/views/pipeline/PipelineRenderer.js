@@ -225,26 +225,31 @@ export const PipelineRenderer = {
 
             // [NEW] Hardware Fault Indicator
             if (!isOnline) {
-                ctx.save();
-                ctx.translate(x + 15, y - 15);
+                this.drawOfflineBadge(ctx, x, y);
+            } else if (stats.isDispatching) {
+                // Outgoing request (Blue dashed ring)
                 ctx.beginPath();
-                ctx.arc(0, 0, 8, 0, Math.PI * 2);
-                ctx.fillStyle = '#da3633'; // GitHub Error Red
-                ctx.fill();
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 1;
+                ctx.arc(x, y, radius + 4, 0, Math.PI * 2);
+                ctx.strokeStyle = '#388bfd';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
                 ctx.stroke();
-
-                ctx.font = 'bold 10px var(--font-mono)';
-                ctx.fillStyle = '#ffffff';
-                ctx.fillText('!', 0, 0);
-
-                // Text label for clarity
-                ctx.font = 'bold 9px var(--font-mono)';
-                ctx.fillStyle = '#da3633';
-                ctx.textAlign = 'left';
-                ctx.fillText('OFFLINE', 12, 0);
-                ctx.restore();
+                ctx.setLineDash([]);
+            } else if (stats.isReceiving) {
+                // Incoming response (Green fading ring)
+                ctx.beginPath();
+                ctx.arc(x, y, radius + 4, 0, Math.PI * 2);
+                ctx.strokeStyle = '#56d364';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            } else if (stats.isWaiting) {
+                // Dim pulse for waiting workers
+                ctx.beginPath();
+                ctx.arc(x, y, radius + 2, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(86, 211, 100, 0.3)';
+                ctx.setLineDash([2, 4]);
+                ctx.stroke();
+                ctx.setLineDash([]);
             }
 
             // Compact labels for slots - Use dynamic label if available
@@ -337,6 +342,34 @@ export const PipelineRenderer = {
             ctx.fillStyle = '#8b949e';
             ctx.fillText(lastEvent, x, y + 22);
         }
+    },
+
+    /**
+     * Draw circular OFFLINE badge with exclamation mark
+     */
+    drawOfflineBadge(ctx, x, y) {
+        ctx.save();
+        ctx.translate(x + 15, y - 15);
+        ctx.beginPath();
+        ctx.arc(0, 0, 8, 0, Math.PI * 2);
+        ctx.fillStyle = '#da3633'; // GitHub Error Red
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.font = 'bold 10px var(--font-mono)';
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('!', 0, 0);
+
+        // Text label for clarity
+        ctx.font = 'bold 9px var(--font-mono)';
+        ctx.fillStyle = '#da3633';
+        ctx.textAlign = 'left';
+        ctx.fillText('OFFLINE', 12, 0);
+        ctx.restore();
     },
 
     /**

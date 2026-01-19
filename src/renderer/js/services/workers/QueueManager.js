@@ -17,6 +17,11 @@ export class QueueManager {
         this.processedShas = new Map(); // SHA -> Summary (Session cache)
         this.activeKeys = new Set(); // repo:path (Prevention of duplicate enqueues)
         this.isEnqueueingComplete = false; // Graceful drain flag
+
+        // Reactive signals
+        this.waitingResolvers = [];
+        this.workerRepoMap = new Map();
+        this.repoWorkerCount = new Map();
     }
 
     /**
@@ -40,6 +45,28 @@ export class QueueManager {
 
         // Keep queue sorted by priority
         this.queue.sort((a, b) => a.priority - b.priority);
+
+        // Notify waiting workers
+        this._notifyNewItems();
+    }
+
+    _notifyNewItems() {
+        if (this.waitingResolvers.length > 0) {
+            const resolvers = this.waitingResolvers;
+            this.waitingResolvers = [];
+            resolvers.forEach(resolve => resolve());
+        }
+    }
+
+    /**
+     * Wait for new items to arrive
+     */
+    async waitForItems() {
+        return new Promise(resolve => {
+            this.waitingResolvers.push(resolve);
+            // Safety timeout to avoid getting stuck
+            setTimeout(resolve, 1000);
+        });
     }
 
     /**
@@ -74,27 +101,23 @@ export class QueueManager {
         const MAX_BATCH_SIZE = 3;
         const MIN_CONTENT_FOR_BATCH = 1000;
 
-        // FILTER: Only look at pending items
+        // 1. FILTER: Only look at pending items
         const pendingItems = this.queue.filter(i => i.status === 'pending');
         if (pendingItems.length === 0) {
-            // GRACEFUL DRAIN: If no items but enqueueing not complete, return sentinel to wait
-            if (!this.isEnqueueingComplete) {
+            // GRACEFUL DRAIN: Keep workers alive if enqueueing is not complete or others are busy
+            const hasActiveWork = Array.from(this.repoWorkerCount.values()).some(count => count > 0);
+            if (!this.isEnqueueingComplete || hasActiveWork) {
                 return { isWaiting: true };
             }
             return null;
         }
 
-        // NEW: REPO DISTRIBUTION - Force workers to spread across repos initially
-        // Track which repos have active workers
-        if (!this.workerRepoMap) this.workerRepoMap = new Map();
-        if (!this.repoWorkerCount) this.repoWorkerCount = new Map();
-
-        // Get unique repos with pending items
+        // 2. DISTRIBUTION: Manage worker affinity
         const pendingRepos = [...new Set(pendingItems.map(i => i.repo))];
+        const oldAffinity = this.workerRepoMap.get(workerId);
 
-        // If worker doesn't have a claimed repo, assign to least-loaded repo
-        if (!claimedRepo && pendingRepos.length > 1) {
-            // Find repo with fewest active workers
+        // If worker is idle or its current repo is finished, assign to least-loaded repo
+        if (!claimedRepo || !pendingRepos.includes(claimedRepo)) {
             let minWorkers = Infinity;
             let targetRepo = null;
 
@@ -106,95 +129,86 @@ export class QueueManager {
                 }
             }
 
-            if (targetRepo) {
-                // Assign this worker to the least-loaded repo
-                this.workerRepoMap.set(workerId, targetRepo);
-                this.repoWorkerCount.set(targetRepo, (this.repoWorkerCount.get(targetRepo) || 0) + 1);
+            if (targetRepo && targetRepo !== claimedRepo) {
+                this._updateWorkerAffinity(workerId, targetRepo);
                 claimedRepo = targetRepo;
-                Logger.worker('POOL', `[Worker ${workerId}] Assigned to repo: ${targetRepo} (Load balancing)`);
+            }
+        } else if (claimedRepo !== oldAffinity) {
+            this._updateWorkerAffinity(workerId, claimedRepo);
+        }
+
+        // 3. RETRIEVAL: Try claimed repo first (Affinity/Stickiness)
+        const pendingInRepo = pendingItems.filter(item => item.repo === claimedRepo);
+        const globalTopPriority = pendingItems[0].priority;
+        const repoTopPriority = pendingInRepo.length > 0 ? pendingInRepo[0].priority : 999;
+
+        // Only use affinity if it doesn't starve higher priority global tasks
+        if (pendingInRepo.length > 0 && repoTopPriority <= globalTopPriority) {
+            if (lastProcessedPath) {
+                const lastDir = lastProcessedPath.split('/').slice(0, -1).join('/');
+                const lastNameBase = lastProcessedPath.split('/').pop().split('.')[0].toLowerCase();
+
+                const affinityItem = pendingInRepo.find(item => {
+                    const itemDir = item.path.split('/').slice(0, -1).join('/');
+                    const itemNameBase = item.path.split('/').pop().split('.')[0].toLowerCase();
+                    return itemDir === lastDir || itemNameBase.includes(lastNameBase) || lastNameBase.includes(itemNameBase);
+                });
+
+                if (affinityItem) {
+                    affinityItem.status = 'assigned';
+                    return affinityItem;
+                }
+            }
+
+            // Batching logic
+            const first = pendingInRepo[0];
+            if (first.content.length < MIN_CONTENT_FOR_BATCH) {
+                const batch = [];
+                for (const item of pendingInRepo) {
+                    if (item.content.length < MIN_CONTENT_FOR_BATCH && batch.length < MAX_BATCH_SIZE && item.priority === first.priority) {
+                        item.status = 'assigned';
+                        batch.push(item);
+                    } else if (batch.length === 0) {
+                        item.status = 'assigned';
+                        return item;
+                    } else { break; }
+                }
+                return batch.length > 1 ? { repo: claimedRepo, isBatch: true, items: batch } : batch[0];
+            } else {
+                first.status = 'assigned';
+                return first;
             }
         }
 
-        // URGENT OVERRIDE: If we have URGENT items (0) and current claimedRepo is lower priority, 
-        // we might want to switch? For now, simple logic: get highest priority available.
-        // Queue is already sorted by priority.
-
-        // 1. Try to continue with current repo IF it has high priority items
-        if (claimedRepo) {
-            const pendingInRepo = pendingItems.filter(item => item.repo === claimedRepo);
-
-            // If repo has items, check if they are "top priority" relative to the whole queue.
-            // If the first item in global queue has significantly higher priority (lower val) than this repo's items, switch.
-            const globalTopPriority = pendingItems[0].priority;
-            const repoTopPriority = pendingInRepo.length > 0 ? pendingInRepo[0].priority : 999;
-
-            if (pendingInRepo.length > 0 && repoTopPriority <= globalTopPriority) {
-                // Proceed with affinity logic for this repo
-                if (lastProcessedPath) {
-                    const lastDir = lastProcessedPath.split('/').slice(0, -1).join('/');
-                    const lastNameBase = lastProcessedPath.split('/').pop().split('.')[0].toLowerCase();
-
-                    const affinityItem = pendingInRepo.find(item => {
-                        const itemDir = item.path.split('/').slice(0, -1).join('/');
-                        const itemNameBase = item.path.split('/').pop().split('.')[0].toLowerCase();
-                        return itemDir === lastDir || itemNameBase.includes(lastNameBase) || lastNameBase.includes(itemNameBase);
-                    });
-
-                    if (affinityItem) {
-                        affinityItem.status = 'assigned';
-                        return affinityItem;
-                    }
-                }
-
-                // Batching logic for repo
-                const first = pendingInRepo[0];
-                if (first.content.length < MIN_CONTENT_FOR_BATCH) {
-                    const batch = [];
-                    for (const item of pendingInRepo) {
-                        if (item.content.length < MIN_CONTENT_FOR_BATCH && batch.length < MAX_BATCH_SIZE) {
-                            item.status = 'assigned';
-                            batch.push(item);
-                        } else if (batch.length === 0) {
-                            item.status = 'assigned';
-                            return item;
-                        } else {
-                            break;
-                        }
-                    }
-                    return batch.length > 1 ? { repo: claimedRepo, isBatch: true, items: batch } : batch[0];
-                } else {
-                    first.status = 'assigned';
-                    return first;
-                }
-            }
-        }
-
-        // 2. Fallback: Take the highest priority item from global queue
-        // Since queue is sorted (0=URGENT first), we just take the first pending one that isn't locked by another worker processing same repo?
-        // Actually, we want parallelism. Multiple activeworkers on same repo is FINE if pool size allows.
-        // But we want to avoid fragmentation.
-
-        // Find first available repo that is top priority
+        // 4. FALLBACK: Take highest priority global item
         const topItem = pendingItems[0];
+        topItem.status = 'assigned';
 
-        // Batching for fallback
-        if (topItem.content.length < MIN_CONTENT_FOR_BATCH) {
-            const repoItems = pendingItems.filter(i => i.repo === topItem.repo);
-            const batch = [];
-            for (const item of repoItems) {
-                if (item.content.length < MIN_CONTENT_FOR_BATCH && batch.length < MAX_BATCH_SIZE && item.priority === topItem.priority) {
-                    item.status = 'assigned';
-                    batch.push(item);
-                } else if (batch.length === 0) {
-                    item.status = 'assigned';
-                    return item;
-                } else { break; }
-            }
-            return batch.length > 1 ? { repo: topItem.repo, isBatch: true, items: batch } : batch[0];
-        } else {
-            topItem.status = 'assigned';
-            return topItem;
+        // Sync affinity if switching repos
+        if (topItem.repo !== claimedRepo) {
+            this._updateWorkerAffinity(workerId, topItem.repo);
         }
+
+        return topItem;
+    }
+
+    _updateWorkerAffinity(workerId, newRepo) {
+        const oldRepo = this.workerRepoMap.get(workerId);
+        if (oldRepo === newRepo) return;
+
+        if (oldRepo) {
+            const count = this.repoWorkerCount.get(oldRepo) || 0;
+            this.repoWorkerCount.set(oldRepo, Math.max(0, count - 1));
+        }
+
+        if (newRepo) {
+            this.workerRepoMap.set(workerId, newRepo);
+            this.repoWorkerCount.set(newRepo, (this.repoWorkerCount.get(newRepo) || 0) + 1);
+        } else {
+            this.workerRepoMap.delete(workerId);
+        }
+
+        Logger.worker('POOL', `[Worker ${workerId}] Affinity: ${oldRepo || 'NONE'} -> ${newRepo || 'NONE'}`);
     }
 
     /**

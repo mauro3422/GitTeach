@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.42.0] - Pipeline SOLID Refactor & Visual Telemetry - 2026-01-19
+### 🧱 Architectural Santiation: SOLID Modularization
+- **Decoupled Orchestration**: Refactored `PipelineCanvas.js` from 522 to ~150 lines, delegating responsibilities to specialized modules.
+- **PipelineStateManager**: Centralized all node states (`nodeStates`), statistics (`nodeStats`), history (`nodeHistory`), and health telemetry (`nodeHealth`).
+- **PipelineEventHandler**: Extracted complex event processing and transition logic, including idempotent start handling and handover coordination.
+- **PipelineSimulation**: Isolated debugging tools and flow simulations, keeping production code clean of development utilities.
+
+### 💓 AI Communication Monitoring (Dispatch/Receive)
+- **Visual Pulse Signals**: Implemented blue dashed rings (`dispatching`) and solid green rings (`receiving`) around worker nodes to monitor real-time AI service latency.
+- **Temporal Fidelity**: Refined pulses to a 1.5s duration to ensure high-speed interactions remain visible without saturating the UI.
+- **Direct Event Emission**: Integrated `summarizeWithAI` in `WorkerHealthMonitor` with distinct pulse events for outgoing and incoming traffic.
+
+### 🏃 Reactive Queue & Load Balancing
+- **Push-Based Signaling**: Implemented `waitForItems()` in `QueueManager` using `Promise` resolvers to eliminate polling latency in workers.
+- **Intelligent Slot Distribution**: Fixed Slot 1 inactivity by implementing aggressive least-loaded repository assignment and worker-repo affinity.
+- **Graceful Termination**: Prevented premature worker shutdown by implementing an explicit waiting state for trailing enqueue operations.
+
 ## [2.41.0] - Real-Time Hardware Vigilance & Data Fidelity - 2026-01-19
 ### 💓 Hardware Monitoring: AI Fleet Heartbeat
 - **Real-Time Connectivity**: Integrated visualizer with `AIFleetService` to monitor AI server health (Ports 8000, 8001, 8002) every 3 seconds.

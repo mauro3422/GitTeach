@@ -105,7 +105,9 @@ export class WorkerHealthMonitor {
 
             // GRACEFUL DRAIN: Handle waiting sentinel
             if (input?.isWaiting) {
-                await new Promise(r => setTimeout(r, 100));
+                pipelineEventBus.emit(`worker:slot:${workerId}`, { status: 'waiting' });
+                // REACTIVE SIGNAL: Wait for new items instead of fixed polling
+                await this.queueManager.waitForItems();
                 continue; // Reintentar
             }
 
@@ -156,8 +158,22 @@ export class WorkerHealthMonitor {
             try {
                 const startTime = Date.now();
 
+                // PIPELINE EVENT: Dispatching to AI server
+                pipelineEventBus.emit(`worker:slot:${workerId}`, {
+                    repo: claimedRepo,
+                    file: isBatch ? 'batch' : input.path,
+                    status: 'dispatching'
+                });
+
                 // Call AI to summarize the file or batch
                 const { prompt, summary, langCheck } = await this.resultProcessor.summarizeWithAI(aiService, input);
+
+                // PIPELINE EVENT: Received response from AI server
+                pipelineEventBus.emit(`worker:slot:${workerId}`, {
+                    repo: claimedRepo,
+                    file: isBatch ? 'batch' : input.path,
+                    status: 'receiving'
+                });
 
                 const durationMs = Date.now() - startTime;
 
