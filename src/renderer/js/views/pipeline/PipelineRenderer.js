@@ -4,7 +4,7 @@
  * Refactored to delegate physics and routing to specialized engines.
  */
 
-import { PIPELINE_NODES, CONNECTIONS } from './PipelineConstants.js';
+import { PIPELINE_NODES, CONNECTIONS, PACKAGE_TYPES } from './PipelineConstants.js';
 import { PipelineStateManager } from './PipelineStateManager.js';
 import { SectorRenderer } from './SectorRenderer.js';
 import { LabelRenderer } from './LabelRenderer.js';
@@ -34,17 +34,59 @@ export const PipelineRenderer = {
         packages.forEach(pkg => {
             const startPos = LayoutEngine.getNodePos(pkg.from);
             const endPos = LayoutEngine.getNodePos(pkg.to);
-            const path = ConnectionRouter.computeRoute(pkg.from, pkg.to, startPos, endPos);
+            if (!startPos || !endPos) return;
+
+            const connection = CONNECTIONS.find(c => c.from === pkg.from && c.to === pkg.to);
+            const type = connection ? connection.type : 'DATA_FLOW';
+
+            const path = ConnectionRouter.computeRoute(pkg.from, pkg.to, startPos, endPos, type, LayoutEngine.getAllPositions());
             const pos = ConnectionRouter.getPointOnPath(path, pkg.progress);
-            const color = LanguageTheme.getColorForFile(pkg.file);
+
+            // Forensic Variety: Get color and icon based on type
+            const typeConfig = PACKAGE_TYPES[pkg.type] || PACKAGE_TYPES.RAW_FILE;
+            const baseColor = LanguageTheme.getColorForFile(pkg.file) || typeConfig.color;
+            const icon = typeConfig.icon;
 
             ctx.save();
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = color;
+
+            // 1. Draw Glow
+            ctx.shadowBlur = pkg.type === 'DNA_SIGNAL' ? 15 : 8;
+            ctx.shadowColor = baseColor;
+
+            // 2. Draw Body
             ctx.beginPath();
-            ctx.fillStyle = color;
-            ctx.arc(pos.x, pos.y, 4, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.fillStyle = baseColor;
+
+            if (pkg.type === 'FRAGMENT' || pkg.type === 'DNA_SIGNAL') {
+                // Diamond shape for special data
+                const size = pkg.type === 'DNA_SIGNAL' ? 6 : 4;
+                ctx.moveTo(pos.x, pos.y - size);
+                ctx.lineTo(pos.x + size, pos.y);
+                ctx.lineTo(pos.x, pos.y + size);
+                ctx.lineTo(pos.x - size, pos.y);
+                ctx.closePath();
+                ctx.fill();
+            } else {
+                ctx.arc(pos.x, pos.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 3. Draw mini icon and status label
+            ctx.font = '8px var(--font-mono), monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#ffffff';
+            ctx.globalAlpha = 0.8;
+
+            // Draw Icon
+            ctx.fillText(icon, pos.x, pos.y - 14);
+
+            // Draw Mini Status Label (Forensic Detail)
+            const statusLabel = typeConfig.label.toUpperCase();
+            ctx.font = 'bold 6px var(--font-mono), monospace';
+            ctx.fillStyle = baseColor;
+            ctx.fillText(statusLabel, pos.x, pos.y + 12);
+
             ctx.restore();
         });
     },
@@ -59,8 +101,8 @@ export const PipelineRenderer = {
             const isDispatching = fromStats.isDispatching && fromStats.targetNode === conn.to;
             const isReceiving = fromStats.isReceiving && fromStats.sourceNode === conn.from;
 
-            const path = ConnectionRouter.computeRoute(conn.from, conn.to, startPos, endPos);
-            ConnectionRouter.drawPath(ctx, path, 'rgba(139, 148, 158, 0.15)', false, isDispatching, isReceiving);
+            const path = ConnectionRouter.computeRoute(conn.from, conn.to, startPos, endPos, conn.type, LayoutEngine.getAllPositions());
+            ConnectionRouter.drawPath(ctx, path, conn.type, false, isDispatching, isReceiving);
         });
     },
 

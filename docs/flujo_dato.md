@@ -32,6 +32,7 @@ graph LR
         E1 & E2 & E3 --> F[mixing_buffer]
         D -.-> |skeletons| F
         F --> G[compaction]
+        F -.-> GATE[mixer_gate]
     end
     
     subgraph CPU["🔧 CPU SECTOR (port 8002)"]
@@ -51,11 +52,12 @@ graph LR
     
     subgraph PERSIST["💾 PERSISTENCE"]
         E1 & E2 & E3 --> P[persistence]
-        F --> P
+        F --> |blueprints| P
         M1 & M2 & M3 --> P
         H & I --> P
     end
     
+    I -.-> |injection| B
     D --> X[discard_bin]
 ```
 
@@ -123,7 +125,7 @@ graph LR
 | `persistence` | `LevelDBManager`, `DiskMirrorService`, `SessionManagerService`, `CacheService` | `persist:*` |
 
 > **Arquitectura Dual**: LevelDB (performance) + JSON mirrors (debugging)  
-> **Key Schema**: `raw:finding:{repo}`, `mem:node:{uid}`, `meta:blueprint:{repo}`
+> **Key Schema**: `raw:finding:{repo}`, `mem:node:{uid}`, `meta:blueprint:{repo}`, `meta:identity:{user}`
 
 ---
 
@@ -191,6 +193,8 @@ graph LR
 | `mapper:start/end` | Análisis temático | `mapper_*` (por payload.mapper) |
 | `compaction:*` | Condensación de findings | `compaction` |
 | `mixer:gate:locked/unlocked` | Gatekeeper state | `mixing_buffer` |
+| `persist:blueprint` | Archivo .json de repo listo | `persistence` |
+| `context:injected` | Feedback a AIService | `api_fetch` (loop back) |
 | `dna:*` | Síntesis de perfil | `dna_synth` |
 | `file:cache:hit` | SHA duplicado | `mixing_buffer` (shortcut dorado) |
 | `hub:circuit:open/closed` | Circuit breaker | `workers_hub` |

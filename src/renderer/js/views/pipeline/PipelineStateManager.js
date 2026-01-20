@@ -69,15 +69,19 @@ export const PipelineStateManager = {
     /**
      * Spawn a traveling package between nodes
      */
-    addTravelingPackage(fromId, toId, file = null) {
+    addTravelingPackage(fromId, toId, file = null, type = 'RAW_FILE') {
         if (!PIPELINE_NODES[fromId] || !PIPELINE_NODES[toId]) return;
+
+        // Speed variance for more organic highway feel
+        const speed = 0.015 + Math.random() * 0.01;
 
         this.travelingPackages.push({
             from: fromId,
             to: toId,
             file: file,
+            type: type,
             progress: 0,
-            speed: 0.02
+            speed: speed
         });
     },
 

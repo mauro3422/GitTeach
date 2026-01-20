@@ -24,7 +24,7 @@ export const PipelineEventHandler = {
             dataSourceStats.currentLabel = entry.payload.repo;
             PipelineStateManager.nodeStates['data_source'] = 'active';
             spawnParticles('data_source', UI_COLORS.NEUTRAL_ACTIVE);
-            spawnTravelingPackage('data_source', 'api_fetch');
+            spawnTravelingPackage('data_source', 'api_fetch', 'RAW_FILE');
 
             return { nodeId: slotId, status: 'detected', isDynamic: true };
         },
@@ -46,7 +46,7 @@ export const PipelineEventHandler = {
             });
             if (slotId) {
                 PipelineEventHandler.handleDynamicRepoNode(slotId, entry.payload, 'extracting');
-                spawnTravelingPackage(slotId, 'auditor');
+                spawnTravelingPackage(slotId, 'auditor', 'RAW_FILE');
             }
             return { nodeId: slotId, status: 'extracting', isDynamic: true };
         },
@@ -58,7 +58,7 @@ export const PipelineEventHandler = {
 
         'file:cache:hit': function (entry, spawnParticles, spawnTravelingPackage) {
             // Golden Ray: Bypass AI workers
-            spawnTravelingPackage('workers_hub', 'mixing_buffer', UI_COLORS.GOLDEN_HIT || '#FFD700');
+            spawnTravelingPackage('workers_hub', 'mixing_buffer', 'FRAGMENT', UI_COLORS.GOLDEN_HIT || '#FFD700');
             return { nodeId: 'mixing_buffer', status: 'receiving' };
         },
 
@@ -79,7 +79,7 @@ export const PipelineEventHandler = {
 
         'pipeline:resurrection': function (entry, spawnParticles, spawnTravelingPackage) {
             // Emergency Lane
-            spawnTravelingPackage('cache', 'mixing_buffer', UI_COLORS.AMBER || '#FFBF00');
+            spawnTravelingPackage('cache', 'mixing_buffer', 'FRAGMENT', UI_COLORS.AMBER || '#FFBF00');
             return { nodeId: 'mixing_buffer', status: 'receiving' };
         },
 
@@ -126,7 +126,7 @@ export const PipelineEventHandler = {
             stats.startTime = Date.now();
 
             spawnParticles(nodeId, UI_COLORS.YELLOW_ACTIVE);
-            spawnTravelingPackage('mixing_buffer', nodeId);
+            spawnTravelingPackage('mixing_buffer', nodeId, 'METADATA');
 
             return { nodeId, status: 'active' };
         },
@@ -144,7 +144,7 @@ export const PipelineEventHandler = {
             stats.currentLabel = entry.payload?.success ? `✓ ${mapperType}` : `✗ ${mapperType}`;
 
             // Flow to DNA Synth
-            spawnTravelingPackage(nodeId, 'dna_synth');
+            spawnTravelingPackage(nodeId, 'dna_synth', 'INSIGHT');
 
             return { nodeId, status: 'idle' };
         },
@@ -160,6 +160,7 @@ export const PipelineEventHandler = {
             stats.currentLabel = `Embedding...`;
 
             spawnParticles('embedding_server', UI_COLORS.PURPLE_ACTIVE);
+            spawnTravelingPackage('auditor', 'embedding_server', 'METADATA');
 
             return { nodeId: 'embedding_server', status: 'active' };
         },
@@ -173,6 +174,36 @@ export const PipelineEventHandler = {
             stats.currentLabel = entry.payload?.success ? '✓ Embedded' : '✗ Failed';
 
             return { nodeId: 'embedding_server', status: 'idle' };
+        },
+
+        'persist:blueprint': function (entry, spawnParticles, spawnTravelingPackage) {
+            // Partial synthesis result
+            spawnTravelingPackage('mixing_buffer', 'persistence', 'BLUEPRINT');
+            return { nodeId: 'persistence', status: 'receiving' };
+        },
+
+        'context:injected': function (entry, spawnParticles, spawnTravelingPackage) {
+            // Feedback Loop closure
+            spawnTravelingPackage('intelligence', 'api_fetch', 'CONTEXT_DNA');
+            spawnParticles('api_fetch', UI_COLORS.PURPLE_ACTIVE);
+            return { nodeId: 'api_fetch', status: 'active' };
+        },
+
+        'file:skeletonized': function (entry, spawnParticles, spawnTravelingPackage) {
+            // Fast neutral package (Bypasses Workers)
+            spawnTravelingPackage('auditor', 'mixing_buffer', 'RAW_FILE');
+            return { nodeId: 'mixing_buffer', status: 'receiving' };
+        },
+
+        'file:discarded': function (entry, spawnParticles, spawnTravelingPackage) {
+            const stats = PipelineStateManager.nodeStats['discard_bin'];
+            stats.count = (stats.count || 0) + 1;
+            stats.currentLabel = entry.payload.reason || 'Filtered';
+
+            spawnTravelingPackage('auditor', 'discard_bin', 'RAW_FILE');
+            spawnParticles('discard_bin', UI_COLORS.RED);
+
+            return { nodeId: 'discard_bin', status: 'receiving' };
         }
     },
 
@@ -186,9 +217,9 @@ export const PipelineEventHandler = {
         }
 
         // Wrapped spawnTravelingPackage to include filename from payload automatically
-        const smartSpawn = (from, to, fileOverride = null) => {
+        const smartSpawn = (from, to, type = 'RAW_FILE', fileOverride = null) => {
             const file = fileOverride || payload?.file || payload?.repo || null;
-            spawnTravelingPackage(from, to, file);
+            spawnTravelingPackage(from, to, file, type);
         };
 
         // Check if we have a specific strategy for this event type
@@ -252,7 +283,18 @@ export const PipelineEventHandler = {
 
     handleStartStatus(nodeId, payload, spawnParticles, spawnTravelingPackage, stats, states, repo, file) {
         stats.isWaiting = false;
-        this.handleHandover(nodeId, payload, spawnTravelingPackage, file);
+
+        // Define type based on node
+        let type = 'METADATA';
+        if (nodeId === 'auditor') type = 'RAW_FILE';
+        if (nodeId === 'workers_hub') type = 'METADATA';
+        if (nodeId.startsWith('worker_')) type = 'METADATA';
+        if (nodeId === 'mixing_buffer') type = 'FRAGMENT';
+        if (nodeId === 'dna_synth') type = 'INSIGHT';
+        if (nodeId === 'intelligence') type = 'DNA_SIGNAL';
+        if (nodeId === 'persistence') type = 'SECURE_STORE';
+
+        this.handleHandover(nodeId, payload, spawnTravelingPackage, type, file);
         states[nodeId] = 'active';
         stats.count++;
 
@@ -309,7 +351,7 @@ export const PipelineEventHandler = {
 
     handleOneShotStatus(nodeId, payload, spawnParticles, spawnTravelingPackage, stats, states, repo, file) {
         stats.isWaiting = false;
-        this.handleHandover(nodeId, payload, spawnTravelingPackage, file);
+        this.handleHandover(nodeId, payload, spawnTravelingPackage, 'METADATA', file);
         states[nodeId] = 'active';
         stats.count++;
 
@@ -364,7 +406,7 @@ export const PipelineEventHandler = {
     /**
      * Manage handover between nodes
      */
-    handleHandover(targetNodeId, payload, spawnTravelingPackage, file = null) {
+    handleHandover(targetNodeId, payload, spawnTravelingPackage, type = 'METADATA', file = null) {
         const predecessors = {
             'api_fetch': 'data_source',
             'cache': 'api_fetch',
@@ -408,7 +450,7 @@ export const PipelineEventHandler = {
         }
 
         if (predId && PipelineStateManager.nodeStats[predId]) {
-            spawnTravelingPackage(predId, targetNodeId, file);
+            spawnTravelingPackage(predId, targetNodeId, type, file);
 
             const predStats = PipelineStateManager.nodeStats[predId];
             if (predStats.count === 0 && PipelineStateManager.nodeStates[predId] === 'pending') {

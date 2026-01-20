@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipeline Routing Designer - PCB Laboratory</title>
+    <link rel="stylesheet" href="style/design-system.css">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #0d1117;
+            font-family: var(--font-mono), monospace;
+            color: #e6edf3;
+        }
+
+        #designer-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .toolbar {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(22, 27, 34, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+        }
+
+        button {
+            background: #238636;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        button:hover {
+            background: #2ea043;
+        }
+
+        .hint {
+            margin-top: 10px;
+            font-size: 11px;
+            color: #8b949e;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="designer-container">
+        <div class="toolbar">
+            <button id="save-blueprint">Save Blueprint JSON</button>
+            <button id="toggle-mode" style="background: #0969da;">Mode: Drag Node</button>
+            <button id="reset-layout" style="background: #da3633;">Reset Layout</button>
+            <div class="hint">Shift + Drag from node to node to connect manually.</div>
+        </div>
+        <canvas id="designer-canvas"></canvas>
+    </div>
+
+    <script type="module">
+        import { RoutingDesigner } from './js/views/pipeline/designer/RoutingDesigner.js';
+
+        window.addEventListener('load', () => {
+            RoutingDesigner.init('designer-canvas');
+        });
+    </script>
+</body>
+
+</html>

@@ -5,6 +5,7 @@
     "main": "src/main/index.js",
     "scripts": {
         "start": "electron .",
+        "design": "electron src/main/designer_main.js",
         "test": "vitest",
         "test:run": "vitest run",
         "test:ui": "vitest --ui"

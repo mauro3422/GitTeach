@@ -201,57 +201,84 @@ export const PIPELINE_NODES = {
 // =============================================
 export const CONNECTIONS = [
     // Input flow
-    { from: 'data_source', to: 'api_fetch' },
-    { from: 'api_fetch', to: 'cache' },
-    { from: 'cache', to: 'auditor' },
+    { from: 'data_source', to: 'api_fetch', type: 'DATA_INGESTION' },
+    { from: 'api_fetch', to: 'cache', type: 'DATA_INGESTION' },
+    { from: 'cache', to: 'auditor', type: 'DATA_INGESTION' },
 
     // Classification / Audit
-    { from: 'auditor', to: 'workers_hub' },
-    { from: 'auditor', to: 'discard_bin' },
-    { from: 'auditor', to: 'embedding_server' }, // EMITS embedding:start
-    { from: 'auditor', to: 'mixing_buffer' }, // PARALLEL HIGHWAY FOR SKELETONS
+    { from: 'auditor', to: 'workers_hub', type: 'WORKER_FLOW' },
+    { from: 'auditor', to: 'discard_bin', type: 'MAINTENANCE' },
+    { from: 'auditor', to: 'embedding_server', type: 'HEAVY_PROCESS' },
+    { from: 'auditor', to: 'mixing_buffer', type: 'DATA_FLOW' },
 
     // Worker distribution
-    { from: 'workers_hub', to: 'worker_1' },
-    { from: 'workers_hub', to: 'worker_2' },
-    { from: 'workers_hub', to: 'worker_3' },
+    { from: 'workers_hub', to: 'worker_1', type: 'WORKER_FLOW' },
+    { from: 'workers_hub', to: 'worker_2', type: 'WORKER_FLOW' },
+    { from: 'workers_hub', to: 'worker_3', type: 'WORKER_FLOW' },
 
     // Persistence of Raw Findings (from Workers)
-    { from: 'worker_1', to: 'persistence' },
-    { from: 'worker_2', to: 'persistence' },
-    { from: 'worker_3', to: 'persistence' },
+    { from: 'worker_1', to: 'persistence', type: 'STORAGE' },
+    { from: 'worker_2', to: 'persistence', type: 'STORAGE' },
+    { from: 'worker_3', to: 'persistence', type: 'STORAGE' },
 
     // Evidence Collection (Union Point)
-    { from: 'worker_1', to: 'mixing_buffer' },
-    { from: 'worker_2', to: 'mixing_buffer' },
-    { from: 'worker_3', to: 'mixing_buffer' },
+    { from: 'worker_1', to: 'mixing_buffer', type: 'DATA_FLOW' },
+    { from: 'worker_2', to: 'mixing_buffer', type: 'DATA_FLOW' },
+    { from: 'worker_3', to: 'mixing_buffer', type: 'DATA_FLOW' },
 
     // Processing & Loop (CPU Sector - 3 Parallel Mappers)
-    { from: 'mixing_buffer', to: 'compaction' },
-    { from: 'mixing_buffer', to: 'mapper_architecture' },
-    { from: 'mixing_buffer', to: 'mapper_habits' },
-    { from: 'mixing_buffer', to: 'mapper_stack' },
-    { from: 'compaction', to: 'mapper_architecture' },
-    { from: 'compaction', to: 'mapper_habits' },
-    { from: 'compaction', to: 'mapper_stack' },
+    { from: 'mixing_buffer', to: 'compaction', type: 'HEAVY_PROCESS' },
+    { from: 'mixing_buffer', to: 'mapper_architecture', type: 'HEAVY_PROCESS' },
+    { from: 'mixing_buffer', to: 'mapper_habits', type: 'HEAVY_PROCESS' },
+    { from: 'mixing_buffer', to: 'mapper_stack', type: 'HEAVY_PROCESS' },
+    { from: 'compaction', to: 'mapper_architecture', type: 'HEAVY_PROCESS' },
+    { from: 'compaction', to: 'mapper_habits', type: 'HEAVY_PROCESS' },
+    { from: 'compaction', to: 'mapper_stack', type: 'HEAVY_PROCESS' },
 
     // Persistent Storage of Results
-    { from: 'mixing_buffer', to: 'persistence' },
-    { from: 'mapper_architecture', to: 'persistence' },
-    { from: 'mapper_habits', to: 'persistence' },
-    { from: 'mapper_stack', to: 'persistence' },
+    { from: 'mixing_buffer', to: 'persistence', type: 'STORAGE' },
+    { from: 'mapper_architecture', to: 'persistence', type: 'STORAGE' },
+    { from: 'mapper_habits', to: 'persistence', type: 'STORAGE' },
+    { from: 'mapper_stack', to: 'persistence', type: 'STORAGE' },
 
     // Synthesis & Radar (all 3 mappers feed DNA Synth)
-    { from: 'mapper_architecture', to: 'dna_synth' },
-    { from: 'mapper_habits', to: 'dna_synth' },
-    { from: 'mapper_stack', to: 'dna_synth' },
-    { from: 'dna_synth', to: 'intelligence' },
-    { from: 'intelligence', to: 'persistence' },
-    { from: 'intelligence', to: 'radar_adopt' },
-    { from: 'intelligence', to: 'radar_trial' },
-    { from: 'intelligence', to: 'radar_assess' },
-    { from: 'intelligence', to: 'radar_hold' }
+    { from: 'mapper_architecture', to: 'dna_synth', type: 'SYNTHESIS' },
+    { from: 'mapper_habits', to: 'dna_synth', type: 'SYNTHESIS' },
+    { from: 'mapper_stack', to: 'dna_synth', type: 'SYNTHESIS' },
+    { from: 'dna_synth', to: 'intelligence', type: 'SYNTHESIS' },
+    { from: 'intelligence', to: 'persistence', type: 'STORAGE' },
+    { from: 'intelligence', to: 'radar_adopt', type: 'SYNTHESIS' },
+    { from: 'intelligence', to: 'radar_trial', type: 'SYNTHESIS' },
+    { from: 'intelligence', to: 'radar_assess', type: 'SYNTHESIS' },
+    { from: 'intelligence', to: 'radar_hold', type: 'SYNTHESIS' },
+
+    // Forensic Bridge: Evidence back to Cache for long-term audit
+    { from: 'persistence', to: 'cache', type: 'FEEDBACK_LOOP' },
+
+    // FEEDBACK LOOP: Final Identity back to Data Ingestion context
+    { from: 'intelligence', to: 'api_fetch', type: 'FEEDBACK_LOOP' },
+
+    // Life Signals: Ingestion status directly to Intelligence Persona Engine
+    { from: 'data_source', to: 'intelligence', type: 'FEEDBACK_LOOP' },
+    { from: 'api_fetch', to: 'intelligence', type: 'FEEDBACK_LOOP' }
 ];
+
+// =============================================
+//   FORENSIC PACKAGE TYPES
+// =============================================
+/**
+ * Defines the nature of the data traveling on the highway.
+ */
+export const PACKAGE_TYPES = {
+    RAW_FILE: { icon: '📄', label: 'Raw File', color: UI_COLORS.NEUTRAL },
+    METADATA: { icon: '📊', label: 'Classification', color: UI_COLORS.BLUE },
+    FRAGMENT: { icon: '🧬', label: 'Rich Finding', color: UI_COLORS.GREEN },
+    INSIGHT: { icon: '💡', label: 'Thematic Insight', color: UI_COLORS.YELLOW },
+    DNA_SIGNAL: { icon: '✨', label: 'Identity DNA', color: UI_COLORS.PURPLE_ACTIVE },
+    BLUEPRINT: { icon: '🗺️', label: 'Repo Blueprint', color: UI_COLORS.BLUE_ACTIVE },
+    CONTEXT_DNA: { icon: '🔄', label: 'Context Injection', color: UI_COLORS.PURPLE_ACTIVE },
+    SECURE_STORE: { icon: '🔒', label: 'Persistence', color: UI_COLORS.BLUE_ACTIVE }
+};
 
 // =============================================
 //   EVENT → NODE MAPPING

@@ -117,7 +117,30 @@ export const LayoutEngine = {
      * Get computed coordinates for a specific node
      */
     getNodePos(id) {
-        return this.positions[id] || { x: 0, y: 0 };
+        if (this.positions[id]) return this.positions[id];
+
+        // Fallback for satellites if they aren't in the physics map (though they should be)
+        const node = PIPELINE_NODES[id];
+        if (node && node.isSatellite && node.orbitParent) {
+            const parent = this.positions[node.orbitParent];
+            if (parent) {
+                const radius = (node.orbitRadius || 0.18) * 800;
+                const angle = (node.orbitAngle || 0) * (Math.PI / 180);
+                return {
+                    x: parent.x + radius * Math.cos(angle),
+                    y: parent.y + radius * Math.sin(angle),
+                    radius: 15
+                };
+            }
+        }
+        return { x: 0, y: 0, radius: 30 };
+    },
+
+    /**
+     * Get all active node positions for collision avoidance
+     */
+    getAllPositions() {
+        return this.positions;
     },
 
     /**
@@ -147,8 +170,7 @@ export const LayoutEngine = {
         }
 
         // Default: Center of the pipeline (logical middle)
-        // Default: Center of the pipeline (logical middle of refScale)
         const refScale = 1200;
-        return { x: refScale / 2, y: (refScale * 0.5) / 2 }; // Assuming approx 2:1 aspect for the map
+        return { x: refScale / 2, y: (refScale * 0.5) / 2 };
     }
 };

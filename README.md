@@ -1,166 +1,99 @@
 # GitTeach 🚀
+### **Agentic Forensic AI Suite & Developer DNA Synthesizer**
 
-**Plataforma de Gestión de Perfiles y Aprendizaje de Git (Potenciada por IA Local)**
-
-GitTeach es una aplicación de escritorio (Electron) diseñada para ayudar a los desarrolladores a gestionar sus perfiles de GitHub y mejorar sus habilidades mediante un asistente de IA local con arquitectura Thinking RAG.
-
-## 🎯 **Novedades v2.46.0 (Mathematical Pipeline & Orbital Radar)**
-- **Robust Text Engine**: Centralización total del renderizado de canvas (`LabelRenderer`) con offsets matemáticos para evitar colisiones.
-- **Orbital Satellite Dynamics**: Satélites del Radar con movimiento orbital dinámico alrededor del nodo de Inteligencia.
-- **Collision-Free Layout**: Posicionamiento alterno de etiquetas y alineación de sectores con 100% de fidelidad forense.
-
-## 🎯 **Novedades v2.45.0 (Multi-Agent Orchestration)**
-- **Elite Orchestration Patterns**: Implementación de esquemas multi-agente con razonamiento preventivo y ejecución paralela vía Qwen CLI.
-
-## 🎯 **Novedades v2.43.0 (Core Architecture & SOLID)**
-
-## 📚 **Documentación Técnica**
-- **[Arquitectura Completa](docs/architecture/)**: Diagramas y documentación detallada
-- **[Manual de Tracing](docs/TRACER_MANUAL.md)**: Guía del sistema de auditoría
-- **[Auditoría Técnica](docs/audit_report.md)**: Reporte de calidad del código
-
-## ✨ Características Principales
-
-### 🔐 **Seguridad y Autenticación**
-*   **Autenticación con GitHub:** Login OAuth seguro con gestión de sesión persistente.
-*   **Firewall Integrado:** Monitoreo y control de todas las comunicaciones de red.
-*   **Aislamiento de Procesos:** Main Process y Renderer Process completamente separados.
-*   **Token Security:** Almacenamiento seguro de credenciales OAuth.
-
-### 📝 **Editor de README Inteligente**
-*   **Generación de banners animados (Welcome Headers).**
-*   **Estadísticas de GitHub (GitHub Readme Stats).**
-*   **Gráficos de lenguajes y contribuciones (Snake Game).**
-*   **Templates personalizables y previews en tiempo real.**
-
-### 🧠 **Asistente de IA Avanzado (Thinking RAG System)**
-*   **Motor:** **LFM 2.5 (1.2B Parameters)** vía `llama.cpp`.
-*   **Chain of Thought:** IA que razona antes de ejecutar acciones.
-*   **Sistema de Herramientas:** Tools inteligentes (`query_memory`, `read_file`, `analyze_code`, etc.).
-*   **Arquitectura Cortex:** Separación entre razonamiento estratégico y comunicación natural.
-*   **Arquitectura Triple-Server**:
-    *   **Chat (GPU - 8000):** LFM 2.5 para respuestas conversacionales rápidas.
-    *   **Inteligencia (CPU - 8002):** Mappers y Síntesis de ADN sin el bloqueo del GPU.
-    *   **Vectores (CPU - 8001):** Nomic Embed Text v1.5 para memoria semántica.
-*   **Memoria Jerárquica:**
-    *   **Hallazgos:** Vectores semánticos de código analizado.
-    *   **ADN Técnico:** Curación profunda de patrones de desarrollo.
-    *   **Identidad Técnica:** Perfil cognitivo del desarrollador.
-*   **Analista de Código Avanzado:**
-    *   Scanning inteligente de hasta 500 repositorios.
-    *   Análisis paralelo con 3 workers GPU concurrentes.
-    *   Detección automática de tecnologías y patrones.
-*   **Cache Offline Inteligente:** Sistema `aiSnippet` para análisis sin internet.
-
-### 🔍 **Sistema de Análisis de Perfil (SOLID)**
-*   **Pipeline Desacoplado:** Scanning (FileAuditor) → Filtering (FileFilter) → Processing (Workers) → Curation (InsightsCurator) → Synthesis.
-*   **AI Circuit Breaker:** Protección contra fallos de red/servidor en `AIClient.js`.
-*   **Análisis de Forks:** Detección automática de contribuciones en repositorios forked.
-*   **Filtrado Anti-Noise:** Eliminación inteligente de archivos irrelevantes via `FileFilter`.
-*   **Curación de Insights:** Deduplicación (Jaccard) y weighting centralizado.
-*   **Síntesis de ADN Técnico:** Creación de perfiles técnicos objetivos.
-
-### 🛡️ **Privacidad y Rendimiento**
-*   **Privacidad Total:** Todo procesa localmente, solo API calls directos a GitHub.
-*   **Zero External Dependencies:** No requiere servicios de terceros para funcionar.
-*   **Rendimiento Optimizado:** View Transitions nativas, lazy loading, virtual scrolling.
-*   **Health Monitoring:** Monitoreo continuo del estado de los servidores IA.
-
-## 🛠️ Tecnologías
-
-*   **Electron:** Framework de escritorio.
-*   **Node.js / Express:** Backend local.
-*   **Llama.cpp:** Inferencia de IA optimizada (Vulkan GPU Support).
-*   **Vainilla JS / CSS:** Frontend ligero y performante.
-
-## 📦 Instalación
-
-1.  **Requisitos:**
-    *   Node.js (v16+)
-    *   Python (para scripts de prueba)
-    *   Tarjeta Gráfica compatible con Vulkan (Opcional, pero recomendado).
-
-2.  **Setup:**
-    ```bash
-    npm install
-    ```
-
-3.  **Ejecución:**
-    ```bash
-    ```bash
-    start.bat
-    ```
-    *Usa el menú interactivo para iniciar la pila completa (App + Dual AI Servers) o gestionar los procesos individualmente.*
-
-## 🧪 **Testing y Desarrollo**
-
-### Scripts de Verificación
-```bash
-# Verificar flujo completo de análisis
-node scripts/verify_agent_flow.py
-
-# Tests end-to-end con Electron
-node scripts/test_headless_concept.js
-
-# Verificar integridad de handlers IPC
-node scripts/verify_integrity.js
-
-# Testing del sistema de memoria
-node scripts/verify_rag_flow.js
-
-# Auditoría forense completa
-node scripts/tools/tracer/ultimate_multitier_tracer.mjs
-```
-
-### Scripts de Análisis
-```bash
-# Simulación de análisis vectorial
-node scripts/simulate_vector_search.mjs
-
-# Tests metabólicos del sistema
-node scripts/tests/test_metabolic_evolution.mjs
-
-# Verificación de widgets UI
-node scripts/verify_widgets.js
-```
-
-## 🤖 Comandos de IA
-
-Habla con el asistente en el chat lateral usando lenguaje natural:
-
-### 📊 **Análisis de Código**
-*   *"Analiza mi perfil de GitHub"*
-*   *"Qué tecnologías uso más?"*
-*   *"Dime qué tipo de desarrollador soy"*
-*   *"Revisa el repo 'mi-proyecto' y dame feedback"*
-
-### 🧠 **Sistema RAG (Thinking)**
-*   *"Qué recuerdo sobre mis proyectos en Python?"* (query_memory)
-*   *"Cuéntame sobre mi experiencia con React"* (semantic search)
-*   *"Cómo he evolucionado como developer?"* (technical DNA)
-
-### 📝 **Editor de README**
-*   *"Pon un banner estilo shark color rojo"*
-*   *"Agrega estadísticas de GitHub"*
-*   *"Genera una serpiente de contribuciones"*
-*   *"Crea un header animado"*
-
-### 🔧 **Herramientas del Sistema**
-*   *"Verifica el estado de los servicios"* (system health)
-*   *"Limpia la caché del sistema"* (cache management)
-*   *"Audita la configuración"* (system audit)
+GitTeach is a high-performance desktop platform (Electron) engineered for deep technical audit, forensic habits analysis, and autonomous Developer DNA synthesis. Powered by a **Triple-Server Local AI Architecture**, it transforms raw repository data into high-fidelity behavioral insights.
 
 ---
-## 📄 License
 
-GitTeach is licensed under the **GNU Affero General Public License v3.0**.
+## 🍱 **The Master UI (v2.50.0)**
+The latest evolution introduces the **Unified Master Console**:
+- **Ultra-Compact Header**: A 32px premium control bar that consolidates global telemetery and analysis configuration.
+- **Pure Iconic Interface**: Minimalist geometric controls (Verify, Play, Pause, Stop) for a zero-noise dashboard experience.
+- **Real-Time Fleet Telemetry**: Instant visualization of AI slot activity across the GPU and CPU cluster.
+- **Master Data Highway**: A high-DPI canvas visualizer that tracks every forensic package as it moves through the pipeline.
 
-This means:
-- ✅ You can use, modify, and distribute this software freely
-- ✅ Commercial use is allowed
-- ⚠️ If you run a modified version as a service (SaaS), you MUST release your source code
-- ⚠️ Derivative works must use the same license
+---
 
-See [LICENSE](LICENSE) for full details.
+## 🧠 **Modern AI Architecture**
 
-*Desarrollado con ❤️ por mauro3422*
+### **Architecture: The Cortex Pattern**
+GitTeach strictly decouples technical reasoning from human interaction:
+- **The Brain (Cortex)**: Orchestrates strategic thinking, tool selection (RAG, Scanning), and "Whisper" generation.
+- **The Voice (ChatAgent)**: Translates technical whispers into senior-level mentorship and creative persona output.
+
+### **The Triple-Server Cluster**
+To ensure zero-lag interactivity while processing massive repo data, GitTeach runs three localized AI nodes:
+| Server | Port | Role | Specifications |
+|--------|------|------|----------------|
+| **Brain** | `8000` | Chat & Orchestration | GPU Accelerated (Vulkan/LFM 2.5) |
+| **Intelligence** | `8002` | Mappers & Synthesis | Dedicated CPU Cluster (High Parallelism) |
+| **Vectors** | `8001` | Semantic Memory (RAG) | CPU Node (Nomic Embeddings) |
+
+---
+
+## ✨ **Core Forensic Capabilities**
+
+### 🧬 **Developer DNA Synthesis**
+Recursive Map-Reduce pipelines that analyze architectural patterns, error discipline, and collaborative style to build a persistent technical identity.
+- **Logic vs Knowledge Tracking**: Differentiates between coding mastery and documentation discipline.
+- **Resilience Forensics**: Automated anti-pattern tagging and error-posture scoring (0-5).
+
+### 🔍 **Master Pipeline Visualizer**
+A real-time assembly line audit system:
+- **Assembly Stages**: Extraction → High-Fidelity Analysis → Thematic Curation → Identity Evolution.
+- **Inspection Drawer**: Granular drill-down into any node's processing history and telemetry.
+- **Physical Data Particles**: Visual representation of "Data Packages" traveling between logic gates.
+
+### 🛡️ **Zero-Trust Local Privacy**
+- **100% On-Device**: No data, tokens, or code snippets ever leave your hardware.
+- **Air-Gapped Potential**: Powered by localized GGUF models and LevelDB persistence, designed to function without external AI subscriptions.
+
+---
+
+## 🛠️ **Technical Stack**
+- **Core Engine**: Electron + Node.js (ESM native).
+- **Inference Layer**: `llama.cpp` (Nkomo/LFM/Nomic optimization).
+- **Persistence**: LevelDB (LSM-Tree) for high-performance granular storage.
+- **UI Architecture**: Vanilla JS/CSS with a custom **Atomic Design System** (Tokens & Components).
+
+---
+
+## 📦 **Quick Start**
+
+1. **Install Dependencies**:
+   ```bash
+   npm install
+   ```
+
+2. **Launch the Master Console**:
+   ```bash
+   start.bat
+   ```
+   *The launcher will automatically manage the AI servers and bridge connections.*
+
+---
+
+## 🧪 **Technical Audits & Verification**
+Verify the system integrity using our forensic utility suite:
+```bash
+# Full agentic flow verification
+node scripts/verify_agent_flow.py
+
+# Modularized Forensic Engine test
+node scripts/verify_tracer_modular.js
+
+# Metadata & DNA Synthesis audit
+node scripts/verify_rag_flow.js
+```
+
+---
+
+## 🇪🇸 **Resumen en Español**
+**GitTeach** es una suite de inteligencia artificial forense diseñada para analizar el ADN técnico de los desarrolladores. Utiliza una arquitectura de **Triple Servidor Local** para garantizar privacidad total y alto rendimiento, permitiendo visualizar en tiempo real cómo la IA procesa, extrae y sintetiza hábitos de programación en un perfil técnico persistente.
+
+---
+
+## 📄 **License**
+Licensed under the **GNU Affero General Public License v3.0**. Proprietary derivations must publish source code.
+
+*Engineered with ❤️ by mauro3422*

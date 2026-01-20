@@ -149,6 +149,7 @@ export class StreamingHandler {
                     const { AIService } = await import('../aiService.js');
                     if (identity && AIService.setSessionContext) {
                         AIService.setSessionContext(this._buildSessionContextFromIdentity(identity));
+                        pipelineEventBus.emit('context:injected', { user: username });
                     }
                 }
             }

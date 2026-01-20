@@ -13,21 +13,23 @@ export const SectorRenderer = {
      * Draw a background sector for worker slots (GPU Cluster)
      */
     drawWorkerSector(ctx, width, height, nodeStates = {}) {
-        // Use physics positions for bounds
         const hubPos = LayoutEngine.getNodePos('workers_hub');
         const slot1Pos = LayoutEngine.getNodePos('worker_1');
         const slot3Pos = LayoutEngine.getNodePos('worker_3');
         const embPos = LayoutEngine.getNodePos('embedding_server');
 
-        const xHub = hubPos.x;
-        const xSlots = slot1Pos.x;
-        const centerX = (xHub + xSlots) / 2;
-        const y = hubPos.y; // Center of worker flow
+        // Dynamic Bounding Box
+        const nodes = [hubPos, slot1Pos, slot3Pos, embPos];
+        const minX = Math.min(...nodes.map(p => p.x)) - 60;
+        const maxX = Math.max(...nodes.map(p => p.x)) + 80;
+        const minY = Math.min(...nodes.map(p => p.y)) - 60;
+        const maxY = Math.max(...nodes.map(p => p.y)) + 60;
 
-        const w = (xSlots - xHub) + 140;
-        const h = Math.abs(slot3Pos.y - embPos.y) + 120;
+        const w = maxX - minX;
+        const h = maxY - minY;
+        const centerX = minX + w / 2;
+        const centerY = minY + h / 2;
 
-        // Calculate Activity (Is any node in this sector active?)
         const isActive = Object.keys(nodeStates).some(id =>
             (id === 'workers_hub' || id === 'embedding_server' || id.startsWith('worker_')) &&
             nodeStates[id] === 'active'
@@ -43,9 +45,9 @@ export const SectorRenderer = {
         ctx.lineWidth = 1.5;
         ctx.setLineDash([15, 8]);
         if (ctx.roundRect) {
-            ctx.roundRect(centerX - w / 2, y - h / 2, w, h, 20);
+            ctx.roundRect(minX, minY, w, h, 20);
         } else {
-            ctx.rect(centerX - w / 2, y - h / 2, w, h);
+            ctx.rect(minX, minY, w, h);
         }
         ctx.fill();
         ctx.stroke();
@@ -53,14 +55,13 @@ export const SectorRenderer = {
 
         ctx.setLineDash([]);
 
-        // Sector Title (DELEGATED)
         LabelRenderer.drawSectorTitle(
             ctx,
             'GPU_EXECUTION_CLUSTER',
             'CUDA_ACTIVE | PORT 8000 + 8001',
             centerX,
-            y - h / 2,
-            y + h / 2,
+            minY,
+            maxY,
             'rgba(56, 139, 253, 0.9)'
         );
     },
@@ -69,11 +70,20 @@ export const SectorRenderer = {
      * Draw a background sector for CPU mappers
      */
     drawCpuSector(ctx, width, height, nodeStates = {}) {
-        const mapperPos = LayoutEngine.getNodePos('mapper_habits');
-        const x = mapperPos.x;
-        const y = mapperPos.y;
-        const w = 180;
-        const h = 340;
+        const m1 = LayoutEngine.getNodePos('mapper_architecture');
+        const m2 = LayoutEngine.getNodePos('mapper_habits');
+        const m3 = LayoutEngine.getNodePos('mapper_stack');
+
+        const nodes = [m1, m2, m3];
+        const minX = Math.min(...nodes.map(p => p.x)) - 80;
+        const maxX = Math.max(...nodes.map(p => p.x)) + 80;
+        const minY = Math.min(...nodes.map(p => p.y)) - 60;
+        const maxY = Math.max(...nodes.map(p => p.y)) + 60;
+
+        const w = maxX - minX;
+        const h = maxY - minY;
+        const centerX = minX + w / 2;
+        const centerY = minY + h / 2;
 
         const isActive = Object.keys(nodeStates).some(id =>
             id.startsWith('mapper_') && nodeStates[id] === 'active'
@@ -89,9 +99,9 @@ export const SectorRenderer = {
         ctx.lineWidth = 1.5;
         ctx.setLineDash([10, 5]);
         if (ctx.roundRect) {
-            ctx.roundRect(x - w / 2, y - h / 2, w, h, 20);
+            ctx.roundRect(minX, minY, w, h, 20);
         } else {
-            ctx.rect(x - w / 2, y - h / 2, w, h);
+            ctx.rect(minX, minY, w, h);
         }
         ctx.fill();
         ctx.stroke();
@@ -99,14 +109,13 @@ export const SectorRenderer = {
 
         ctx.setLineDash([]);
 
-        // Sector Title (DELEGATED)
         LabelRenderer.drawSectorTitle(
             ctx,
             'CPU_MAPPER_CLUSTER',
             'PARALLEL_DOMAINS | PORT 8002',
-            x,
-            y - h / 2,
-            y + h / 2,
+            centerX,
+            minY,
+            maxY,
             'rgba(241, 126, 23, 0.9)'
         );
     },

@@ -13,6 +13,7 @@ echo [2] APP ONLY  (Electon)      - If server is already running
 echo [3] BRAIN ONLY (Server)      - LFM 2.5 Server only
 echo [4] KILL ALL                 - Stop background processes
 echo [5] EXIT
+echo [6] DESIGNER (Routing Playground)
 echo.
 set /p op="Select option: "
 
@@ -21,7 +22,14 @@ if "%op%"=="2" goto APP_ONLY
 if "%op%"=="3" goto SERVER_ONLY
 if "%op%"=="4" goto KILL_ALL
 if "%op%"=="5" exit
+if "%op%"=="6" goto ROUTING_DESIGNER
 
+goto MENU
+
+:ROUTING_DESIGNER
+echo.
+echo Iniciando Routing Designer...
+npm run design
 goto MENU
 
 :START_ALL
