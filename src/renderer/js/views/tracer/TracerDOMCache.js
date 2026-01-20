@@ -11,38 +11,59 @@ export const TracerDOMCache = {
      */
     cache() {
         this.els = {
-            btnRun: document.getElementById('btn-run-tracer'),
-            repoTargets: document.getElementById('repo-targets'),
-            progressFill: document.getElementById('progress-fill'),
-            progressText: document.getElementById('progress-text'),
-            queueText: document.getElementById('queue-text'),
-            aiStatus: document.getElementById('ai-status'),
-            logStream: document.getElementById('log-stream'),
-            sessionId: document.getElementById('session-id'),
-            fleet: {
-                8000: document.getElementById('fleet-8000'),
-                8001: document.getElementById('fleet-8001'),
-                8002: document.getElementById('fleet-8002')
-            },
-            // Debugger elements
+            // High-level containers
             debuggerSection: document.getElementById('debugger-section'),
             debuggerContainer: document.getElementById('debugger-container'),
-            btnToggleDebugger: document.getElementById('btn-toggle-debugger')
+            logStream: document.getElementById('log-stream'),
+
+            // Centralized Controls (in Canvas Header)
+            btnRun: document.getElementById('canvas-play'),
+            btnStop: document.getElementById('canvas-stop'),
+            btnStep: document.getElementById('canvas-step'),
+
+            repoTargets: document.getElementById('cfg-max-repos'),
+            cfgMaxFiles: document.getElementById('cfg-max-files'),
+
+            // Progress & Status
+            progressFill: document.getElementById('canvas-progress-fill'),
+            progressText: document.getElementById('canvas-progress-text'),
+            aiStatus: document.getElementById('ai-status'),
+            sessionId: document.getElementById('session-id')
         };
+    },
+
+    /**
+     * Re-cache elements (useful after dynamic DOM changes like PipelineCanvas init)
+     */
+    refresh() {
+        this.cache();
     },
 
     /**
      * Get a cached element by key
      */
     get(key) {
+        // Fallback for dynamic elements not yet in cache
+        if (!this.els[key]) {
+            const mappedId = this.getMapId(key);
+            this.els[key] = document.getElementById(mappedId);
+        }
         return this.els[key];
     },
 
     /**
-     * Get fleet container for specific port
+     * Helper to map internal keys to DOM IDs
      */
-    getFleet(port) {
-        return this.els.fleet[port];
+    getMapId(key) {
+        const maps = {
+            btnRun: 'canvas-play',
+            btnStop: 'canvas-stop',
+            btnStep: 'canvas-step',
+            repoTargets: 'cfg-max-repos',
+            progressFill: 'canvas-progress-fill',
+            progressText: 'canvas-progress-text'
+        };
+        return maps[key] || key;
     },
 
     /**
@@ -50,9 +71,15 @@ export const TracerDOMCache = {
      */
     getDebugger() {
         return {
-            section: this.els.debuggerSection,
-            container: this.els.debuggerContainer,
-            button: this.els.btnToggleDebugger
+            section: this.get('debuggerSection'),
+            container: this.get('debuggerContainer')
         };
+    },
+
+    /**
+     * Helper for fleet containers
+     */
+    getFleet(port) {
+        return document.getElementById(`canvas-fleet-${port}`);
     }
 };

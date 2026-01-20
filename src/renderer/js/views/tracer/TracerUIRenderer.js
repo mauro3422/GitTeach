@@ -20,30 +20,46 @@ export const TracerUIRenderer = {
      */
     updateButton(state) {
         const btn = this.domCache.get('btnRun');
+        const btnStop = this.domCache.get('btnStop');
         if (!btn) return;
+
+        // Ultra-minimalist geometric icons
+        const playIcon = '<svg viewBox="0 0 24 24" width="18"><path fill="currentColor" d="M8,5v14l11-7L8,5z"/></svg>';
+        const pauseIcon = '<svg viewBox="0 0 24 24" width="18"><path fill="currentColor" d="M6,19h4V5H6V19z M14,5v14h4V5H14z"/></svg>';
+        // For verify, we'll use a simple "target" or "dotted play" - let's use a simple triangle outline
+        const verifyIcon = '<svg viewBox="0 0 24 24" width="18"><path fill="none" stroke="currentColor" stroke-width="2" d="M8,5v14l11-7L8,5z"/></svg>';
 
         switch (state) {
             case 'IDLE':
-                btn.textContent = '🔍 VERIFY_AI_FLEET';
-                btn.style.background = 'linear-gradient(90deg, #21262d, #30363d)';
+                btn.innerHTML = verifyIcon;
+                btn.className = 'control-btn control-btn--verify';
                 btn.disabled = false;
+                if (btnStop) btnStop.disabled = true;
                 break;
             case 'VERIFYING':
-                btn.textContent = '⌛ VERIFYING_FLEET...';
+                btn.innerHTML = '<span class="pulse-dot"></span>';
                 btn.disabled = true;
                 break;
             case 'READY':
-                btn.textContent = '🚀 START_FLIGHT_RECODER';
-                btn.style.background = 'linear-gradient(90deg, #238636, #2ea043)';
+                btn.innerHTML = playIcon;
+                btn.className = 'control-btn control-btn--primary';
                 btn.disabled = false;
+                if (btnStop) btnStop.disabled = true;
                 break;
             case 'RUNNING':
-                btn.textContent = '🛑 STOP_ANALYSIS';
-                btn.style.background = 'linear-gradient(90deg, #da3633, #f85149)';
+                btn.innerHTML = pauseIcon;
+                btn.className = 'control-btn control-btn--pause';
                 btn.disabled = false;
+                if (btnStop) btnStop.disabled = false;
+                break;
+            case 'PAUSED':
+                btn.innerHTML = playIcon;
+                btn.className = 'control-btn control-btn--primary';
+                btn.disabled = false;
+                if (btnStop) btnStop.disabled = false;
                 break;
             case 'STOPPING':
-                btn.textContent = '⌛ STOPPING...';
+                btn.innerHTML = '<span class="pulse-dot"></span>';
                 btn.disabled = true;
                 break;
         }
@@ -55,23 +71,13 @@ export const TracerUIRenderer = {
     updateProgress(stats) {
         const analyzed = stats.analyzed || 0;
         const total = stats.totalFiles || 0;
-
-        // Calculate real percentage from stats
         const percent = total > 0 ? Math.round((analyzed / total) * 100) : 0;
 
         const progressFill = this.domCache.get('progressFill');
         const progressText = this.domCache.get('progressText');
-        const queueText = this.domCache.get('queueText');
 
-        if (progressFill) {
-            progressFill.style.width = `${percent}%`;
-        }
-        if (progressText) {
-            progressText.textContent = `${percent}%`;
-        }
-        if (queueText) {
-            queueText.textContent = `${analyzed}/${total}`;
-        }
+        if (progressFill) progressFill.style.width = `${percent}%`;
+        if (progressText) progressText.textContent = `${percent}%`;
     },
 
     /**

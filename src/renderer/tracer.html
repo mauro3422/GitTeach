@@ -34,82 +34,14 @@
             </div>
         </header>
 
-        <main class="tracer-grid">
-            <!-- Left: Configuration -->
-            <section class="panel config-overlay card--compact">
-                <div class="card__header card__header--flush">
-                    <span class="card__icon">🎯</span>
-                    <h3 class="card__title">ANALYSIS_CONFIG</h3>
-                </div>
-                <div class="row gap-lg mt-sm">
-                    <div class="input-group">
-                        <span class="input-group__label">REPOS</span>
-                        <input type="number" id="cfg-max-repos" class="input-group__field" value="10" min="1" max="50">
-                    </div>
-                    <div class="input-group">
-                        <span class="input-group__label">FILES</span>
-                        <input type="number" id="cfg-max-files" class="input-group__field" value="10" min="1" max="100">
-                    </div>
-                    <button id="btn-run-tracer" class="btn btn--primary btn--sm ml-auto">
-                        ▶ START
-                    </button>
-                </div>
-            </section>
-
-            <!-- Middle: Server Fleet -->
-            <section class="panel fleet-panel card--compact">
-                <div class="card__header card__header--flush">
-                    <span class="card__icon">📡</span>
-                    <h3 class="card__title">AI_FLEET</h3>
-                </div>
-                <div class="fleet-grid mt-sm" id="server-fleet">
-                    <div class="fleet-item" id="fleet-8000">
-                        <span class="fleet-name">BRAIN</span>
-                        <div class="slots-grid"></div>
-                        <span class="fleet-status">OFFLINE</span>
-                    </div>
-                    <div class="fleet-item" id="fleet-8002">
-                        <span class="fleet-name">MAPPERS</span>
-                        <div class="slots-grid"></div>
-                        <span class="fleet-status">OFFLINE</span>
-                    </div>
-                    <div class="fleet-item" id="fleet-8001">
-                        <span class="fleet-name">VECTORS</span>
-                        <div class="slots-grid"></div>
-                        <span class="fleet-status">OFFLINE</span>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Right: Live Progress -->
-            <section class="panel status-panel card--compact">
-                <div class="card__header card__header--flush">
-                    <span class="card__icon">📊</span>
-                    <h3 class="card__title">PIPELINE_STATUS</h3>
-                </div>
-                <div class="progress progress--compact mt-sm">
-                    <div class="progress__bar">
-                        <div id="progress-fill" class="progress__fill" style="width: 0%"></div>
-                    </div>
-                    <span id="progress-text" class="progress__percent">0%</span>
-                    <span id="queue-text" class="progress__count">0/0 files</span>
-                </div>
-            </section>
         </main>
 
-        <!-- Pipeline Canvas Visualizer -->
-        <section id="debugger-section" class="canvas-wrapper hidden">
+        <!-- Pipeline Canvas Visualizer (Header now contains ALL controls) -->
+        <section id="debugger-section" class="canvas-wrapper">
             <div id="debugger-container">
                 <!-- PipelineCanvas renders here dynamically -->
             </div>
         </section>
-
-        <!-- Toggle Debugger Button -->
-        <div class="row row--center mt-md mb-md">
-            <button id="btn-toggle-debugger" class="btn btn--ghost btn--sm" title="Toggle Pipeline Debugger">
-                🎮 DEBUGGER
-            </button>
-        </div>
 
         <!-- Bottom: Real-time Telemetry -->
         <footer class="panel log-panel card--compact">

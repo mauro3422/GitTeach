@@ -28,37 +28,49 @@ export const TracerController = {
                 context: { component: 'TracerController' }
             });
 
-            // Cache DOM elements
+            // 1. Initial Cache of static elements
             TracerDOMCache.cache();
 
-            // Initialize state manager
-            TracerStateManager.reset();
-
-            // Initialize UI renderers
-            TracerUIRenderer.init(TracerDOMCache);
-            TracerFleetRenderer.init(TracerDOMCache);
-
-            // Initialize event handler
-            TracerEventHandler.init(this);
-
-            // Initialize analysis manager
-            TracerAnalysisManager.init();
-
-            // Set up external integrations
-            this.setupIntegrations();
-
-            // Initial checks
-            await this.checkAIStatus();
-            this.loadRecentSession();
-
-            // Initialize Pipeline Canvas
+            // 2. Initialize Pipeline Canvas FIRST (creates dynamic header)
             const debuggerContainer = TracerDOMCache.getDebugger().container;
             if (debuggerContainer) {
-                RendererLogger.info('[TracerController] Initializing PipelineCanvas...', {
+                RendererLogger.info('[TracerController] Initializing PipelineCanvas (Master UI)...', {
                     context: { component: 'TracerController' }
                 });
                 PipelineCanvas.init(debuggerContainer);
+
+                // Final resize check
+                setTimeout(() => PipelineCanvas.resizeCanvas(), 100);
             }
+
+            // 3. RE-CACHE to pick up elements inside the Canvas Header
+            TracerDOMCache.refresh();
+
+            // 4. Initialize specialized services
+            await fleetMonitor.init();
+            TracerStateManager.reset();
+
+            // 5. Initialize UI renderers (now they find the elements in the header)
+            TracerUIRenderer.init(TracerDOMCache);
+            TracerFleetRenderer.init(TracerDOMCache);
+
+            // 6. Initialize event handler & analysis manager
+            TracerEventHandler.init(this);
+            TracerAnalysisManager.init();
+
+            // 7. Set up external integrations
+            this.setupIntegrations();
+
+            // 8. Initial checks
+            await this.checkAIStatus();
+            this.loadRecentSession();
+
+            // Sync current fleet state
+            const currentState = fleetMonitor.getState();
+            if (currentState) {
+                TracerFleetRenderer.render(currentState);
+            }
+            setTimeout(() => fleetMonitor.refresh(), 500);
 
             // Initial fleet verification
             setTimeout(() => this.verifyFleet(), 500);
@@ -67,11 +79,9 @@ export const TracerController = {
                 context: { component: 'TracerController' }
             });
 
-        } catch (e) {
-            RendererLogger.error('[TracerController] FATAL_INIT_ERROR:', {
-                context: { component: 'TracerController', error: e.message },
-                debugData: { stack: e.stack }
-            });
+        } catch (error) {
+            RendererLogger.error('[TracerController] FATAL_INIT_ERROR:', error);
+            console.error('[TracerController] Fatal initialization failure:', error);
         }
     },
 
@@ -102,9 +112,32 @@ export const TracerController = {
             await this.verifyFleet();
         } else if (state === 'READY') {
             await this.startAnalysis();
-        } else if (state === 'RUNNING') {
-            await this.stopAnalysis();
+        } else if (state === 'RUNNING' || state === 'PAUSED') {
+            // Toggles between play/pause of the visualizer behavior
+            this.togglePlayback();
         }
+    },
+
+    /**
+     * Toggle visualizer playback
+     */
+    togglePlayback() {
+        if (pipelineController.isPaused()) {
+            pipelineController.play();
+            TracerStateManager.transitionTo('RUNNING');
+            TracerUIRenderer.updateButton('RUNNING');
+        } else {
+            pipelineController.pause();
+            TracerStateManager.transitionTo('PAUSED');
+            TracerUIRenderer.updateButton('PAUSED');
+        }
+    },
+
+    /**
+     * Handle manual step
+     */
+    handleStep() {
+        pipelineController.step();
     },
 
     /**

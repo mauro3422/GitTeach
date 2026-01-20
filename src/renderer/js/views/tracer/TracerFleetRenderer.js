@@ -22,17 +22,19 @@ export const TracerFleetRenderer = {
             const data = state[port];
             if (!data.online) {
                 this.renderOffline(port);
+                this.renderCanvasOffline(port);
             } else {
                 this.renderLive(port, data);
+                this.renderCanvasLive(port, data);
             }
         }
     },
 
     /**
-     * Render offline state for a server
+     * Render offline state for a server (main panel)
      */
     renderOffline(port) {
-        const container = this.domCache.getFleet(port);
+        const container = this.domCache?.getFleet(port);
         if (!container) return;
 
         const statusEl = container.querySelector('.fleet-status');
@@ -48,10 +50,10 @@ export const TracerFleetRenderer = {
     },
 
     /**
-     * Render live state for a server with slots
+     * Render live state for a server with slots (main panel)
      */
     renderLive(port, data) {
-        const container = this.domCache.getFleet(port);
+        const container = this.domCache?.getFleet(port);
         if (!container) return;
 
         const statusEl = container.querySelector('.fleet-status');
@@ -65,6 +67,47 @@ export const TracerFleetRenderer = {
         }
 
         // Render slots grid
+        if (slotsContainer) {
+            slotsContainer.innerHTML = '';
+            this.renderSlots(slotsContainer, data.slots, data.total_slots);
+        }
+    },
+
+    /**
+     * Render offline state for canvas header fleet box
+     */
+    renderCanvasOffline(port) {
+        const container = document.getElementById(`canvas-fleet-${port}`);
+        if (!container) return;
+
+        const statusEl = container.querySelector('.fleet-status');
+        const slotsContainer = container.querySelector('.slots-grid');
+
+        if (statusEl) {
+            statusEl.textContent = 'OFFLINE';
+            statusEl.style.color = '#8b949e';
+        }
+        if (slotsContainer) {
+            slotsContainer.innerHTML = '';
+        }
+    },
+
+    /**
+     * Render live state for canvas header fleet box
+     */
+    renderCanvasLive(port, data) {
+        const container = document.getElementById(`canvas-fleet-${port}`);
+        if (!container) return;
+
+        const statusEl = container.querySelector('.fleet-status');
+        const slotsContainer = container.querySelector('.slots-grid');
+
+        if (statusEl) {
+            statusEl.textContent = 'LIVE';
+            statusEl.style.color = '#3fb950';
+        }
+
+        // Render slots with full animation support
         if (slotsContainer) {
             slotsContainer.innerHTML = '';
             this.renderSlots(slotsContainer, data.slots, data.total_slots);

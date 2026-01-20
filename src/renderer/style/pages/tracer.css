@@ -134,3 +134,41 @@ body {
     line-height: var(--leading-relaxed);
     color: var(--text-muted);
 }
+
+/* =============================================
+   COMPACT TRACER LAYOUT
+   ============================================= */
+
+.tracer-grid--compact {
+    display: flex;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
+}
+
+.tracer-grid--compact .config-overlay {
+    flex: 1;
+    padding: var(--space-sm) var(--space-md);
+}
+
+.config-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.input-group--mini {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.input-group--mini .input-group__label {
+    font-size: 0.65rem;
+    min-width: auto;
+}
+
+.input-group--mini .input-group__field {
+    width: 60px;
+    padding: 4px 8px;
+    font-size: 0.75rem;
+}

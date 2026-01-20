@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.50.0] - Unified Master Console & Ultra-Compact Header - 2026-01-20
+### 🚀 Unified Playback & Analysis Controls
+- **Unified Master Button**: Consolidated "Verify", "Start", and "Pause" into a single dynamic geometric control in `TracerUIRenderer.js`.
+- **Pure Iconic Interface**: Removed all text labels from header controls, switching to a high-end minimalist geometric icon set.
+- **Dedicated Stop Control**: Added a standalone "Stop" button for independent analysis termination.
+- **Streamlined Workflow**: Optimized state transitions in `TracerController.js` for a smoother analysis lifecycle.
+
+### 🍱 Ultra-Compact Header Redesign
+- **Vertical Optimization**: Reduced `canvas-header` height from 40px to 32px to maximize visualizer space.
+- **Master UI Consolidation**: Moved all analysis configuration (repos, files) and telemetry (fleet, progress) into a single high-performance top bar.
+- **Minimalist Styling**: Updated `debugger-canvas.css` with a 32px height grid, 28px square buttons, and subtle pulse-dot loading indicators.
+- **Visual Polish**: Improved backdrop filters, glows, and shadow scales for a premium "Master Console" aesthetic.
+
+### 🛡️ Critical Fixes & Stability
+- **FATAL_INIT_ERROR Fix**: Resolved DOM reference issues in `TracerDOMCache.js` by updating element mappings for the new header structure.
+- **Fleet Connectivity Restoration**: Restored visibility and real-time animation of AI fleet slots (BRAIN, MAPPERS, VECTORS) in the canvas header.
+- **Resource Management**: Optimized `TracerFleetRenderer.js` to handle compact rendering without data loss.
+
 ## [2.48.0] - Design System & TracerView SOLID Modularization - 2026-01-20
 ### 🎨 Design System: Unified CSS Architecture
 - **tokens.css (New)**: Centralized CSS custom properties with 8px grid system, spacing scale, typography, and z-index tokens.

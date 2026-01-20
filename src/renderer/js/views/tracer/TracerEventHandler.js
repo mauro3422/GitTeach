@@ -23,20 +23,19 @@ export const TracerEventHandler = {
     bindEvents() {
         const domCache = this.controller.domCache;
         const btnRun = domCache.get('btnRun');
-        const btnToggleDebugger = domCache.get('btnToggleDebugger');
+        const btnStop = domCache.get('btnStop');
+        const btnStep = domCache.get('btnStep');
 
         if (btnRun) {
             btnRun.addEventListener('click', () => this.handleActionClick());
         }
-
-        // Toggle debugger visibility
-        if (btnToggleDebugger) {
-            btnToggleDebugger.addEventListener('click', () => this.handleToggleDebugger());
+        if (btnStop) {
+            btnStop.addEventListener('click', () => this.handleStopClick());
         }
     },
 
     /**
-     * Handle main action button clicks
+     * Handle main action button clicks (Verify / Start / Play-Pause toggle)
      */
     handleActionClick() {
         if (this.controller) {
@@ -45,81 +44,20 @@ export const TracerEventHandler = {
     },
 
     /**
-     * Handle debugger toggle
+     * Handle stop button
      */
-    handleToggleDebugger() {
-        RendererLogger.info('[TracerEventHandler] Toggling Debugger...', {
-            context: { component: 'TracerEventHandler' }
-        });
-
-        const debuggerEls = this.controller.domCache.getDebugger();
-        const section = debuggerEls.section;
-        const btn = debuggerEls.button;
-
-        if (!section) {
-            RendererLogger.error('[TracerEventHandler] FATAL: debuggerSection not found', {
-                context: { component: 'TracerEventHandler' }
-            });
-            return;
-        }
-
-        const isCurrentlyHidden = section.classList.contains('hidden') || section.style.display === 'none';
-
-        RendererLogger.info('[TracerEventHandler] Debugger current state:', {
-            context: {
-                component: 'TracerEventHandler',
-                isCurrentlyHidden,
-                classList: section.className,
-                display: section.style.display
-            }
-        });
-
-        if (isCurrentlyHidden) {
-            this.showDebugger();
-        } else {
-            this.hideDebugger();
+    handleStopClick() {
+        if (this.controller) {
+            this.controller.stopAnalysis();
         }
     },
 
     /**
-     * Show debugger section
+     * Handle step button
      */
-    showDebugger() {
-        const debuggerEls = this.controller.domCache.getDebugger();
-        const section = debuggerEls.section;
-        const btn = debuggerEls.button;
-
-        section.classList.remove('hidden');
-        section.style.display = 'flex';
-        if (btn) btn.classList.add('active');
-
-        RendererLogger.info('[TracerEventHandler] Debugger FORCED TO VISIBLE', {
-            context: { component: 'TracerEventHandler' }
-        });
-
-        // Critical for Canvas geometry
-        setTimeout(() => {
-            RendererLogger.info('[TracerEventHandler] Recalculating Canvas Geometry...', {
-                context: { component: 'TracerEventHandler' }
-            });
-            PipelineCanvas.resizeCanvas();
-        }, 50);
-    },
-
-    /**
-     * Hide debugger section
-     */
-    hideDebugger() {
-        const debuggerEls = this.controller.domCache.getDebugger();
-        const section = debuggerEls.section;
-        const btn = debuggerEls.button;
-
-        section.classList.add('hidden');
-        section.style.display = 'none';
-        if (btn) btn.classList.remove('active');
-
-        RendererLogger.info('[TracerEventHandler] Debugger FORCED TO HIDDEN', {
-            context: { component: 'TracerEventHandler' }
-        });
+    handleStepClick() {
+        if (this.controller && this.controller.handleStep) {
+            this.controller.handleStep();
+        }
     }
 };

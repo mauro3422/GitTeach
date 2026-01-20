@@ -77,17 +77,53 @@ export const PipelineCanvas = {
         const wrapper = document.createElement('div');
         wrapper.className = 'canvas-inner-container';
 
+        // Create Header
         const header = document.createElement('div');
         header.className = 'canvas-header';
         header.innerHTML = `
-            <div class="header-left">
-                <span class="header-icon">🧪</span>
-                <span class="header-title">PIPELINE_FLOW_AUDIT</span>
+            <div class="header-section header-config">
+                <div class="config-item">
+                    <span class="config-label">REPOS</span>
+                    <input type="number" id="cfg-max-repos" class="config-input" value="10" min="1" max="50">
+                </div>
+                <div class="config-item">
+                    <span class="config-label">FILES</span>
+                    <input type="number" id="cfg-max-files" class="config-input" value="10" min="1" max="100">
+                </div>
             </div>
-            <div class="header-controls">
-                <button id="canvas-play" title="Resume Pipeline">▶</button>
-                <button id="canvas-pause" title="Pause Pipeline">⏸</button>
-                <button id="canvas-step" title="Step Forward">⏭</button>
+
+            <div class="header-section header-controls">
+                <button id="canvas-play" class="control-btn control-btn--primary" title="Start / Pause">
+                    <svg viewBox="0 0 24 24"><path fill="currentColor" d="M8,5.14V19.14L19,12.14L8,5.14Z" /></svg>
+                </button>
+                <button id="canvas-stop" class="control-btn" title="Stop Analysis">
+                    <svg viewBox="0 0 24 24"><path fill="currentColor" d="M18,18H6V6H18V18Z" /></svg>
+                </button>
+            </div>
+
+            <div class="header-section header-fleet">
+                <div class="fleet-item fleet-item--compact" id="canvas-fleet-8000">
+                    <span class="fleet-name">BRAIN (GPU:8000)</span>
+                    <div class="slots-grid"></div>
+                    <span class="fleet-status">--</span>
+                </div>
+                <div class="fleet-item fleet-item--compact" id="canvas-fleet-8002">
+                    <span class="fleet-name">MAPPERS (CPU:8002)</span>
+                    <div class="slots-grid"></div>
+                    <span class="fleet-status">--</span>
+                </div>
+                <div class="fleet-item fleet-item--compact" id="canvas-fleet-8001">
+                    <span class="fleet-name">VECTORS (EMB:8001)</span>
+                    <div class="slots-grid"></div>
+                    <span class="fleet-status">--</span>
+                </div>
+            </div>
+
+            <div class="header-section header-progress">
+                <div class="progress-bar-mini">
+                    <div id="canvas-progress-fill" class="progress-fill-mini"></div>
+                </div>
+                <span id="canvas-progress-text" class="progress-text-mini">0%</span>
             </div>
         `;
 
