@@ -1,0 +1,117 @@
+/* 
+  input.css - Input Component
+  Form inputs, input groups, and field styles.
+  Requires: tokens.css
+*/
+
+/* =============================================
+   BASE INPUT
+   ============================================= */
+
+.input {
+    height: var(--height-sm);
+    padding: 0 var(--space-sm);
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-sm);
+    color: var(--text-main);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    transition: border-color var(--duration-fast) var(--ease-default);
+}
+
+.input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.input::placeholder {
+    color: var(--text-muted);
+}
+
+/* =============================================
+   SIZE VARIANTS
+   ============================================= */
+
+.input--xs {
+    height: var(--height-xs);
+    font-size: var(--text-2xs);
+    padding: 0 var(--space-xs);
+}
+
+.input--lg {
+    height: var(--height-md);
+    font-size: var(--text-sm);
+}
+
+/* =============================================
+   WIDTH VARIANTS
+   ============================================= */
+
+.input--narrow {
+    width: 50px;
+    text-align: center;
+}
+
+.input--compact {
+    width: 60px;
+    text-align: center;
+}
+
+.input--full {
+    width: 100%;
+}
+
+/* =============================================
+   INPUT GROUP (Label + Input inline)
+   ============================================= */
+
+.input-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.input-group__label {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.input-group__field {
+    width: 60px;
+    height: var(--height-xs);
+    padding: 0 var(--space-xs);
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-sm);
+    color: var(--text-main);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-align: center;
+}
+
+.input-group__field:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+/* =============================================
+   STACKED INPUT GROUP
+   ============================================= */
+
+.input-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.input-stack__label {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+}

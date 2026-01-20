@@ -1,0 +1,31 @@
+/* 
+  index.css - Design System Entry Point
+  Import this file to get the complete design system.
+  
+  Order matters:
+  1. Tokens (CSS variables)
+  2. Utils (layout, typography, display)
+  3. Components (card, button, etc.)
+*/
+
+/* =============================================
+   1. TOKENS
+   ============================================= */
+@import './tokens.css';
+
+/* =============================================
+   2. UTILITIES
+   ============================================= */
+@import './utils/layout.css';
+@import './utils/typography.css';
+@import './utils/display.css';
+
+/* =============================================
+   3. COMPONENTS
+   ============================================= */
+@import './components/card.css';
+@import './components/button.css';
+@import './components/badge.css';
+@import './components/progress.css';
+@import './components/input.css';
+/* Fleet component already exists, no need to duplicate */

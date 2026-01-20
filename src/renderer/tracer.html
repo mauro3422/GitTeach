@@ -8,15 +8,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GitTeach // Tracer Controls</title>
 
-    <!-- Base Styles (moved from css/ to style/pages/) -->
-    <link rel="stylesheet" href="style/pages/monitoring.css">
-    <!-- Fleet Component (shared) -->
-    <link rel="stylesheet" href="style/components/fleet.css">
+    <!-- 1. Design System (tokens, utils, base components) -->
+    <link rel="stylesheet" href="style/design-system.css">
 
-    <!-- Tracer-Specific Styles (page-level) -->
+    <!-- 2. Base Page Styles -->
+    <link rel="stylesheet" href="style/pages/monitoring.css">
+
+    <!-- 3. Tracer-Specific Styles -->
     <link rel="stylesheet" href="style/pages/tracer.css">
 
-    <!-- Pipeline Debugger Styles -->
+    <!-- 4. Fleet Component (shared) -->
+    <link rel="stylesheet" href="style/components/fleet.css">
+
+    <!-- 5. Pipeline Debugger Styles -->
     <link rel="stylesheet" href="style/debugger/index.css">
 </head>
 
@@ -32,50 +36,45 @@
 
         <main class="tracer-grid">
             <!-- Left: Configuration -->
-            <section class="panel config-overlay">
-                <h3>🎯 ANALYSIS_TARGETS</h3>
-                <div class="config-group">
-                    <div class="config-item">
-                        <label>MAX_REPOS</label>
-                        <input type="number" id="cfg-max-repos" value="10" min="1" max="50">
-                    </div>
-                    <div class="config-item">
-                        <label>MAX_FILES_PER_REPO</label>
-                        <input type="number" id="cfg-max-files" value="10" min="1" max="100">
-                    </div>
+            <section class="panel config-overlay card--compact">
+                <div class="card__header card__header--flush">
+                    <span class="card__icon">🎯</span>
+                    <h3 class="card__title">ANALYSIS_CONFIG</h3>
                 </div>
-
-                <div class="repo-list" id="repo-targets">
-                    <div class="repo-item">
-                        <span>mauro3422/GitTeach</span>
-                        <span class="badge">ACTIVE</span>
+                <div class="row gap-lg mt-sm">
+                    <div class="input-group">
+                        <span class="input-group__label">REPOS</span>
+                        <input type="number" id="cfg-max-repos" class="input-group__field" value="10" min="1" max="50">
                     </div>
+                    <div class="input-group">
+                        <span class="input-group__label">FILES</span>
+                        <input type="number" id="cfg-max-files" class="input-group__field" value="10" min="1" max="100">
+                    </div>
+                    <button id="btn-run-tracer" class="btn btn--primary btn--sm ml-auto">
+                        ▶ START
+                    </button>
                 </div>
-
-                <button id="btn-run-tracer" class="run-btn">
-                    ▶ START_FLIGHT_RECODER
-                </button>
             </section>
 
             <!-- Middle: Server Fleet -->
-            <section class="panel fleet-panel">
-                <h3>📡 SERVER_FLEET (Live)</h3>
-                <div class="fleet-grid" id="server-fleet">
-                    <!-- Port 8000 -->
+            <section class="panel fleet-panel card--compact">
+                <div class="card__header card__header--flush">
+                    <span class="card__icon">📡</span>
+                    <h3 class="card__title">AI_FLEET</h3>
+                </div>
+                <div class="fleet-grid mt-sm" id="server-fleet">
                     <div class="fleet-item" id="fleet-8000">
-                        <span class="fleet-name">BRAIN (GPU:8000)</span>
+                        <span class="fleet-name">BRAIN</span>
                         <div class="slots-grid"></div>
                         <span class="fleet-status">OFFLINE</span>
                     </div>
-                    <!-- Port 8002 -->
                     <div class="fleet-item" id="fleet-8002">
-                        <span class="fleet-name">MAPPERS (CPU:8002)</span>
+                        <span class="fleet-name">MAPPERS</span>
                         <div class="slots-grid"></div>
                         <span class="fleet-status">OFFLINE</span>
                     </div>
-                    <!-- Port 8001 -->
                     <div class="fleet-item" id="fleet-8001">
-                        <span class="fleet-name">VECTORS (EMB:8001)</span>
+                        <span class="fleet-name">VECTORS</span>
                         <div class="slots-grid"></div>
                         <span class="fleet-status">OFFLINE</span>
                     </div>
@@ -83,20 +82,17 @@
             </section>
 
             <!-- Right: Live Progress -->
-            <section class="panel status-panel">
-                <h3>📊 PIPELINE_STATUS</h3>
-                <div class="progress-section">
-                    <div class="progress-bar-container">
-                        <div id="progress-fill" class="fill" style="width: 0%"></div>
-                    </div>
-                    <div class="progress-label">
-                        <span id="progress-text">IDLE</span>
-                        <span id="queue-text">0/0 files</span>
-                    </div>
+            <section class="panel status-panel card--compact">
+                <div class="card__header card__header--flush">
+                    <span class="card__icon">📊</span>
+                    <h3 class="card__title">PIPELINE_STATUS</h3>
                 </div>
-
-                <div id="active-worker-info" class="worker-status-text">
-                    ✨ Ready - Click VERIFY_AI_FLEET to begin
+                <div class="progress progress--compact mt-sm">
+                    <div class="progress__bar">
+                        <div id="progress-fill" class="progress__fill" style="width: 0%"></div>
+                    </div>
+                    <span id="progress-text" class="progress__percent">0%</span>
+                    <span id="queue-text" class="progress__count">0/0 files</span>
                 </div>
             </section>
         </main>
@@ -109,16 +105,19 @@
         </section>
 
         <!-- Toggle Debugger Button -->
-        <div class="debugger-toggle-wrapper">
-            <button id="btn-toggle-debugger" class="toggle-debugger-btn" title="Toggle Pipeline Debugger">
+        <div class="row row--center mt-md mb-md">
+            <button id="btn-toggle-debugger" class="btn btn--ghost btn--sm" title="Toggle Pipeline Debugger">
                 🎮 DEBUGGER
             </button>
         </div>
 
         <!-- Bottom: Real-time Telemetry -->
-        <footer class="panel log-panel">
-            <h3>📜 TRACER_LOGS</h3>
-            <div id="log-stream" class="terminal-view"></div>
+        <footer class="panel log-panel card--compact">
+            <div class="card__header card__header--flush">
+                <span class="card__icon">📜</span>
+                <h3 class="card__title">TRACER_LOGS</h3>
+            </div>
+            <div id="log-stream" class="terminal-view mt-sm"></div>
         </footer>
     </div>
 

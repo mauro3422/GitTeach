@@ -1,0 +1,137 @@
+/* 
+  card.css - Card Component
+  Base card styles and variants.
+  Requires: tokens.css
+*/
+
+/* =============================================
+   BASE CARD
+   ============================================= */
+
+.card {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    position: relative;
+}
+
+/* =============================================
+   SIZE VARIANTS
+   ============================================= */
+
+.card--compact {
+    padding: var(--space-sm) var(--space-md);
+}
+
+.card--mini {
+    padding: var(--space-xs) var(--space-sm);
+}
+
+.card--flush {
+    padding: 0;
+}
+
+/* =============================================
+   LAYOUT VARIANTS
+   ============================================= */
+
+.card--inline {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.card--row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.card--col {
+    display: flex;
+    flex-direction: column;
+}
+
+/* =============================================
+   STYLE VARIANTS
+   ============================================= */
+
+.card--glass {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.card--solid {
+    background: rgba(22, 27, 34, 0.95);
+    backdrop-filter: none;
+}
+
+.card--accent {
+    border-color: rgba(35, 134, 54, 0.3);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(63, 185, 80, 0.1);
+}
+
+/* =============================================
+   CARD HEADER
+   ============================================= */
+
+.card__header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
+}
+
+.card__header--flush {
+    margin-bottom: 0;
+}
+
+.card__header--between {
+    justify-content: space-between;
+}
+
+.card__title {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    margin: 0;
+}
+
+.card__icon {
+    font-size: var(--text-sm);
+    flex-shrink: 0;
+}
+
+/* =============================================
+   CARD BODY
+   ============================================= */
+
+.card__body {
+    flex: 1;
+}
+
+.card__body--scroll {
+    overflow-y: auto;
+    max-height: 300px;
+}
+
+/* =============================================
+   CARD FOOTER
+   ============================================= */
+
+.card__footer {
+    margin-top: var(--space-sm);
+    padding-top: var(--space-sm);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}

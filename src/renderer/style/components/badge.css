@@ -1,0 +1,157 @@
+/* 
+  badge.css - Badge & Status Components
+  Status dots, badges, and indicators.
+  Requires: tokens.css
+*/
+
+/* =============================================
+   STATUS DOT
+   ============================================= */
+
+.dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* Size Variants */
+.dot--xs {
+    width: 4px;
+    height: 4px;
+}
+
+.dot--sm {
+    width: 6px;
+    height: 6px;
+}
+
+.dot--lg {
+    width: 10px;
+    height: 10px;
+}
+
+.dot--xl {
+    width: 12px;
+    height: 12px;
+}
+
+/* Color Variants */
+.dot--idle {
+    background: var(--text-muted);
+}
+
+.dot--active {
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+}
+
+.dot--processing {
+    background: #3fb950;
+    box-shadow: 0 0 8px #3fb950;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.dot--error {
+    background: #f85149;
+    box-shadow: 0 0 6px rgba(248, 81, 73, 0.5);
+}
+
+.dot--warning {
+    background: #d29922;
+}
+
+.dot--info {
+    background: #58a6ff;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* =============================================
+   BADGE
+   ============================================= */
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: var(--space-2xs) var(--space-xs);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+/* Size Variants */
+.badge--sm {
+    font-size: 8px;
+    padding: 1px var(--space-2xs);
+}
+
+.badge--lg {
+    font-size: var(--text-xs);
+    padding: var(--space-xs) var(--space-sm);
+}
+
+/* Color Variants */
+.badge--success {
+    background: rgba(35, 134, 54, 0.2);
+    color: #3fb950;
+}
+
+.badge--error {
+    background: rgba(248, 81, 73, 0.2);
+    color: #f85149;
+}
+
+.badge--warning {
+    background: rgba(210, 153, 34, 0.2);
+    color: #f0c674;
+}
+
+.badge--info {
+    background: rgba(47, 129, 247, 0.2);
+    color: #58a6ff;
+}
+
+.badge--accent {
+    background: rgba(35, 134, 54, 0.3);
+    color: #3fb950;
+    border: 1px solid rgba(35, 134, 54, 0.3);
+}
+
+/* =============================================
+   STATUS LABEL (Dot + Text)
+   ============================================= */
+
+.status {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.status--live {
+    color: #3fb950;
+}
+
+.status--offline {
+    color: var(--text-muted);
+}
