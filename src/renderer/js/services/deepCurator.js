@@ -16,7 +16,7 @@
  * - InsightGenerator: AI-powered insights and summaries
  */
 import { AIService } from './aiService.js';
-import { Logger } from '../utils/logger.js';
+import { rendererLogger } from '../utils/RendererLogger.js';
 import { CacheRepository } from '../utils/cacheRepository.js';
 import { MetricRefinery } from './curator/MetricRefinery.js';
 import { StreamingHandler } from './curator/StreamingHandler.js';

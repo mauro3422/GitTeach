@@ -10,6 +10,7 @@ import { PIPELINE_NODES, CONNECTIONS } from './pipeline/PipelineConstants.js';
 import { PipelineRenderer } from './pipeline/PipelineRenderer.js';
 import { PipelineInteraction } from './pipeline/PipelineInteraction.js';
 import { PipelineUI } from './pipeline/PipelineUI.js';
+import { RendererLogger } from '../utils/RendererLogger.js';
 
 // New SOLID Modules
 import { PipelineStateManager } from './pipeline/PipelineStateManager.js';
@@ -51,17 +52,23 @@ export const PipelineCanvas = {
                 }
             };
 
-            console.log('[PipelineCanvas] Orchestrator initialized (SOLID)');
+            RendererLogger.info('[PipelineCanvas] Orchestrator initialized (SOLID)', { context: { component: 'PipelineCanvas' } });
         } catch (err) {
-            console.error('[PipelineCanvas] Init failed:', err);
+            RendererLogger.error('[PipelineCanvas] Init failed:', { context: { component: 'PipelineCanvas', error: err.message }, debugData: { stack: err.stack } });
         }
     },
 
     auditState() {
-        console.group('PipelineCanvas SOLID Audit');
-        console.log('Nodes:', Object.keys(PipelineStateManager.nodeStates).length);
-        console.log('Active Particles:', PipelineStateManager.particles.length);
-        console.groupEnd();
+        const nodeCount = Object.keys(PipelineStateManager.nodeStates).length;
+        const particleCount = PipelineStateManager.particles.length;
+
+        RendererLogger.info('PipelineCanvas SOLID Audit', {
+            context: {
+                component: 'PipelineCanvas',
+                nodes: nodeCount,
+                particles: particleCount
+            }
+        });
     },
 
     createCanvas() {
@@ -213,7 +220,10 @@ export const PipelineCanvas = {
                 this.draw();
                 this.animationId = requestAnimationFrame(render);
             } catch (err) {
-                console.error('[PipelineCanvas] Render crash:', err);
+                RendererLogger.error('[PipelineCanvas] Render crash:', {
+                    context: { component: 'PipelineCanvas', error: err.message },
+                    debugData: { stack: err.stack }
+                });
                 cancelAnimationFrame(this.animationId);
             }
         };

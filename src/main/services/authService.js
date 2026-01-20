@@ -1,6 +1,7 @@
 import OAuthFlowManager from './OAuthFlowManager.js';
 import TokenManager from './TokenManager.js';
 import githubClient from './githubClient.js';
+import AppLogger from './system/AppLogger.js';
 
 /**
  * AuthService - Simplified orchestrator delegating to OAuthFlowManager and TokenManager.
@@ -15,7 +16,7 @@ class AuthService {
      * @returns {Promise<{success: boolean, token?: string}>}
      */
     async login() {
-        console.log('[AuthService] Starting login process...');
+        AppLogger.info('AuthService', 'Starting login process...');
 
         try {
             const result = await this.oauthFlowManager.initiateOAuthFlow();
@@ -23,13 +24,13 @@ class AuthService {
             if (result.success && result.token) {
                 // Set token in githubClient for immediate use
                 githubClient.setToken(result.token);
-                console.log('[AuthService] Login successful');
+                AppLogger.info('AuthService', 'Login successful');
                 return result;
             } else {
                 throw new Error('OAuth flow failed');
             }
         } catch (error) {
-            console.error('[AuthService] Login failed:', error);
+            AppLogger.error('AuthService', 'Login failed:', error);
             throw error;
         }
     }
@@ -39,7 +40,7 @@ class AuthService {
      * @returns {Promise<Object|null>} User data if valid session exists, null otherwise
      */
     async checkAuth() {
-        console.log('[AuthService] Checking authentication...');
+        AppLogger.info('AuthService', 'Checking authentication...');
         return await TokenManager.checkSession();
     }
 
@@ -47,9 +48,9 @@ class AuthService {
      * Logs out the current user by clearing the token.
      */
     async logout() {
-        console.log('[AuthService] Logging out...');
+        AppLogger.info('AuthService', 'Logging out...');
         await TokenManager.clearToken();
-        console.log('[AuthService] Logout complete');
+        AppLogger.info('AuthService', 'Logout complete');
     }
 }
 

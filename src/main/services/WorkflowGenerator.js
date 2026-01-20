@@ -2,9 +2,8 @@
  * WorkflowGenerator - Logic for generating and pushing Snake / Action YAMLs.
  */
 export class WorkflowGenerator {
-    constructor(requestStrategy, profileRepoManager) {
+    constructor(requestStrategy) {
         this.requestStrategy = requestStrategy;
-        this.profileRepoManager = profileRepoManager;
     }
 
     /**

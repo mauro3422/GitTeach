@@ -4,13 +4,17 @@
     "type": "module",
     "main": "src/main/index.js",
     "scripts": {
-        "start": "electron ."
+        "start": "electron .",
+        "test": "vitest",
+        "test:run": "vitest run",
+        "test:ui": "vitest --ui"
     },
     "dependencies": {
         "classic-level": "^3.0.0",
         "node-fetch": "^3.3.2"
     },
     "devDependencies": {
-        "electron": "^39.2.7"
+        "electron": "^39.2.7",
+        "vitest": "^4.0.17"
     }
 }

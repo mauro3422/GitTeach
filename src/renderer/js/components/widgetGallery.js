@@ -2,6 +2,7 @@ import { ToolRegistry } from '../services/toolRegistry.js';
 import { DashboardView } from '../views/dashboard.js';
 import { widgetCardRenderer } from './WidgetCardRenderer.js';
 import { widgetEventHandler } from './WidgetEventHandler.js';
+import { RendererLogger } from '../utils/RendererLogger.js';
 
 export class WidgetGallery {
     constructor() {
@@ -15,7 +16,7 @@ export class WidgetGallery {
 
         // Si no hay usuario en el DashboardView, intentamos recuperarlo proactivamente
         if (!username || username === 'Usuario' || username === 'User') {
-            console.log('[WidgetGallery] Username not ready, fetching for previews...');
+            RendererLogger.info('[WidgetGallery] Username not ready, fetching for previews...');
             const user = await window.githubAPI.getUserData();
             if (user && !user.error) {
                 username = user.login;
@@ -28,7 +29,7 @@ export class WidgetGallery {
 
         // Cache Lógica: Evitar regenerar si ya está inicializado con el mismo usuario
         if (this.isInitialized && this.lastUsername === username) {
-            console.log('[WidgetGallery] Using cached view.');
+            RendererLogger.info('[WidgetGallery] Using cached view.');
             return;
         }
 
@@ -54,7 +55,7 @@ export class WidgetGallery {
             container.appendChild(card);
         });
 
-        console.log('[WidgetGallery] Re-initialized with user:', username);
+        RendererLogger.info('[WidgetGallery] Re-initialized with user:', { username });
     }
 }
 

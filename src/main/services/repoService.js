@@ -2,23 +2,22 @@
 import githubClient from './githubClient.js';
 import { RequestStrategy } from './RequestStrategy.js';
 import { RepoDataAccessor } from './RepoDataAccessor.js';
-import { ProfileRepoManager } from './ProfileRepoManager.js';
 import { WorkflowGenerator } from './WorkflowGenerator.js';
+import AppLogger from './system/AppLogger.js';
 
 /**
- * RepoService - Orchestrator delegating to specialized managers.
- * Coordinates GitHub operations through focused, single-responsibility components.
+ * RepoService - Central Orchestrator for GitHub operations.
+ * Consolidates data access, profile management, and workflow generation.
  */
 class RepoService {
     constructor() {
-        // Initialize specialized managers
+        this.context = 'RepoService';
         this.requestStrategy = new RequestStrategy(githubClient);
         this.repoDataAccessor = new RepoDataAccessor(this.requestStrategy);
-        this.profileRepoManager = new ProfileRepoManager(this.requestStrategy);
-        this.workflowGenerator = new WorkflowGenerator(this.requestStrategy, this.profileRepoManager);
+        this.workflowGenerator = new WorkflowGenerator(this.requestStrategy);
     }
 
-    // Data Access Operations (delegated to RepoDataAccessor)
+    // --- Data Access Operations (Delegated) ---
     async listUserRepos() {
         return this.repoDataAccessor.listUserRepos();
     }
@@ -43,38 +42,86 @@ class RepoService {
         return this.repoDataAccessor.getCommitDiff(owner, repo, sha);
     }
 
-    // Profile Repository Operations (delegated to ProfileRepoManager)
+    // --- Consolidated Profile Repository Operations ---
     async createProfileRepo(username) {
-        return this.profileRepoManager.createProfileRepo(username);
+        AppLogger.info(this.context, `Creating profile repo for ${username}`);
+        const response = await this.requestStrategy.execute({
+            method: 'POST',
+            url: '/user/repos',
+            body: {
+                name: username,
+                description: 'Mi perfil de GitHub creado con GitTeach 🚀',
+                auto_init: true,
+                private: false
+            }
+        });
+
+        if (!response.ok) {
+            AppLogger.error(this.context, `Failed to create profile repo for ${username}`, { status: response.status });
+            throw new Error(`Failed to create profile repo: ${response.status}`);
+        }
+
+        return await response.json();
     }
 
     async profileRepoExists(username) {
-        return this.profileRepoManager.profileRepoExists(username);
+        try {
+            const response = await this.requestStrategy.execute({
+                url: `/repos/${username}/${username}`
+            });
+            return response.ok;
+        } catch (error) {
+            return false;
+        }
     }
 
     async getProfileRepoInfo(username) {
-        return this.profileRepoManager.getProfileRepoInfo(username);
-    }
+        const response = await this.requestStrategy.execute({
+            url: `/repos/${username}/${username}`
+        });
 
-    async updateProfileRepoDescription(username, description) {
-        return this.profileRepoManager.updateProfileRepoDescription(username, description);
-    }
+        if (!response.ok) {
+            throw new Error(`Failed to get profile repo info: ${response.status}`);
+        }
 
-    async initializeProfileStructure(username) {
-        return this.profileRepoManager.initializeProfileStructure(username);
+        return await response.json();
     }
 
     async updateProfileReadme(username, content) {
-        return this.profileRepoManager.updateProfileReadme(username, content);
+        AppLogger.info(this.context, `Updating profile README for ${username}`);
+
+        let sha = null;
+        try {
+            const readmeRes = await this.requestStrategy.execute({
+                url: `/repos/${username}/${username}/readme`
+            });
+            if (readmeRes.ok) {
+                const data = await readmeRes.json();
+                sha = data.sha;
+            }
+        } catch (e) {
+            AppLogger.debug(this.context, 'No existing README found, creating new one.');
+        }
+
+        const response = await this.requestStrategy.execute({
+            method: 'PUT',
+            url: `/repos/${username}/${username}/contents/README.md`,
+            body: {
+                message: 'Update profile README via GitTeach',
+                content: Buffer.from(content).toString('base64'),
+                sha: sha
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to update profile README: ${response.status}`);
+        }
+
+        return await response.json();
     }
 
-    async getProfileStats(username) {
-        return this.profileRepoManager.getProfileStats(username);
-    }
-
-    // Workflow Operations (delegated to WorkflowGenerator)
+    // --- Workflow Operations (Delegated) ---
     async createWorkflow(username, content) {
-        // Legacy method - creates snake workflow with provided content
         return this.workflowGenerator.createWorkflow(username, 'snake.yml', content);
     }
 
@@ -82,24 +129,8 @@ class RepoService {
         return this.workflowGenerator.createSnakeWorkflow(username);
     }
 
-    async createStatsWorkflow(username) {
-        return this.workflowGenerator.createStatsWorkflow(username);
-    }
-
     async createAllWorkflows(username) {
         return this.workflowGenerator.createAllWorkflows(username);
-    }
-
-    async getWorkflows(username) {
-        return this.workflowGenerator.getWorkflows(username);
-    }
-
-    async updateWorkflow(username, filename, updates) {
-        return this.workflowGenerator.updateWorkflow(username, filename, updates);
-    }
-
-    async deleteWorkflow(username, filename) {
-        return this.workflowGenerator.deleteWorkflow(username, filename);
     }
 }
 

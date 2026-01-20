@@ -7,6 +7,7 @@
 import { pipelineController } from '../services/pipeline/PipelineController.js';
 import { eventQueueBuffer } from '../services/pipeline/EventQueueBuffer.js';
 import { fleetMonitor } from '../services/ai/FleetMonitor.js';
+import { RendererLogger } from '../utils/RendererLogger.js';
 
 export const DebugPipelineView = {
     els: {},
@@ -19,7 +20,7 @@ export const DebugPipelineView = {
      */
     init(container) {
         if (!container) {
-            console.warn('[DebugPipelineView] No container provided');
+            RendererLogger.warn('[DebugPipelineView] No container provided', { context: { component: 'DebugPipelineView' } });
             return;
         }
 
@@ -29,7 +30,7 @@ export const DebugPipelineView = {
         this.bindEvents();
         this.subscribeToUpdates();
 
-        console.log('[DebugPipelineView] Initialized');
+        RendererLogger.info('[DebugPipelineView] Initialized', { context: { component: 'DebugPipelineView' } });
     },
 
     /**
@@ -344,7 +345,10 @@ export const DebugPipelineView = {
                 this.els.inspectionCopy.textContent = '📋 Copy JSON';
             }, 2000);
         } catch (e) {
-            console.error('[DebugPipelineView] Copy failed:', e);
+            RendererLogger.error('[DebugPipelineView] Copy failed:', {
+                context: { component: 'DebugPipelineView', error: e.message },
+                debugData: { stack: e.stack }
+            });
         }
     },
 

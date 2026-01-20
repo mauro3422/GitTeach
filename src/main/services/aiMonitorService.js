@@ -25,14 +25,14 @@ export async function performHealthCheck() {
 
         const isOnline = res.ok;
         if (isOnline !== lastAIStatus) {
-            console.log(`[AIMonitor] Status changed: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+            AppLogger.info('AIMonitor', `Status changed: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
             lastAIStatus = isOnline;
             broadcastStatus(isOnline);
         }
         return isOnline;
     } catch (e) {
         if (lastAIStatus !== false) {
-            console.warn(`[AIMonitor] Service went OFFLINE: ${e.message}`);
+            AppLogger.warn('AIMonitor', `Service went OFFLINE: ${e.message}`);
             lastAIStatus = false;
             broadcastStatus(false);
         }

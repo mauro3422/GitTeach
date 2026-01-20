@@ -13,6 +13,7 @@ import { PipelineCanvas } from './PipelineCanvas.js';
 import { DebugLogger } from '../utils/debugLogger.js';
 import { pipelineController } from '../services/pipeline/PipelineController.js';
 import { eventQueueBuffer } from '../services/pipeline/EventQueueBuffer.js';
+import { RendererLogger } from '../utils/RendererLogger.js';
 
 export const TracerView = {
     els: {},
@@ -25,13 +26,13 @@ export const TracerView = {
             window.IS_TRACER = true;
             window.FORCE_REAL_AI = true;
 
-            console.log('[TracerView] Caching elements...');
+            RendererLogger.info('[TracerView] Caching elements...', { context: { component: 'TracerView' } });
             this.cacheElements();
 
-            console.log('[TracerView] Binding events...');
+            RendererLogger.info('[TracerView] Binding events...', { context: { component: 'TracerView' } });
             this.bindEvents();
 
-            console.log('[TracerView] Pre-flight checks...');
+            RendererLogger.info('[TracerView] Pre-flight checks...', { context: { component: 'TracerView' } });
             this.checkAIStatus();
             this.loadRecentSession();
 
@@ -51,21 +52,24 @@ export const TracerView = {
             if (sessionEl) {
                 const rawId = sessionEl.textContent?.replace('SESSION: ', '') || 'UNKNOWN';
                 window.CURRENT_SESSION_ID = rawId;
-                console.log(`[TracerView] Session ID: ${rawId}`);
+                RendererLogger.info(`[TracerView] Session ID: ${rawId}`, { context: { component: 'TracerView', sessionId: rawId } });
             }
 
             this.updateButtonUI();
 
             // Initialize Pipeline Canvas AFTER caching
             if (this.els.debuggerContainer) {
-                console.log('[TracerView] Initializing PipelineCanvas...');
+                RendererLogger.info('[TracerView] Initializing PipelineCanvas...', { context: { component: 'TracerView' } });
                 PipelineCanvas.init(this.els.debuggerContainer);
             }
 
-            console.log('[TracerView] Initialization Complete');
+            RendererLogger.info('[TracerView] Initialization Complete', { context: { component: 'TracerView' } });
             setTimeout(() => this.verifyFleet(), 500);
         } catch (e) {
-            console.error('[TracerView] FATAL_INIT_ERROR:', e);
+            RendererLogger.error('[TracerView] FATAL_INIT_ERROR:', {
+                context: { component: 'TracerView', error: e.message },
+                debugData: { stack: e.stack }
+            });
         }
     },
 
@@ -105,21 +109,26 @@ export const TracerView = {
      * Toggle Pipeline Canvas visibility
      */
     toggleDebugger() {
-        console.log('[TracerView] Toggling Debugger...');
+        RendererLogger.info('[TracerView] Toggling Debugger...', { context: { component: 'TracerView' } });
         const section = this.els.debuggerSection;
         const btn = this.els.btnToggleDebugger;
 
         if (!section) {
-            console.error('[TracerView] FATAL: debuggerSection (DOM id: debugger-section) not found in cache');
+            RendererLogger.error('[TracerView] FATAL: debuggerSection (DOM id: debugger-section) not found in cache', {
+                context: { component: 'TracerView' }
+            });
             return;
         }
 
         const isCurrentlyHidden = section.classList.contains('hidden') || section.style.display === 'none';
 
-        console.log('[TracerView] Debugger current state:', {
-            isCurrentlyHidden,
-            classList: section.className,
-            display: section.style.display
+        RendererLogger.info('[TracerView] Debugger current state:', {
+            context: {
+                component: 'TracerView',
+                isCurrentlyHidden,
+                classList: section.className,
+                display: section.style.display
+            }
         });
 
         if (isCurrentlyHidden) {
@@ -128,11 +137,11 @@ export const TracerView = {
             section.style.display = 'flex';
             if (btn) btn.classList.add('active');
 
-            console.log('[TracerView] Debugger FORCED TO VISIBLE');
+            RendererLogger.info('[TracerView] Debugger FORCED TO VISIBLE', { context: { component: 'TracerView' } });
 
             // Critical for Canvas geometry
             setTimeout(() => {
-                console.log('[TracerView] Recalculating Canvas Geometry...');
+                RendererLogger.info('[TracerView] Recalculating Canvas Geometry...', { context: { component: 'TracerView' } });
                 PipelineCanvas.resizeCanvas();
             }, 50);
         } else {
@@ -141,7 +150,7 @@ export const TracerView = {
             section.style.display = 'none';
             if (btn) btn.classList.remove('active');
 
-            console.log('[TracerView] Debugger FORCED TO HIDDEN');
+            RendererLogger.info('[TracerView] Debugger FORCED TO HIDDEN', { context: { component: 'TracerView' } });
         }
     },
 
@@ -385,7 +394,10 @@ export const TracerView = {
 
         } catch (error) {
             this.renderLog('ERROR', `Pipeline failure: ${error.message}`);
-            console.error(error);
+            RendererLogger.error('Pipeline failure:', {
+                context: { component: 'TracerView', error: error.message },
+                debugData: { stack: error.stack }
+            });
             this.state = 'IDLE';
         } finally {
             this.updateButtonUI();

@@ -8,6 +8,7 @@ import { ChatStateManager } from './ChatStateManager.js';
 import { MessageHandler } from './MessageHandler.js';
 import { chatUI } from './ChatUI.js';
 import { proactiveMessenger } from './ProactiveMessenger.js';
+import { RendererLogger } from '../utils/RendererLogger.js';
 
 export const ChatComponent = {
     // Shared state manager instance
@@ -54,7 +55,7 @@ export const ChatComponent = {
             }
         });
 
-        console.log('[ChatComponent] Initialized with coordinated state management.');
+        RendererLogger.info('[ChatComponent] Initialized with coordinated state management.');
     },
 
     // Delegate methods to specialized handlers

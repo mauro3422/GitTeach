@@ -1,8 +1,11 @@
+import AppLogger from './system/AppLogger.js';
+
 /**
  * FleetMonitor - Orchestrates the polling loop and timing for different ports.
  */
 export class FleetMonitor {
     constructor(slotManager, fleetBroadcaster) {
+        this.context = 'FleetMonitor';
         this.slotManager = slotManager;
         this.fleetBroadcaster = fleetBroadcaster;
         this.ports = [8000, 8001, 8002];
@@ -16,7 +19,7 @@ export class FleetMonitor {
      */
     start() {
         if (this.isPolling) return;
-        console.log(`[FleetMonitor] Starting fleet monitor (Relaxed polling: 3s for health check)...`);
+        AppLogger.info(this.context, 'Starting fleet monitor (Relaxed polling: 3s for health check)...');
 
         this.isPolling = true;
         this.runMonitoringLoop();
@@ -27,7 +30,7 @@ export class FleetMonitor {
      */
     stop() {
         this.isPolling = false;
-        console.log('[FleetMonitor] Fleet monitor stopping.');
+        AppLogger.info(this.context, 'Fleet monitor stopping.');
     }
 
     async runMonitoringLoop() {

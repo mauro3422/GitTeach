@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { app } from 'electron';
+import AppLogger from './system/AppLogger.js';
 
 /**
  * TokenManager - Pure logic for reading/writing token.json and session validation.
@@ -18,9 +19,9 @@ class TokenManager {
         try {
             const data = { token, savedAt: new Date().toISOString() };
             fs.writeFileSync(this.tokenPath, JSON.stringify(data, null, 2));
-            console.log('[TokenManager] Token saved to disk');
+            AppLogger.info('TokenManager', 'Token saved to disk');
         } catch (error) {
-            console.error('[TokenManager] Error saving token:', error);
+            AppLogger.error('TokenManager', 'Error saving token:', error);
             throw error;
         }
     }
@@ -32,15 +33,15 @@ class TokenManager {
     async loadToken() {
         try {
             if (!fs.existsSync(this.tokenPath)) {
-                console.log('[TokenManager] No token file found');
+                AppLogger.info('TokenManager', 'No token file found');
                 return null;
             }
 
             const data = JSON.parse(fs.readFileSync(this.tokenPath, 'utf8'));
-            console.log('[TokenManager] Token loaded from disk');
+            AppLogger.info('TokenManager', 'Token loaded from disk');
             return data.token || null;
         } catch (error) {
-            console.error('[TokenManager] Error loading token:', error);
+            AppLogger.error('TokenManager', 'Error loading token:', error);
             return null;
         }
     }
@@ -52,7 +53,7 @@ class TokenManager {
      */
     async validateToken(token) {
         if (!token) {
-            console.log('[TokenManager] No token provided for validation');
+            AppLogger.info('TokenManager', 'No token provided for validation');
             return null;
         }
 
@@ -62,20 +63,20 @@ class TokenManager {
             const { default: profileService } = await import('./profileService.js');
 
             githubClient.setToken(token);
-            console.log('[TokenManager] Validating token with GitHub API...');
+            AppLogger.info('TokenManager', 'Validating token with GitHub API...');
 
             const user = await profileService.getUserData();
-            console.log('[TokenManager] Token validation result:', user ? 'VALID' : 'INVALID');
+            AppLogger.info('TokenManager', 'Token validation result:', { isValid: !!user });
 
             if (user && !user.error) {
-                console.log('[TokenManager] Valid session for:', user.login);
+                AppLogger.info('TokenManager', 'Valid session for:', { user: user.login });
                 return user;
             }
 
-            console.warn('[TokenManager] Token expired or invalid response:', user);
+            AppLogger.warn('TokenManager', 'Token expired or invalid response:', user);
             return null;
         } catch (error) {
-            console.error('[TokenManager] Error validating token:', error.message);
+            AppLogger.error('TokenManager', 'Error validating token:', error.message);
             return null;
         }
     }
@@ -85,12 +86,12 @@ class TokenManager {
      * @returns {Promise<Object|null>} User data if valid session exists, null otherwise
      */
     async checkSession() {
-        console.log('[TokenManager] Checking saved session...');
-        console.log('[TokenManager] Token path:', this.tokenPath);
+        AppLogger.info('TokenManager', 'Checking saved session...');
+        AppLogger.info('TokenManager', 'Token path:', { path: this.tokenPath });
 
         const token = await this.loadToken();
         if (!token) {
-            console.log('[TokenManager] No token found on disk');
+            AppLogger.info('TokenManager', 'No token found on disk');
             return null;
         }
 
@@ -104,14 +105,14 @@ class TokenManager {
         try {
             if (fs.existsSync(this.tokenPath)) {
                 fs.unlinkSync(this.tokenPath);
-                console.log('[TokenManager] Token cleared from disk');
+                AppLogger.info('TokenManager', 'Token cleared from disk');
 
                 // Clear token from githubClient
                 const { default: githubClient } = await import('./githubClient.js');
                 githubClient.setToken(null);
             }
         } catch (error) {
-            console.error('[TokenManager] Error clearing token:', error);
+            AppLogger.error('TokenManager', 'Error clearing token:', error);
             throw error;
         }
     }

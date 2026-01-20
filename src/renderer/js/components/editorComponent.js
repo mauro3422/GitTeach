@@ -1,5 +1,6 @@
 import { previewManager } from './PreviewManager.js';
 import { tabManager } from './TabManager.js';
+import { RendererLogger } from '../utils/RendererLogger.js';
 
 export class EditorComponent {
     constructor() {
@@ -18,7 +19,7 @@ export class EditorComponent {
         const previewContainer = document.getElementById('preview-container');
 
         if (!previewContainer) {
-            console.error('[EditorComponent] Missing preview container.');
+            RendererLogger.error('[EditorComponent] Missing preview container.');
             return;
         }
 
@@ -28,7 +29,7 @@ export class EditorComponent {
         // Initialize TabManager for tab switching and sliding transitions
         tabManager.init(this.tabs.editor, this.tabs.preview, this.tabs.slidingContainer, previewManager);
 
-        console.log('[EditorComponent] Initialized correctly.');
+        RendererLogger.info('[EditorComponent] Initialized correctly.');
     }
 }
 

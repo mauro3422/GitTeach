@@ -2,12 +2,12 @@
  * CoordinatorAgent - Orchestrates workers and verifies analysis completion
  * Maintains inventory of repos/files and assigns tasks to workers
  */
-import { logManager } from '../utils/logManager.js';
+import { rendererLogger } from '../utils/RendererLogger.js';
 import { InventoryManager, ProgressReporter } from './coordinator/index.js';
 
 export class CoordinatorAgent {
     constructor() {
-        this.logger = logManager.child({ component: 'CoordinatorAgent' });
+        this.logger = { info: (msg, opts) => rendererLogger.info(msg, { ...opts, component: 'CoordinatorAgent' }) };
         this.inventoryManager = new InventoryManager();
         this.reporter = new ProgressReporter();
         this.workerCount = 4;

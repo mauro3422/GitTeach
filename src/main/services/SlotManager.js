@@ -1,8 +1,11 @@
+import AppLogger from './system/AppLogger.js';
+
 /**
  * SlotManager - Logic for mapping server telemetry to unified slot states (idle, processing, testing).
  */
 export class SlotManager {
     constructor() {
+        this.context = 'SlotManager';
         this.fleetState = {};
         this.limits = {
             8000: 4, // Default Brain
@@ -22,7 +25,7 @@ export class SlotManager {
      * @param {Object} newLimits - { port: max_slots }
      */
     setLimits(newLimits) {
-        console.log('[SlotManager] Updating limits:', newLimits);
+        AppLogger.info(this.context, 'Updating limits:', newLimits);
         this.limits = { ...this.limits, ...newLimits };
     }
 
@@ -182,7 +185,7 @@ export class SlotManager {
                 // If a slot has been "processing" for too long without an end event, reset it
                 if (slot.state === 'processing' && slot.lastProcessingTime) {
                     if (now - slot.lastProcessingTime > STALE_THRESHOLD) {
-                        console.warn(`[SlotManager] Stale slot detected on port ${port}, resetting.`);
+                        AppLogger.warn(this.context, `Stale slot detected on port ${port}, resetting.`);
                         slot.state = 'idle';
                         slot.eventSource = null;
                         slot.lastProcessingTime = 0;
