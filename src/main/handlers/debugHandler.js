@@ -1,9 +1,7 @@
 // src/main/handlers/debugHandler.js
-// Handler: IPC bridge for debug logging (AI flow analysis)
-
 import path from 'node:path';
 import fs from 'fs';
-import { app } from 'electron';
+import { IpcWrapper } from './IpcWrapper.js';
 
 // Debug sessions base directory
 const DEBUG_BASE_DIR = path.join(process.cwd(), 'logs', 'sessions');
@@ -25,52 +23,43 @@ function ensureDir(dirPath) {
  * @param {Electron.IpcMain} ipcMain - The ipcMain instance.
  */
 export function register(ipcMain) {
-
-    // --- Create Debug Session ---
-    ipcMain.handle('debug:create-session', async (event, sessionId) => {
-        try {
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'debug:create-session',
+        async (event, sessionId) => {
             const sessionPath = path.join(DEBUG_BASE_DIR, `SESSION_${sessionId}`);
-
-            // Create folder structure
             ensureDir(path.join(sessionPath, 'workers'));
             ensureDir(path.join(sessionPath, 'curator'));
             ensureDir(path.join(sessionPath, 'chat'));
             ensureDir(path.join(sessionPath, 'memory'));
-
-            console.log(`[DebugHandler] ✅ Session created: ${sessionPath}`);
             return { success: true, path: sessionPath };
-        } catch (error) {
-            console.error('[DebugHandler] Error creating session:', error);
-            return { success: false, error: error.message };
-        }
-    });
+        },
+        'debug:create-session'
+    );
 
-    // --- Append to Debug Log ---
-    ipcMain.handle('debug:append-log', async (event, { sessionId, folder, filename, content }) => {
-        try {
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'debug:append-log',
+        async (event, { sessionId, folder, filename, content }) => {
             const filePath = path.join(DEBUG_BASE_DIR, `SESSION_${sessionId}`, folder, filename);
-
-            // Ensure parent directory exists
             ensureDir(path.dirname(filePath));
-
-            // Append content (or create if doesn't exist)
             fs.appendFileSync(filePath, content, 'utf-8');
-
             return { success: true };
-        } catch (error) {
-            console.error('[DebugHandler] Error appending log:', error);
-            return { success: false, error: error.message };
-        }
-    });
+        },
+        'debug:append-log'
+    );
 
-    // --- Get Session Path ---
-    ipcMain.handle('debug:get-sessions-path', async () => {
-        return { success: true, path: DEBUG_BASE_DIR };
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'debug:get-sessions-path',
+        () => ({ success: true, path: DEBUG_BASE_DIR }),
+        'debug:get-sessions-path'
+    );
 
-    // --- List Sessions ---
-    ipcMain.handle('debug:list-sessions', async () => {
-        try {
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'debug:list-sessions',
+        async () => {
             ensureDir(DEBUG_BASE_DIR);
             const sessions = fs.readdirSync(DEBUG_BASE_DIR)
                 .filter(f => f.startsWith('SESSION_'))
@@ -80,12 +69,11 @@ export function register(ipcMain) {
                     created: fs.statSync(path.join(DEBUG_BASE_DIR, name)).birthtime
                 }));
             return { success: true, sessions };
-        } catch (error) {
-            return { success: false, error: error.message, sessions: [] };
-        }
-    });
+        },
+        'debug:list-sessions'
+    );
 
-    console.log('[Handlers] ✅ debugHandler registered.');
+    console.log('[Handlers] ✅ debugHandler registered with IpcWrapper.');
 }
 
 export default { register };

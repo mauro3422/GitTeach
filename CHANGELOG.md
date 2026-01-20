@@ -1,5 +1,47 @@
 # Changelog
 
+## [2.44.0] - Domain-Driven IPC & Core SOLID Refactor - 2026-01-19
+### 🧱 Core Infrastructure: Service Decomposition
+- **AuthService Modularization**: Decomposed the monolithic `AuthService.js` into specialized components:
+  - `OAuthFlowManager`: Manages the GitHub OAuth handshake and state.
+  - `AuthServer`: Isolated HTTP callback server for token exchange.
+  - `TokenManager`: Pure logic for token persistence and validation.
+- **CacheService Refactor**: Specialized persistence logic into lifecycle-aware managers:
+  - `FileCacheManager`: Handles heavy disk I/O and large results.
+  - `SessionCacheManager`: Manages volatile, session-specific state.
+  - `DiskMirrorService`: Ensures high-fidelity mirroring for diagnostic sessions.
+
+### 📡 Domain-Driven Communication (IPC)
+- **IpcWrapper Pattern**: Introduced a centralized IPC decorator to standardize error handling, logging, and response formats across the entire application.
+- **IPC Domain Handlers**: Replaced monolithic handlers (`dataHandler`, `utilsHandler`) with focused, domain-specific modules:
+  - `ProfileHandler`: User identity and profile README orchestration.
+  - `RepoHandler`: Repository listing, tree traversal, and content management.
+  - `CommitHandler`: Forensics, commits, and diff analysis.
+  - `SystemHandler`: AI health monitoring, dev-tools, and system utilities.
+- **Request Strategy Stabilization**: Migrated all network interactions to use `RequestStrategy.js` for robust retry and timeout logic.
+
+### 🎨 Design System & UI Consistency
+- **Token Expansion**: Added architectural tokens for Z-Index management, glow intensities, and responsive breakpoints to `design_system.css`.
+- **Global CSS Audit**: Reused global tokens in `dashboard.css`, `auth.css`, and `chat.css`, eliminating hundreds of lines of hardcoded styles.
+- **Sidebar Architecture**: Finalized the `SidebarManager` transition to a class-based system with `NavigationController` and `PanelStateManager`.
+
+## [2.43.0] - Core Architecture Refactor & SOLID Modularization - 2026-01-19
+### 🧱 Architectural Overhaul: SRP Decomposition
+- **FileAuditor Facade**: Refactored `FileAuditor.js` into a coordinating facade, delegating responsibilities to specialized services:
+  - `FileDownloader`: Handles GitHub API and cache I/O.
+  - `FileProcessor`: Manages worker enqueuing and High-Fidelity seed logic.
+  - `FindingsCurator`: Specialized in file classification and AI finding curation.
+- **PipelineStateManager Split**: Decomposed the monolithic state manager into granular managers:
+  - `NodeManager`: Atomic state and health management.
+  - `HistoryManager`: Operation tracking with fuzzy matching support.
+  - `DynamicSlotManager`: Unlimited repository slot assignment logic.
+- **Pipeline Config & Colors**: Extracted magic numbers and UI theme tokens to `pipelineConfig.js` and `colors.js`.
+
+### 🧠 Performance & Intelligence Flow
+- **Strategy Pattern Integration**: Replaced complex `if/else` logic in `PipelineEventHandler` with a clean Strategy Pattern for event and status handling.
+- **Unified Error Handling**: Introduced `src/renderer/js/utils/ErrorHandler.js` for consistent error management and async safety across the application.
+- **Enhanced Integrity Testing**: Created `verify_refactor_integrity.js` (ESM) to automate regression testing of the pipeline visualizer.
+
 ## [2.42.0] - Pipeline SOLID Refactor & Visual Telemetry - 2026-01-19
 ### 🧱 Architectural Santiation: SOLID Modularization
 - **Decoupled Orchestration**: Refactored `PipelineCanvas.js` from 522 to ~150 lines, delegating responsibilities to specialized modules.

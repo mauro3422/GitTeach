@@ -29,9 +29,11 @@ import aiFleetService from './services/aiFleetService.js';
 
 // --- IPC Handlers ---
 import authHandler from './handlers/authHandler.js';
-import dataHandler from './handlers/dataHandler.js';
+import { ProfileHandler } from './handlers/ProfileHandler.js';
+import { RepoHandler } from './handlers/RepoHandler.js';
+import { CommitHandler } from './handlers/CommitHandler.js';
+import { SystemHandler } from './handlers/SystemHandler.js';
 import cacheHandler from './handlers/cacheHandler.js';
-import utilsHandler from './handlers/utilsHandler.js';
 import debugHandler from './handlers/debugHandler.js';
 import fleetHandler from './handlers/fleetHandler.js';
 
@@ -42,14 +44,16 @@ import fleetHandler from './handlers/fleetHandler.js';
  * Registers all IPC handlers from dedicated modules.
  */
 function registerAllHandlers() {
-    console.log('[Main] Registering IPC handlers...');
+    console.log('[Main] Registering domain handlers via IpcWrapper...');
     authHandler.register(ipcMain);
-    dataHandler.register(ipcMain);
+    ProfileHandler.register(ipcMain);
+    RepoHandler.register(ipcMain);
+    CommitHandler.register(ipcMain);
+    SystemHandler.register(ipcMain);
     cacheHandler.register(ipcMain);
-    utilsHandler.register(ipcMain);
     debugHandler.register(ipcMain);
     fleetHandler.register(ipcMain);
-    console.log('[Main] ✅ All handlers registered.');
+    console.log('[Main] ✅ Domain architecture registered.');
 }
 
 /**

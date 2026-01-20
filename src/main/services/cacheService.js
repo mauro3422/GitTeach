@@ -2,6 +2,9 @@ import path from 'path';
 import fs from 'node:fs';
 import { app } from 'electron';
 import { LevelDBManager } from './db/LevelDBManager.js';
+import { FileCacheManager } from './cache/FileCacheManager.js';
+import { SessionCacheManager } from './cache/SessionCacheManager.js';
+import { DiskMirrorService } from './cache/DiskMirrorService.js';
 
 /**
  * CacheService - Orchestrates persistence via LevelDB
@@ -16,17 +19,17 @@ class CacheService {
         this.globalDb = new LevelDBManager(this.globalDbPath);
         this.globalDb.open().catch(err => console.error('[CacheService] Global DB Init Failed:', err));
 
+        // Initialize managers
+        this.fileCacheManager = new FileCacheManager(this.globalDb);
+
         // Session DB (Analysis Results)
         this.sessionDb = null;
+        this.sessionCacheManager = null;
         this.currentSessionId = null;
 
-        // Mirroring path (User Request: Human readable logs)
+        // Disk mirroring
         this.mirrorPath = path.join(process.cwd(), 'logs', 'tracer_logs');
-        this.currentMirrorPath = this.mirrorPath;
-
-        if (!fs.existsSync(this.mirrorPath)) {
-            fs.mkdirSync(this.mirrorPath, { recursive: true });
-        }
+        this.diskMirrorService = new DiskMirrorService(this.mirrorPath);
     }
 
     /**
@@ -46,8 +49,9 @@ class CacheService {
             console.log('[CacheService] Switching results back to Global DB');
             await this.sessionDb.close();
             this.sessionDb = null;
+            this.sessionCacheManager = null;
             this.currentSessionId = null;
-            this.currentMirrorPath = this.mirrorPath;
+            this.diskMirrorService.resetToBasePath();
             return;
         }
 
@@ -64,8 +68,9 @@ class CacheService {
         this.sessionDb = new LevelDBManager(sessionDbPath);
         await this.sessionDb.open();
 
+        this.sessionCacheManager = new SessionCacheManager(this.sessionDb);
         this.currentSessionId = sessionId;
-        this.currentMirrorPath = sessionPath; // Redirect mirrors to session folder
+        this.diskMirrorService.setMirrorPath(sessionPath); // Redirect mirrors to session folder
     }
 
     /**
@@ -91,155 +96,149 @@ class CacheService {
     // --- FILE CACHE (ALWAYS GLOBAL) ---
 
     async needsUpdate(owner, repo, path, sha) {
-        const key = `raw:file:${repo}:${path}`;
-        const cached = await this.globalDb.get(key);
-        if (!cached) return true;
-        return cached.meta?.sha !== sha;
+        return await this.fileCacheManager.needsUpdate(owner, repo, path, sha);
     }
 
     async setFileSummary(owner, repo, path, sha, summary, content, fileMeta = {}) {
-        const key = `raw:file:${repo}:${path}`;
-        const data = {
-            content,
-            summary,
-            meta: { sha, ...fileMeta },
-            updatedAt: new Date().toISOString()
-        };
-        await this.globalDb.put(key, data);
+        await this.fileCacheManager.setFileSummary(owner, repo, path, sha, summary, content, fileMeta);
     }
 
     async getFileSummary(owner, repo, path) {
-        const key = `raw:file:${repo}:${path}`;
-        return await this.globalDb.get(key);
+        return await this.fileCacheManager.getFileSummary(owner, repo, path);
     }
 
     async setRepoTreeSha(owner, repo, sha) {
-        await this.globalDb.put(`meta:repo:tree:${owner}:${repo}`, sha);
+        await this.fileCacheManager.setRepoTreeSha(owner, repo, sha);
     }
 
     async hasRepoChanged(owner, repo, currentSha) {
-        const stored = await this.globalDb.get(`meta:repo:tree:${owner}:${repo}`);
-        return stored !== currentSha;
+        return await this.fileCacheManager.hasRepoChanged(owner, repo, currentSha);
     }
 
     // --- REPO CACHE / ANALYSIS RESULTS (SESSION SCOPED) ---
 
     async appendRepoRawFinding(repoName, finding) {
-        const timestamp = new Date().toISOString();
-        const rand = Math.random().toString(36).substring(7);
-        const key = `raw:finding:${repoName}:${timestamp}:${rand}`;
-        await this.resultsDb.put(key, finding);
-
-        // MIRROR
-        this.mirrorToDisk(path.join('repos', repoName), 'raw_findings.jsonl', finding, true);
+        if (!this.sessionCacheManager) {
+            throw new Error('No active session. Call switchSession() first.');
+        }
+        await this.sessionCacheManager.appendRepoRawFinding(repoName, finding);
+        await this.diskMirrorService.mirrorRepoRawFinding(repoName, finding);
     }
 
     async persistRepoCuratedMemory(repoName, nodes) {
-        const ops = nodes.map(node => ({
-            type: 'put',
-            key: `mem:node:${node.uid}`,
-            value: node
-        }));
-
-        const indexKey = `idx:repo:${repoName}:nodes`;
-        const existingIndex = (await this.resultsDb.get(indexKey)) || [];
-        const newUids = nodes.map(n => n.uid);
-        const combinedIndex = [...new Set([...existingIndex, ...newUids])];
-
-        ops.push({
-            type: 'put',
-            key: indexKey,
-            value: combinedIndex
-        });
-
-        await this.resultsDb.batch(ops);
-        this.mirrorToDisk(path.join('repos', repoName), 'curated_memory.json', nodes);
+        if (!this.sessionCacheManager) {
+            throw new Error('No active session. Call switchSession() first.');
+        }
+        await this.sessionCacheManager.persistRepoCuratedMemory(repoName, nodes);
+        await this.diskMirrorService.mirrorRepoCuratedMemory(repoName, nodes);
     }
 
     async persistRepoBlueprint(repoName, blueprint) {
-        await this.resultsDb.put(`meta:blueprint:${repoName}`, blueprint);
-        this.mirrorToDisk(path.join('repos', repoName), 'blueprint.json', blueprint);
+        if (!this.sessionCacheManager) {
+            throw new Error('No active session. Call switchSession() first.');
+        }
+        await this.sessionCacheManager.persistRepoBlueprint(repoName, blueprint);
+        await this.diskMirrorService.mirrorRepoBlueprint(repoName, blueprint);
     }
 
     async getAllRepoBlueprints() {
-        const blueprints = await this.resultsDb.getByPrefix('meta:blueprint:');
-        return blueprints.map(entry => entry.value);
+        if (!this.sessionCacheManager) {
+            return [];
+        }
+        return await this.sessionCacheManager.getAllRepoBlueprints();
     }
 
     // --- INTELLIGENCE / IDENTITY (SESSION SCOPED) ---
 
     async setTechnicalIdentity(user, identity) {
-        await this.resultsDb.put(`meta:identity:${user}`, identity);
+        if (!this.sessionCacheManager) {
+            throw new Error('No active session. Call switchSession() first.');
+        }
+        await this.sessionCacheManager.setTechnicalIdentity(user, identity);
     }
 
     async getTechnicalIdentity(user) {
-        return await this.resultsDb.get(`meta:identity:${user}`);
+        if (!this.sessionCacheManager) {
+            return null;
+        }
+        return await this.sessionCacheManager.getTechnicalIdentity(user);
     }
 
     async setTechnicalFindings(user, findings) {
-        await this.resultsDb.put(`meta:findings:${user}`, findings);
+        if (!this.sessionCacheManager) {
+            throw new Error('No active session. Call switchSession() first.');
+        }
+        await this.sessionCacheManager.setTechnicalFindings(user, findings);
     }
 
     async getTechnicalFindings(user) {
-        return await this.resultsDb.get(`meta:findings:${user}`);
+        if (!this.sessionCacheManager) {
+            return null;
+        }
+        return await this.sessionCacheManager.getTechnicalFindings(user);
     }
 
     async setCognitiveProfile(user, profile) {
-        await this.resultsDb.put(`meta:profile:${user}`, profile);
+        if (!this.sessionCacheManager) {
+            throw new Error('No active session. Call switchSession() first.');
+        }
+        await this.sessionCacheManager.setCognitiveProfile(user, profile);
     }
 
     async getCognitiveProfile(user) {
-        return await this.resultsDb.get(`meta:profile:${user}`);
+        if (!this.sessionCacheManager) {
+            return null;
+        }
+        return await this.sessionCacheManager.getCognitiveProfile(user);
     }
 
     // --- UTILS / LOGS ---
 
     async setWorkerAudit(id, finding) {
-        const timestamp = new Date().toISOString();
-        const rand = Math.random().toString(36).substring(7);
-        const key = `log:worker:${id}:${timestamp}:${rand}`;
-        await this.resultsDb.put(key, finding);
+        if (!this.sessionCacheManager) {
+            throw new Error('No active session. Call switchSession() first.');
+        }
+        await this.sessionCacheManager.setWorkerAudit(id, finding);
     }
 
     async getWorkerAudit(id) {
-        return await this.resultsDb.getByPrefix(`log:worker:${id}`);
+        if (!this.sessionCacheManager) {
+            return [];
+        }
+        return await this.sessionCacheManager.getWorkerAudit(id);
     }
 
     async persistRepoPartitions(repoName, partitions) {
-        await this.resultsDb.put(`meta:partitions:${repoName}`, partitions);
+        if (!this.sessionCacheManager) {
+            throw new Error('No active session. Call switchSession() first.');
+        }
+        await this.sessionCacheManager.persistRepoPartitions(repoName, partitions);
     }
 
     async persistRepoGoldenKnowledge(repoName, data) {
-        await this.resultsDb.put(`meta:golden:${repoName}`, data);
+        if (!this.sessionCacheManager) {
+            throw new Error('No active session. Call switchSession() first.');
+        }
+        await this.sessionCacheManager.persistRepoGoldenKnowledge(repoName, data);
     }
 
     async getRepoGoldenKnowledge(repoName) {
-        return await this.resultsDb.get(`meta:golden:${repoName}`);
+        if (!this.sessionCacheManager) {
+            return null;
+        }
+        return await this.sessionCacheManager.getRepoGoldenKnowledge(repoName);
     }
 
     async generateRunSummary(stats) {
-        const summary = {
-            id: this.currentSessionId || `TRACE_${Date.now()}`,
-            timestamp: new Date().toISOString(),
-            stats: stats,
-            performance: stats.performance || {},
-            reposAnalyzed: stats.reposAnalyzed || [],
-            coverage: {
-                totalFiles: stats.totalFiles || 0,
-                analyzed: stats.analyzed || 0,
-                percent: stats.progress || 0
-            }
-        };
-
-        await this.mirrorToDisk('', 'SUMMARY.json', summary);
-        return summary;
+        return await this.diskMirrorService.generateRunSummary(stats, this.currentSessionId);
     }
 
     async getStats() {
         return {
             type: 'LevelDB',
             status: this.globalDb.status,
-            sessionActive: !!this.sessionDb
+            sessionActive: !!this.sessionDb,
+            currentSessionId: this.currentSessionId
         };
     }
 

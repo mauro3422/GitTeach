@@ -4,11 +4,13 @@
 
 GitTeach es una aplicación de escritorio (Electron) diseñada para ayudar a los desarrolladores a gestionar sus perfiles de GitHub y mejorar sus habilidades mediante un asistente de IA local con arquitectura Thinking RAG.
 
-## 🎯 **Novedades v2.41.0 (Hardware Heartbeat & Flow Fidelity)**
-- **Hardware Heartbeat**: Monitoreo en tiempo real de los servidores AI (8000, 8001, 8002) con indicadores de falla (OFFLINE).
-- **Flow Fidelity**: Sistema de paquetes en tránsito y estados diferenciados (Active vs Pending) para mayor realismo visual.
-- **Grouped History**: Historial de procesamiento organizado jerárquicamente por repositorio en el panel de inspección.
-- **SOLID Refactor**: Pipeline visualizer modularizado en componentes especializados (Constants, Renderer, Interaction, UI).
+## 🎯 **Novedades v2.44.0 (Domain IPC & Core SOLID)**
+- **Domain-Driven IPC**: Migración a handlers especializados (`Profile`, `Repo`, `Commit`, `System`) con arquitectura desacoplada.
+- **IpcWrapper Pattern**: Estandarización de errores y auditoría de todas las llamadas entre procesos.
+- **Core Service Decomposition**: Refactorización profunda de `AuthService` y `CacheService` en submódulos de responsabilidad única.
+- **Design System Phase II**: Auditado total de CSS y adopción absoluta de variables de diseño en dashboard y componentes.
+
+## 🎯 **Novedades v2.43.0 (Core Architecture & SOLID)**
 
 ## 📚 **Documentación Técnica**
 - **[Arquitectura Completa](docs/architecture/)**: Diagramas y documentación detallada

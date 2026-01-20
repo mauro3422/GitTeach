@@ -1,38 +1,49 @@
 // src/main/handlers/fleetHandler.js
 import aiFleetService from '../services/aiFleetService.js';
+import { IpcWrapper } from './IpcWrapper.js';
 
 /**
  * Registers Fleet Monitoring IPC handlers.
  * @param {Electron.IpcMain} ipcMain - The ipcMain instance.
  */
 export function register(ipcMain) {
-    // Current state snapshot
-    ipcMain.handle('fleet:get-status', () => {
-        return aiFleetService.getFleetState();
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'fleet:get-status',
+        () => aiFleetService.getFleetState(),
+        'fleet:get-status'
+    );
 
-    // Manual refresh trigger
-    ipcMain.handle('fleet:refresh', async () => {
-        return aiFleetService.getFleetState();
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'fleet:refresh',
+        () => aiFleetService.getFleetState(),
+        'fleet:refresh'
+    );
 
-    // Dynamic Limits update
-    ipcMain.handle('fleet:set-limits', (event, limits) => {
-        aiFleetService.setLimits(limits);
-        return { success: true };
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'fleet:set-limits',
+        (event, limits) => {
+            aiFleetService.setLimits(limits);
+            return { success: true };
+        },
+        'fleet:set-limits'
+    );
 
-    // Proactive Verification
-    ipcMain.handle('fleet:verify', async () => {
-        return await aiFleetService.verifyFleet();
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'fleet:verify',
+        () => aiFleetService.verifyFleet(),
+        'fleet:verify'
+    );
 
-    // NUEVO: Agregar handler para eventos de actividad
+    // Activity reporting (On)
     ipcMain.on('fleet:pipeline-activity', (event, data) => {
         aiFleetService.onPipelineActivity(data);
     });
 
-    console.log('[Handlers] ✅ fleetHandler registered.');
+    console.log('[Handlers] ✅ fleetHandler registered with IpcWrapper.');
 }
 
 export default { register };

@@ -1,87 +1,50 @@
+import { NavigationController } from './NavigationController.js';
+import { PanelStateManager } from './PanelStateManager.js';
+import { TabSwitcher } from './TabSwitcher.js';
+
 /**
- * SidebarManager - Handles the VSCode-style navigation system.
- * Manages states for the Activity Bar and Sidebar Panel.
+ * SidebarManager - Minimal facade delegating to specialized controllers.
+ * Coordinates navigation, panel state, and tab switching.
  */
-export const SidebarManager = {
-    activeTab: 'insights',
-    isExpanded: true,
+export class SidebarManager {
+    constructor() {
+        this.activeTab = 'insights';
+        this.isExpanded = true;
+
+        // Initialize specialized controllers
+        this.navigationController = new NavigationController(this);
+        this.panelStateManager = new PanelStateManager(this);
+        this.tabSwitcher = new TabSwitcher(this);
+    }
 
     init() {
-        this.setupEventListeners();
-        console.log('[SidebarManager] Initialized.');
-    },
+        // Initialize all controllers
+        this.navigationController.init();
+        this.panelStateManager.init();
+        this.tabSwitcher.init();
 
-    setupEventListeners() {
-        const navItems = document.querySelectorAll('.nav-item');
-        navItems.forEach(item => {
-            item.addEventListener('click', () => {
-                const tabId = item.dataset.tab;
-                if (tabId === this.activeTab && this.isExpanded) {
-                    this.toggleSidebar(false);
-                } else {
-                    this.switchTab(tabId);
-                    this.toggleSidebar(true);
-                }
-            });
-        });
+        console.log('[SidebarManager] Initialized as facade.');
+    }
 
-        // Toggle global (e.g. from top menu someday)
-        document.getElementById('btn-toggle-sidebar')?.addEventListener('click', () => {
-            this.toggleSidebar(!this.isExpanded);
-        });
-    },
-
+    // Facade methods for external access
     switchTab(tabId) {
+        this.tabSwitcher.switchTab(tabId);
         this.activeTab = tabId;
-
-        // Update Icons UI
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.classList.toggle('active', item.dataset.tab === tabId);
-        });
-
-        // Update Panel Content
-        const title = document.getElementById('sidebar-title');
-        const insightsPanel = document.getElementById('insights-panel');
-        const galleryPanel = document.getElementById('gallery-panel');
-
-        if (title) {
-            const labels = {
-                'insights': '📊 Insights',
-                'gallery': '✨ Galería',
-                'inbox': '📥 Inbox',
-                'settings': '⚙️ Settings'
-            };
-            title.innerText = labels[tabId] || 'Panel';
-        }
-
-        // Toggle Panels
-        if (insightsPanel) insightsPanel.classList.toggle('hidden', tabId !== 'insights');
-        if (galleryPanel) {
-            galleryPanel.classList.toggle('hidden', tabId !== 'gallery');
-            if (tabId === 'gallery') {
-                // Initialize Gallery logic when shown
-                import('./widgetGallery.js').then(m => m.WidgetGallery.init());
-            }
-        }
-
-        console.log(`[SidebarManager] Switched to tab: ${tabId}`);
-    },
+    }
 
     toggleSidebar(show) {
-        const panel = document.getElementById('sidebar-panel');
-        const resizer = document.getElementById('resizer-left');
-
+        this.panelStateManager.toggleSidebar(show);
         this.isExpanded = show;
-
-        if (panel) {
-            panel.classList.toggle('collapsed', !show);
-        }
-
-        if (resizer) {
-            resizer.style.display = show ? 'block' : 'none';
-        }
-
-        // Trigger layout update if needed
-        window.dispatchEvent(new Event('resize'));
     }
-};
+
+    // Getters for external access
+    getState() {
+        return {
+            activeTab: this.activeTab,
+            isExpanded: this.isExpanded,
+            initializedPanels: this.tabSwitcher.getInitializedPanels()
+        };
+    }
+}
+
+export const sidebarManager = new SidebarManager();

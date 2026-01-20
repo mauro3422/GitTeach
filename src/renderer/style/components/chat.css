@@ -30,7 +30,7 @@
 
 .status-dot.disconnected {
     background: #ff4d4d;
-    box-shadow: 0 0 12px rgba(255, 77, 77, 0.5);
+    box-shadow: 0 0 12px var(--chat-status-disconnected);
 }
 
 .chat-container {
@@ -72,15 +72,15 @@
 }
 
 .chat-bubble.ai {
-    background: rgba(31, 111, 235, 0.1);
-    border: 1px solid rgba(88, 166, 255, 0.2);
+    background: var(--chat-ai-bg);
+    border: 1px solid var(--chat-ai-border);
     color: #f0f6fc;
     border-bottom-left-radius: 4px;
     align-self: flex-start;
 }
 
 .chat-bubble.user {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--chat-user-bg);
     border: 1px solid var(--glass-border);
     color: var(--text-main);
     align-self: flex-end;
@@ -91,7 +91,7 @@
     position: relative;
     margin-top: 1.5rem;
     padding: 4px;
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--chat-input-bg);
     border-radius: 16px;
     border: 1px solid var(--glass-border);
     transition: all 0.3s ease;
@@ -100,14 +100,14 @@
 .chat-input-wrapper:focus-within {
     border-color: var(--accent);
     box-shadow: var(--border-glow);
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--chat-input-focus-bg);
 }
 
 .chat-input {
     width: 100%;
     background: transparent;
     border: none;
-    color: white;
+    color: var(--chat-text-input);
     padding: 12px 14px;
     outline: none;
     font-size: 0.95rem;

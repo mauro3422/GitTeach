@@ -18,8 +18,8 @@ export class DashboardManager {
         EditorManager.init();
 
         // 2. Component init
-        const { SidebarManager } = await import('../components/sidebar_manager.js');
-        SidebarManager.init();
+        const { sidebarManager } = await import('../components/sidebar_manager.js');
+        sidebarManager.init();
 
         const resizable = new ResizableManager('dashboard-view');
         resizable.init();

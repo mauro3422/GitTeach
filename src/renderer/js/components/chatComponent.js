@@ -1,178 +1,113 @@
-// src/renderer/js/components/chatComponent.js
-import { DebugLogger } from '../utils/debugLogger.js';
+/**
+ * ChatComponent.js
+ * Clean entry point orchestrating UI, Messages, and State
+ * Coordinates ChatUI, MessageHandler, ProactiveMessenger, and ChatStateManager
+ */
+
+import { ChatStateManager } from './ChatStateManager.js';
+import { MessageHandler } from './MessageHandler.js';
+import { chatUI } from './ChatUI.js';
+import { proactiveMessenger } from './ProactiveMessenger.js';
 
 export const ChatComponent = {
-    container: null,
-    input: null,
-    isProcessing: false,
+    // Shared state manager instance
+    stateManager: null,
+    messageHandler: null,
 
     init() {
-        this.container = document.getElementById('chat-messages');
-        this.input = document.getElementById('chat-input-box');
+        // Initialize shared state manager
+        this.stateManager = new ChatStateManager();
+        this.stateManager.init();
 
-        if (!this.container || !this.input) {
-            console.error('[ChatComponent] Required DOM elements not found');
+        // Initialize message handler with shared state
+        this.messageHandler = new MessageHandler(this.stateManager);
+
+        // Initialize ChatUI
+        if (!chatUI.initialize()) {
             return;
         }
 
-        this.input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && this.input.value.trim() && !this.isProcessing) {
-                this.sendMessage(this.input.value.trim());
-                this.input.value = '';
+        // Connect components
+        proactiveMessenger.chatUI = chatUI;
+        proactiveMessenger.stateManager = this.stateManager;
+
+        // Setup callbacks with shared message handler
+        chatUI.setMessageSendCallback((message) => {
+            if (!this.messageHandler.isCurrentlyProcessing()) {
+                this.messageHandler.sendMessage(
+                    message,
+                    (text, type) => chatUI.addMessage(text, type),
+                    () => chatUI.addLoadingMessage(),
+                    () => chatUI.removeLoading()
+                );
             }
         });
 
-        this.initQuickActions();
-    },
-
-    initQuickActions() {
-        const actionsContainer = document.getElementById('quick-actions');
-        if (!actionsContainer) return;
-
-        const actions = [
-            { label: "✨ Mejorar Header", query: "Mejora mi banner de bienvenida" },
-            { label: "📊 Mis Stats", query: "Pon mis estadísticas de GitHub" },
-            { label: "🤖 Auditoría", query: "Audita mi perfil y dime qué mejorar" },
-            { label: "🏆 Logros", query: "Muestra mis trofeos" }
-        ];
-
-        actionsContainer.innerHTML = actions.map(act =>
-            `<button class="action-chip" data-query="${act.query}">${act.label}</button>`
-        ).join('');
-
-        actionsContainer.addEventListener('click', (e) => {
-            const chip = e.target.closest('.action-chip');
-            if (chip && !this.isProcessing) {
-                this.sendMessage(chip.dataset.query);
+        chatUI.setQuickActionCallback((query) => {
+            if (!this.messageHandler.isCurrentlyProcessing()) {
+                this.messageHandler.sendMessage(
+                    query,
+                    (text, type) => chatUI.addMessage(text, type),
+                    () => chatUI.addLoadingMessage(),
+                    () => chatUI.removeLoading()
+                );
             }
         });
+
+        console.log('[ChatComponent] Initialized with coordinated state management.');
     },
 
-    sendMessage(text) {
-        console.log("[ChatComponent] Sending message:", text);
-        if (window.githubAPI?.logToTerminal) window.githubAPI.logToTerminal(`💬 Chat Input: ${text}`);
-
-        // Debug logging - capture user input
-        DebugLogger.logChat('user', text);
-
-        this.addMessage(text, 'user');
-        this.processAIResponse(text);
-    },
-
-    addMessage(text, type) {
-        const bubble = document.createElement('div');
-        bubble.className = `chat-bubble ${type}`;
-
-        if (text === '...') {
-            bubble.classList.add('loading');
-            bubble.innerText = '🤖 Pensando...';
-            bubble.id = 'ai-loading-bubble';
-        } else {
-            bubble.innerText = text;
-        }
-
-        this.container.appendChild(bubble);
-        this.scrollToBottom();
-    },
-
-    removeLoading() {
-        const loading = document.getElementById('ai-loading-bubble');
-        if (loading) loading.remove();
-    },
-
-    async processAIResponse(userInput) {
-        this.isProcessing = true;
-        this.addMessage('...', 'ai');
-
-        try {
-            const { AIService } = await import('../services/aiService.js');
-            const { ToolRegistry } = await import('../services/toolRegistry.js');
-            const { AIToolbox } = await import('../services/aiToolbox.js');
-            const { DashboardView } = await import('../views/dashboard.js');
-
-            const usernameEl = document.getElementById('user-name');
-            const username = usernameEl?.dataset.login || DashboardView.currentUsername || 'User';
-            const intent = await AIService.processIntent(userInput, username);
-
-            this.removeLoading();
-
-            // La "Acción" ya se ejecutó dentro del servicio (Ciclo Cerrado).
-            // Solo mostramos el mensaje final del AI Report.
-            console.log("[ChatComponent] Respuesta AI recibida:", intent.message);
-
-            // Debug logging - capture AI response
-            DebugLogger.logChat('ai', intent.message);
-
-            this.addMessage(intent.message, 'ai');
-        } catch (error) {
-            console.error("[ChatComponent] Error procesando AI:", error);
-            if (window.githubAPI?.logToTerminal) window.githubAPI.logToTerminal(`❌ Chat Error: ${error.message}`);
-
-            this.removeLoading();
-            this.addMessage("Ups, perdí la conexión con mi motor local. ¿Está el servidor encendido?", 'ai');
-            console.error('ChatComponent Error:', error);
-        } finally {
-            this.isProcessing = false;
-        }
-    },
-
-    scrollToBottom() {
-        this.container.scrollTop = this.container.scrollHeight;
-    },
-
-    /**
-     * Shows an agentic process step (e.g. "Analyzing repo X")
-     */
+    // Delegate methods to specialized handlers
     showProactiveStep(message) {
-        if (!this.container) return;
-        const bubble = document.createElement('div');
-        bubble.className = 'chat-bubble ai proactive';
-        bubble.style.borderLeft = '3px solid var(--accent)';
-        bubble.style.boxShadow = 'var(--border-glow)';
-        bubble.innerHTML = `<span class="bot-icon">🧵</span> ${message}`;
-        this.container.appendChild(bubble);
-        this.scrollToBottom();
+        proactiveMessenger.showProactiveStep(message);
     },
 
-    /**
-     * Muestra un insight proactivo de la IA
-     */
-    /**
-     * Muestra un insight proactivo de la IA
-     */
     showInsight(message) {
-        if (!this.container) return;
-        this.addMessage(message, 'ai');
-        if (window.githubAPI?.logToTerminal) window.githubAPI.logToTerminal(`🤖 AI Insight Automatic: ${message}`);
+        proactiveMessenger.showInsight(message);
     },
 
-    /**
-     * Updates the discrete progress bar
-     */
     updateProgress(percent, text) {
-        const panel = document.getElementById('ai-progress-panel');
-        const bar = document.getElementById('progress-bar-fill');
-        const label = document.getElementById('progress-text');
-        const percentLabel = document.getElementById('progress-percent');
-
-        if (panel && panel.classList.contains('hidden')) {
-            panel.classList.remove('hidden');
-        }
-
-        if (bar) bar.style.width = `${percent}%`;
-        if (label) label.innerText = text;
-        if (percentLabel) percentLabel.innerText = `${percent}%`;
+        chatUI.updateProgress(percent, text);
     },
 
-    /**
-     * Hides the progress bar
-     */
     hideProgress() {
-        const panel = document.getElementById('ai-progress-panel');
-        if (panel) {
-            setTimeout(() => {
-                panel.classList.add('hidden');
-            }, 1000); // Small delay to show 100%
-        }
+        chatUI.hideProgress();
+    },
+
+    // Additional proactive methods through ProactiveMessenger
+    showScanningProgress(repoName, current, total) {
+        proactiveMessenger.showScanningProgress(repoName, current, total);
+    },
+
+    showAnalysisComplete(repoName, filesCount) {
+        proactiveMessenger.showAnalysisComplete(repoName, filesCount);
+    },
+
+    showAIProcessing(status) {
+        proactiveMessenger.showAIProcessing(status);
+    },
+
+    showError(errorType, details) {
+        proactiveMessenger.showError(errorType, details);
+    },
+
+    showSuccess(message) {
+        proactiveMessenger.showSuccess(message);
+    },
+
+    showWarning(message) {
+        proactiveMessenger.showWarning(message);
+    },
+
+    showInfo(message) {
+        proactiveMessenger.showInfo(message);
+    },
+
+    showMemoryUpdate(memoryType, count) {
+        proactiveMessenger.showMemoryUpdate(memoryType, count);
+    },
+
+    showPipelineStatus(stage, progress) {
+        proactiveMessenger.showPipelineStatus(stage, progress);
     }
 };

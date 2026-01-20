@@ -1,111 +1,105 @@
 // src/main/services/repoService.js
 import githubClient from './githubClient.js';
+import { RequestStrategy } from './RequestStrategy.js';
+import { RepoDataAccessor } from './RepoDataAccessor.js';
+import { ProfileRepoManager } from './ProfileRepoManager.js';
+import { WorkflowGenerator } from './WorkflowGenerator.js';
 
+/**
+ * RepoService - Orchestrator delegating to specialized managers.
+ * Coordinates GitHub operations through focused, single-responsibility components.
+ */
 class RepoService {
+    constructor() {
+        // Initialize specialized managers
+        this.requestStrategy = new RequestStrategy(githubClient);
+        this.repoDataAccessor = new RepoDataAccessor(this.requestStrategy);
+        this.profileRepoManager = new ProfileRepoManager(this.requestStrategy);
+        this.workflowGenerator = new WorkflowGenerator(this.requestStrategy, this.profileRepoManager);
+    }
+
+    // Data Access Operations (delegated to RepoDataAccessor)
     async listUserRepos() {
-        return await githubClient.request({ url: '/user/repos?sort=updated&per_page=100' });
+        return this.repoDataAccessor.listUserRepos();
     }
 
     async getFileContent(owner, repo, path) {
-        return await githubClient.request({
-            url: `/repos/${owner}/${repo}/contents/${path}`
-        });
+        return this.repoDataAccessor.getFileContent(owner, repo, path);
     }
 
-    /**
-     * Obtiene el README de cualquier repositorio
-     */
     async getRepoReadme(owner, repo) {
-        try {
-            return await githubClient.request({
-                url: `/repos/${owner}/${repo}/readme`
-            });
-        } catch (e) {
-            return null; // El repositorio podría no tener README
-        }
+        return this.repoDataAccessor.getRepoReadme(owner, repo);
     }
 
-    /**
-     * Obtiene el árbol completo de archivos (recursivo)
-     */
     async getRepoTree(owner, repo, recursive = true) {
-        try {
-            return await githubClient.request({
-                url: `/repos/${owner}/${repo}/git/trees/main?recursive=${recursive ? 1 : 0}`
-            });
-        } catch (e) {
-            // Intentar con 'master' si 'main' falla
-            return await githubClient.request({
-                url: `/repos/${owner}/${repo}/git/trees/master?recursive=${recursive ? 1 : 0}`
-            });
-        }
+        return this.repoDataAccessor.getRepoTree(owner, repo, recursive);
     }
 
-    /**
-     * Crea el repositorio especial de perfil (username/username)
-     */
-    async createProfileRepo(username) {
-        return await githubClient.request({
-            method: 'POST',
-            url: '/user/repos',
-            body: {
-                name: username,
-                description: 'Mi perfil de GitHub creado con GitTeach 🚀',
-                auto_init: true, // Importante para que cree el README.md inicial
-                private: false
-            }
-        });
-    }
-    /**
-     * Crea un archivo de workflow en .github/workflows
-     */
-    async createWorkflow(username, content) {
-        // Primero intentamos obtener el SHA si existe para hacer update
-        let sha = null;
-        try {
-            const file = await this.getFileContent(username, username, '.github/workflows/snake.yml');
-            if (file && file.sha) sha = file.sha;
-        } catch (e) {
-            // No existe, crearemos uno nuevo
-        }
-
-        return await githubClient.request({
-            method: 'PUT',
-            url: `/repos/${username}/${username}/contents/.github/workflows/snake.yml`,
-            body: {
-                message: 'Add Snake Game workflow 🐍',
-                content: Buffer.from(content).toString('base64'),
-                sha: sha
-            }
-        });
-    }
-
-    /**
-     * Obtiene los commits de un usuario específico en un repo
-     * Útil para detectar contribuciones en forks
-     */
     async getUserCommits(owner, repo, author) {
-        try {
-            return await githubClient.request({
-                url: `/repos/${owner}/${repo}/commits?author=${author}&per_page=5`
-            });
-        } catch (e) {
-            console.warn(`[RepoService] Error fetching commits for ${author} in ${repo}: ${e.message}`);
-            return [];
-        }
+        return this.repoDataAccessor.getUserCommits(owner, repo, author);
     }
 
-    /**
-     * Obtiene el diff de un commit para ver qué archivos cambió
-     */
     async getCommitDiff(owner, repo, sha) {
-        try {
-            return await githubClient.request({
-                url: `/repos/${owner}/${repo}/commits/${sha}`
-            });
-        } catch (e) {
-            return null;
-        }
+        return this.repoDataAccessor.getCommitDiff(owner, repo, sha);
+    }
+
+    // Profile Repository Operations (delegated to ProfileRepoManager)
+    async createProfileRepo(username) {
+        return this.profileRepoManager.createProfileRepo(username);
+    }
+
+    async profileRepoExists(username) {
+        return this.profileRepoManager.profileRepoExists(username);
+    }
+
+    async getProfileRepoInfo(username) {
+        return this.profileRepoManager.getProfileRepoInfo(username);
+    }
+
+    async updateProfileRepoDescription(username, description) {
+        return this.profileRepoManager.updateProfileRepoDescription(username, description);
+    }
+
+    async initializeProfileStructure(username) {
+        return this.profileRepoManager.initializeProfileStructure(username);
+    }
+
+    async updateProfileReadme(username, content) {
+        return this.profileRepoManager.updateProfileReadme(username, content);
+    }
+
+    async getProfileStats(username) {
+        return this.profileRepoManager.getProfileStats(username);
+    }
+
+    // Workflow Operations (delegated to WorkflowGenerator)
+    async createWorkflow(username, content) {
+        // Legacy method - creates snake workflow with provided content
+        return this.workflowGenerator.createWorkflow(username, 'snake.yml', content);
+    }
+
+    async createSnakeWorkflow(username) {
+        return this.workflowGenerator.createSnakeWorkflow(username);
+    }
+
+    async createStatsWorkflow(username) {
+        return this.workflowGenerator.createStatsWorkflow(username);
+    }
+
+    async createAllWorkflows(username) {
+        return this.workflowGenerator.createAllWorkflows(username);
+    }
+
+    async getWorkflows(username) {
+        return this.workflowGenerator.getWorkflows(username);
+    }
+
+    async updateWorkflow(username, filename, updates) {
+        return this.workflowGenerator.updateWorkflow(username, filename, updates);
+    }
+
+    async deleteWorkflow(username, filename) {
+        return this.workflowGenerator.deleteWorkflow(username, filename);
     }
 }
 

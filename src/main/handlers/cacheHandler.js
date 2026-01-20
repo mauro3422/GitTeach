@@ -1,178 +1,215 @@
 // src/main/handlers/cacheHandler.js
-// Handler: IPC bridge for cache-related events.
-
 import cacheService from '../services/cacheService.js';
+import { IpcWrapper } from './IpcWrapper.js';
 
 /**
  * Registers all cache-related IPC handlers.
  * @param {Electron.IpcMain} ipcMain - The ipcMain instance.
  */
 export function register(ipcMain) {
-    ipcMain.handle('cache:get-repo', async (event, { owner, repo }) => {
-        try {
-            return cacheService.getRepoCache(owner, repo);
-        } catch (error) {
-            return { error: error.message };
-        }
-    });
+    // --- Basic Cache ---
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:needs-update',
+        (event, { owner, repo, filePath, sha }) => cacheService.needsUpdate(owner, repo, filePath, sha),
+        'cache:needs-update',
+        true, true // Default to true if error
+    );
 
-    ipcMain.handle('cache:set-repo', async (event, { owner, repo, data }) => {
-        cacheService.setRepoCache(owner, repo, data);
-        return { success: true };
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:set-file-summary',
+        (event, { owner, repo, filePath, sha, summary, content }) => {
+            cacheService.setFileSummary(owner, repo, filePath, sha, summary, content);
+            return { success: true };
+        },
+        'cache:set-file-summary'
+    );
 
-    ipcMain.handle('cache:needs-update', async (event, { owner, repo, filePath, sha }) => {
-        try {
-            return cacheService.needsUpdate(owner, repo, filePath, sha);
-        } catch (error) {
-            return true; // Assume needs update if error
-        }
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:get-file-summary',
+        (event, { owner, repo, filePath }) => cacheService.getFileSummary(owner, repo, filePath),
+        'cache:get-file-summary',
+        true, null
+    );
 
-    ipcMain.handle('cache:set-file-summary', async (event, { owner, repo, filePath, sha, summary, content }) => {
-        cacheService.setFileSummary(owner, repo, filePath, sha, summary, content);
-        return { success: true };
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:has-repo-changed',
+        (event, { owner, repo, treeSha }) => cacheService.hasRepoChanged(owner, repo, treeSha),
+        'cache:has-repo-changed',
+        true, true
+    );
 
-    ipcMain.handle('cache:get-file-summary', async (event, { owner, repo, filePath }) => {
-        try {
-            return cacheService.getFileSummary(owner, repo, filePath);
-        } catch (error) {
-            return null;
-        }
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:set-repo-tree-sha',
+        (event, { owner, repo, treeSha }) => {
+            cacheService.setRepoTreeSha(owner, repo, treeSha);
+            return { success: true };
+        },
+        'cache:set-repo-tree-sha'
+    );
 
-    ipcMain.handle('cache:has-repo-changed', async (event, { owner, repo, treeSha }) => {
-        try {
-            return cacheService.hasRepoChanged(owner, repo, treeSha);
-        } catch (error) {
-            return true; // Assume changed if error
-        }
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:get-stats',
+        () => cacheService.getStats(),
+        'cache:get-stats'
+    );
 
-    ipcMain.handle('cache:set-repo-tree-sha', async (event, { owner, repo, treeSha }) => {
-        cacheService.setRepoTreeSha(owner, repo, treeSha);
-        return { success: true };
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:clear',
+        () => {
+            cacheService.clearCache();
+            return { success: true };
+        },
+        'cache:clear'
+    );
 
-    ipcMain.handle('cache:get-stats', async () => {
-        try {
-            return cacheService.getStats();
-        } catch (error) {
-            return { error: error.message };
-        }
-    });
+    // --- Intelligence / Identity ---
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:get-technical-identity',
+        (event, username) => cacheService.getTechnicalIdentity(username),
+        'cache:get-technical-identity',
+        true, null
+    );
 
-    ipcMain.handle('cache:clear', async () => {
-        cacheService.clearCache();
-        return { success: true };
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:set-technical-identity',
+        (event, { username, identity }) => {
+            cacheService.setTechnicalIdentity(username, identity);
+            return { success: true };
+        },
+        'cache:set-technical-identity'
+    );
 
-    ipcMain.handle('cache:get-technical-identity', async (event, username) => {
-        try {
-            return cacheService.getTechnicalIdentity(username);
-        } catch (error) {
-            return null;
-        }
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:get-technical-findings',
+        (event, username) => cacheService.getTechnicalFindings(username),
+        'cache:get-technical-findings',
+        true, null
+    );
 
-    ipcMain.handle('cache:set-technical-identity', async (event, { username, identity }) => {
-        cacheService.setTechnicalIdentity(username, identity);
-        return { success: true };
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:set-technical-findings',
+        (event, { username, findings }) => {
+            cacheService.setTechnicalFindings(username, findings);
+            return { success: true };
+        },
+        'cache:set-technical-findings'
+    );
 
-    ipcMain.handle('cache:get-technical-findings', async (event, username) => {
-        try {
-            return cacheService.getTechnicalFindings(username);
-        } catch (error) {
-            return null;
-        }
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:get-cognitive-profile',
+        (event, username) => cacheService.getCognitiveProfile(username),
+        'cache:get-cognitive-profile',
+        true, null
+    );
 
-    ipcMain.handle('cache:set-technical-findings', async (event, { username, findings }) => {
-        cacheService.setTechnicalFindings(username, findings);
-        return { success: true };
-    });
-
-    // Cognitive Profile (Master Memory) handlers
-    ipcMain.handle('cache:get-cognitive-profile', async (event, username) => {
-        try {
-            return cacheService.getCognitiveProfile(username);
-        } catch (error) {
-            console.error('[CacheHandler] Error getting CognitiveProfile:', error);
-            return null;
-        }
-    });
-
-    ipcMain.handle('cache:set-cognitive-profile', async (event, { username, profile }) => {
-        try {
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:set-cognitive-profile',
+        (event, { username, profile }) => {
             cacheService.setCognitiveProfile(username, profile);
             return { success: true };
-        } catch (error) {
-            console.error('[CacheHandler] Error setting CognitiveProfile:', error);
-            return { success: false, error: error.message };
-        }
-    });
+        },
+        'cache:set-cognitive-profile'
+    );
 
-    // Worker Audit Handlers (JSONL)
-    ipcMain.handle('cache:append-worker-log', async (event, { workerId, finding }) => {
-        cacheService.setWorkerAudit(workerId, finding);
-        return { success: true };
-    });
+    // --- Worker Audit ---
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:append-worker-log',
+        (event, { workerId, finding }) => {
+            cacheService.setWorkerAudit(workerId, finding);
+            return { success: true };
+        },
+        'cache:append-worker-log'
+    );
 
-    ipcMain.handle('cache:get-worker-audit', async (event, workerId) => {
-        return cacheService.getWorkerAudit(workerId);
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:get-worker-audit',
+        (event, workerId) => cacheService.getWorkerAudit(workerId),
+        'cache:get-worker-audit',
+        true, []
+    );
 
-    // REPO-CENTRIC PERSISTENCE (V3)
-    ipcMain.handle('cache:persist-repo-blueprint', async (event, { repoName, blueprint }) => {
-        await cacheService.persistRepoBlueprint(repoName, blueprint);
-        return { success: true };
-    });
+    // --- Repo-Centric Persistence (V3) ---
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:persist-repo-blueprint',
+        (event, { repoName, blueprint }) => cacheService.persistRepoBlueprint(repoName, blueprint),
+        'cache:persist-repo-blueprint'
+    );
 
-    ipcMain.handle('cache:get-all-repo-blueprints', async () => {
-        return await cacheService.getAllRepoBlueprints();
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:get-all-repo-blueprints',
+        () => cacheService.getAllRepoBlueprints(),
+        'cache:get-all-repo-blueprints',
+        true, []
+    );
 
-    ipcMain.handle('cache:append-repo-raw-finding', async (event, { repoName, finding }) => {
-        await cacheService.appendRepoRawFinding(repoName, finding);
-        return { success: true };
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:append-repo-raw-finding',
+        (event, { repoName, finding }) => cacheService.appendRepoRawFinding(repoName, finding),
+        'cache:append-repo-raw-finding'
+    );
 
-    ipcMain.handle('cache:persist-repo-curated-memory', async (event, { repoName, nodes }) => {
-        await cacheService.persistRepoCuratedMemory(repoName, nodes);
-        return { success: true };
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:persist-repo-curated-memory',
+        (event, { repoName, nodes }) => cacheService.persistRepoCuratedMemory(repoName, nodes),
+        'cache:persist-repo-curated-memory'
+    );
 
-    ipcMain.handle('cache:persist-repo-partitions', async (event, { repoName, partitions }) => {
-        await cacheService.persistRepoPartitions(repoName, partitions);
-        return { success: true };
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:persist-repo-partitions',
+        (event, { repoName, partitions }) => cacheService.persistRepoPartitions(repoName, partitions),
+        'cache:persist-repo-partitions'
+    );
 
-    // Golden Knowledge
-    ipcMain.handle('cache:persist-repo-golden-knowledge', async (event, { repoName, data }) => {
-        await cacheService.persistRepoGoldenKnowledge(repoName, data);
-        return { success: true };
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:persist-repo-golden-knowledge',
+        (event, { repoName, data }) => cacheService.persistRepoGoldenKnowledge(repoName, data),
+        'cache:persist-repo-golden-knowledge'
+    );
 
-    ipcMain.handle('cache:get-repo-golden-knowledge', async (event, { owner, repo }) => {
-        try {
-            return await cacheService.getRepoGoldenKnowledge(owner, repo);
-        } catch (error) {
-            console.warn('[CacheHandler] Golden knowledge not found:', owner, repo);
-            return null;
-        }
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:get-repo-golden-knowledge',
+        (event, { owner, repo }) => cacheService.getRepoGoldenKnowledge(owner, repo),
+        'cache:get-repo-golden-knowledge',
+        true, null
+    );
 
-    ipcMain.handle('cache:generate-summary', async (event, stats) => {
-        return await cacheService.generateRunSummary(stats);
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:generate-summary',
+        (event, stats) => cacheService.generateRunSummary(stats),
+        'cache:generate-summary'
+    );
 
-    ipcMain.handle('cache:switch-session', async (event, sessionId) => {
-        return await cacheService.switchSession(sessionId);
-    });
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'cache:switch-session',
+        (event, sessionId) => cacheService.switchSession(sessionId),
+        'cache:switch-session'
+    );
 
-    console.log('[Handlers] ✅ cacheHandler registered.');
+    console.log('[Handlers] ✅ cacheHandler registered with IpcWrapper.');
 }
 
 export default { register };
