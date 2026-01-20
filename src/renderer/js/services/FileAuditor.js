@@ -134,6 +134,9 @@ export class FileAuditor {
             const skeletonData = this.findingsCurator.createSkeletonMetadata(fileMeta);
             const semanticSummary = this.findingsCurator.createSemanticSummary(file.path);
             this.coordinator.markCompleted(repoName, file.path, semanticSummary, skeletonData);
+
+            // Notify visualizer about skeleton processing (Bypasses Workers)
+            pipelineEventBus.emit('file:skeletonized', { repo: repoName, file: file.path });
         }
         // If it's a seed, it will be processed by the worker pool
 

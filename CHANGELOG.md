@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.46.0] - Pipeline Visual Robustness & Orbital System - 2026-01-20
+### 🎨 Visual Engineering: Robust Text & Orbital Math
+- **LabelRenderer.js (New Engine)**: Centralized all canvas text rendering (`fillText`), icons, and badges. Introduced mathematical label offsets to prevent collisions.
+- **Orbital Satellite System**: Redesigned Tech Radar nodes to orbit the `Intelligence` node using dynamic polar coordinates instead of fixed X/Y positions.
+- **CPU Mapper Layout Optimization**: Implemented alternating label positions (Top/Top/Bottom) for parallel mappers to ensure zero vertical overlap in dense clusters.
+- **Unified Technical Typography**: Standardized all technical labels, counts, and status badges using `var(--font-mono)` for consistent high-end aesthetics.
+
+### 🧱 Architectural Refinement: SOLID Modularization
+- **SectorRenderer.js**: Successfully extracted sector background, container, and title rendering logic from the main renderer.
+- **Node Factory Alignment**: Consolidated `PipelineConstants.js`, removing duplicate persistence nodes and aligning `internalClasses` with the forensic audit findings.
+- **Standardized Technical Infrastructure**: Integrated `embedding_server` (Port 8001) and mapped all missing forensic events across the pipeline.
+
 ## [2.45.0] - Multi-Agent Orchestration & Deep Refactoring - 2026-01-20
 ### 🤖 Multi-Agent Orchestration
 - **Master Orchestrator Skill**: Implemented elite orchestration patterns with task decomposition, preventive reasoning (pre-mortems), and parallel agent execution.

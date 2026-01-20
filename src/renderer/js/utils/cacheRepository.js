@@ -192,6 +192,97 @@ class CacheRepositoryService {
         return this.repoCache.getAllRepoBlueprints();
     }
 
+    // ==========================================
+    // FIX #2: INCREMENTAL METRICS PERSISTENCE
+    // ==========================================
+
+    /**
+     * Updates repo metrics incrementally (merge with existing)
+     * Called when a repo accumulates 3 files to update progress
+     * @param {string} repoName - Name of the repo
+     * @param {Object} newMetrics - Partial metrics to merge
+     */
+    async updateRepoMetrics(repoName, newMetrics) {
+        if (!this.isAvailable()) return false;
+        try {
+            const existing = await this.getRepoMetrics(repoName) || {
+                files: 0,
+                batches: 0,
+                logic: null,
+                knowledge: null
+            };
+
+            const newFileCount = newMetrics.volume?.analyzedFiles || 0;
+            const totalFiles = existing.files + newFileCount;
+
+            // Merge strategy: weighted average for scores, sum for counts
+            const merged = {
+                files: totalFiles,
+                batches: existing.batches + 1,
+                logic: this._weightedMerge(existing.logic, newMetrics.logic, existing.files, newFileCount),
+                knowledge: this._weightedMerge(existing.knowledge, newMetrics.knowledge, existing.files, newFileCount),
+                signals: this._mergeSignals(existing.signals, newMetrics.signals),
+                lastUpdated: new Date().toISOString()
+            };
+
+            return this.repoCache.persistRepoMetrics(repoName, merged);
+        } catch (e) {
+            console.error(`[CacheRepository] Failed to update repo metrics: ${e.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Gets current repo metrics (partial or complete)
+     * @param {string} repoName - Name of the repo
+     */
+    async getRepoMetrics(repoName) {
+        return this.repoCache.getRepoMetrics(repoName);
+    }
+
+    /**
+     * Weighted merge helper for score objects
+     * @private
+     */
+    _weightedMerge(existing, incoming, existingCount, newCount) {
+        if (!incoming) return existing;
+        if (!existing) return incoming;
+
+        const totalWeight = existingCount + newCount;
+        if (totalWeight === 0) return incoming;
+
+        const merged = {};
+        const allKeys = new Set([...Object.keys(existing), ...Object.keys(incoming)]);
+
+        for (const key of allKeys) {
+            const existingVal = existing[key] || 0;
+            const incomingVal = incoming[key] || 0;
+            merged[key] = (existingVal * existingCount + incomingVal * newCount) / totalWeight;
+        }
+
+        return merged;
+    }
+
+    /**
+     * Merge signals arrays (accumulate unique signals)
+     * @private
+     */
+    _mergeSignals(existing, incoming) {
+        if (!incoming) return existing || {};
+        if (!existing) return incoming;
+
+        const merged = { ...existing };
+        for (const [key, value] of Object.entries(incoming)) {
+            if (!merged[key]) {
+                merged[key] = value;
+            } else if (typeof value === 'number') {
+                // Average numeric values
+                merged[key] = (merged[key] + value) / 2;
+            }
+        }
+        return merged;
+    }
+
     /**
      * Persists the semantic partitions for a specific repo
      */

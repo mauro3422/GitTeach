@@ -28,5 +28,10 @@ export const UI_COLORS = {
     ACTIVE: '#3fb950',
     ERROR: '#ff7b72',
     PAUSED: '#f1e05a',
-    STEPPING: '#2f81f7'
+    STEPPING: '#2f81f7',
+
+    // Ghost Bifurcation Colors
+    GOLDEN_HIT: '#FFD700',
+    AMBER: '#FFBF00',
+    CYAN: '#00FFFF'
 };

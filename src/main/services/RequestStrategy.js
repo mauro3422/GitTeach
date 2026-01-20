@@ -56,10 +56,16 @@ export class RequestStrategy {
         const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
         try {
-            // Prepare headers based on the URL domain
-            const headers = this.buildHeaders(requestConfig);
+            // Normalize URL: if it's a relative path, assume it's GitHub API
+            let fullUrl = requestConfig.url;
+            if (fullUrl.startsWith('/')) {
+                fullUrl = `https://api.github.com${fullUrl}`;
+            }
 
-            const response = await fetch(requestConfig.url, {
+            // Prepare headers based on the URL domain
+            const headers = this.buildHeaders(fullUrl, requestConfig.headers);
+
+            const response = await fetch(fullUrl, {
                 method: requestConfig.method || 'GET',
                 headers: headers,
                 body: requestConfig.body ? JSON.stringify(requestConfig.body) : undefined,
@@ -78,14 +84,14 @@ export class RequestStrategy {
     /**
      * Build appropriate headers based on the request URL
      */
-    buildHeaders(requestConfig) {
+    buildHeaders(fullUrl, customHeaders = {}) {
         const baseHeaders = {
             'User-Agent': 'GitTeach/1.0.0',
-            ...requestConfig.headers
+            ...customHeaders
         };
 
         // Check if this is a GitHub URL
-        const url = new URL(requestConfig.url);
+        const url = new URL(fullUrl);
         const isGitHubUrl = url.hostname.includes('github.com') || url.hostname.includes('api.github.com');
 
         if (isGitHubUrl) {

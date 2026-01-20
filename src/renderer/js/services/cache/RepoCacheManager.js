@@ -76,12 +76,84 @@ export class RepoCacheManager {
         if (!this.isAvailable()) return [];
         try {
             if (window.cacheAPI.getAllRepoBlueprints) {
-                return await window.cacheAPI.getAllRepoBlueprints();
+                const results = await window.cacheAPI.getAllRepoBlueprints();
+                return Array.isArray(results) ? results : [];
             }
         } catch (e) {
             return [];
         }
         return [];
+    }
+
+    // ==========================================
+    // FIX #2: INCREMENTAL METRICS PERSISTENCE
+    // ==========================================
+
+    /**
+     * Gets current repo metrics (partial or complete)
+     * @param {string} repoName - Repository name
+     * @returns {Promise<Object|null>} Metrics object or null
+     */
+    async getRepoMetrics(repoName) {
+        if (!this.isAvailable()) return null;
+        try {
+            if (window.cacheAPI.getRepoMetrics) {
+                return await window.cacheAPI.getRepoMetrics(repoName);
+            }
+            // Fallback: Try to get from in-memory store
+            if (!this._metricsStore) this._metricsStore = new Map();
+            return this._metricsStore.get(repoName) || null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /**
+     * Persists repo metrics (partial updates supported)
+     * @param {string} repoName - Repository name
+     * @param {Object} metrics - Metrics object to persist
+     * @returns {Promise<boolean>} Success status
+     */
+    async persistRepoMetrics(repoName, metrics) {
+        if (!this.isAvailable()) {
+            // Fallback: Store in memory for testing
+            if (!this._metricsStore) this._metricsStore = new Map();
+            this._metricsStore.set(repoName, metrics);
+            console.log(`[RepoCacheManager] Metrics stored in-memory for "${repoName}":`, metrics);
+            return true;
+        }
+        try {
+            if (window.cacheAPI.persistRepoMetrics) {
+                await window.cacheAPI.persistRepoMetrics(repoName, metrics);
+                return true;
+            }
+            // Fallback: Store in memory
+            if (!this._metricsStore) this._metricsStore = new Map();
+            this._metricsStore.set(repoName, metrics);
+            return true;
+        } catch (e) {
+            console.error(`[RepoCacheManager] Failed to persist metrics: ${e.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Gets all repo metrics for dashboard/widgets
+     * @returns {Promise<Map>} Map of repoName -> metrics
+     */
+    async getAllRepoMetrics() {
+        if (!this._metricsStore) this._metricsStore = new Map();
+
+        // If cacheAPI has method, try to get from there
+        if (this.isAvailable() && window.cacheAPI.getAllRepoMetrics) {
+            try {
+                const all = await window.cacheAPI.getAllRepoMetrics();
+                return new Map(Object.entries(all || {}));
+            } catch (e) {
+                return this._metricsStore;
+            }
+        }
+        return this._metricsStore;
     }
 
     /**
@@ -162,11 +234,18 @@ export class RepoCacheManager {
      */
     async getRepoCacheStats() {
         const blueprints = await this.getAllRepoBlueprints();
+        const metricsMap = await this.getAllRepoMetrics();
+
+        const safeBlueprints = Array.isArray(blueprints) ? blueprints : [];
+
         return {
-            totalRepos: blueprints.length,
-            totalComplexity: blueprints.reduce((sum, bp) => sum + (bp.metrics?.complexity || 0), 0),
-            averageComplexity: blueprints.length > 0
-                ? Math.round(blueprints.reduce((sum, bp) => sum + (bp.metrics?.complexity || 0), 0) / blueprints.length)
+            totalRepos: safeBlueprints.length,
+            totalComplexity: safeBlueprints.reduce((sum, bp) => sum + (bp.metrics?.complexity || 0), 0),
+            averageComplexity: safeBlueprints.length > 0
+                ? Math.round(safeBlueprints.reduce((sum, bp) => sum + (bp.metrics?.complexity || 0), 0) / safeBlueprints.length)
+                : 0,
+            avgModularity: safeBlueprints.length > 0
+                ? safeBlueprints.reduce((sum, bp) => sum + (bp.metrics?.logic?.modularity || 0), 0) / safeBlueprints.length
                 : 0
         };
     }

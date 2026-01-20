@@ -34,9 +34,16 @@ export class AIWorkerPool {
         this.onProgress = null;
         this.onFileProcessed = null;
         this.onBatchComplete = null;
-        this.batchSize = (typeof window !== 'undefined' && window.IS_TRACER) ? 1 : 5;
-        this.batchBuffer = [];
+        this.onRepoBatchReady = null;  // NEW: Callback for repo-grouped batches
+
+        // FIX #1: RepoGroupedBuffer - Group findings by repo instead of mixing all
+        this.repoBuffers = new Map();  // Map<repoName, findings[]>
+        this.repoBatchThreshold = (typeof window !== 'undefined' && window.IS_TRACER) ? 1 : 3;
         this._batchQueue = []; // Buffer for batches finished before callback is assigned
+
+        // Legacy support (deprecated, use onRepoBatchReady instead)
+        this.batchSize = this.repoBatchThreshold;
+        this.batchBuffer = [];
 
         this.results = [];
     }
@@ -149,16 +156,29 @@ export class AIWorkerPool {
             this.onFileProcessed(result);
         }
 
-        // Batch management
-        this.batchBuffer.push(result);
-        if (this.batchBuffer.length >= this.batchSize) {
-            const batch = [...this.batchBuffer];
-            this.batchBuffer = [];
+        // FIX #1: RepoGroupedBuffer - Group by repo and trigger when threshold reached
+        const repo = result.repo;
+        if (!this.repoBuffers.has(repo)) {
+            this.repoBuffers.set(repo, []);
+        }
+        this.repoBuffers.get(repo).push(result);
 
-            if (this.onBatchComplete) {
-                this.onBatchComplete(batch);
+        // Check if this repo has enough findings to trigger curation
+        if (this.repoBuffers.get(repo).length >= this.repoBatchThreshold) {
+            const repoBatch = [...this.repoBuffers.get(repo)];
+            this.repoBuffers.set(repo, []);  // Clear this repo's buffer
+
+            this.logger.debug(`[RepoGroupedBuffer] Repo "${repo}" reached ${repoBatch.length} findings, triggering curation`);
+
+            // NEW: Repo-specific batch callback (preferred)
+            if (this.onRepoBatchReady) {
+                this.onRepoBatchReady(repoBatch, repo);
+            }
+            // Legacy: Also call onBatchComplete for backward compatibility
+            else if (this.onBatchComplete) {
+                this.onBatchComplete(repoBatch);
             } else {
-                this._batchQueue.push(batch);
+                this._batchQueue.push(repoBatch);
             }
         }
 

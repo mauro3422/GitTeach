@@ -6,6 +6,8 @@
 
 import { PIPELINE_NODES, CONNECTIONS } from './PipelineConstants.js';
 import { PipelineStateManager } from './PipelineStateManager.js';
+import { SectorRenderer } from './SectorRenderer.js';
+import { LabelRenderer } from './LabelRenderer.js';
 
 export const PipelineRenderer = {
     /**
@@ -150,11 +152,12 @@ export const PipelineRenderer = {
      * Draw pipeline nodes
      */
     drawNodes(ctx, width, height, panOffset, nodeStates, nodeStats, hoveredNode, nodeHealth = {}) {
-        // Draw Worker Sector background
-        this.drawWorkerSector(ctx, width, height, panOffset);
+        // Draw Sector backgrounds (NOW DELEGATED)
+        SectorRenderer.drawWorkerSector(ctx, width, height, panOffset);
+        SectorRenderer.drawCpuSector(ctx, width, height, panOffset);
 
-        // First pass: Draw Cache container (large box for repos)
-        this.drawCacheContainer(ctx, width, height, panOffset, nodeStates, nodeStats);
+        // First pass: Draw Cache container (NOW DELEGATED)
+        SectorRenderer.drawCacheContainer(ctx, width, height, panOffset, nodeStates, nodeStats);
 
         // Draw dynamic repo nodes INSIDE the cache container
         this.drawDynamicRepoNodes(ctx, width, height, panOffset, nodeStates, nodeStats);
@@ -204,7 +207,12 @@ export const PipelineRenderer = {
             }
 
             const isSlot = id.startsWith('worker_') && id !== 'workers_hub';
-            const radius = (isHovered ? 38 : 35) * pulseScale;
+            const isSatellite = node.isSatellite === true;
+
+            let radius = (isHovered ? 38 : 35);
+            if (isSatellite) radius = (isHovered ? 18 : 15);
+
+            radius *= pulseScale;
 
             if (glowColor) {
                 ctx.shadowColor = glowColor;
@@ -235,13 +243,13 @@ export const PipelineRenderer = {
                 ctx.fill();
                 ctx.stroke();
             }
-            ctx.shadowBlur = 0;
+            // Draw Label (DELEGATED)
+            if (!isSatellite) {
+                LabelRenderer.drawNodeLabel(ctx, node, x, y, isHovered);
+            }
 
-            // Draw icon
-            ctx.font = '20px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(node.icon, x, y - 5);
+            // Draw icon (DELEGATED)
+            LabelRenderer.drawNodeIcon(ctx, node.icon, x, y, isSatellite);
 
             // [NEW] Hardware Fault Indicator
             if (!isOnline) {
@@ -272,57 +280,46 @@ export const PipelineRenderer = {
                 ctx.setLineDash([]);
             }
 
-            // Compact labels for slots - Use dynamic label if available
-            ctx.font = isSlot ? '8.5px var(--font-mono), monospace' : 'bold 10px var(--font-mono), monospace';
-            ctx.fillStyle = (state === 'active' || state === 'pending') ? '#56d364' : '#8b949e';
-
-            const labelYOffset = isSlot ? 35 : 50;
-            let displayLabel = (isSlot && stats.currentLabel) ? stats.currentLabel : node.label;
-
-            // NUEVO: Para nodos dinámicos, usar el label del estado
-            if (node.isDynamic) {
-                const slotState = PipelineStateManager.getRepoSlotState(id);
-                if (slotState) {
-                    displayLabel = slotState.repo || node.label;
-                    // Mostrar contador de archivos
-                    if (slotState.filesCount > 0) {
-                        // Renderizar badge con número
-                        ctx.beginPath();
-                        ctx.fillStyle = node.activeColor;
-                        ctx.arc(x + 25, y - 25, 12, 0, Math.PI * 2);
-                        ctx.fill();
-
-                        ctx.font = 'bold 10px sans-serif';
-                        ctx.fillStyle = '#0d1117';
-                        ctx.fillText(slotState.filesCount.toString(), x + 25, y - 25);
-                    }
-                }
-            }
-
-            // If label is too long, truncate for slots
-            const finalLabel = (isSlot && displayLabel.length > 30)
-                ? '...' + displayLabel.slice(-27)
-                : displayLabel;
-
-            ctx.fillText(finalLabel, x, y + labelYOffset);
-
-            // Draw sublabel (only if not a slot to keep it clean)
-            if (node.sublabel && !isSlot) {
-                ctx.font = '8px var(--font-mono), monospace';
-                ctx.fillStyle = '#8b949e';
-                ctx.fillText(node.sublabel, x, y + 62);
-            }
-
-            // Draw count badge if > 0
-            if (stats.count > 0) {
+            // [NEW] Circuit Breaker / Paused State Visual
+            if (state === 'paused' || stats.status === 'paused') {
                 ctx.beginPath();
-                ctx.fillStyle = node.activeColor;
-                ctx.arc(x + 25, y - 25, 12, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.arc(x, y, radius + 5, 0, Math.PI * 2);
+                ctx.strokeStyle = '#f1e05a';
+                ctx.lineWidth = 3;
+                ctx.stroke();
 
-                ctx.font = 'bold 10px sans-serif';
-                ctx.fillStyle = '#0d1117';
-                ctx.fillText(stats.count.toString(), x + 25, y - 25);
+                // Pause Status (DELEGATED)
+                LabelRenderer.drawStandardText(ctx, 'PAUSED', x, y + radius + 15, {
+                    fontSize: 12,
+                    color: '#f1e05a',
+                    bold: true
+                });
+            }
+
+            // Lock Indicator (DELEGATED)
+            if (stats.isGateLocked) {
+                LabelRenderer.drawStandardText(ctx, '🔒', x + radius - 10, y - radius + 10, {
+                    fontSize: 16
+                });
+            }
+
+            // Draw count badge (DELEGATED)
+            if (stats.count > 0 && !isSatellite) {
+                LabelRenderer.drawBadge(ctx, stats.count.toString(), x + 25, y - 25, node.activeColor);
+            }
+        });
+
+        // SECOND PASS: Draw satellites relative to parents
+        Object.entries(PIPELINE_NODES).forEach(([id, node]) => {
+            if (node.isSatellite && node.orbitParent) {
+                const parent = PIPELINE_NODES[node.orbitParent];
+                if (!parent) return;
+
+                const parentX = (parent.x * width) + panOffset.x;
+                const parentY = (parent.y * height) + panOffset.y;
+                const isHovered = hoveredNode === id;
+
+                LabelRenderer.drawSatellite(ctx, node, parentX, parentY, width, height, panOffset, isHovered);
             }
         });
     },
@@ -373,14 +370,19 @@ export const PipelineRenderer = {
         ctx.fill();
         ctx.stroke();
 
-        // Draw text
-        ctx.fillStyle = '#e6edf3';
-        ctx.textAlign = 'left';
-        ctx.fillText(text, x, y + 4);
+        // Draw text (DELEGATED)
+        LabelRenderer.drawStandardText(ctx, text, x, y + 4, {
+            fontSize: 12,
+            color: '#e6edf3',
+            align: 'left'
+        });
 
         if (lastEvent) {
-            ctx.fillStyle = '#8b949e';
-            ctx.fillText(lastEvent, x, y + 22);
+            LabelRenderer.drawStandardText(ctx, lastEvent, x, y + 22, {
+                fontSize: 12,
+                color: '#8b949e',
+                align: 'left'
+            });
         }
     },
 
@@ -398,125 +400,22 @@ export const PipelineRenderer = {
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        ctx.font = 'bold 10px var(--font-mono)';
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('!', 0, 0);
+        // Exclamation (DELEGATED)
+        LabelRenderer.drawStandardText(ctx, '!', 0, 0, {
+            fontSize: 10,
+            color: '#ffffff',
+            bold: true
+        });
 
-        // Text label for clarity
-        ctx.font = 'bold 9px var(--font-mono)';
-        ctx.fillStyle = '#da3633';
-        ctx.textAlign = 'left';
-        ctx.fillText('OFFLINE', 12, 0);
+        // Text label for clarity (DELEGATED)
+        LabelRenderer.drawStandardText(ctx, 'OFFLINE', 12, 0, {
+            fontSize: 9,
+            color: '#da3633',
+            align: 'left',
+            bold: true
+        });
         ctx.restore();
     },
-
-    /**
-     * Draw a background sector for worker slots
-     */
-    drawWorkerSector(ctx, width, height, panOffset) {
-        // Workers are now at x=0.78, so sector should be centered there
-        const x = (0.78 * width) + panOffset.x;
-        const y = (0.50 * height) + panOffset.y;
-        const w = 110;
-        const h = 280;
-
-        ctx.save();
-        ctx.shadowColor = 'rgba(35, 134, 54, 0.2)';
-        ctx.shadowBlur = 20;
-
-        ctx.beginPath();
-        ctx.fillStyle = 'rgba(22, 27, 34, 0.4)';
-        ctx.strokeStyle = 'rgba(35, 134, 54, 0.4)';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([15, 8]);
-        if (ctx.roundRect) {
-            ctx.roundRect(x - w / 2, y - h / 2, w, h, 20);
-        } else {
-            ctx.rect(x - w / 2, y - h / 2, w, h);
-        }
-        ctx.fill();
-        ctx.stroke();
-        ctx.restore();
-
-        ctx.setLineDash([]);
-
-        // Sector Title
-        ctx.textAlign = 'center';
-        ctx.font = 'bold 10px var(--font-mono), monospace';
-        ctx.fillStyle = 'rgba(56, 139, 253, 0.9)';
-        ctx.fillText('GPU_EXECUTION_CLUSTER', x, y - h / 2 + 16);
-
-        ctx.font = '7px var(--font-mono), monospace';
-        ctx.fillStyle = 'rgba(35, 134, 54, 0.7)';
-        ctx.fillText('CUDA_ACTIVE', x, y + h / 2 - 10);
-    },
-
-    /**
-     * Draw Cache Store as a CONTAINER for dynamic repository nodes
-     * The repos are rendered INSIDE this container
-     */
-    drawCacheContainer(ctx, width, height, panOffset, nodeStates, nodeStats) {
-        const activeSlots = PipelineStateManager.getActiveRepoSlots();
-        const cacheNode = PIPELINE_NODES.cache;
-
-        // Calculate grid dimensions based on repo count
-        const repoCount = Math.max(1, activeSlots.length);
-        const cols = Math.ceil(Math.sqrt(repoCount));
-        const rows = Math.ceil(repoCount / cols);
-
-        // Node and gap dimensions for the grid inside
-        const nodeW = 68;
-        const nodeH = 34;
-        const gapX = 6;
-        const gapY = 5;
-
-        // Container dimensions (dynamic based on repo count)
-        const containerW = Math.max(120, cols * (nodeW + gapX) + 40);
-        const containerH = Math.max(80, rows * (nodeH + gapY) + 60);
-
-        // Center position based on cache node coordinates
-        const centerX = (cacheNode.x * width) + panOffset.x;
-        const centerY = (cacheNode.y * height) + panOffset.y;
-        const x = centerX - containerW / 2;
-        const y = centerY - containerH / 2;
-
-        // Draw container background
-        ctx.save();
-        ctx.shadowColor = 'rgba(63, 185, 80, 0.3)';
-        ctx.shadowBlur = 25;
-
-        ctx.beginPath();
-        ctx.fillStyle = 'rgba(13, 17, 23, 0.92)';
-        ctx.strokeStyle = activeSlots.length > 0 ? 'rgba(63, 185, 80, 0.6)' : 'rgba(139, 148, 158, 0.4)';
-        ctx.lineWidth = 2;
-        if (ctx.roundRect) {
-            ctx.roundRect(x, y, containerW, containerH, 12);
-        } else {
-            ctx.rect(x, y, containerW, containerH);
-        }
-        ctx.fill();
-        ctx.stroke();
-        ctx.restore();
-
-        // Draw icon and title
-        ctx.textAlign = 'center';
-        ctx.font = '18px sans-serif';
-        ctx.fillText('💾', centerX, y + 22);
-
-        ctx.font = 'bold 10px var(--font-mono), monospace';
-        ctx.fillStyle = activeSlots.length > 0 ? '#3fb950' : '#8b949e';
-        ctx.fillText('CACHE STORE', centerX, y + 38);
-
-        // Draw repo count badge
-        if (activeSlots.length > 0) {
-            ctx.font = '8px var(--font-mono), monospace';
-            ctx.fillStyle = '#8b949e';
-            ctx.fillText(`${activeSlots.length} repos | ${cols}×${rows}`, centerX, y + containerH - 10);
-        }
-    },
-
     /**
      * Draw dynamic repository nodes in a GRID layout INSIDE the Cache container
      * with connection lines to the classifier
@@ -646,25 +545,23 @@ export const PipelineRenderer = {
             ctx.stroke();
             ctx.shadowBlur = 0;
 
-            // Draw icon (left side)
-            ctx.font = '11px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(icon, x - 20, y);
+            // Draw icon (DELEGATED)
+            LabelRenderer.drawStandardText(ctx, icon, x - 20, y, { fontSize: 11 });
 
-            // Draw repo name (truncated)
-            ctx.font = 'bold 7px var(--font-mono), monospace';
-            ctx.fillStyle = status === 'complete' ? '#56d364' : '#e6edf3';
-            const repoName = slot.repo.length > 8
-                ? slot.repo.slice(0, 6) + '..'
-                : slot.repo;
-            ctx.fillText(repoName, x + 6, y - 4);
+            // Draw repo name (DELEGATED & Standardized)
+            const repoName = slot.repo.length > 8 ? slot.repo.slice(0, 6) + '..' : slot.repo;
+            LabelRenderer.drawStandardText(ctx, repoName, x + 6, y - 4, {
+                fontSize: 7,
+                color: status === 'complete' ? '#56d364' : '#e6edf3',
+                bold: true
+            });
 
-            // Draw files count
+            // Draw files count (DELEGATED)
             if (slot.filesCount > 0) {
-                ctx.font = '6px var(--font-mono), monospace';
-                ctx.fillStyle = '#8b949e';
-                ctx.fillText(`${slot.filesCount}`, x + 6, y + 6);
+                LabelRenderer.drawStandardText(ctx, slot.filesCount.toString(), x + 6, y + 6, {
+                    fontSize: 6,
+                    color: '#8b949e'
+                });
             }
         });
     }

@@ -1,5 +1,6 @@
 import { AIService } from '../aiService.js';
 import { DebugLogger } from '../../utils/debugLogger.js';
+import { pipelineEventBus } from '../pipeline/PipelineEventBus.js';
 
 /**
  * ReactionEngine - Handles autonomous AI reactions to system events.
@@ -11,6 +12,8 @@ export class ReactionEngine {
         const reactivePrompt = type === 'system'
             ? `SYSTEM_EVENT: ${eventDescription}`
             : eventDescription;
+
+        pipelineEventBus.emit('system:reaction', { event: eventDescription, type });
 
         setTimeout(async () => {
             try {

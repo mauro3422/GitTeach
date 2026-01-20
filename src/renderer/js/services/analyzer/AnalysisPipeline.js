@@ -14,6 +14,7 @@ import { AIService } from '../aiService.js';
 import { FlowManager } from './FlowManager.js';
 import { ReactionEngine } from './ReactionEngine.js';
 import { memoryManager } from '../memory/MemoryManager.js';
+import { pipelineEventBus } from '../pipeline/PipelineEventBus.js';
 import { Logger } from '../../utils/logger.js';
 import { CacheRepository } from '../../utils/cacheRepository.js';
 
@@ -50,7 +51,13 @@ export class AnalysisPipeline {
             ]);
 
             const maxRepos = options.maxRepos || 10;
-            repos = (response[0] || []).slice(0, maxRepos);
+            // DEFENSIVE: Ensure response[0] is an array (cache mode may return different structure)
+            let repoList = response[0];
+            if (!Array.isArray(repoList)) {
+                console.warn('[AnalysisPipeline] listRepos() returned non-array:', typeof repoList, repoList);
+                repoList = repoList?.repos || repoList?.data || [];
+            }
+            repos = repoList.slice(0, maxRepos);
             audit = response[1];
 
             // 1. ACTIVATE WORKERS EARLY (Parallelism Engine)
@@ -146,6 +153,7 @@ export class AnalysisPipeline {
                 const coordinatorFindings = coordinator.getAllRichSummaries();
                 if (coordinatorFindings.length > 0) {
                     console.warn(`[AnalysisPipeline] ⚠️ SYNC GAP DETECTED: Coordinator(${coordinatorCount}) vs Tracer(${currentFindings.length}). Resurrecting findings.`);
+                    pipelineEventBus.emit('pipeline:resurrection', { repo: username, count: coordinatorFindings.length - currentFindings.length });
 
                     const resurrected = coordinatorFindings.map(f => ({
                         repo: f.repo,

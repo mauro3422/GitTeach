@@ -86,10 +86,6 @@ export class CodeScanner {
                 // Register files in coordinator with strict capping
                 this.coordinator.registerRepoFiles(repo.name, treeFiles, treeSha, maxAnchors);
 
-                treeFiles.slice(0, maxAnchors).forEach(f => {
-                    pipelineEventBus.emit('file:queued', { repo: repo.name, file: f.path });
-                });
-
                 // Check if repo changed since last time (cache)
                 const needsFullScan = await CacheRepository.hasRepoChanged(username, repo.name, treeSha);
                 if (!needsFullScan) {
@@ -132,6 +128,7 @@ export class CodeScanner {
                     success: true,
                     filesProcessed: repoAudit.filter(f => f !== null).length
                 });
+
 
                 if (onStep) {
                     const stats = this.coordinator.getStats();

@@ -17,6 +17,15 @@ export const PipelineEventHandler = {
             if (slotId) {
                 PipelineEventHandler.handleDynamicRepoNode(slotId, entry.payload, 'detected');
             }
+
+            // Phase C: Pulse data_source as visual entry point
+            const dataSourceStats = PipelineStateManager.nodeStats['data_source'];
+            dataSourceStats.count = (dataSourceStats.count || 0) + 1;
+            dataSourceStats.currentLabel = entry.payload.repo;
+            PipelineStateManager.nodeStates['data_source'] = 'active';
+            spawnParticles('data_source', UI_COLORS.NEUTRAL_ACTIVE);
+            spawnTravelingPackage('data_source', 'api_fetch');
+
             return { nodeId: slotId, status: 'detected', isDynamic: true };
         },
 
@@ -37,7 +46,7 @@ export const PipelineEventHandler = {
             });
             if (slotId) {
                 PipelineEventHandler.handleDynamicRepoNode(slotId, entry.payload, 'extracting');
-                spawnTravelingPackage(slotId, 'classifier');
+                spawnTravelingPackage(slotId, 'auditor');
             }
             return { nodeId: slotId, status: 'extracting', isDynamic: true };
         },
@@ -45,6 +54,125 @@ export const PipelineEventHandler = {
         'repo:complete': function (entry, spawnParticles, spawnTravelingPackage) {
             PipelineStateManager.releaseRepoSlot(entry.payload.repo);
             return { nodeId: 'cache', status: 'complete', isDynamic: true };
+        },
+
+        'file:cache:hit': function (entry, spawnParticles, spawnTravelingPackage) {
+            // Golden Ray: Bypass AI workers
+            spawnTravelingPackage('workers_hub', 'mixing_buffer', UI_COLORS.GOLDEN_HIT || '#FFD700');
+            return { nodeId: 'mixing_buffer', status: 'receiving' };
+        },
+
+        'hub:circuit:open': function (entry, spawnParticles, spawnTravelingPackage) {
+            const stats = PipelineStateManager.nodeStats['workers_hub'];
+            stats.status = 'paused';
+            stats.currentLabel = '⚠️ CIRCUIT BREAKER OPEN';
+            spawnParticles('workers_hub', UI_COLORS.RED);
+            return { nodeId: 'workers_hub', status: 'paused' };
+        },
+
+        'hub:circuit:closed': function (entry, spawnParticles, spawnTravelingPackage) {
+            const stats = PipelineStateManager.nodeStats['workers_hub'];
+            stats.status = 'active';
+            stats.currentLabel = 'Worker Hub';
+            return { nodeId: 'workers_hub', status: 'idle' };
+        },
+
+        'pipeline:resurrection': function (entry, spawnParticles, spawnTravelingPackage) {
+            // Emergency Lane
+            spawnTravelingPackage('cache', 'mixing_buffer', UI_COLORS.AMBER || '#FFBF00');
+            return { nodeId: 'mixing_buffer', status: 'receiving' };
+        },
+
+        'mixer:gate:locked': function (entry, spawnParticles, spawnTravelingPackage) {
+            const stats = PipelineStateManager.nodeStats['mixing_buffer'];
+            stats.isGateLocked = true;
+            stats.sublabel = `🔒 Threshold: ${entry.payload.rich || 0}/5`;
+            return { nodeId: 'mixing_buffer', status: 'waiting' };
+        },
+
+        'mixer:gate:unlocked': function (entry, spawnParticles, spawnTravelingPackage) {
+            const stats = PipelineStateManager.nodeStats['mixing_buffer'];
+            stats.isGateLocked = false;
+            stats.sublabel = `🔓 Masa Crítica!`;
+            spawnParticles('mixing_buffer', UI_COLORS.GREEN);
+            return { nodeId: 'mixing_buffer', status: 'active' };
+        },
+
+        'dna:radar:update': function (entry, spawnParticles, spawnTravelingPackage) {
+            // Pulse satellites
+            ['radar_adopt', 'radar_trial', 'radar_assess', 'radar_hold'].forEach(id => {
+                spawnParticles('intelligence', UI_COLORS.PURPLE_ACTIVE, id);
+            });
+            return { nodeId: 'intelligence', status: 'active' };
+        },
+
+        'system:reaction': function (entry, spawnParticles, spawnTravelingPackage) {
+            spawnParticles('intelligence', UI_COLORS.CYAN || '#00FFFF');
+            return { nodeId: 'intelligence', status: 'active' };
+        },
+
+        // ===== CPU SECTOR: 3 Parallel Mappers =====
+        'mapper:start': function (entry, spawnParticles, spawnTravelingPackage) {
+            const mapperType = entry.payload?.mapper; // architecture | habits | stack
+            const nodeId = mapperType ? `mapper_${mapperType}` : 'mapper_habits';
+
+            const stats = PipelineStateManager.nodeStats[nodeId];
+            const states = PipelineStateManager.nodeStates;
+
+            states[nodeId] = 'active';
+            stats.count = (stats.count || 0) + 1;
+            stats.status = 'processing';
+            stats.currentLabel = `${mapperType?.toUpperCase() || 'MAPPER'}`;
+            stats.startTime = Date.now();
+
+            spawnParticles(nodeId, UI_COLORS.YELLOW_ACTIVE);
+            spawnTravelingPackage('mixing_buffer', nodeId);
+
+            return { nodeId, status: 'active' };
+        },
+
+        'mapper:end': function (entry, spawnParticles, spawnTravelingPackage) {
+            const mapperType = entry.payload?.mapper;
+            const nodeId = mapperType ? `mapper_${mapperType}` : 'mapper_habits';
+
+            const stats = PipelineStateManager.nodeStats[nodeId];
+            const states = PipelineStateManager.nodeStates;
+
+            states[nodeId] = 'idle';
+            stats.status = entry.payload?.success ? 'done' : 'error';
+            stats.durationMs = stats.startTime ? Date.now() - stats.startTime : 0;
+            stats.currentLabel = entry.payload?.success ? `✓ ${mapperType}` : `✗ ${mapperType}`;
+
+            // Flow to DNA Synth
+            spawnTravelingPackage(nodeId, 'dna_synth');
+
+            return { nodeId, status: 'idle' };
+        },
+
+        // ===== Phase B: Embedding Server (port 8001) =====
+        'embedding:start': function (entry, spawnParticles, spawnTravelingPackage) {
+            const stats = PipelineStateManager.nodeStats['embedding_server'];
+            const states = PipelineStateManager.nodeStates;
+
+            states['embedding_server'] = 'active';
+            stats.count = (stats.count || 0) + 1;
+            stats.status = 'processing';
+            stats.currentLabel = `Embedding...`;
+
+            spawnParticles('embedding_server', UI_COLORS.PURPLE_ACTIVE);
+
+            return { nodeId: 'embedding_server', status: 'active' };
+        },
+
+        'embedding:end': function (entry, spawnParticles, spawnTravelingPackage) {
+            const stats = PipelineStateManager.nodeStats['embedding_server'];
+            const states = PipelineStateManager.nodeStates;
+
+            states['embedding_server'] = 'idle';
+            stats.status = entry.payload?.success ? 'done' : 'error';
+            stats.currentLabel = entry.payload?.success ? '✓ Embedded' : '✗ Failed';
+
+            return { nodeId: 'embedding_server', status: 'idle' };
         }
     },
 
@@ -196,13 +324,13 @@ export const PipelineEventHandler = {
         const predecessors = {
             'api_fetch': 'data_source',
             'cache': 'api_fetch',
-            'classifier': 'cache',
-            'workers_hub': 'classifier',
+            'auditor': 'cache',
+            'workers_hub': 'auditor',
             'worker_1': 'workers_hub',
             'worker_2': 'workers_hub',
             'worker_3': 'workers_hub',
-            'streaming': ['worker_1', 'worker_2', 'worker_3'],
-            'mappers': 'streaming',
+            'mixing_buffer': ['worker_1', 'worker_2', 'worker_3', 'workers_hub'],
+            'mappers': 'mixing_buffer',
             'dna_synth': 'mappers',
             'intelligence': 'dna_synth',
             'persistence': 'intelligence'
@@ -213,9 +341,24 @@ export const PipelineEventHandler = {
 
         let predId = null;
         if (Array.isArray(predDef)) {
-            predId = predDef.find(id => PipelineStateManager.nodeStats[id].isPendingHandover);
-            if (!predId) predId = predDef.find(id => PipelineStateManager.nodeStats[id].count > 0);
-            if (predId) PipelineStateManager.nodeStats[predId].isPendingHandover = false;
+            // Priority 1: Pick a node that is explicitly pending handover
+            predId = predDef.find(id => PipelineStateManager.nodeStats[id]?.isPendingHandover);
+
+            // Priority 2: If none pending, pick one that HAS count but NOT is the hub (unless necessary)
+            if (!predId) {
+                // If the target is mixing_buffer, it might be a background file from the hub
+                if (targetNodeId === 'mixing_buffer') {
+                    // Look for workers first, then hub
+                    predId = predDef.find(id => id.startsWith('worker_') && PipelineStateManager.nodeStats[id]?.count > 0);
+                    if (!predId) predId = 'workers_hub';
+                } else {
+                    predId = predDef.find(id => PipelineStateManager.nodeStats[id]?.count > 0);
+                }
+            }
+
+            if (predId && PipelineStateManager.nodeStats[predId]) {
+                PipelineStateManager.nodeStats[predId].isPendingHandover = false;
+            }
         } else {
             predId = predDef;
         }

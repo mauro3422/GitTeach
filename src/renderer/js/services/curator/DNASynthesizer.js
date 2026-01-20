@@ -15,6 +15,7 @@ import { AISlotPriorities } from '../ai/AISlotPriorities.js';
 import { DNAPromptBuilder } from './DNAPromptBuilder.js';
 import { DNAParser } from './DNAParser.js';
 import { DNASchemaValidator } from './DNASchemaValidator.js';
+import { pipelineEventBus } from '../pipeline/PipelineEventBus.js';
 
 export class DNASynthesizer {
     constructor() {
@@ -198,6 +199,8 @@ export class DNASynthesizer {
 
             // EXTRA: Dual-Track Presentation Data
             const enhancedDna = this.parser.enhanceWithPresentationData(dna, healthReport, holisticMetrics);
+
+            pipelineEventBus.emit('dna:radar:update', { dna: enhancedDna });
 
             return { dna: enhancedDna, traceability_map: traceabilityMap };
         } catch (e) {

@@ -278,3 +278,136 @@
 .history-group.collapsed .history-group-items {
     display: none;
 }
+
+/* =============================================
+   DATABASE STATUS (PERSISTENCE NODE)
+   ============================================= */
+
+.db-status-section {
+    background: rgba(139, 92, 246, 0.08);
+    border-radius: 8px;
+    padding: 12px;
+    border-left: 3px solid rgba(139, 92, 246, 0.5);
+}
+
+.db-summary {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 12px;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: #a78bfa;
+}
+
+.db-repos-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.db-repo-card {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    padding: 8px 10px;
+    border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.db-repo-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.db-repo-name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #e5e7eb;
+}
+
+.db-repo-files {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: #3fb950;
+    background: rgba(63, 185, 80, 0.15);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.db-repo-details {
+    display: flex;
+    gap: 12px;
+}
+
+.db-metric {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.db-label {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+}
+
+.db-value {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: #e5e7eb;
+}
+
+.db-time {
+    color: #8b949e;
+}
+
+.db-empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    padding: 16px;
+    border: 1px dashed rgba(139, 92, 246, 0.3);
+    border-radius: 6px;
+}
+
+.db-error {
+    color: #ff7b72;
+    font-size: 0.7rem;
+    padding: 8px;
+    background: rgba(255, 123, 114, 0.1);
+    border-radius: 4px;
+}
+
+/* =============================================
+   INTERNAL COMPONENTS (FACTORY CLASSES)
+   ============================================= */
+
+.internal-components {
+    background: rgba(88, 166, 255, 0.05);
+    border-radius: 8px;
+    padding: 12px;
+    border-left: 3px solid rgba(88, 166, 255, 0.4);
+}
+
+.components-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.components-list li {
+    background: rgba(30, 35, 42, 0.8);
+    border: 1px solid rgba(88, 166, 255, 0.2);
+    border-radius: 4px;
+    padding: 2px 8px;
+}
+
+.components-list code {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: #58a6ff;
+}

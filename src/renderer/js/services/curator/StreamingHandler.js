@@ -106,7 +106,7 @@ export class StreamingHandler {
 
         try {
             const { pipelineEventBus } = await import('../pipeline/PipelineEventBus.js');
-            pipelineEventBus.emit('streaming:active', { repo: repoName, status: 'start' });
+            pipelineEventBus.emit('streaming:active', { repo: repoName, file: `Curation Batch (${repoFindings.length} findings)`, status: 'start' });
 
             // 2. Curate & Synthesize Blueprint (Local)
             // Use the provided identityUpdater (from DeepCurator) or a fallback logic
@@ -116,10 +116,11 @@ export class StreamingHandler {
             if (blueprint) {
                 this.incrementTick('blueprints');
                 Logger.reducer(`[${repoName}] Blueprint generated (Streaming). Complexity: ${blueprint.metrics.logic?.modularity || 'N/A'}`);
+                await CacheRepository.persistRepoMetrics(repoName, blueprint.metrics); // PERSIST METRICS INCREMENTALLY
                 await CacheRepository.persistRepoBlueprint(repoName, blueprint);
 
                 // Emit persist event for pipeline visualization (one-shot)
-                pipelineEventBus.emit('persist:blueprint', { repo: repoName, file: 'blueprint.json' });
+                pipelineEventBus.emit('persist:blueprint', { repo: repoName, file: 'repo_metrics.json' });
 
                 // GATEKEEPER IMPLEMENTATION (Optimization)
                 // Only refine Global Identity if "Critical Mass" is reached
@@ -130,16 +131,18 @@ export class StreamingHandler {
                 const criticalMassReached = richRepos >= 1 || decentRepos >= 2;
 
                 if (!criticalMassReached) {
+                    pipelineEventBus.emit('mixer:gate:locked', { repo: repoName, decent: decentRepos, rich: richRepos });
                     Logger.info('StreamingHandler', `Global Synthesis Skipped (Gatekeeper: ${decentRepos} decent, ${richRepos} rich repos)`);
                 } else if (identityUpdater) {
                     // 3. Update Global Identity (Incremental)
+                    pipelineEventBus.emit('mixer:gate:unlocked', { repo: repoName, rich: richRepos });
                     Logger.info('StreamingHandler', `Critical mass reached! Updating Global Identity...`);
                     const ctx = await this._buildStreamingContext();
                     await identityUpdater.refineGlobalIdentity(username, ctx);
                     this.incrementTick('global_refinements');
 
                     const { pipelineEventBus } = await import('../pipeline/PipelineEventBus.js');
-                    pipelineEventBus.emit('streaming:active', { repo: repoName, status: 'end' });
+                    pipelineEventBus.emit('streaming:active', { repo: repoName, file: 'Identity Synthesis', status: 'end' });
 
                     // Broadcast context evolution to chat
                     const identity = await CacheRepository.getTechnicalIdentity(username);

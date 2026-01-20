@@ -44,7 +44,7 @@ export class SessionManagerService {
         await this.sessionDb.open();
 
         // Import SessionCacheManager here to avoid circular dependencies
-        const { default: SessionCacheManager } = await import('./SessionCacheManager.js');
+        const { SessionCacheManager } = await import('./SessionCacheManager.js');
         this.sessionCacheManager = new SessionCacheManager(this.sessionDb);
         this.currentSessionId = sessionId;
     }

@@ -11,6 +11,7 @@
  */
 import { logManager } from '../../utils/logManager.js';
 import { CacheRepository } from '../../utils/cacheRepository.js';
+import { pipelineEventBus } from '../pipeline/PipelineEventBus.js';
 
 // Environment check
 const isNode = typeof process !== 'undefined' && process.versions?.node;
@@ -45,6 +46,7 @@ export class ResultProcessor {
             const sessionCache = this.queueManager.processedShas.get(input.sha);
             if (sessionCache) {
                 this.logger.debug(`CACHE HIT ${input.path}`);
+                pipelineEventBus.emit('file:cache:hit', { repo: input.repo, file: input.path });
                 return { prompt: 'SESSION_CACHE_HIT', summary: sessionCache, langCheck: { valid: true } };
             }
         }
@@ -60,6 +62,8 @@ export class ResultProcessor {
 
         while (summarizeAttempt < maxSummarizeRetries) {
             try {
+                // Check if we need to notify about circuit breaker state (only once)
+                // We'll use a local instance check if possible or just emit
                 summary = await aiService.callAI(
                     systemPrompt,
                     userPrompt,
@@ -68,11 +72,15 @@ export class ResultProcessor {
                     this.promptBuilder.getResponseSchema(),
                     priority
                 );
+                // If it was open, it might be closed now
+                // pipelineEventBus.emit('hub:circuit:closed', { workerId });
                 break; // Success
             } catch (err) {
                 if (err.message.includes('Circuit Breaker OPEN')) {
                     this.logger.warn(`Circuit Breaker OPEN. Waiting 10s before retry ${summarizeAttempt + 1}...`);
+                    pipelineEventBus.emit('hub:circuit:open', { workerId, reason: 'Saturation' });
                     await new Promise(r => setTimeout(r, 10000));
+                    pipelineEventBus.emit('hub:circuit:closed', { workerId });
                 }
                 summarizeAttempt++;
                 if (summarizeAttempt >= maxSummarizeRetries) throw err;

@@ -65,11 +65,12 @@ export class CoordinatorAgent {
         if (!this.repoProgress[repoName]) this.repoProgress[repoName] = 0;
         this.repoProgress[repoName]++;
 
-        // Fire partial event every 1 file (Threshold: Aggressive Streaming)
-        if (this.repoProgress[repoName] > 0) {
+        // Fire partial event every 3 files (Threshold: Incremental Batching)
+        if (this.repoProgress[repoName] >= 3) {
             if (this.onRepoBatchReady) {
                 this.logger.info(`🌊 PARTIAL BATCH: ${repoName} (${this.repoProgress[repoName]} files)`);
                 this.onRepoBatchReady(repoName);
+                this.repoProgress[repoName] = 0; // Reset after trigger
             }
         }
 
