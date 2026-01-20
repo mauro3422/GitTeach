@@ -246,7 +246,7 @@ export const TracerView = {
 
             if (!data.online) {
                 if (statusEl) {
-                    statusEl.textContent = 'DISCONNECTED';
+                    statusEl.textContent = 'OFFLINE';
                     statusEl.style.color = '#8b949e';
                 }
                 if (slotsContainer) slotsContainer.innerHTML = '';
@@ -254,8 +254,10 @@ export const TracerView = {
             }
 
             if (statusEl) {
-                statusEl.textContent = `${data.total_slots} SLOTS TOTAL`;
+                statusEl.textContent = 'LIVE';
                 statusEl.style.color = '#3fb950';
+                statusEl.style.fontSize = '10px';
+                statusEl.style.opacity = '0.7';
             }
 
             // Render slots grid

@@ -7,37 +7,42 @@
 /* Fleet Panel Container */
 .fleet-grid {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    flex-direction: row;
+    /* FORCE SINGLE ROW */
+    flex-wrap: nowrap;
+    gap: 12px;
     margin-top: 10px;
 }
 
 .fleet-item {
-    display: flex;
-    flex-direction: column;
-    padding: 12px 14px;
-    background: rgba(0, 0, 0, 0.2);
+    display: grid;
+    grid-template-columns: auto auto auto;
+    /* Compact auto-fitting */
+    align-items: center;
+    padding: 6px 14px;
+    background: rgba(0, 0, 0, 0.3);
     border-radius: 8px;
     border: 1px solid var(--border-color);
+    gap: 12px;
+    flex: 1;
+    /* Distribute space evenly */
+    min-width: fit-content;
 }
 
 .fleet-name {
     font-weight: 600;
-    font-size: 0.85rem;
-}
-
-.fleet-slots {
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    color: var(--accent);
+    font-size: 0.65rem;
+    /* More compact */
+    text-transform: uppercase;
+    color: var(--text-muted);
+    white-space: nowrap;
 }
 
 /* Fleet Status Observability */
 .fleet-info {
     display: flex;
-    justify-content: space-between;
-    width: 100%;
-    margin-bottom: 6px;
+    align-items: center;
+    gap: 8px;
 }
 
 .fleet-status {
@@ -49,9 +54,12 @@
 /* Slot Dots Grid */
 .slots-grid {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    /* CRITICAL: No wrap */
     gap: 6px;
-    padding: 4px 0;
+    padding: 2px 0;
+    align-items: center;
 }
 
 /* Individual Slot Dot */
@@ -62,7 +70,8 @@
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(4px);
-    transition: all 0.15s ease-out; /* Fast for real-time */
+    transition: all 0.15s ease-out;
+    /* Fast for real-time */
 }
 
 /* Slot States */

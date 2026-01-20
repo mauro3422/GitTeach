@@ -6,28 +6,40 @@
 import { PIPELINE_NODES } from './PipelineConstants.js';
 import { PipelineStateManager } from './PipelineStateManager.js';
 import { LabelRenderer } from './LabelRenderer.js';
+import { LayoutEngine } from './LayoutEngine.js';
 
 export const SectorRenderer = {
     /**
      * Draw a background sector for worker slots (GPU Cluster)
      */
-    drawWorkerSector(ctx, width, height, panOffset) {
-        // Mathematical bounds: xHub=0.72, xSlots=0.90
-        const xHub = (0.72 * width) + panOffset.x;
-        const xSlots = (0.90 * width) + panOffset.x;
+    drawWorkerSector(ctx, width, height, nodeStates = {}) {
+        // Use physics positions for bounds
+        const hubPos = LayoutEngine.getNodePos('workers_hub');
+        const slot1Pos = LayoutEngine.getNodePos('worker_1');
+        const slot3Pos = LayoutEngine.getNodePos('worker_3');
+        const embPos = LayoutEngine.getNodePos('embedding_server');
+
+        const xHub = hubPos.x;
+        const xSlots = slot1Pos.x;
         const centerX = (xHub + xSlots) / 2;
-        const y = (0.50 * height) + panOffset.y;
+        const y = hubPos.y; // Center of worker flow
 
         const w = (xSlots - xHub) + 140;
-        const h = 340; // Covers Embeddings (0.30) to worker_3 (0.62)
+        const h = Math.abs(slot3Pos.y - embPos.y) + 120;
+
+        // Calculate Activity (Is any node in this sector active?)
+        const isActive = Object.keys(nodeStates).some(id =>
+            (id === 'workers_hub' || id === 'embedding_server' || id.startsWith('worker_')) &&
+            nodeStates[id] === 'active'
+        );
 
         ctx.save();
-        ctx.shadowColor = 'rgba(35, 134, 54, 0.2)';
-        ctx.shadowBlur = 20;
+        ctx.shadowColor = isActive ? 'rgba(35, 134, 54, 0.4)' : 'rgba(35, 134, 54, 0.1)';
+        ctx.shadowBlur = isActive ? 30 : 10;
 
         ctx.beginPath();
-        ctx.fillStyle = 'rgba(22, 27, 34, 0.4)';
-        ctx.strokeStyle = 'rgba(35, 134, 54, 0.4)';
+        ctx.fillStyle = isActive ? 'rgba(22, 27, 34, 0.6)' : 'rgba(22, 27, 34, 0.3)';
+        ctx.strokeStyle = isActive ? 'rgba(35, 134, 54, 0.6)' : 'rgba(35, 134, 54, 0.2)';
         ctx.lineWidth = 1.5;
         ctx.setLineDash([15, 8]);
         if (ctx.roundRect) {
@@ -56,20 +68,24 @@ export const SectorRenderer = {
     /**
      * Draw a background sector for CPU mappers
      */
-    drawCpuSector(ctx, width, height, panOffset) {
-        // Mathematical center: 1.30
-        const x = (1.30 * width) + panOffset.x;
-        const y = (0.50 * height) + panOffset.y;
-        const w = 160;
+    drawCpuSector(ctx, width, height, nodeStates = {}) {
+        const mapperPos = LayoutEngine.getNodePos('mapper_habits');
+        const x = mapperPos.x;
+        const y = mapperPos.y;
+        const w = 180;
         const h = 340;
 
+        const isActive = Object.keys(nodeStates).some(id =>
+            id.startsWith('mapper_') && nodeStates[id] === 'active'
+        );
+
         ctx.save();
-        ctx.shadowColor = 'rgba(241, 126, 23, 0.1)';
-        ctx.shadowBlur = 20;
+        ctx.shadowColor = isActive ? 'rgba(241, 126, 23, 0.3)' : 'rgba(241, 126, 23, 0.05)';
+        ctx.shadowBlur = isActive ? 30 : 10;
 
         ctx.beginPath();
-        ctx.fillStyle = 'rgba(22, 27, 34, 0.4)';
-        ctx.strokeStyle = 'rgba(241, 126, 23, 0.3)';
+        ctx.fillStyle = isActive ? 'rgba(22, 27, 34, 0.6)' : 'rgba(22, 27, 34, 0.3)';
+        ctx.strokeStyle = isActive ? 'rgba(241, 126, 23, 0.5)' : 'rgba(241, 126, 23, 0.1)';
         ctx.lineWidth = 1.5;
         ctx.setLineDash([10, 5]);
         if (ctx.roundRect) {
@@ -98,7 +114,7 @@ export const SectorRenderer = {
     /**
      * Draw Cache Store as a CONTAINER for repository nodes
      */
-    drawCacheContainer(ctx, width, height, panOffset, nodeStates, nodeStats) {
+    drawCacheContainer(ctx, width, height, nodeStates, nodeStats) {
         const activeSlots = PipelineStateManager.getActiveRepoSlots();
         const cacheNode = PIPELINE_NODES.cache;
 
@@ -115,8 +131,8 @@ export const SectorRenderer = {
         const containerW = Math.max(140, cols * (nodeW + gapX) + 40);
         const containerH = Math.max(100, rows * (nodeH + gapY) + 60);
 
-        const centerX = (cacheNode.x * width) + panOffset.x;
-        const centerY = (cacheNode.y * height) + panOffset.y;
+        const centerX = LayoutEngine.getNodePos('cache').x;
+        const centerY = LayoutEngine.getNodePos('cache').y;
         const x = centerX - containerW / 2;
         const y = centerY - containerH / 2;
 

@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.47.0] - Smart Canvas 2.0 & Fleet UI Overhaul - 2026-01-20
+### 🎨 Smart Canvas 2.0: Physics & Camera Engine
+- **LayoutEngine.js (New)**: Introduced fixed 1200px reference scale for consistent layout across all screen sizes.
+- **Physics Stabilization**: Replaced exponential repulsion with linear model to eliminate "whirlpool" effect.
+- **Camera Auto-Follow**: Implemented intelligent camera panning with manual override support via `autoFollow` flag.
+- **Boundary-Free Layout**: Removed hard clipping, allowing nodes to exist in logical coordinate space.
+
+### 🚀 Fleet UI: Compact Single-Row Design
+- **Horizontal Fleet Layout**: Converted `.fleet-grid` to `flex-direction: row` for all servers in one line.
+- **CSS Grid Items**: Migrated `.fleet-item` to CSS Grid for perfect column alignment.
+- **Typography Optimization**: Reduced font sizes and enforced `white-space: nowrap` for compact labels.
+- **Tracer CSS Cleanup**: Removed conflicting override that forced vertical stacking.
+
+### 🧠 Skills System: Global Awareness
+- **skills-index Skill (New)**: Created central router for all Antigravity skills at `~/.gemini/antigravity/skills/skills-index/`.
+- **GEMINI.md Rules**: Updated global rules to always check skills before complex tasks.
+- **Skill Discovery**: Documented invocation protocol for master-orchestrator, qwen-code, and skill-generator.
+
+### 🧱 Pipeline Architecture
+- **ConnectionRouter.js (New)**: Centralized edge/connection rendering logic.
+- **LanguageTheme.js (New)**: Language-to-color mapping for Tech Radar nodes.
+- **Canvas Container Optimization**: Reduced min-height to 480px, added `overflow: hidden` for clean boundaries.
+
 ## [2.46.0] - Pipeline Visual Robustness & Orbital System - 2026-01-20
 ### 🎨 Visual Engineering: Robust Text & Orbital Math
 - **LabelRenderer.js (New Engine)**: Centralized all canvas text rendering (`fillText`), icons, and badges. Introduced mathematical label offsets to prevent collisions.

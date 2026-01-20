@@ -12,9 +12,9 @@ import { PipelineInteraction } from './pipeline/PipelineInteraction.js';
 import { PipelineUI } from './pipeline/PipelineUI.js';
 import { RendererLogger } from '../utils/RendererLogger.js';
 
-// New SOLID Modules
 import { PipelineStateManager } from './pipeline/PipelineStateManager.js';
 import { PipelineEventHandler } from './pipeline/PipelineEventHandler.js';
+import { LayoutEngine } from './pipeline/LayoutEngine.js';
 import { PipelineSimulation } from './pipeline/PipelineSimulation.js';
 
 export const PipelineCanvas = {
@@ -23,7 +23,7 @@ export const PipelineCanvas = {
     container: null,
     animationId: null,
     width: 0,
-    height: 600,
+    height: 450,
     hoveredNode: null,
     selectedNode: null,
 
@@ -151,8 +151,8 @@ export const PipelineCanvas = {
     handlePipelineEvent(entry) {
         const result = PipelineEventHandler.handleEvent(
             entry,
-            (nodeId, color) => this.spawnRelevantParticles(nodeId, color),
-            (fromId, toId) => this.spawnTravelingPackage(fromId, toId)
+            (nodeId, color) => PipelineStateManager.addParticles(nodeId, color),
+            (fromId, toId, file) => PipelineStateManager.addTravelingPackage(fromId, toId, file)
         );
 
         if (result && !result.redundant) {
@@ -160,29 +160,42 @@ export const PipelineCanvas = {
         }
     },
 
-    spawnTravelingPackage(fromId, toId) {
-        const fromNode = PIPELINE_NODES[fromId];
-        const toNode = PIPELINE_NODES[toId];
-        if (!fromNode || !toNode) return;
-
-        PipelineStateManager.travelingPackages.push({
-            fromId,
-            toId,
-            progress: 0,
-            speed: 0.02,
-            color: fromNode.activeColor || '#58a6ff'
-        });
+    spawnTravelingPackage(fromId, toId, file = null) {
+        // This method is now deprecated as handlePipelineEvent directly calls PipelineStateManager.addTravelingPackage
+        // Keeping it for potential external calls, but internal logic should use smartSpawn or direct PipelineStateManager calls.
+        PipelineStateManager.addTravelingPackage(fromId, toId, file);
     },
 
     updateTravelingPackages() {
         const packages = PipelineStateManager.travelingPackages;
         for (let i = packages.length - 1; i >= 0; i--) {
             const pkg = packages[i];
-            pkg.progress += pkg.speed;
+            pkg.progress += pkg.speed || 0.02;
             if (pkg.progress >= 1) {
                 packages.splice(i, 1);
             }
         }
+    },
+
+    /**
+     * Gentle Camera: Auto-pans towards the activity hub
+     */
+    updateCamera() {
+        // Don't auto-pan if the user is currently interacting or has manual control
+        if (PipelineInteraction.state.isPanning || !PipelineInteraction.state.autoFollow) return;
+
+        const focalPoint = LayoutEngine.getFocalPoint(this.width, this.height, PipelineStateManager.nodeStates, this.selectedNode || this.hoveredNode);
+        const { zoomScale } = PipelineInteraction.state;
+
+        // Calculate the target pan that would put focalPoint in the center of the viewport
+        // World coordinates -> Screen coordinates (center of focal point)
+        const targetPanX = (this.width / 2) - (focalPoint.x * zoomScale);
+        const targetPanY = (this.height / 2) - (focalPoint.y * zoomScale);
+
+        // Smooth drift (LERP)
+        const lerpFactor = 0.08; // Slightly faster for responsiveness
+        PipelineInteraction.state.panOffset.x += (targetPanX - PipelineInteraction.state.panOffset.x) * lerpFactor;
+        PipelineInteraction.state.panOffset.y += (targetPanY - PipelineInteraction.state.panOffset.y) * lerpFactor;
     },
 
     refreshDrawer() {
@@ -197,19 +210,20 @@ export const PipelineCanvas = {
     },
 
     spawnRelevantParticles(toNodeId, colorOverride = null) {
-        const toNode = PIPELINE_NODES[toNodeId];
+        const toPos = LayoutEngine.getNodePos(toNodeId);
+
         CONNECTIONS.filter(c => c.to === toNodeId).forEach(conn => {
-            const fromNode = PIPELINE_NODES[conn.from];
-            if (!fromNode) return;
+            const fromPos = LayoutEngine.getNodePos(conn.from);
+            const toNode = PIPELINE_NODES[toNodeId];
 
             PipelineStateManager.particles.push({
-                fromX: fromNode.x * this.width,
-                fromY: fromNode.y * this.height,
-                toX: toNode.x * this.width,
-                toY: toNode.y * this.height,
+                fromX: fromPos.x,
+                fromY: fromPos.y,
+                toX: toPos.x,
+                toY: toPos.y,
                 startTime: Date.now(),
                 duration: 1500 + Math.random() * 500,
-                color: colorOverride || toNode.activeColor
+                color: colorOverride || toNode?.activeColor || '#58a6ff'
             });
         });
     },
@@ -234,35 +248,46 @@ export const PipelineCanvas = {
         if (!this.ctx) return;
 
         this.updateTravelingPackages();
+        this.updateCamera();
         PipelineStateManager.cleanupParticles();
 
-        PipelineRenderer.clear(this.ctx, this.width, this.height);
-        PipelineRenderer.drawConnections(this.ctx, this.width, this.height, PipelineInteraction.state.panOffset);
-        PipelineRenderer.drawParticles(this.ctx, PipelineStateManager.particles, PipelineInteraction.state.panOffset);
-        PipelineRenderer.drawTravelingPackages(this.ctx, this.width, this.height, PipelineStateManager.travelingPackages, PipelineInteraction.state.panOffset);
+        PipelineRenderer.prepare(this.ctx, this.width, this.height);
+
+        // --- GLOBAL TRANSFORM START ---
+        this.ctx.save();
+        this.ctx.translate(PipelineInteraction.state.panOffset.x, PipelineInteraction.state.panOffset.y);
+        this.ctx.scale(PipelineInteraction.state.zoomScale, PipelineInteraction.state.zoomScale);
+
+        PipelineRenderer.drawConnections(this.ctx, this.width, this.height, PipelineStateManager.nodeStats);
+        PipelineRenderer.drawParticles(this.ctx, PipelineStateManager.particles);
+        PipelineRenderer.drawTravelingPackages(this.ctx, this.width, this.height, PipelineStateManager.travelingPackages);
+        PipelineRenderer.drawPulses(this.ctx, PipelineStateManager.pulses);
 
         if (this.selectedNode) {
-            PipelineRenderer.drawSelectionGlow(this.ctx, this.width, this.height, PipelineInteraction.state.panOffset, this.selectedNode);
+            PipelineRenderer.drawSelectionGlow(this.ctx, this.width, this.height, this.selectedNode);
         }
 
         PipelineRenderer.drawNodes(
             this.ctx,
             this.width,
             this.height,
-            PipelineInteraction.state.panOffset,
             PipelineStateManager.nodeStates,
             PipelineStateManager.nodeStats,
             this.hoveredNode,
             PipelineStateManager.nodeHealth
         );
 
-        if (this.hoveredNode) {
-            PipelineRenderer.drawTooltip(this.ctx, this.width, this.height, PipelineInteraction.state.panOffset, this.hoveredNode, PipelineStateManager.nodeStats);
+        if (this.hoveredNode && !this.selectedNode) {
+            PipelineRenderer.drawTooltip(this.ctx, this.width, this.height, this.hoveredNode, PipelineStateManager.nodeStats);
         }
+
+        this.ctx.restore();
+        // --- GLOBAL TRANSFORM END ---
     },
 
     selectNode(nodeId) {
         this.selectedNode = nodeId;
+        PipelineInteraction.state.autoFollow = true; // Re-engage camera to focus on selection
         PipelineUI.showDrawer(
             this.container,
             nodeId,

@@ -45,9 +45,11 @@ export const LabelRenderer = {
     /**
      * Draw an orbital satellite relative to its parent
      */
-    drawSatellite(ctx, satellite, parentX, parentY, width, height, panOffset, isHovered) {
+    drawSatellite(ctx, satellite, parentX, parentY, isHovered) {
         // Orbital Math
-        const radius = (satellite.orbitRadius || 0.10) * Math.min(width, height);
+        // Assuming a standard coordinate system where 1 unit = ~100px or similar
+        // Let's use a fixed-ish radius that scales with the global transform
+        const radius = (satellite.orbitRadius || 0.18) * 800;
         const angle = (satellite.orbitAngle || 0) * (Math.PI / 180);
 
         const x = parentX + radius * Math.cos(angle);

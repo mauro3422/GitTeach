@@ -128,13 +128,13 @@ export const PIPELINE_NODES = {
     worker_3: createWorkerSlot(3, 0.62, 0.90),
 
     // === MIXING BUFFER FACTORY ===
-    mixing_buffer: createNode('mixing_buffer', 'Evidence Mixer', '🧬', 1.10, 0.50, 'blue', {
+    mixing_buffer: createNode('mixing_buffer', 'Evidence Mixer', '🧬', 1.25, 0.50, 'blue', {
         sublabel: 'Buffer Handler',
         description: 'Mezcla esqueletos con Rich Findings. Gatekeeper: richRepos >= 1 || decentRepos >= 2.',
         internalClasses: ['StreamingHandler', 'EvidenceStore', 'MemoryManager']
     }),
 
-    compaction: createNode('compaction', 'Compaction', '🗜️', 1.10, 0.72, 'purple', {
+    compaction: createNode('compaction', 'Compaction', '🗜️', 1.25, 0.75, 'purple', {
         sublabel: 'Loop cada 10 files',
         port: 8002,
         description: 'Condensa findings cada 10 archivos. Genera goldenKnowledge curado.',
@@ -142,23 +142,23 @@ export const PIPELINE_NODES = {
     }),
 
     // === CPU MAPPERS FACTORY (Port 8002) ===
-    mapper_architecture: { ...createMapperSlot('architecture', 0.35, 1.30), labelPosition: 'top' },
-    mapper_habits: { ...createMapperSlot('habits', 0.50, 1.30), labelPosition: 'top' },
-    mapper_stack: { ...createMapperSlot('stack', 0.65, 1.30), labelPosition: 'bottom' },
+    mapper_architecture: { ...createMapperSlot('architecture', 0.30, 1.55), labelPosition: 'top' },
+    mapper_habits: { ...createMapperSlot('habits', 0.50, 1.55), labelPosition: 'top' },
+    mapper_stack: { ...createMapperSlot('stack', 0.70, 1.55), labelPosition: 'bottom' },
 
     // === SYNTHESIS FACTORY (Port 8002) ===
-    dna_synth: createNode('dna_synth', 'DNA Synth', '🧬', 1.50, 0.50, 'green', {
+    dna_synth: createNode('dna_synth', 'DNA Synth', '🧬', 1.85, 0.50, 'green', {
         sublabel: 'Profile Builder',
         port: 8002,
         description: 'Sintetiza el perfil técnico (DNA). Combina thematicAnalyses + healthReport.',
         internalClasses: ['DNASynthesizer', 'SynthesisOrchestrator', 'DNAPromptBuilder', 'DNAParser']
     }),
-    persistence: createNode('persistence', 'Persistence', '💾', 1.50, 0.72, 'blue', {
+    persistence: createNode('persistence', 'Persistence', '💾', 1.85, 0.75, 'blue', {
         sublabel: 'LevelDB',
         description: 'Persistencia dual en LevelDB y espejos JSON.',
         internalClasses: ['CacheService', 'LevelDBManager']
     }),
-    intelligence: createNode('intelligence', 'Intelligence', '🧠', 1.70, 0.50, 'neutral', {
+    intelligence: createNode('intelligence', 'Intelligence', '🧠', 2.15, 0.50, 'neutral', {
         sublabel: 'Persona Engine',
         activeColor: UI_COLORS.PURPLE_ACTIVE,
         port: 8002,
@@ -173,25 +173,25 @@ export const PIPELINE_NODES = {
     radar_adopt: createNode('radar_adopt', 'Adopt', '✅', 0, 0, 'green', {
         isSatellite: true,
         orbitParent: 'intelligence',
-        orbitRadius: 0.12,
+        orbitRadius: 0.18, // Increased for spacing
         orbitAngle: 150 // Top-Left
     }),
     radar_trial: createNode('radar_trial', 'Trial', '🧪', 0, 0, 'yellow', {
         isSatellite: true,
         orbitParent: 'intelligence',
-        orbitRadius: 0.12,
+        orbitRadius: 0.18,
         orbitAngle: 170 // Center-Left Top
     }),
     radar_assess: createNode('radar_assess', 'Assess', '🔭', 0, 0, 'blue', {
         isSatellite: true,
         orbitParent: 'intelligence',
-        orbitRadius: 0.12,
+        orbitRadius: 0.18,
         orbitAngle: 190 // Center-Left Bottom
     }),
     radar_hold: createNode('radar_hold', 'Hold', '🛑', 0, 0, 'red', {
         isSatellite: true,
         orbitParent: 'intelligence',
-        orbitRadius: 0.12,
+        orbitRadius: 0.18,
         orbitAngle: 210 // Bottom-Left
     })
 };

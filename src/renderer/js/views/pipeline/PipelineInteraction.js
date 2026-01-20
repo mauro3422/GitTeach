@@ -5,6 +5,7 @@
  */
 
 import { PIPELINE_NODES } from './PipelineConstants.js';
+import { LayoutEngine } from './LayoutEngine.js';
 
 export const PipelineInteraction = {
     /**
@@ -14,7 +15,11 @@ export const PipelineInteraction = {
         mousePos: { x: 0, y: 0 },
         isPanning: false,
         lastPanPos: { x: 0, y: 0 },
-        panOffset: { x: 0, y: 0 }
+        panOffset: { x: 0, y: 0 },
+        zoomScale: 1.0,
+        minZoom: 0.3,
+        maxZoom: 2.5,
+        autoFollow: true // New: Whether the camera should automatically follow activity
     },
 
     /**
@@ -22,16 +27,18 @@ export const PipelineInteraction = {
      */
     checkHover(width, height) {
         let found = null;
-        const { mousePos, panOffset } = this.state;
+        const { mousePos, panOffset, zoomScale } = this.state;
 
         Object.entries(PIPELINE_NODES).forEach(([id, node]) => {
-            const x = (node.x * width) + panOffset.x;
-            const y = (node.y * height) + panOffset.y;
+            const pos = LayoutEngine.getNodePos(id);
+            // Coordinate transformation: Screen -> World
+            const x = (pos.x * zoomScale) + panOffset.x;
+            const y = (pos.y * zoomScale) + panOffset.y;
             const dx = mousePos.x - x;
             const dy = mousePos.y - y;
             const dist = Math.sqrt(dx * dx + dy * dy);
 
-            if (dist < 40) found = id;
+            if (dist < (40 * zoomScale)) found = id;
         });
 
         return found;
@@ -64,6 +71,7 @@ export const PipelineInteraction = {
             if (e.button === 1 || e.button === 2) {
                 e.preventDefault();
                 this.state.isPanning = true;
+                this.state.autoFollow = false; // User takes manual control
                 this.state.lastPanPos = { ...this.state.mousePos };
                 canvas.style.cursor = 'grabbing';
             }
@@ -86,5 +94,18 @@ export const PipelineInteraction = {
             if (e.button !== 0) return; // Only left click for selection
             callbacks.onClick();
         });
+
+        // Zoom Handling
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            const nextZoom = this.state.zoomScale * delta;
+
+            if (nextZoom >= this.state.minZoom && nextZoom <= this.state.maxZoom) {
+                // Zoom relative to center or mouse? Let's keep it simple for now: center-ish
+                this.state.zoomScale = nextZoom;
+                callbacks.onMouseMove(); // Trigger redraw
+            }
+        }, { passive: false });
     }
 };

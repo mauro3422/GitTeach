@@ -176,20 +176,37 @@ export const PipelineEventHandler = {
         }
     },
 
-    /**
-     * Main event entry point - Simplified using Strategy Pattern
-     */
     handleEvent(entry, spawnParticles, spawnTravelingPackage) {
         const { type, payload } = entry;
 
+        // Visual signaling: location ping
+        const targetNodeId = PipelineEventHandler.getEventNodeId(entry);
+        if (targetNodeId) {
+            PipelineStateManager.addPulse(targetNodeId, PIPELINE_NODES[targetNodeId]?.activeColor || '#ffffff');
+        }
+
+        // Wrapped spawnTravelingPackage to include filename from payload automatically
+        const smartSpawn = (from, to, fileOverride = null) => {
+            const file = fileOverride || payload?.file || payload?.repo || null;
+            spawnTravelingPackage(from, to, file);
+        };
+
         // Check if we have a specific strategy for this event type
-        const strategy = this.eventStrategies[type];
+        const strategy = PipelineEventHandler.eventStrategies[type];
         if (strategy) {
-            return strategy(entry, spawnParticles, spawnTravelingPackage);
+            const nodeId = PipelineEventHandler.getEventNodeId(entry);
+            if (nodeId) {
+                PipelineStateManager.addPulse(nodeId, PIPELINE_NODES[nodeId]?.activeColor || '#ffffff');
+            }
+            return strategy(entry, spawnParticles, smartSpawn);
         }
 
         // Handle regular pipeline events
-        return this.handleRegularEvent(entry, spawnParticles, spawnTravelingPackage);
+        const nodeId = PipelineEventHandler.getEventNodeId(entry);
+        if (nodeId) {
+            PipelineStateManager.addPulse(nodeId, PIPELINE_NODES[nodeId]?.activeColor || '#ffffff');
+        }
+        return PipelineEventHandler.handleRegularEvent(entry, spawnParticles, smartSpawn);
     },
 
     /**
@@ -198,7 +215,7 @@ export const PipelineEventHandler = {
     handleRegularEvent(entry, spawnParticles, spawnTravelingPackage) {
         const { type, payload } = entry;
 
-        const nodeId = this.findNodeForEvent(type);
+        const nodeId = PipelineEventHandler.findNodeForEvent(type);
         if (!nodeId) return null;
 
         const status = payload?.status;
@@ -218,12 +235,12 @@ export const PipelineEventHandler = {
 
         // Route to appropriate status handler
         const statusStrategies = {
-            'start': () => this.handleStartStatus(nodeId, payload, spawnParticles, spawnTravelingPackage, stats, states, repo, file),
-            'waiting': () => this.handleWaitingStatus(stats, states, nodeId),
-            'dispatching': () => this.handleDispatchingStatus(nodeId, stats, states, spawnParticles),
-            'receiving': () => this.handleReceivingStatus(nodeId, stats, spawnParticles),
-            'end': () => this.handleEndStatus(nodeId, stats, states, repo, file),
-            'default': () => this.handleOneShotStatus(nodeId, payload, spawnParticles, spawnTravelingPackage, stats, states, repo, file)
+            'start': () => PipelineEventHandler.handleStartStatus(nodeId, payload, spawnParticles, spawnTravelingPackage, stats, states, repo, file),
+            'waiting': () => PipelineEventHandler.handleWaitingStatus(stats, states, nodeId),
+            'dispatching': () => PipelineEventHandler.handleDispatchingStatus(nodeId, stats, states, spawnParticles),
+            'receiving': () => PipelineEventHandler.handleReceivingStatus(nodeId, stats, spawnParticles),
+            'end': () => PipelineEventHandler.handleEndStatus(nodeId, stats, states, repo, file),
+            'default': () => PipelineEventHandler.handleOneShotStatus(nodeId, payload, spawnParticles, spawnTravelingPackage, stats, states, repo, file)
         };
 
         const handler = statusStrategies[status] || statusStrategies['default'];
@@ -235,7 +252,7 @@ export const PipelineEventHandler = {
 
     handleStartStatus(nodeId, payload, spawnParticles, spawnTravelingPackage, stats, states, repo, file) {
         stats.isWaiting = false;
-        this.handleHandover(nodeId, payload, spawnTravelingPackage);
+        this.handleHandover(nodeId, payload, spawnTravelingPackage, file);
         states[nodeId] = 'active';
         stats.count++;
 
@@ -292,7 +309,7 @@ export const PipelineEventHandler = {
 
     handleOneShotStatus(nodeId, payload, spawnParticles, spawnTravelingPackage, stats, states, repo, file) {
         stats.isWaiting = false;
-        this.handleHandover(nodeId, payload, spawnTravelingPackage);
+        this.handleHandover(nodeId, payload, spawnTravelingPackage, file);
         states[nodeId] = 'active';
         stats.count++;
 
@@ -308,6 +325,33 @@ export const PipelineEventHandler = {
     },
 
     /**
+     * Maps an event entry to a specific node ID
+     */
+    getEventNodeId(entry) {
+        const { type, payload } = entry;
+
+        // 1. Special Routing: Mappers
+        if (type === 'mapper:start' || type === 'mapper:end' || type.startsWith('mapper:')) {
+            const mapperType = payload?.mapper;
+            return mapperType ? `mapper_${mapperType}` : 'mapper_habits';
+        }
+
+        // 2. Special Routing: Worker Slots
+        if (type.startsWith('worker:slot:')) {
+            const slotNum = type.split(':').pop();
+            return `worker_${slotNum}`;
+        }
+
+        // 3. Dynamic Repos (handled in simulation/start)
+        if (type === 'repo:detected' || type === 'repo:tree:fetched' || type === 'repo:files:extracting') {
+            return PipelineStateManager.getSlotForRepo ? PipelineStateManager.getSlotForRepo(payload.repo) : 'cache';
+        }
+
+        // 4. Default constant-based mapping
+        return this.findNodeForEvent(type);
+    },
+
+    /**
      * Find node assigned to a specific event type
      */
     findNodeForEvent(event) {
@@ -320,7 +364,7 @@ export const PipelineEventHandler = {
     /**
      * Manage handover between nodes
      */
-    handleHandover(targetNodeId, payload, spawnTravelingPackage) {
+    handleHandover(targetNodeId, payload, spawnTravelingPackage, file = null) {
         const predecessors = {
             'api_fetch': 'data_source',
             'cache': 'api_fetch',
@@ -364,7 +408,7 @@ export const PipelineEventHandler = {
         }
 
         if (predId && PipelineStateManager.nodeStats[predId]) {
-            spawnTravelingPackage(predId, targetNodeId);
+            spawnTravelingPackage(predId, targetNodeId, file);
 
             const predStats = PipelineStateManager.nodeStats[predId];
             if (predStats.count === 0 && PipelineStateManager.nodeStates[predId] === 'pending') {

@@ -8,7 +8,7 @@ export const PipelineSimulation = {
      * Simulate a full task lifecycle in a specific worker slot
      */
     simulateTaskInSlot(slotNum, handleEvent) {
-        const slotId = `worker_slot_${slotNum}`;
+        const slotId = `worker_${slotNum}`;
         const repo = 'simulation-repo';
         const file = 'refactor_solid.js';
 

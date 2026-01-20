@@ -3,6 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://avatars.githubusercontent.com; connect-src 'self' http://127.0.0.1:* http://localhost:* https://api.github.com;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GitTeach // Tracer Controls</title>
 
@@ -61,27 +63,21 @@
                 <div class="fleet-grid" id="server-fleet">
                     <!-- Port 8000 -->
                     <div class="fleet-item" id="fleet-8000">
-                        <div class="fleet-info">
-                            <span class="fleet-name">BRAIN (GPU:8000)</span>
-                            <span class="fleet-status">DISCONNECTED</span>
-                        </div>
+                        <span class="fleet-name">BRAIN (GPU:8000)</span>
                         <div class="slots-grid"></div>
+                        <span class="fleet-status">OFFLINE</span>
                     </div>
                     <!-- Port 8002 -->
                     <div class="fleet-item" id="fleet-8002">
-                        <div class="fleet-info">
-                            <span class="fleet-name">MAPPERS (CPU:8002)</span>
-                            <span class="fleet-status">DISCONNECTED</span>
-                        </div>
+                        <span class="fleet-name">MAPPERS (CPU:8002)</span>
                         <div class="slots-grid"></div>
+                        <span class="fleet-status">OFFLINE</span>
                     </div>
                     <!-- Port 8001 -->
                     <div class="fleet-item" id="fleet-8001">
-                        <div class="fleet-info">
-                            <span class="fleet-name">VECTORS (EMB:8001)</span>
-                            <span class="fleet-status">DISCONNECTED</span>
-                        </div>
+                        <span class="fleet-name">VECTORS (EMB:8001)</span>
                         <div class="slots-grid"></div>
+                        <span class="fleet-status">OFFLINE</span>
                     </div>
                 </div>
             </section>
