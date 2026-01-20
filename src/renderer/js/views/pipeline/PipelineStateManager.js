@@ -1,16 +1,21 @@
 /**
  * PipelineStateManager.js
- * Manages the state, history, and statistics of pipeline nodes.
- * Centralizes data mutation to ensure consistency.
+ * Orchestrates pipeline state management by delegating to specialized managers.
+ * Maintains backward compatibility while applying SRP.
  */
 
 import { PIPELINE_NODES } from './PipelineConstants.js';
+import { nodeManager } from './NodeManager.js';
+import { historyManager } from './HistoryManager.js';
+import { dynamicSlotManager } from './DynamicSlotManager.js';
 
 export const PipelineStateManager = {
-    nodeStates: {},
-    nodeStats: {},
-    nodeHealth: {},
-    nodeHistory: {},
+    // Delegate to specialized managers
+    get nodeStates() { return nodeManager.nodeStates; },
+    get nodeStats() { return nodeManager.nodeStats; },
+    get nodeHealth() { return nodeManager.nodeHealth; },
+    get nodeHistory() { return historyManager.nodeHistory; },
+
     particles: [],
     travelingPackages: [],
 
@@ -18,25 +23,9 @@ export const PipelineStateManager = {
      * Initialize all node containers
      */
     init() {
-        const bufferNodes = ['workers_hub', 'persistence', 'streaming'];
-
-        Object.keys(PIPELINE_NODES).forEach(id => {
-            this.nodeStates[id] = 'idle';
-            this.nodeHealth[id] = true;
-            this.nodeStats[id] = {
-                count: 0,
-                lastEvent: null,
-                isBuffer: bufferNodes.includes(id),
-                repo: null,
-                file: null,
-                isWaiting: false,
-                isDispatching: false,
-                isReceiving: false,
-                isPendingHandover: false,
-                currentLabel: null
-            };
-            this.nodeHistory[id] = [];
-        });
+        nodeManager.init();
+        historyManager.init(Object.keys(PIPELINE_NODES));
+        dynamicSlotManager.reset();
 
         this.particles = [];
         this.travelingPackages = [];
@@ -46,53 +35,96 @@ export const PipelineStateManager = {
      * Atomic update for node health
      */
     updateHealth(fleetState) {
-        if (!fleetState) return false;
-        let changed = false;
-
-        Object.keys(PIPELINE_NODES).forEach(nodeId => {
-            const node = PIPELINE_NODES[nodeId];
-            if (node.port && fleetState[node.port]) {
-                const isOnline = fleetState[node.port].online;
-                if (this.nodeHealth[nodeId] !== isOnline) {
-                    this.nodeHealth[nodeId] = isOnline;
-                    changed = true;
-                }
-            }
-        });
-        return changed;
+        return nodeManager.updateHealth(fleetState);
     },
 
     /**
      * Track an operation in history
      */
-    addHistoryEntry(nodeId, repo, file, done = false) {
-        if (!this.nodeHistory[nodeId]) this.nodeHistory[nodeId] = [];
+    addHistoryEntry(nodeId, repo, file, done = false, slotId = null) {
+        return historyManager.addHistoryEntry(nodeId, repo, file, done, slotId);
+    },
 
-        const timestamp = new Date().toLocaleTimeString();
-        this.nodeHistory[nodeId].unshift({
-            time: timestamp,
-            repo: repo,
-            file: file,
-            display: `${repo}: ${file}`,
-            done: done
-        });
-
-        if (this.nodeHistory[nodeId].length > 40) {
-            this.nodeHistory[nodeId].pop();
-        }
+    /**
+     * Update the slotId for a file in classifier history when it gets assigned to a worker
+     */
+    updateHistorySlot(nodeId, repo, file, slotId) {
+        return historyManager.updateHistorySlot(nodeId, repo, file, slotId);
     },
 
     /**
      * Mark an existing history entry as completed
      */
     markHistoryDone(nodeId, repo, file) {
-        const entry = this.nodeHistory[nodeId]?.find(h => h.repo === repo && h.file === file && !h.done);
-        if (entry) {
-            entry.done = true;
-            entry.timeEnd = new Date().toLocaleTimeString();
-            return true;
+        return historyManager.markHistoryDone(nodeId, repo, file);
+    },
+
+    // === MÉTODOS PARA REPOS DINÁMICOS (ILIMITADOS) ===
+
+    /**
+     * Crea o retorna el slot asignado a un repo.
+     * NO HAY LÍMITE - cada repo tiene su propio nodo.
+     */
+    assignRepoToSlot(repoName) {
+        const slotId = dynamicSlotManager.assignRepoToSlot(repoName);
+
+        if (slotId) {
+            // Initialize node structures for this dynamic slot
+            nodeManager.initDynamicNodeStats(slotId, {
+                count: 1,
+                lastEvent: 'repo:detected',
+                isBuffer: false,
+                repo: repoName,
+                file: null,
+                isWaiting: false,
+                isDispatching: false,
+                isReceiving: false,
+                isPendingHandover: false,
+                currentLabel: repoName,
+                isDynamic: true
+            });
+            historyManager.initDynamicNodeHistory(slotId);
         }
-        return false;
+
+        return slotId;
+    },
+
+    updateRepoSlotState(repoName, updates) {
+        const slotId = dynamicSlotManager.updateRepoSlotState(repoName, updates);
+
+        // Update node stats label if filesCount changed
+        if (updates.filesCount !== undefined && slotId && nodeManager.getNodeStats(slotId)) {
+            nodeManager.updateNodeStats(slotId, {
+                currentLabel: `${repoName} (${updates.filesCount})`
+            });
+        }
+
+        return slotId;
+    },
+
+    getRepoSlotState(slotId) {
+        return dynamicSlotManager.getRepoSlotState(slotId);
+    },
+
+    releaseRepoSlot(repoName) {
+        dynamicSlotManager.releaseRepoSlot(repoName);
+
+        const slotId = dynamicSlotManager.getSlotForRepo(repoName);
+        if (slotId) {
+            nodeManager.setNodeState(slotId, 'idle');
+            nodeManager.updateNodeStats(slotId, { count: 0 });
+        }
+    },
+
+    getDynamicSlots() {
+        return dynamicSlotManager.getDynamicSlots();
+    },
+
+    /**
+     * Retorna todos los slots activos para renderizado
+     */
+    getActiveRepoSlots() {
+        return dynamicSlotManager.getActiveRepoSlots(nodeManager.nodeStates, nodeManager.nodeStats);
     },
 
     /**

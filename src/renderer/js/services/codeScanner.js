@@ -66,10 +66,22 @@ export class CodeScanner {
                 onStep({ type: 'Progreso', percent: stats.progress, message: `Scanning ${repo.name}...` });
             }
             pipelineEventBus.emit('coordinator:scanning', { repo: repo.name });
+            pipelineEventBus.emit('repo:detected', {
+                repo: repo.name,
+                index: index + 1,
+                total: targetRepos.length,
+                estimatedFiles: null  // Aún no sabemos
+            });
 
             try {
                 const { treeFiles, treeSha } = await this.getRepoTree(username, repo, onStep, allFindings);
                 if (!treeFiles || treeFiles.length === 0) return;
+
+                pipelineEventBus.emit('repo:tree:fetched', {
+                    repo: repo.name,
+                    filesCount: treeFiles.length,
+                    treeSha
+                });
 
                 // Register files in coordinator with strict capping
                 this.coordinator.registerRepoFiles(repo.name, treeFiles, treeSha, maxAnchors);
@@ -85,12 +97,18 @@ export class CodeScanner {
                 }
 
                 // Identify "Anchor" files (Architecture/Urgent)
-                const anchors = this.identifyAnchorFiles(treeFiles);
+                const anchors = this.identifyAnchorFiles(treeFiles, repo.name);
 
                 // Identify "Pending" files (Background) - Everything else
                 // Filter out anchors to avoid duplicates
                 const anchorPaths = new Set(anchors.map(a => a.path));
                 const pendingFiles = treeFiles.filter(f => f.type === 'blob' && !anchorPaths.has(f.path));
+
+                pipelineEventBus.emit('repo:files:extracting', {
+                    repo: repo.name,
+                    anchorCount: anchors.length,
+                    pendingCount: pendingFiles.length
+                });
 
                 // Audit anchor files (URGENT PRIORITY)
                 const repoAudit = await this.auditFiles(username, repo.name, anchors.slice(0, maxAnchors), needsFullScan, onStep, AISlotPriorities.URGENT);
@@ -109,6 +127,12 @@ export class CodeScanner {
                     pendingFiles: pendingFiles // Pass pending files for Phase 2
                 });
 
+                pipelineEventBus.emit('repo:complete', {
+                    repo: repo.name,
+                    success: true,
+                    filesProcessed: repoAudit.filter(f => f !== null).length
+                });
+
                 if (onStep) {
                     const stats = this.coordinator.getStats();
                     onStep({ type: 'Progreso', percent: stats.progress, message: `Completado ${repo.name}.` });
@@ -117,6 +141,11 @@ export class CodeScanner {
             } catch (e) {
                 Logger.error('SCAN', `Error escaneando ${repo.name}: ${e.message}`);
                 this.coordinator.report('Error', `${repo.name}: ${e.message}`);
+                pipelineEventBus.emit('repo:complete', {
+                    repo: repo.name,
+                    success: false,
+                    error: e.message
+                });
             }
         }));
 
@@ -160,9 +189,11 @@ export class CodeScanner {
 
     /**
      * Identifies relevant files for analysis - BROADENED for 100% coverage
+     * @param {Array} tree - File tree from GitHub
+     * @param {string} repoName - Name of the repository
      */
-    identifyAnchorFiles(tree) {
-        return this.fileAuditor.identifyAnchorFiles(tree);
+    identifyAnchorFiles(tree, repoName = 'unknown') {
+        return this.fileAuditor.identifyAnchorFiles(tree, repoName);
     }
 
     /**

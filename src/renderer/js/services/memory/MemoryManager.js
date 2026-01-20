@@ -62,8 +62,14 @@ export class MemoryManager {
         await this.addNode(node);
 
         const persistenceFinding = { ...finding, uid: node.uid };
-        CacheRepository.appendRepoRawFinding(finding.repo, persistenceFinding).then(() => {
+        CacheRepository.appendRepoRawFinding(finding.repo, persistenceFinding).then(async () => {
             this.logger.info(`✅ LevelDB Sync: Node ${node.uid} persisted to session storage.`);
+
+            // Emit persist event for pipeline visualization
+            try {
+                const { pipelineEventBus } = await import('../pipeline/PipelineEventBus.js');
+                pipelineEventBus.emit('persist:raw', { repo: finding.repo, file: finding.path || finding.file });
+            } catch (e) { /* Silent fail for non-debugger contexts */ }
         }).catch(err => {
             this.logger.warn(`Failed to append raw finding for ${finding.repo}`, err);
         });

@@ -14,3 +14,6 @@
 
 /* Canvas-based pipeline visualizer */
 @import url('./debugger-canvas.css');
+
+/* Drawer panel for node inspection */
+@import url('./debugger-drawer.css');

@@ -118,6 +118,9 @@ export class StreamingHandler {
                 Logger.reducer(`[${repoName}] Blueprint generated (Streaming). Complexity: ${blueprint.metrics.logic?.modularity || 'N/A'}`);
                 await CacheRepository.persistRepoBlueprint(repoName, blueprint);
 
+                // Emit persist event for pipeline visualization (one-shot)
+                pipelineEventBus.emit('persist:blueprint', { repo: repoName, file: 'blueprint.json' });
+
                 // GATEKEEPER IMPLEMENTATION (Optimization)
                 // Only refine Global Identity if "Critical Mass" is reached
                 const allBlueprints = await CacheRepository.getAllRepoBlueprints();

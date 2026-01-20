@@ -1,37 +1,30 @@
 /**
- * FileAuditor - Handles file auditing, filtering, and content processing
- * Extracted from CodeScanner to comply with SRP
+ * FileAuditor - Orchestrates file auditing by delegating to specialized managers.
+ * Maintains backward compatibility while applying SRP.
  *
  * Responsibilities:
- * - Audit files by downloading content and caching
- * - Identify anchor files for analysis
- * - Filter out noise and irrelevant files
- * - Curate findings for AI consumption
+ * - Coordinate file auditing workflow
+ * - Delegate to specialized managers for specific operations
  */
-import { CacheRepository } from '../utils/cacheRepository.js';
-import { DebugLogger } from '../utils/debugLogger.js';
 import { AISlotPriorities } from './ai/AISlotManager.js';
-import { FileFilter } from './analyzer/FileFilter.js';
 import { pipelineController } from './pipeline/PipelineController.js';
 import { pipelineEventBus } from './pipeline/PipelineEventBus.js';
-
-// Environment check
-const isNode = typeof process !== 'undefined' && process.versions?.node;
-
-// Configuration constants
-const MAX_WORKER_QUEUE_SIZE = 50000;
-const MAX_CODE_SNIPPET_LENGTH = 3000;
+import { PIPELINE_CONFIG } from '../views/pipeline/pipelineConfig.js';
+import { fileDownloader } from './FileDownloader.js';
+import { fileProcessor } from './FileProcessor.js';
+import { findingsCurator } from './FindingsCurator.js';
 
 export class FileAuditor {
     constructor(coordinator, workerPool) {
         this.coordinator = coordinator;
         this.workerPool = workerPool;
-        this.seedsProcessed = 0; // Local counter for High-Fidelity Seeds (Tracer)
-        this.fileFilter = new FileFilter();
+        this.fileDownloader = fileDownloader;
+        this.fileProcessor = fileProcessor;
+        this.findingsCurator = findingsCurator;
     }
 
     /**
-     * Audits a list of files, downloading content and saving to cache
+     * Audits a list of files by coordinating specialized managers
      * @param {string} username - GitHub username
      * @param {string} repoName - Repository name
      * @param {Array} files - Files to audit
@@ -42,154 +35,119 @@ export class FileAuditor {
      */
     async auditFiles(username, repoName, files, needsFullScan, onStep, priority = AISlotPriorities.NORMAL) {
         return await Promise.all(files.map(async (file) => {
-            // PAUSE/STEP CHECK: Pipeline Controller synchronization
-            while (!pipelineController.canProceed()) {
-                await new Promise(r => setTimeout(r, 300));
-            }
+            try {
+                // Check if we need to download/update the file
+                const needsDownload = await this.fileDownloader.needsDownload(username, repoName, file.path, file.sha);
 
-            // Check cache first - SHA verification is now ALWAYS active (Cache-First)
-            const needsUpdate = await CacheRepository.needsUpdate(username, repoName, file.path, file.sha);
-
-            // 1. Check if we have a valid AI Snippet in cache (Offline Mode)
-            if (!needsUpdate) {
-                const cached = await CacheRepository.getFileSummary(username, repoName, file.path);
-
-                // OFFLINE HIT: If we have the FULL AI context (3000 chars), use it!
-                if (cached && cached.aiSnippet) {
-                    this.coordinator.markCompleted(repoName, file.path, cached.summary, { file_meta: cached.file_meta || {} });
-                    DebugLogger.logCacheHit(repoName, file.path, cached.summary);
-                    pipelineEventBus.emit('file:cached', { repo: repoName, file: file.path });
-
-                    // FEED WORKER: Even if cached, we might want to re-analyze if it's high priority or in Tracer mode
-                    // For URGENT files or TRACER mode, we force enqueue with local content
-                    // For BACKGROUND files, we might skip if summary is already good?
-                    // Current logic: force enqueue if Tracer.
-                    // New logic: Use priority.
-
-                    if (window.IS_TRACER && this.workerPool.totalQueued < MAX_WORKER_QUEUE_SIZE) {
-                        this.workerPool.enqueue(repoName, file.path, cached.aiSnippet, file.sha, priority, cached.file_meta || {});
-                    }
-                    return { path: file.path, snippet: cached.aiSnippet, fromCache: true };
-                }
-                // If only truncated snippet exists (old cache), fall through to download (UPGRADE)
-            }
-
-            // If not in Tracer mode AND we don't need an update, use cached contentSnippet if available
-            if (!needsUpdate && !(typeof window !== 'undefined' && window.IS_TRACER)) {
-                const cached = await CacheRepository.getFileSummary(username, repoName, file.path);
-                if (cached) {
-                    this.coordinator.markCompleted(repoName, file.path, cached.summary, { file_meta: cached.file_meta || {} });
-                    DebugLogger.logCacheHit(repoName, file.path, cached.summary);
-                    pipelineEventBus.emit('file:cached', { repo: repoName, file: file.path });
-
-                    // Force re-analysis if Tracer
-                    if (isNode) {
-                        try {
-                            const path = await import('path');
-                            const fs = await import('fs');
-                            const logPath = path.join(process.cwd(), 'debug_auditor.log');
-                            const msg = `[FileAuditor] Cache Hit. IS_TRACER=${typeof window !== 'undefined' && window.IS_TRACER}, Queued=${this.workerPool.totalQueued}. EnQUEUE? ${window.IS_TRACER && this.workerPool.totalQueued < MAX_WORKER_QUEUE_SIZE}\n`;
-                            fs.appendFileSync(logPath, msg);
-                        } catch (e) { }
-                    }
-
-                    if (window.IS_TRACER && this.workerPool.totalQueued < MAX_WORKER_QUEUE_SIZE) {
-                        this.workerPool.enqueue(repoName, file.path, cached.contentSnippet || '', file.sha, priority, cached.file_meta || {});
-                    } else {
-                        console.warn(`[FileAuditor] SKIPPING Enqueue. Tracer=${window.IS_TRACER}, Cap=${this.workerPool.totalQueued < MAX_WORKER_QUEUE_SIZE}`);
-                    }
-
-                    return { path: file.path, snippet: cached.contentSnippet || '', fromCache: true };
-                }
-            }
-
-            if (onStep) {
-                const stats = this.coordinator.getStats();
-                onStep({ type: 'Progreso', percent: stats.progress, message: `Downloading ${file.path}...` });
-            }
-
-            pipelineEventBus.emit('api:fetch', { repo: repoName, file: file.path, status: 'start' });
-            const contentRes = await window.githubAPI.getFileContent(username, repoName, file.path);
-            pipelineEventBus.emit('api:fetch', { repo: repoName, file: file.path, status: 'end' });
-
-            if (contentRes && contentRes.content) {
-                const codeSnippet = atob(contentRes.content.replace(/\n/g, '')).substring(0, MAX_CODE_SNIPPET_LENGTH);
-
-                // Save to cache
-                pipelineEventBus.emit('cache:store', { repo: repoName, file: file.path });
-                await CacheRepository.setFileSummary(
-                    username, repoName, file.path,
-                    contentRes.sha,
-                    codeSnippet.substring(0, 500),
-                    codeSnippet,
-                    contentRes.file_meta || {}
-                );
-
-                // Enqueue for AI processing
-                if (this.workerPool.totalQueued < MAX_WORKER_QUEUE_SIZE) {
-                    if (isNode) {
-                        try {
-                            const path = await import('path');
-                            const fs = await import('fs');
-                            fs.appendFileSync(path.join(process.cwd(), 'debug_auditor.log'), `[FileAuditor] FRESH Enqueue ${file.path}\n`);
-                        } catch (e) { }
-                    }
-                    pipelineEventBus.emit('file:queued', { repo: repoName, file: file.path });
-                    this.workerPool.enqueue(repoName, file.path, codeSnippet, contentRes.sha, priority, contentRes.file_meta || {});
+                if (!needsDownload) {
+                    // Try to get from cache first
+                    return await this.processCachedFile(username, repoName, file, priority);
                 }
 
-                // Provide a safe skeleton metadata to prevent flatlining metrics if AI is bypassed
-                const skeletonData = {
-                    file_meta: contentRes.file_meta || {},
-                    metadata: {
-                        solid: 2.5,
-                        modularity: 2.5,
-                        complexity: 2.0,
-                        knowledge: { clarity: 3.0, discipline: 3.0, depth: 2.0 },
-                        signals: { semantic: 2.0, resilience: 2.0, resources: 2.0, auditability: 2.0, domain_fidelity: 2.0 }
-                    }
-                };
-
-                // Semantic Summary: Injected with keywords to trigger Habits Forensics partitioning
-                const semanticSummary = `[Tracer] Analysis of ${file.path}: Evidence of high resilience, defensive posture, and error discipline forensics.`;
-
-                // HIGH FIDELITY SEEDS: In Tracer mode, the first 5 files bypass the skeleton system
-                // to force real AI worker processing. This provides high-quality behavioral data.
-                // IF FORCE_REAL_AI is true, we bypass the limit and analyze EVERYTHING.
-                const isHighFidelitySeed = (typeof window !== 'undefined' && window.IS_TRACER) &&
-                    (window.FORCE_REAL_AI || this.seedsProcessed < 5);
-
-                if (!isHighFidelitySeed) {
-                    this.coordinator.markCompleted(repoName, file.path, semanticSummary, skeletonData);
-                } else {
-                    this.seedsProcessed++;
-                    if (isNode) {
-                        try {
-                            const path = await import('path');
-                            const fs = await import('fs');
-                            fs.appendFileSync(path.join(process.cwd(), 'debug_auditor.log'), `[FileAuditor] HIGH FIDELITY SEED #${this.seedsProcessed}: ${file.path} (Bypassing Skeleton)\n`);
-                        } catch (e) { }
-                    }
-                }
-
-                return { path: file.path, snippet: codeSnippet };
+                // Download and process new file
+                return await this.processNewFile(username, repoName, file, onStep, priority);
+            } catch (error) {
+                console.error(`[FileAuditor] Error processing ${file.path}:`, error);
+                return null;
             }
-            return null;
         }));
+    }
+
+    /**
+     * Process a file that exists in cache
+     */
+    async processCachedFile(username, repoName, file, priority) {
+        const cached = await this.fileDownloader.getCachedSummary(username, repoName, file.path);
+
+        if (cached && cached.aiSnippet) {
+            // Use full cached content
+            this.coordinator.markCompleted(repoName, file.path, cached.summary, { file_meta: cached.file_meta || {} });
+            pipelineEventBus.emit('file:cached', { repo: repoName, file: file.path });
+
+            // Enqueue for processing if in tracer mode
+            if (window.IS_TRACER) {
+                this.fileProcessor.enqueueForProcessing(repoName, file.path, cached.aiSnippet, file.sha, priority, cached.file_meta, this.workerPool);
+            }
+
+            return { path: file.path, snippet: cached.aiSnippet, fromCache: true };
+        }
+
+        // Fallback to content snippet
+        if (cached) {
+            this.coordinator.markCompleted(repoName, file.path, cached.summary, { file_meta: cached.file_meta || {} });
+            pipelineEventBus.emit('file:cached', { repo: repoName, file: file.path });
+
+            if (window.IS_TRACER) {
+                this.fileProcessor.enqueueForProcessing(repoName, file.path, cached.contentSnippet || '', file.sha, priority, cached.file_meta, this.workerPool);
+            }
+
+            return { path: file.path, snippet: cached.contentSnippet || '', fromCache: true };
+        }
+
+        return null;
+    }
+
+    /**
+     * Process a new file that needs to be downloaded
+     */
+    async processNewFile(username, repoName, file, onStep, priority) {
+        if (onStep) {
+            const stats = this.coordinator.getStats();
+            onStep({ type: 'Progreso', percent: stats.progress, message: `Downloading ${file.path}...` });
+        }
+
+        // Download file content
+        const contentRes = await this.fileDownloader.downloadFile(username, repoName, file.path);
+        if (!contentRes || !contentRes.content) {
+            return null;
+        }
+
+        // Process downloaded content
+        const processedContent = this.fileDownloader.processDownloadedContent(contentRes, file.path);
+        if (!processedContent) {
+            return null;
+        }
+
+        const { contentSnippet, sha, fileMeta } = processedContent;
+
+        // Cache the file
+        await this.fileDownloader.cacheFile(
+            username, repoName, file.path, sha,
+            contentSnippet.substring(0, 500), // summary
+            contentSnippet, // full content
+            fileMeta
+        );
+
+        // Enqueue for AI processing
+        this.fileProcessor.enqueueForProcessing(repoName, file.path, contentSnippet, sha, priority, fileMeta, this.workerPool);
+
+        // Handle high-fidelity seed processing
+        const seedResult = this.fileProcessor.processHighFidelitySeed(
+            repoName, file.path,
+            typeof window !== 'undefined' && window.IS_TRACER,
+            window.FORCE_REAL_AI,
+            this.workerPool
+        );
+
+        if (seedResult.shouldSkip) {
+            // Use skeleton data
+            const skeletonData = this.findingsCurator.createSkeletonMetadata(fileMeta);
+            const semanticSummary = this.findingsCurator.createSemanticSummary(file.path);
+            this.coordinator.markCompleted(repoName, file.path, semanticSummary, skeletonData);
+        }
+        // If it's a seed, it will be processed by the worker pool
+
+        return { path: file.path, snippet: contentSnippet };
     }
 
     /**
      * Identifies relevant files for analysis - BROADENED for 100% coverage
      * @param {Array} tree - Repository file tree
+     * @param {string} repoName - Name of the repository
      * @returns {Array} Filtered anchor files
      */
-    identifyAnchorFiles(tree) {
-        // Delegate to FileFilter for specialized file filtering logic
-        const anchors = this.fileFilter.identifyAnchorFiles(tree);
-        anchors.forEach(f => {
-            pipelineEventBus.emit('file:classified', { file: f.path });
-        });
-        return anchors;
+    identifyAnchorFiles(tree, repoName = 'unknown') {
+        return this.findingsCurator.identifyAnchorFiles(tree, repoName);
     }
 
     /**
@@ -198,18 +156,7 @@ export class FileAuditor {
      * @returns {Array} Curated findings
      */
     curateFindings(findings) {
-        if (findings.length === 0) return [];
-
-        return findings.map(f => ({
-            repo: f.repo,
-            error: f.error || null,
-            structure: f.techStack ? (f.techStack.length > 0 ? f.techStack.slice(0, 10).join(', ') : "Structure not accessible") : "N/A",
-            auditedSnippets: f.auditedFiles ? (f.auditedFiles.length > 0 ? f.auditedFiles.map(af => ({
-                file: af.path,
-                content: af.snippet?.substring(0, 300) || '',
-                aiSummary: af.aiSummary || null
-            })) : "No Access") : "Read Error"
-        }));
+        return this.findingsCurator.curateFindings(findings);
     }
 
     /**
@@ -221,7 +168,7 @@ export class FileAuditor {
      * @returns {Promise<boolean>} True if update needed
      */
     async needsUpdate(username, repoName, filePath, fileSha) {
-        return await CacheRepository.needsUpdate(username, repoName, filePath, fileSha);
+        return await this.fileDownloader.needsDownload(username, repoName, filePath, fileSha);
     }
 
     /**
@@ -232,7 +179,7 @@ export class FileAuditor {
      * @returns {Promise<Object>} Cached summary
      */
     async getCachedSummary(username, repoName, filePath) {
-        return await CacheRepository.getFileSummary(username, repoName, filePath);
+        return await this.fileDownloader.getCachedSummary(username, repoName, filePath);
     }
 
     /**
@@ -246,7 +193,7 @@ export class FileAuditor {
      * @param {Object} fileMeta - File metadata
      */
     async saveToCache(username, repoName, filePath, sha, summary, contentSnippet, fileMeta = {}) {
-        await CacheRepository.setFileSummary(username, repoName, filePath, sha, summary, contentSnippet, fileMeta);
+        await this.fileDownloader.cacheFile(username, repoName, filePath, sha, summary, contentSnippet, fileMeta);
     }
 
     /**
@@ -254,7 +201,7 @@ export class FileAuditor {
      * @returns {boolean} True if can enqueue more files
      */
     hasQueueCapacity() {
-        return this.workerPool.totalQueued < MAX_WORKER_QUEUE_SIZE;
+        return this.workerPool.totalQueued < PIPELINE_CONFIG.MAX_WORKER_QUEUE_SIZE;
     }
 
     /**
@@ -262,6 +209,6 @@ export class FileAuditor {
      * @returns {number} Maximum length
      */
     getMaxSnippetLength() {
-        return MAX_CODE_SNIPPET_LENGTH;
+        return PIPELINE_CONFIG.MAX_CODE_SNIPPET_LENGTH;
     }
 }

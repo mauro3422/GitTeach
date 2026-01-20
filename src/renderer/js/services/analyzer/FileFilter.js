@@ -2,6 +2,8 @@
  * FileFilter - Specialized module for filtering repository file trees
  * Extracted from FileAuditor to comply with SRP
  */
+import pipelineEventBus from '../pipeline/PipelineEventBus.js';
+
 export class FileFilter {
     constructor() {
         // Configuration constants
@@ -31,69 +33,90 @@ export class FileFilter {
             'app.js', 'app.ts', 'example.js', 'example.ts',
             'demo.js', 'demo.ts', 'usage.js', 'usage.ts'
         ];
+
+        // Track discarded count per call
+        this.lastDiscardedCount = 0;
     }
 
     /**
      * Identifies relevant files for analysis
      * @param {Array} tree - Repository file tree
+     * @param {string} repoName - Name of the repository for event emission
      * @returns {Array} Filtered anchor files
      */
-    identifyAnchorFiles(tree) {
+    identifyAnchorFiles(tree, repoName = 'unknown') {
         const isTracer = typeof window !== 'undefined' && window.IS_TRACER;
+        const accepted = [];
+        this.lastDiscardedCount = 0;
 
-        return tree.filter(node => {
-            if (node.type !== 'blob') return false;
+        tree.forEach(node => {
+            if (node.type !== 'blob') return;
             const lowerPath = node.path.toLowerCase();
+            let discardReason = null;
 
             // 1. Extension Filter
             const isExcludedExt = this.excludeExtensions.some(ext => lowerPath.endsWith(ext));
-            if (isExcludedExt) return false;
+            if (isExcludedExt) {
+                discardReason = 'excluded_extension';
+            }
 
             // 2. Hidden Files
-            if (lowerPath.includes('/.') || lowerPath.startsWith('.')) return false;
+            if (!discardReason && (lowerPath.includes('/.') || lowerPath.startsWith('.'))) {
+                discardReason = 'hidden_file';
+            }
 
             // 3. Smart Path Filter (Token-based)
-            const pathTokens = lowerPath.split(/[\\/]/); // Split by / or \
+            const pathTokens = lowerPath.split(/[\\/]/);
             const filename = pathTokens[pathTokens.length - 1];
 
-            // Critical: "Assets" folder logic
-            // FILTER V4: Draconian Assets Policy
-            if (!isTracer && (pathTokens.includes('assets') || pathTokens.includes('static') || pathTokens.includes('public'))) {
-                if (filename.toLowerCase() !== 'readme.md') return false;
-            }
-
-            // Critical: "Demo" / "Test" / "Vendor" logic
-            // RELAXED FOR TRACER: Allow diagnostic scripts even if they use "test" or "mock"
-            const hasToxicToken = pathTokens.some(token => {
-                return this.toxicTokens.some(toxic => {
-                    // In Tracer mode, we basically want EVERYTHING except node_modules/dist/build
-                    if (isTracer) {
-                        const skipList = ['node_modules', 'dist', 'build', 'vendor', 'icomoon'];
-                        if (skipList.includes(toxic)) {
-                            return token === toxic;
-                        }
-                        // For 'test', 'mock', 'demo', 'example', 'coverage', 'fixture', 'spec':
-                        // Only skip if it's EXACTLY the folder name, but let file prefixes through
-                        return token === toxic && token !== filename;
-                    }
-
-                    // Standard (Normal) mode: Draconian filtering
-                    return token === toxic ||
-                        token.startsWith(toxic + '-') ||
-                        token.endsWith('-' + toxic) ||
-                        filename.startsWith(toxic);
-                });
-            });
-
-            if (hasToxicToken) {
-                // CURATED EXCEPTION: Allow high-value files in toxic directories
-                if (this.curatedExceptions.includes(filename)) {
-                    return true;
+            // Assets/Static/Public folders
+            if (!discardReason && !isTracer &&
+                (pathTokens.includes('assets') || pathTokens.includes('static') || pathTokens.includes('public'))) {
+                if (filename.toLowerCase() !== 'readme.md') {
+                    discardReason = 'asset_folder';
                 }
-                return false;
             }
 
-            return true;
-        }).slice(0, 10); // Limit to 10 files per repo for quick global profiling
+            // Toxic tokens (node_modules, dist, etc.)
+            if (!discardReason) {
+                const hasToxicToken = pathTokens.some(token => {
+                    return this.toxicTokens.some(toxic => {
+                        if (isTracer) {
+                            const skipList = ['node_modules', 'dist', 'build', 'vendor', 'icomoon'];
+                            if (skipList.includes(toxic)) {
+                                return token === toxic;
+                            }
+                            return token === toxic && token !== filename;
+                        }
+                        return token === toxic ||
+                            token.startsWith(toxic + '-') ||
+                            token.endsWith('-' + toxic) ||
+                            filename.startsWith(toxic);
+                    });
+                });
+
+                if (hasToxicToken) {
+                    // CURATED EXCEPTION: Allow high-value files in toxic directories
+                    if (!this.curatedExceptions.includes(filename)) {
+                        discardReason = 'toxic_folder';
+                    }
+                }
+            }
+
+            if (discardReason) {
+                // Emit discarded event for visualization
+                this.lastDiscardedCount++;
+                pipelineEventBus.emit('file:discarded', {
+                    file: node.path,
+                    repo: repoName,
+                    reason: discardReason
+                });
+            } else {
+                accepted.push(node);
+            }
+        });
+
+        return accepted.slice(0, 10); // Limit to 10 files per repo for quick global profiling
     }
 }
+

@@ -1,6 +1,7 @@
 /* 
-  debugger-canvas.css - Canvas Pipeline Visualizer Styles
-  Styles for the canvas-based pipeline flow visualization.
+  debugger-canvas.css - Canvas Pipeline Visualizer Core Styles
+  Core styles for the canvas-based pipeline flow visualization.
+  NOTE: Drawer styles are in debugger-drawer.css
 */
 
 /* =============================================
@@ -58,7 +59,7 @@
 }
 
 /* =============================================
-   CANVAS CONTROLS - Premium Glass
+   CANVAS CONTROLS
    ============================================= */
 
 .header-controls {
@@ -154,19 +155,17 @@
     display: block;
     width: 100%;
     height: 600px;
-    /* Matched with JS displayHeight */
     background: transparent;
 }
 
 /* =============================================
-   NODE LEGEND (optional)
+   NODE LEGEND
    ============================================= */
 
 .canvas-legend {
     display: flex;
     gap: 20px;
     padding: 16px 24px 30px 24px;
-    /* Even more bottom padding for rounded corners */
     background: rgba(0, 0, 0, 0.3);
     border-top: 1px solid rgba(255, 255, 255, 0.05);
     flex-wrap: wrap;
@@ -200,192 +199,4 @@
 
 .legend-dot.error {
     background: #ff7b72;
-}
-
-/* =============================================
-   INSPECTION DRAWER
-   ============================================= */
-
-.pipeline-drawer {
-    position: absolute;
-    top: 0;
-    right: -450px;
-    /* Hidden by default */
-    width: 400px;
-    height: 100%;
-    background: rgba(13, 17, 23, 0.95);
-    /* Much more opaque dark background */
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border-left: 1px solid rgba(63, 185, 80, 0.3);
-    /* Green tinted border for identity */
-    box-shadow: -20px 0 60px rgba(0, 0, 0, 0.8);
-    z-index: 1000;
-    transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    border-radius: 0 20px 20px 0;
-}
-
-.pipeline-drawer.open {
-    right: 0;
-}
-
-.drawer-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.drawer-icon {
-    font-size: 1.5rem;
-}
-
-.drawer-title-group {
-    flex: 1;
-}
-
-.drawer-title {
-    font-weight: bold;
-    font-size: 0.9rem;
-}
-
-.drawer-subtitle {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-}
-
-.drawer-close {
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    font-size: 1.5rem;
-    cursor: pointer;
-    line-height: 1;
-}
-
-.drawer-close:hover {
-    color: white;
-}
-
-.drawer-content {
-    padding: 16px;
-    overflow-y: auto;
-    flex: 1;
-}
-
-.drawer-section {
-    margin-bottom: 24px;
-}
-
-.drawer-section h4 {
-    font-size: 0.65rem;
-    color: var(--text-muted);
-    letter-spacing: 1px;
-    margin-bottom: 12px;
-    font-family: var(--font-mono);
-}
-
-.drawer-stat-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-}
-
-.drawer-stat {
-    background: rgba(255, 255, 255, 0.03);
-    padding: 10px;
-    border-radius: 8px;
-    display: flex;
-    flex-direction: column;
-}
-
-.stat-label {
-    font-size: 0.6rem;
-    color: var(--text-muted);
-}
-
-.stat-value {
-    font-size: 1rem;
-    font-weight: bold;
-    font-family: var(--font-mono);
-}
-
-.stat-value.state-active,
-.stat-value.state-pending {
-    color: #3fb950;
-}
-
-.stat-value.state-idle {
-    color: #8b949e;
-}
-
-.stat-value.state-error {
-    color: #ff7b72;
-}
-
-.drawer-history {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.history-group {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.history-group-header {
-    font-family: var(--font-mono);
-    font-size: 0.65rem;
-    font-weight: bold;
-    color: #58a6ff;
-    padding: 4px 8px;
-    background: rgba(88, 166, 255, 0.1);
-    border-radius: 4px;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-}
-
-.history-group-items {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding-left: 8px;
-}
-
-.history-item {
-    background: rgba(255, 255, 255, 0.02);
-    border-left: 2px solid rgba(88, 166, 255, 0.3);
-    padding: 6px 10px;
-    border-radius: 0 4px 4px 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-}
-
-.history-time {
-    font-family: var(--font-mono);
-    font-size: 0.6rem;
-    color: var(--text-muted);
-}
-
-.history-display {
-    font-size: 0.7rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.history-empty {
-    text-align: center;
-    color: var(--text-muted);
-    font-size: 0.75rem;
-    padding: 20px;
-    border: 1px dashed rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
 }

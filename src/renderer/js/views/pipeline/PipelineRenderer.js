@@ -5,6 +5,7 @@
  */
 
 import { PIPELINE_NODES, CONNECTIONS } from './PipelineConstants.js';
+import { PipelineStateManager } from './PipelineStateManager.js';
 
 export const PipelineRenderer = {
     /**
@@ -152,7 +153,26 @@ export const PipelineRenderer = {
         // Draw Worker Sector background
         this.drawWorkerSector(ctx, width, height, panOffset);
 
+        // First pass: Draw Cache container (large box for repos)
+        this.drawCacheContainer(ctx, width, height, panOffset, nodeStates, nodeStats);
+
+        // Draw dynamic repo nodes INSIDE the cache container
+        this.drawDynamicRepoNodes(ctx, width, height, panOffset, nodeStates, nodeStats);
+
         Object.entries(PIPELINE_NODES).forEach(([id, node]) => {
+            // Skip cache node - it's drawn as container with repos inside
+            if (node.isRepoContainer) {
+                return;
+            }
+
+            // NUEVO: Saltar nodos dinámicos ocultos
+            if (node.isDynamic && node.hidden) {
+                const slotState = PipelineStateManager.getRepoSlotState(id);
+                if (!slotState || slotState.status === 'complete') {
+                    return; // No renderizar
+                }
+            }
+
             const state = nodeStates[id] || 'idle';
             const stats = nodeStats[id] || { count: 0 };
             const isOnline = nodeHealth[id] !== false; // Default to true if not present
@@ -257,7 +277,27 @@ export const PipelineRenderer = {
             ctx.fillStyle = (state === 'active' || state === 'pending') ? '#56d364' : '#8b949e';
 
             const labelYOffset = isSlot ? 35 : 50;
-            const displayLabel = (isSlot && stats.currentLabel) ? stats.currentLabel : node.label;
+            let displayLabel = (isSlot && stats.currentLabel) ? stats.currentLabel : node.label;
+
+            // NUEVO: Para nodos dinámicos, usar el label del estado
+            if (node.isDynamic) {
+                const slotState = PipelineStateManager.getRepoSlotState(id);
+                if (slotState) {
+                    displayLabel = slotState.repo || node.label;
+                    // Mostrar contador de archivos
+                    if (slotState.filesCount > 0) {
+                        // Renderizar badge con número
+                        ctx.beginPath();
+                        ctx.fillStyle = node.activeColor;
+                        ctx.arc(x + 25, y - 25, 12, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        ctx.font = 'bold 10px sans-serif';
+                        ctx.fillStyle = '#0d1117';
+                        ctx.fillText(slotState.filesCount.toString(), x + 25, y - 25);
+                    }
+                }
+            }
 
             // If label is too long, truncate for slots
             const finalLabel = (isSlot && displayLabel.length > 30)
@@ -376,36 +416,257 @@ export const PipelineRenderer = {
      * Draw a background sector for worker slots
      */
     drawWorkerSector(ctx, width, height, panOffset) {
-        const x = (0.45 * width) + panOffset.x;
-        const y = (0.25 * height) + panOffset.y;
-        const w = 110; // Slightly narrower
-        const h = 340;
+        // Workers are now at x=0.78, so sector should be centered there
+        const x = (0.78 * width) + panOffset.x;
+        const y = (0.50 * height) + panOffset.y;
+        const w = 110;
+        const h = 280;
 
         ctx.save();
-        // Subtle glow for the cluster
         ctx.shadowColor = 'rgba(35, 134, 54, 0.2)';
         ctx.shadowBlur = 20;
 
         ctx.beginPath();
-        ctx.fillStyle = 'rgba(22, 27, 34, 0.4)'; // Darker translucent background
+        ctx.fillStyle = 'rgba(22, 27, 34, 0.4)';
         ctx.strokeStyle = 'rgba(35, 134, 54, 0.4)';
         ctx.lineWidth = 1.5;
         ctx.setLineDash([15, 8]);
-        ctx.roundRect(x - w / 2, y - h / 2, w, h, 20);
+        if (ctx.roundRect) {
+            ctx.roundRect(x - w / 2, y - h / 2, w, h, 20);
+        } else {
+            ctx.rect(x - w / 2, y - h / 2, w, h);
+        }
         ctx.fill();
         ctx.stroke();
         ctx.restore();
 
         ctx.setLineDash([]);
 
-        // Sector Title and Subtitle
+        // Sector Title
         ctx.textAlign = 'center';
-        ctx.font = 'bold 11px var(--font-mono), monospace';
+        ctx.font = 'bold 10px var(--font-mono), monospace';
         ctx.fillStyle = 'rgba(56, 139, 253, 0.9)';
-        ctx.fillText('GPU_EXECUTION_CLUSTER', x, y - h / 2 + 18);
+        ctx.fillText('GPU_EXECUTION_CLUSTER', x, y - h / 2 + 16);
 
         ctx.font = '7px var(--font-mono), monospace';
         ctx.fillStyle = 'rgba(35, 134, 54, 0.7)';
-        ctx.fillText('NVIDIA_CUDA_CORE_ACTIVE', x, y + h / 2 - 12);
+        ctx.fillText('CUDA_ACTIVE', x, y + h / 2 - 10);
+    },
+
+    /**
+     * Draw Cache Store as a CONTAINER for dynamic repository nodes
+     * The repos are rendered INSIDE this container
+     */
+    drawCacheContainer(ctx, width, height, panOffset, nodeStates, nodeStats) {
+        const activeSlots = PipelineStateManager.getActiveRepoSlots();
+        const cacheNode = PIPELINE_NODES.cache;
+
+        // Calculate grid dimensions based on repo count
+        const repoCount = Math.max(1, activeSlots.length);
+        const cols = Math.ceil(Math.sqrt(repoCount));
+        const rows = Math.ceil(repoCount / cols);
+
+        // Node and gap dimensions for the grid inside
+        const nodeW = 68;
+        const nodeH = 34;
+        const gapX = 6;
+        const gapY = 5;
+
+        // Container dimensions (dynamic based on repo count)
+        const containerW = Math.max(120, cols * (nodeW + gapX) + 40);
+        const containerH = Math.max(80, rows * (nodeH + gapY) + 60);
+
+        // Center position based on cache node coordinates
+        const centerX = (cacheNode.x * width) + panOffset.x;
+        const centerY = (cacheNode.y * height) + panOffset.y;
+        const x = centerX - containerW / 2;
+        const y = centerY - containerH / 2;
+
+        // Draw container background
+        ctx.save();
+        ctx.shadowColor = 'rgba(63, 185, 80, 0.3)';
+        ctx.shadowBlur = 25;
+
+        ctx.beginPath();
+        ctx.fillStyle = 'rgba(13, 17, 23, 0.92)';
+        ctx.strokeStyle = activeSlots.length > 0 ? 'rgba(63, 185, 80, 0.6)' : 'rgba(139, 148, 158, 0.4)';
+        ctx.lineWidth = 2;
+        if (ctx.roundRect) {
+            ctx.roundRect(x, y, containerW, containerH, 12);
+        } else {
+            ctx.rect(x, y, containerW, containerH);
+        }
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        // Draw icon and title
+        ctx.textAlign = 'center';
+        ctx.font = '18px sans-serif';
+        ctx.fillText('💾', centerX, y + 22);
+
+        ctx.font = 'bold 10px var(--font-mono), monospace';
+        ctx.fillStyle = activeSlots.length > 0 ? '#3fb950' : '#8b949e';
+        ctx.fillText('CACHE STORE', centerX, y + 38);
+
+        // Draw repo count badge
+        if (activeSlots.length > 0) {
+            ctx.font = '8px var(--font-mono), monospace';
+            ctx.fillStyle = '#8b949e';
+            ctx.fillText(`${activeSlots.length} repos | ${cols}×${rows}`, centerX, y + containerH - 10);
+        }
+    },
+
+    /**
+     * Draw dynamic repository nodes in a GRID layout INSIDE the Cache container
+     * with connection lines to the classifier
+     */
+    drawDynamicRepoNodes(ctx, width, height, panOffset, nodeStates, nodeStats) {
+        const activeSlots = PipelineStateManager.getActiveRepoSlots();
+        if (activeSlots.length === 0) return;
+
+        const cacheNode = PIPELINE_NODES.cache;
+        const classifierNode = PIPELINE_NODES.classifier;
+
+        // Grid layout calculations (same as container)
+        const cols = Math.ceil(Math.sqrt(activeSlots.length));
+        const nodeW = 68;
+        const nodeH = 34;
+        const gapX = 6;
+        const gapY = 5;
+
+        // Container dimensions for positioning
+        const containerW = Math.max(120, cols * (nodeW + gapX) + 40);
+        const rows = Math.ceil(activeSlots.length / cols);
+        const containerH = Math.max(80, rows * (nodeH + gapY) + 60);
+
+        // Cache center position
+        const cacheCenterX = (cacheNode.x * width) + panOffset.x;
+        const cacheCenterY = (cacheNode.y * height) + panOffset.y;
+
+        // Grid starts after the title (offset from top of container)
+        const gridStartX = cacheCenterX - containerW / 2 + 20;
+        const gridStartY = cacheCenterY - containerH / 2 + 50;  // After title
+
+        // Classifier position for drawing connections
+        const classifierX = (classifierNode.x * width) + panOffset.x;
+        const classifierY = (classifierNode.y * height) + panOffset.y;
+
+        activeSlots.forEach((slot, index) => {
+            // Calculate grid position (row, col)
+            const col = index % cols;
+            const row = Math.floor(index / cols);
+
+            const x = gridStartX + col * (nodeW + gapX) + nodeW / 2;
+            const y = gridStartY + row * (nodeH + gapY) + nodeH / 2;
+
+            const status = slot.status;
+
+            // Determine visual style based on status
+            let borderColor = '#8b949e';
+            let bgColor = 'rgba(30, 35, 42, 0.95)';
+            let glowColor = null;
+            let icon = '📁';
+            let pulseScale = 1;
+
+            if (status === 'detected') {
+                borderColor = '#58a6ff';
+                glowColor = 'rgba(88, 166, 255, 0.4)';
+                icon = '📁';
+                pulseScale = 1 + Math.sin(Date.now() / 300) * 0.02;
+            } else if (status === 'fetched') {
+                borderColor = '#f1e05a';
+                glowColor = 'rgba(241, 224, 90, 0.3)';
+                icon = '📂';
+            } else if (status === 'extracting') {
+                borderColor = '#3fb950';
+                glowColor = 'rgba(63, 185, 80, 0.5)';
+                icon = '📤';
+                pulseScale = 1 + Math.sin(Date.now() / 150) * 0.04;
+            } else if (status === 'complete') {
+                borderColor = '#56d364';
+                bgColor = 'rgba(30, 35, 42, 0.7)';
+                icon = '✅';
+            }
+
+            // Draw connection line from repo to classifier (right side of container → classifier)
+            if (status !== 'detected') {
+                const containerRightEdge = cacheCenterX + containerW / 2;
+
+                ctx.save();
+                ctx.setLineDash([3, 3]);
+                ctx.strokeStyle = status === 'extracting'
+                    ? 'rgba(63, 185, 80, 0.6)'
+                    : status === 'complete'
+                        ? 'rgba(86, 211, 100, 0.4)'
+                        : 'rgba(241, 224, 90, 0.4)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(containerRightEdge, y);  // Right edge of container
+                ctx.lineTo(classifierX - 35, classifierY);  // Left of classifier
+                ctx.stroke();
+                ctx.restore();
+                ctx.setLineDash([]);
+
+                // Arrow for extracting state
+                if (status === 'extracting') {
+                    const arrowSize = 6;
+                    const arrowX = classifierX - 40;
+                    const arrowY = classifierY;
+
+                    ctx.beginPath();
+                    ctx.fillStyle = 'rgba(63, 185, 80, 0.8)';
+                    ctx.moveTo(arrowX + arrowSize, arrowY);
+                    ctx.lineTo(arrowX, arrowY - arrowSize / 2);
+                    ctx.lineTo(arrowX, arrowY + arrowSize / 2);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }
+
+            // Apply glow
+            if (glowColor) {
+                ctx.shadowColor = glowColor;
+                ctx.shadowBlur = 8 * pulseScale;
+            }
+
+            // Draw node (compact rectangle)
+            const nW = nodeW * pulseScale;
+            const nH = nodeH * pulseScale;
+            ctx.beginPath();
+            ctx.fillStyle = bgColor;
+            ctx.strokeStyle = borderColor;
+            ctx.lineWidth = 1.5;
+            if (ctx.roundRect) {
+                ctx.roundRect(x - nW / 2, y - nH / 2, nW, nH, 5);
+            } else {
+                ctx.rect(x - nW / 2, y - nH / 2, nW, nH);
+            }
+            ctx.fill();
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Draw icon (left side)
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(icon, x - 20, y);
+
+            // Draw repo name (truncated)
+            ctx.font = 'bold 7px var(--font-mono), monospace';
+            ctx.fillStyle = status === 'complete' ? '#56d364' : '#e6edf3';
+            const repoName = slot.repo.length > 8
+                ? slot.repo.slice(0, 6) + '..'
+                : slot.repo;
+            ctx.fillText(repoName, x + 6, y - 4);
+
+            // Draw files count
+            if (slot.filesCount > 0) {
+                ctx.font = '6px var(--font-mono), monospace';
+                ctx.fillStyle = '#8b949e';
+                ctx.fillText(`${slot.filesCount}`, x + 6, y + 6);
+            }
+        });
     }
 };
+

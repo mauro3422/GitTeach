@@ -53,10 +53,15 @@ export class GlobalIdentityUpdater {
                 holisticMetrics
             );
 
-            // 4. Persist immediately (Streaming Update)
             if (dna) {
                 await CacheRepository.setTechnicalIdentity(username, dna);
                 Logger.reducer(`[STREAMING] Global Identity updated. Versatility: ${holisticMetrics.versatility_index} | Blueprints: ${allBlueprints.length}`);
+
+                // Emit persist event for pipeline visualization (one-shot)
+                try {
+                    const { pipelineEventBus } = await import('../pipeline/PipelineEventBus.js');
+                    pipelineEventBus.emit('persist:identity', { repo: 'System', file: 'technical_identity.json' });
+                } catch (e) { /* Silent fail */ }
 
                 const durationMs = Date.now() - startTime;
 
@@ -109,12 +114,24 @@ export class GlobalIdentityUpdater {
                 Logger.reducer(`[${repoName}] Blueprint generated. Complexity: ${blueprint.metrics.complexity}`);
                 await CacheRepository.persistRepoBlueprint(repoName, blueprint);
 
+                // Emit persist event for pipeline visualization (one-shot)
+                try {
+                    const { pipelineEventBus } = await import('../pipeline/PipelineEventBus.js');
+                    pipelineEventBus.emit('persist:blueprint', { repo: repoName, file: 'blueprint.json' });
+                } catch (e) { /* Silent fail */ }
+
                 // REPO-LEVEL PARTITIONING (Traceability)
                 // Save the split insights inside the repo folder for debugging/lineage
                 try {
                     const { InsightPartitioner } = await import('./InsightPartitioner.js');
                     const repoPartitions = InsightPartitioner.partition(curation.validInsights);
                     await CacheRepository.persistRepoPartitions(repoName, repoPartitions);
+
+                    // Emit persist event for partitions
+                    try {
+                        const { pipelineEventBus } = await import('../pipeline/PipelineEventBus.js');
+                        pipelineEventBus.emit('persist:partitions', { repo: repoName, file: 'partitions.json' });
+                    } catch (e) { /* Silent fail */ }
                 } catch (e) {
                     console.warn(`[GlobalIdentityUpdater] Partition save failed for ${repoName}:`, e);
                 }
