@@ -82,6 +82,25 @@ export class AIClient {
     }
 
     /**
+     * Prepare payload object according to format and schema
+     */
+    _preparePayload(config) {
+        const payload = {
+            model: "lfm2.5",
+            messages: [{ role: "system", content: config.systemPrompt }, { role: "user", content: config.userMessage }],
+            temperature: config.temperature,
+            n_predict: 4096
+        };
+
+        if (config.format === 'json_object') {
+            payload.response_format = { type: "json_object" };
+            if (config.schema) payload.response_format.schema = config.schema;
+        }
+
+        return payload;
+    }
+
+    /**
      * Shared endpoint caller for both GPU and CPU AI calls
      */
     async _callEndpoint(config) {
@@ -103,58 +122,9 @@ export class AIClient {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-            const payload = {
-                model: "lfm2.5",
-                messages: [{ role: "system", content: config.systemPrompt }, { role: "user", content: config.userMessage }],
-                temperature: config.temperature,
-                n_predict: 4096
-            };
+            const payload = this._preparePayload(config);
 
-            if (config.format === 'json_object') {
-                payload.response_format = { type: "json_object" };
-                if (config.schema) payload.response_format.schema = config.schema;
-            }
-
-            let response;
-            let attempt = 0;
-
-            while (attempt < maxRetries) {
-                try {
-                    const headers = {
-                        'Content-Type': 'application/json'
-                    };
-                    if (keepAlive) headers['Connection'] = 'keep-alive';
-
-                    response = await fetch(endpoint, {
-                        signal: controller.signal,
-                        method: 'POST',
-                        headers,
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (response.ok) break;
-
-                    // If 4xx error (except 429), do not retry
-                    if (response.status >= 400 && response.status < 500 && response.status !== 429) break;
-
-                    throw new Error(`Server returned ${response.status}`);
-                } catch (err) {
-                    attempt++;
-
-                    const isNetworkError = err.message.includes('fetch failed') || err.message.includes('socket') || err.message.includes('reset');
-                    const isTimeout = err.name === 'AbortError';
-
-                    if (attempt >= maxRetries) {
-                        if (isTimeout) throw new Error(`AI Timeout after ${maxRetries} attempts. Server is hanging.`);
-                        throw err;
-                    }
-
-                    // Exponential backoff: 3s, 9s, 27s...
-                    const delay = Math.pow(3, attempt) * 1000;
-                    this.logger.warn(`AI [${isTimeout ? 'Timeout' : 'NetError'}] Retry ${attempt}/${maxRetries} in ${delay}ms...`);
-                    await new Promise(r => setTimeout(r, delay));
-                }
-            }
+            const response = await this._fetchWithRetry(endpoint, payload, controller, maxRetries, keepAlive);
             clearTimeout(timeoutId);
 
             if (!response.ok) {
@@ -185,6 +155,51 @@ export class AIClient {
         } finally {
             if (useSlots) {
                 slotManager.release(isUrgent);
+            }
+        }
+    }
+
+    /**
+     * Fetch with retry logic
+     */
+    async _fetchWithRetry(endpoint, payload, controller, maxRetries, keepAlive) {
+        let attempt = 0;
+
+        while (attempt < maxRetries) {
+            try {
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+                if (keepAlive) headers['Connection'] = 'keep-alive';
+
+                const response = await fetch(endpoint, {
+                    signal: controller.signal,
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) return response;
+
+                // If 4xx error (except 429), do not retry
+                if (response.status >= 400 && response.status < 500 && response.status !== 429) return response;
+
+                throw new Error(`Server returned ${response.status}`);
+            } catch (err) {
+                attempt++;
+
+                const isNetworkError = err.message.includes('fetch failed') || err.message.includes('socket') || err.message.includes('reset');
+                const isTimeout = err.name === 'AbortError';
+
+                if (attempt >= maxRetries) {
+                    if (isTimeout) throw new Error(`AI Timeout after ${maxRetries} attempts. Server is hanging.`);
+                    throw err;
+                }
+
+                // Exponential backoff: 3s, 9s, 27s...
+                const delay = Math.pow(3, attempt) * 1000;
+                this.logger.warn(`AI [${isTimeout ? 'Timeout' : 'NetError'}] Retry ${attempt}/${maxRetries} in ${delay}ms...`);
+                await new Promise(r => setTimeout(r, delay));
             }
         }
     }

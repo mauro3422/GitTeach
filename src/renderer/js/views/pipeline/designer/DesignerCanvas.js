@@ -220,9 +220,12 @@ export const DesignerCanvas = {
             const bounds = this.getContainerBounds(node, nodes, zoomScale);
 
             // Re-center container based on children ONLY if auto-sizing (not manual)
-            const hasChildren = Object.values(nodes).some(n => n.parentId === node.id);
+            const children = Object.values(nodes).filter(n => n.parentId === node.id);
+            const hasChildren = children.length > 0;
             const isAutoSize = !node.manualWidth && !node.manualHeight;
-            if (hasChildren && isAutoSize && !node.isDragging) {
+            const anyChildDragging = children.some(c => c.isDragging);
+
+            if (hasChildren && isAutoSize && !node.isDragging && !anyChildDragging) {
                 node.x = bounds.centerX;
                 node.y = bounds.centerY;
             }

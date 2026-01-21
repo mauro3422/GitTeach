@@ -5,31 +5,11 @@ export const BlueprintManager = {
         this.nodes = nodes;
     },
 
-    save(manualConnections = []) {
-        const blueprint = {
-            version: "1.1.0 (Manual Connect)",
-            timestamp: new Date().toISOString(),
-            layout: {},
-            connections: manualConnections // NEW: Export user-drawn connections
-        };
+    save(manualConnections = [], nodesOverride = null) {
+        const blueprint = this.generateBlueprint(manualConnections, nodesOverride);
 
-        const scale = 1200;
-        Object.values(this.nodes).forEach(node => {
-            blueprint.layout[node.id] = {
-                x: node.x / scale,
-                y: node.y / scale,
-                label: node.label,
-                message: node.message || "",
-                // Sticky note specific fields
-                isStickyNote: node.isStickyNote || false,
-                text: node.text || "",
-                width: node.width,
-                height: node.height,
-                color: node.color,
-                // Container specific
-                isRepoContainer: node.isRepoContainer || false
-            };
-        });
+        // Persistent save in LocalStorage
+        localStorage.setItem('giteach_designer_blueprint', JSON.stringify(blueprint));
 
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(blueprint, null, 2));
         const downloadAnchorNode = document.createElement('a');
@@ -39,6 +19,56 @@ export const BlueprintManager = {
         downloadAnchorNode.click();
         downloadAnchorNode.remove();
 
-        console.log("[BlueprintManager] Saved manual blueprint:", blueprint);
+        console.log("[BlueprintManager] Saved manual blueprint and persisted to localStorage:", blueprint);
+    },
+
+    autoSave(nodes, manualConnections = []) {
+        const blueprint = this.generateBlueprint(manualConnections, nodes);
+        localStorage.setItem('giteach_designer_blueprint', JSON.stringify(blueprint));
+    },
+
+    loadFromLocalStorage() {
+        const data = localStorage.getItem('giteach_designer_blueprint');
+        if (!data) return null;
+        try {
+            return JSON.parse(data);
+        } catch (e) {
+            console.error("[BlueprintManager] Error loading from localStorage:", e);
+            return null;
+        }
+    },
+
+    generateBlueprint(manualConnections, nodesOverride = null) {
+        const nodesToExport = nodesOverride || this.nodes;
+        const blueprint = {
+            version: "1.2.0 (Forensic Persistence)",
+            timestamp: new Date().toISOString(),
+            layout: {},
+            connections: manualConnections
+        };
+
+        const scale = 1200;
+        Object.values(nodesToExport).forEach(node => {
+            blueprint.layout[node.id] = {
+                x: node.x / scale,
+                y: node.y / scale,
+                label: node.label,
+                message: node.message || "",
+                parentId: node.parentId || null, // CRITICAL: Preserve hierarchy
+                // Sticky note specific fields
+                isStickyNote: node.isStickyNote || false,
+                text: node.text || "",
+                width: node.width,
+                height: node.height,
+                manualWidth: node.manualWidth,
+                manualHeight: node.manualHeight,
+                color: node.color,
+                // Container specific
+                isRepoContainer: node.isRepoContainer || false,
+                isSatellite: node.isSatellite || false,
+                orbitParent: node.orbitParent || null
+            };
+        });
+        return blueprint;
     }
 };

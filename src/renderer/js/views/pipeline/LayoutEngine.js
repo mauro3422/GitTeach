@@ -173,4 +173,64 @@ export const LayoutEngine = {
         const refScale = 1200;
         return { x: refScale / 2, y: (refScale * 0.5) / 2 };
     }
+    ,
+    /**
+     * Softly keep a set of nodes inside a given axis-aligned bounding box.
+     * This helps when resizing containers to avoid nodes jumping outside
+     * their visual boxes by nudging them back with a gentle easing.
+     *
+     * ids: array of node IDs to constrain
+     * bounds: { minX, minY, maxX, maxY, margin? }
+     */
+    enforceBoundsForNodes(ids, bounds) {
+        if (!ids || ids.length === 0 || !bounds) return;
+        const minX = bounds.minX, minY = bounds.minY, maxX = bounds.maxX, maxY = bounds.maxY;
+        const margin = (bounds.margin ?? 40);
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        
+        // For single-node clusters (like cache), position node at center of box
+        const isSingleNodeCluster = ids.length === 1;
+        
+        ids.forEach(id => {
+            const p = this.positions[id];
+            if (!p) return;
+            
+            if (isSingleNodeCluster) {
+                // Direct positioning to center for single-node clusters
+                const driftFactor = 0.1;
+                p.x += (centerX - p.x) * driftFactor;
+                p.y += (centerY - p.y) * driftFactor;
+                if (typeof p.vx === 'number') p.vx *= 0.9;
+                if (typeof p.vy === 'number') p.vy *= 0.9;
+                return;
+            }
+            
+            // For multi-node clusters, apply bounds with easing
+            const outsideHorizontal = p.x < minX + margin || p.x > maxX - margin;
+            const outsideVertical = p.y < minY + margin || p.y > maxY - margin;
+            
+            // Use stronger correction for nodes that are significantly outside
+            const correctionStrength = outsideHorizontal || outsideVertical ? 1.0 : 0.02;
+            
+            if (p.x < minX + margin) {
+                p.x += (minX + margin - p.x) * correctionStrength;
+            } else if (p.x > maxX - margin) {
+                p.x += (maxX - margin - p.x) * correctionStrength;
+            } else {
+                p.x += (centerX - p.x) * 0.005;
+            }
+            
+            if (p.y < minY + margin) {
+                p.y += (minY + margin - p.y) * correctionStrength;
+            } else if (p.y > maxY - margin) {
+                p.y += (maxY - margin - p.y) * correctionStrength;
+            } else {
+                p.y += (centerY - p.y) * 0.005;
+            }
+            
+            if (typeof p.vx === 'number') p.vx *= 0.95;
+            if (typeof p.vy === 'number') p.vy *= 0.95;
+        });
+    }
 };

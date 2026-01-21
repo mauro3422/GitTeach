@@ -8,6 +8,18 @@ All notable changes to the GitTeach project will be documented in this file.
 
 ---
 
+## [2.55.0] - Magnetic Scaling & Container Resilience - 2026-01-21
+### 🎨 Designer UX: Proportional Magnetic Scaling
+- **Magnetic Node Scaling**: Implemented proportional node movement during container resize. Nodes now maintain their relative distance to the center, creating a "compressed space" effect.
+- **Direct Containment Enforcement**: Migrated containment logic from `LayoutEngine` to direct enforcement in `DesignerInteraction.js`, ensuring pixel-perfect node stay-in-box behavior.
+- **Import Path Restoration**: Fixed critical pathing issues in `DesignerInteraction.js` and `RoutingDesigner.js` that caused module load failures in Electron.
+
+### 🏗️ Persistence & Hydration
+- **Dynamic Box Registry**: Added verification logic to `RoutingDesigner.js` to re-register user-created boxes in the layout engine's memory after loading from LocalStorage.
+- **Resizing Resilience**: Eliminated "Box not registered" console warnings during interactive resizing of custom nodes.
+
+---
+
 ## [2.54.0] - Screen-Space Labels & Dynamic Node Architecture - 2026-01-21
 ### 🎨 Resolution-Independent UI (Screen Space)
 - **Screen-Space Rendering**: All text labels, icons, and message badges now render in 1:1 screen pixels, ensuring perfect crispness at any zoom level.

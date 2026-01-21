@@ -12,7 +12,8 @@
     },
     "dependencies": {
         "classic-level": "^3.0.0",
-        "node-fetch": "^3.3.2"
+        "node-fetch": "^3.3.2",
+        "opencode-windows-x64": "^1.1.28"
     },
     "devDependencies": {
         "electron": "^39.2.7",

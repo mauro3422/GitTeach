@@ -5,11 +5,14 @@ GitTeach is a high-performance desktop platform (Electron) engineered for deep t
 
 ---
 
-## 🍱 **The Master UI (v2.50.0)**
-The latest evolution introduces the **Unified Master Console**:
-- **Ultra-Compact Header**: A 32px premium control bar that consolidates global telemetery and analysis configuration.
-- **Pure Iconic Interface**: Minimalist geometric controls (Verify, Play, Pause, Stop) for a zero-noise dashboard experience.
-- **Real-Time Fleet Telemetry**: Instant visualization of AI slot activity across the GPU and CPU cluster.
+## 🍱 **The Master UI (v2.55.0)**
+The latest evolution introduces **Magnetic Scaling** and **Routing Designer Fixes**:
+- **Proportional Magnetic Scaling**: Elements inside dynamic containers now maintain their relative distance during interactive resizing.
+- **Routing Designer Improvements**: Stabilized module loading and persistent registry for custom layout boxes.
+- **Resolution-Independent UI**: All text labels, icons, and badges are rendered in 1:1 screen pixels, ensuring perfect clarity at all zoom levels.
+- **Dynamic Node Scaling**: Implemented mathematical compensation that grows nodes as you zoom out, maintaining a solid visual presence.
+- **Interactive Architectural Hierarchy**: First-class support for child components (e.g., Cache Store folders) and text-aware bounding boxes.
+- **Inline Renaming Engine**: Real-time label editing directly from the message drawer with full history (Undo/Redo) persistence.
 - **Master Data Highway**: A high-DPI canvas visualizer that tracks every forensic package as it moves through the pipeline.
 
 ---

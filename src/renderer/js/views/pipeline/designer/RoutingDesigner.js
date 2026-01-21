@@ -4,6 +4,7 @@ import { BlueprintManager } from './BlueprintManager.js';
 import { PIPELINE_NODES } from '../PipelineConstants.js';
 import { drawerManager } from '../DrawerManager.js';
 import { DesignerMessageRenderer } from './DesignerMessageRenderer.js';
+import ContainerBoxManager from '../../../utils/ContainerBoxManager.js';
 
 export const RoutingDesigner = {
     canvas: null,
@@ -21,8 +22,69 @@ export const RoutingDesigner = {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
 
-        // Load Initial State (from constants)
+        // Load Initial State
         this.loadInitialNodes();
+
+        // MERGE with LocalStorage if exists
+        const savedState = BlueprintManager.loadFromLocalStorage();
+        if (savedState && savedState.layout) {
+            console.log('[RoutingDesigner] Hydrating from LocalStorage...');
+            const scale = 1200;
+            Object.entries(savedState.layout).forEach(([id, data]) => {
+                if (this.nodes[id]) {
+                    // Update existing nodes (positions, labels, messages, parents)
+                    this.nodes[id].x = data.x * scale;
+                    this.nodes[id].y = data.y * scale;
+                    this.nodes[id].label = data.label;
+                    this.nodes[id].message = data.message;
+                    this.nodes[id].parentId = data.parentId;
+                    this.nodes[id].width = data.width;
+                    this.nodes[id].height = data.height;
+                    this.nodes[id].manualWidth = data.manualWidth;
+                    this.nodes[id].manualHeight = data.manualHeight;
+                    if (data.isStickyNote) {
+                        this.nodes[id].text = data.text;
+                    }
+                } else {
+                    // Create custom/lost nodes
+                    this.nodes[id] = {
+                        id,
+                        x: data.x * scale,
+                        y: data.y * scale,
+                        label: data.label,
+                        message: data.message,
+                        parentId: data.parentId,
+                        icon: data.isStickyNote ? '📝' : (data.isRepoContainer ? '📦' : '🧩'),
+                        color: data.color || '#30363d',
+                        isRepoContainer: data.isRepoContainer,
+                        isStickyNote: data.isStickyNote,
+                        text: data.text,
+                        width: data.width,
+                        height: data.height,
+                        manualWidth: data.manualWidth,
+                        manualHeight: data.manualHeight,
+                        isSatellite: data.isSatellite,
+                        orbitParent: data.orbitParent
+                    };
+                }
+
+                // CRITICAL FIX: Re-register dynamic containers in ContainerBoxManager
+                // This ensures that user-created boxes persist across sessions
+                if (data.isRepoContainer && id.startsWith('custom_') && typeof ContainerBoxManager?.createUserBox === 'function') {
+                    const width = (data.manualWidth || data.width || 180);
+                    const height = (data.manualHeight || data.height || 100);
+                    const bounds = {
+                        minX: (data.x * scale) - width / 2,
+                        minY: (data.y * scale) - height / 2,
+                        maxX: (data.x * scale) + width / 2,
+                        maxY: (data.y * scale) + height / 2
+                    };
+                    ContainerBoxManager.createUserBox(id, bounds, 40);
+                    console.log(`[RoutingDesigner] Re-registered container ${id} in ContainerBoxManager`);
+                }
+            });
+            this.manualConnections = Array.isArray(savedState.connections) ? savedState.connections : [];
+        }
 
         // Init Sub-Modules
         DesignerCanvas.init(this.ctx);
@@ -33,7 +95,8 @@ export const RoutingDesigner = {
             (fromId, toId) => this.addManualConnection(fromId, toId),
             (node) => this.openMessageModal(node),
             (nodeId, containerId) => this.handleNodeDrop(nodeId, containerId),
-            (note) => this.openInlineEditor(note) // Sticky note double-click
+            (note) => this.openInlineEditor(note), // Sticky note double-click
+            () => BlueprintManager.autoSave(this.nodes, this.manualConnections) // onInteractionEnd
         );
         BlueprintManager.init(this.nodes);
 
@@ -47,7 +110,7 @@ export const RoutingDesigner = {
         const addNodeBtn = document.getElementById('add-node');
         const addContBtn = document.getElementById('add-container');
 
-        if (saveBtn) saveBtn.onclick = () => BlueprintManager.save(this.nodes, this.manualConnections);
+        if (saveBtn) saveBtn.onclick = () => BlueprintManager.save(this.manualConnections, this.nodes);
 
         if (resetBtn) {
             resetBtn.onclick = () => {
@@ -202,6 +265,20 @@ export const RoutingDesigner = {
 
         this.nodes[id] = newNode;
         DesignerInteraction.nodes = this.nodes;
+
+        // Register container in physics system if it's a box
+        if (isContainer && typeof ContainerBoxManager?.createUserBox === 'function') {
+            // Create box with default bounds around center position
+            const margin = 100; // Default container size
+            const bounds = {
+                minX: centerX - margin,
+                minY: centerY - margin,
+                maxX: centerX + margin,
+                maxY: centerY + margin
+            };
+            ContainerBoxManager.createUserBox(id, bounds, 40);
+        }
+
         this.render();
         console.log(`[RoutingDesigner] Added ${typeLabel}: ${name}`);
     },
@@ -327,8 +404,8 @@ export const RoutingDesigner = {
             attempts++;
         }
 
-        console.log(`[RoutingDesigner] Auto-parented ${nodeId} to ${containerId} (${attempts} collision fixes)`);
         this.render();
+        BlueprintManager.autoSave(this.nodes, this.manualConnections);
     },
 
     openPrompt(title, defaultValue, onConfirm) {
@@ -381,6 +458,7 @@ export const RoutingDesigner = {
 
         this.closeModal();
         this.render();
+        BlueprintManager.autoSave(this.nodes, this.manualConnections);
     },
 
     resize() {
@@ -462,6 +540,7 @@ export const RoutingDesigner = {
         this.saveToHistory();
         this.manualConnections.push({ from: fromId, to: toId });
         this.render();
+        BlueprintManager.autoSave(this.nodes, this.manualConnections);
     },
 
     render() {

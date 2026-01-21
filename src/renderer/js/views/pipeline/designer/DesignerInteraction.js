@@ -16,6 +16,7 @@ export const DesignerInteraction = {
     resizeCorner: null, // 'nw' | 'ne' | 'sw' | 'se'
     resizeStartWorld: null,
     resizeStartSize: null,
+    resizeChildPositions: null, // { childId: { relX, relY } } - relative positions at resize start
 
     // NEW: Manual Connection state
     mode: 'DRAG', // 'DRAG' or 'DRAW'
@@ -31,7 +32,7 @@ export const DesignerInteraction = {
         maxZoom: 4.0
     },
 
-    init(canvas, nodes, onUpdate, onConnection, onNodeDoubleClick, onNodeDrop, onStickyNoteEdit) {
+    init(canvas, nodes, onUpdate, onConnection, onNodeDoubleClick, onNodeDrop, onStickyNoteEdit, onInteractionEnd) {
         this.canvas = canvas;
         this.nodes = nodes;
         this.onUpdate = onUpdate;
@@ -39,6 +40,7 @@ export const DesignerInteraction = {
         this.onNodeDoubleClick = onNodeDoubleClick;
         this.onNodeDrop = onNodeDrop;
         this.onStickyNoteEdit = onStickyNoteEdit;
+        this.onInteractionEnd = onInteractionEnd;
 
         this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
@@ -201,7 +203,7 @@ export const DesignerInteraction = {
     // Check if worldPos is over a resize handle of any container or sticky note
     findResizeHandle(worldPos) {
         const handleSize = 12;
-        for (const node of Object.values(this.nodes)) {
+        for (const node of Object.values(this.nodes).slice().reverse()) {
             if (!node.isRepoContainer && !node.isStickyNote) continue;
 
             let w, h;
@@ -247,38 +249,58 @@ export const DesignerInteraction = {
 
         // LEFT CLICK
         if (e.button === 0) {
-            // Check for resize handle FIRST (priority over node drag)
+            const clickedNode = this.findNodeAt(worldPos);
+
+            // Priority 1: Regular Node Drag (Prevents accidental container resize)
+            if (clickedNode && !clickedNode.isRepoContainer && !clickedNode.isStickyNote) {
+                if (this.mode === 'DRAG') {
+                    this.draggedNodeId = clickedNode.id;
+                    clickedNode.isDragging = true;
+                    this.onUpdate();
+                    return;
+                }
+            }
+
+            // Priority 2: Resize handles (For sticky notes and potentially containers if no node was hit)
             const resizeHandle = this.findResizeHandle(worldPos);
             if (resizeHandle) {
                 this.resizingNodeId = resizeHandle.nodeId;
                 this.resizeCorner = resizeHandle.corner;
                 this.resizeStartWorld = { ...worldPos };
                 this.resizeStartSize = { w: resizeHandle.w, h: resizeHandle.h };
+
+                // Capture relative positions of children for proportional scaling
+                const containerNode = this.nodes[resizeHandle.nodeId];
+                if (containerNode && containerNode.isRepoContainer) {
+                    this.resizeChildPositions = {};
+                    Object.values(this.nodes).forEach(child => {
+                        if (child.parentId === resizeHandle.nodeId) {
+                            // Store position relative to container center
+                            this.resizeChildPositions[child.id] = {
+                                relX: child.x - containerNode.x,
+                                relY: child.y - containerNode.y
+                            };
+                        }
+                    });
+                }
                 return;
             }
 
-            const clickedNode = this.findNodeAt(worldPos);
-
-            if (this.mode === 'DRAG' && clickedNode) {
-                this.draggedNodeId = clickedNode.id;
-                clickedNode.isDragging = true;
-            } else if (this.mode === 'DRAW') {
-                if (clickedNode) {
+            // Priority 3: Sticky Note Drag or Container Drag
+            if (clickedNode) {
+                if (this.mode === 'DRAG') {
+                    this.draggedNodeId = clickedNode.id;
+                    clickedNode.isDragging = true;
+                } else if (this.mode === 'DRAW') {
                     if (this.activeConnection) {
                         if (this.activeConnection.fromNode.id === clickedNode.id) {
-                            // Toggle off if clicking the same node
                             this.activeConnection = null;
                         } else {
-                            // Finish connection if clicking a different node
                             this.finishConnection(clickedNode);
                         }
                     } else {
-                        // Start new connection
                         this.activeConnection = { fromNode: clickedNode, currentPos: worldPos };
                     }
-                } else {
-                    // Clicked empty space: cancel any active connection
-                    this.activeConnection = null;
                 }
             }
             this.onUpdate();
@@ -321,6 +343,43 @@ export const DesignerInteraction = {
                 node.manualWidth = Math.max(minW, newW);
                 node.manualHeight = Math.max(minH, newH);
             }
+
+            // PROPORTIONAL SCALING: Move child nodes maintaining relative positions
+            // Note: Designer uses this.nodes, NOT LayoutEngine, so we enforce directly here
+            if (node.isRepoContainer && this.resizeChildPositions) {
+                const newWidth = node.manualWidth || node.width || 180;
+                const newHeight = node.manualHeight || node.height || 100;
+                const startWidth = this.resizeStartSize.w;
+                const startHeight = this.resizeStartSize.h;
+                const margin = 40;
+
+                // Calculate scale factors (how much the container shrank/grew)
+                const scaleX = (newWidth - margin * 2) / Math.max(startWidth - margin * 2, 1);
+                const scaleY = (newHeight - margin * 2) / Math.max(startHeight - margin * 2, 1);
+
+                const bounds = {
+                    minX: node.x - newWidth / 2 + margin,
+                    minY: node.y - newHeight / 2 + margin,
+                    maxX: node.x + newWidth / 2 - margin,
+                    maxY: node.y + newHeight / 2 - margin
+                };
+
+                // Scale children proportionally and clamp to bounds
+                Object.values(this.nodes).forEach(child => {
+                    if (child.parentId === node.id && this.resizeChildPositions[child.id]) {
+                        const startRel = this.resizeChildPositions[child.id];
+                        // Apply proportional scaling from center
+                        const newRelX = startRel.relX * scaleX;
+                        const newRelY = startRel.relY * scaleY;
+                        child.x = node.x + newRelX;
+                        child.y = node.y + newRelY;
+                        // Final clamp to stay within bounds
+                        child.x = Math.max(bounds.minX, Math.min(bounds.maxX, child.x));
+                        child.y = Math.max(bounds.minY, Math.min(bounds.maxY, child.y));
+                    }
+                });
+            }
+
             this.onUpdate();
             return;
         }
@@ -389,6 +448,7 @@ export const DesignerInteraction = {
             this.resizeCorner = null;
             this.resizeStartWorld = null;
             this.resizeStartSize = null;
+            this.resizeChildPositions = null; // Clear child positions snapshot
             this.canvas.style.cursor = 'default';
             this.onUpdate();
             return;
@@ -432,6 +492,7 @@ export const DesignerInteraction = {
         }
 
         this.onUpdate();
+        if (this.onInteractionEnd) this.onInteractionEnd();
     },
 
     finishConnection(endNode) {

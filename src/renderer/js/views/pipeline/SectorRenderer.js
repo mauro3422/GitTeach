@@ -4,6 +4,7 @@
  * Extracted from PipelineRenderer to maintain modularity.
  */
 import { PIPELINE_NODES } from './PipelineConstants.js';
+import ContainerBoxManager from '../../utils/ContainerBoxManager.js';
 import { PipelineStateManager } from './PipelineStateManager.js';
 import { LabelRenderer } from './LabelRenderer.js';
 import { LayoutEngine } from './LayoutEngine.js';
@@ -18,12 +19,14 @@ export const SectorRenderer = {
         const slot3Pos = LayoutEngine.getNodePos('worker_3');
         const embPos = LayoutEngine.getNodePos('embedding_server');
 
-        // Dynamic Bounding Box
-        const nodes = [hubPos, slot1Pos, slot3Pos, embPos];
-        const minX = Math.min(...nodes.map(p => p.x)) - 60;
-        const maxX = Math.max(...nodes.map(p => p.x)) + 80;
-        const minY = Math.min(...nodes.map(p => p.y)) - 60;
-        const maxY = Math.max(...nodes.map(p => p.y)) + 60;
+        // Dynamic Bounding Box (include all GPU nodes for accurate box)
+        // Include worker_2 as it's part of the GPU cluster box
+        const extraWorker2 = LayoutEngine.getNodePos('worker_2');
+        const allNodePos = [hubPos, slot1Pos, slot3Pos, embPos, extraWorker2].filter(p => !!p);
+        const minX = Math.min(...allNodePos.map(p => p.x)) - 60;
+        const maxX = Math.max(...allNodePos.map(p => p.x)) + 80;
+        const minY = Math.min(...allNodePos.map(p => p.y)) - 60;
+        const maxY = Math.max(...allNodePos.map(p => p.y)) + 60;
 
         const w = maxX - minX;
         const h = maxY - minY;
@@ -64,6 +67,11 @@ export const SectorRenderer = {
             maxY,
             'rgba(56, 139, 253, 0.9)'
         );
+        
+        // Store bounds in ContainerBoxManager for enforcement
+        if (typeof ContainerBoxManager?.setBoxBounds === 'function') {
+            ContainerBoxManager.setBoxBounds('gpu_cluster', { minX, minY, maxX, maxY });
+        }
     },
 
     /**
@@ -118,6 +126,11 @@ export const SectorRenderer = {
             maxY,
             'rgba(241, 126, 23, 0.9)'
         );
+        
+        // Store bounds in ContainerBoxManager for enforcement
+        if (typeof ContainerBoxManager?.setBoxBounds === 'function') {
+            ContainerBoxManager.setBoxBounds('cpu_cluster', { minX, minY, maxX, maxY });
+        }
     },
 
     /**
@@ -169,5 +182,10 @@ export const SectorRenderer = {
             color: activeSlots.length > 0 ? '#3fb950' : '#8b949e',
             bold: true
         });
+        
+        // Store bounds in ContainerBoxManager for enforcement
+        if (typeof ContainerBoxManager?.setBoxBounds === 'function') {
+            ContainerBoxManager.setBoxBounds('cache_cluster', { minX: x, minY: y, maxX: x + containerW, maxY: y + containerH });
+        }
     }
 };

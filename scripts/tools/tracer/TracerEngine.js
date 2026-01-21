@@ -106,45 +106,10 @@ export class TracerEngine {
         const { DebugLogger } = await import('../../../src/renderer/js/utils/debugLogger.js');
 
         // Capture "BEFORE" state
-        console.log('🧬 Capturing Metabolic Baseline...');
-        this.metabolicSnapshot.before = {
-            identity: await window.cacheAPI.getTechnicalIdentity('mauro3422'),
-            profile: await window.cacheAPI.getCognitiveProfile('mauro3422')
-        };
+        this.metabolicSnapshot.before = await this._captureMetabolicState('BEFORE');
 
-        console.log('--- PHASE 1: WORKER SCAN (100% Coverage Goal) ---');
-        // DI INJECTION: Pass the mock API explicitly to bypass global scope issues
-        const analyzer = new ProfileAnalyzer(DebugLogger, { githubAPI: global.window.githubAPI });
-
-        let lastReport = 0;
-        const REPORT_INTERVAL = 5;
-
-        const results = await analyzer.analyze('mauro3422', (step) => {
-            // ALWAYS update latestStats if possible to ensure summaries are fresh
-            if (analyzer.coordinator) {
-                const stats = analyzer.coordinator.getStats();
-                this.latestStats = stats;
-                // CRITICAL: Ensure filesOnDisk is NEVER 0 if inventory has files
-                if ((!this.latestTotalFiles || this.latestTotalFiles === 0) && stats.totalFiles > 0) {
-                    this.latestTotalFiles = stats.totalFiles;
-                }
-            }
-
-            if (step.type === 'Progreso') {
-                const p = step.percent;
-                // Log and flush summary at intervals OR on phase completion
-                if (p >= lastReport + REPORT_INTERVAL || p === 100 || p < lastReport) {
-                    process.stdout.write(`\r   [PROGRESS] ${p}% | Scanned: ${this.latestStats?.analyzed || 0} / ${this.latestTotalFiles}`);
-                    lastReport = p;
-                    if (p === 100) console.log("");
-
-                    this.generateSummary(AIService.isFatal ? 'FAILED_CRITICAL' : 'RUNNING');
-                }
-            } else if (step.type === 'DeepMemoryReady') {
-                console.log(`\n🧠 AUTONOMOUS REACTION: ${step.message}`);
-                this.generateSummary(AIService.isFatal ? 'FAILED_CRITICAL' : 'RUNNING');
-            }
-        });
+        // Phase 1: Worker Scan
+        const { results, analyzer } = await this._runWorkerScan(AIService, ProfileAnalyzer, DebugLogger);
 
         // CHECK FOR EMERGENCY STOP
         if (AIService.isFatal) {
@@ -179,6 +144,59 @@ export class TracerEngine {
         await new Promise(r => setTimeout(r, 10000));
 
         // Phase 3: Interactive Chat Simulation (Tool-Augmented Retrieval Verification)
+        await this._runChatSimulation(AIService);
+
+        // Capture "AFTER" state
+        this.metabolicSnapshot.after = await this._captureMetabolicState('AFTER');
+
+        // FINAL REFRESH: Ensure all worker data is captured
+        this.latestStats = analyzer.coordinator.getStats();
+        if (!this.latestTotalFiles || this.latestTotalFiles === 0) {
+            this.latestTotalFiles = this.latestStats.totalFiles;
+        }
+
+        return results;
+    }
+
+    async _runWorkerScan(AIService, ProfileAnalyzer, DebugLogger) {
+        console.log('--- PHASE 1: WORKER SCAN (100% Coverage Goal) ---');
+        // DI INJECTION: Pass the mock API explicitly to bypass global scope issues
+        const analyzer = new ProfileAnalyzer(DebugLogger, { githubAPI: global.window.githubAPI });
+
+        let lastReport = 0;
+        const REPORT_INTERVAL = 5;
+
+        const results = await analyzer.analyze('mauro3422', (step) => {
+            // ALWAYS update latestStats if possible to ensure summaries are fresh
+            if (analyzer.coordinator) {
+                const stats = analyzer.coordinator.getStats();
+                this.latestStats = stats;
+                // CRITICAL: Ensure filesOnDisk is NEVER 0 if inventory has files
+                if ((!this.latestTotalFiles || this.latestTotalFiles === 0) && stats.totalFiles > 0) {
+                    this.latestTotalFiles = stats.totalFiles;
+                }
+            }
+
+            if (step.type === 'Progreso') {
+                const p = step.percent;
+                // Log and flush summary at intervals OR on phase completion
+                if (p >= lastReport + REPORT_INTERVAL || p === 100 || p < lastReport) {
+                    process.stdout.write(`\r   [PROGRESS] ${p}% | Scanned: ${this.latestStats?.analyzed || 0} / ${this.latestTotalFiles}`);
+                    lastReport = p;
+                    if (p === 100) console.log("");
+
+                    this.generateSummary(AIService.isFatal ? 'FAILED_CRITICAL' : 'RUNNING');
+                }
+            } else if (step.type === 'DeepMemoryReady') {
+                console.log(`\n🧠 AUTONOMOUS REACTION: ${step.message}`);
+                this.generateSummary(AIService.isFatal ? 'FAILED_CRITICAL' : 'RUNNING');
+            }
+        });
+
+        return { results, analyzer };
+    }
+
+    async _runChatSimulation(AIService) {
         console.log('\n--- PHASE 3: INTERACTIVE CHAT SIMULATION (TOOLS) ---');
         try {
             const prompts = [
@@ -246,26 +264,21 @@ export class TracerEngine {
                     console.warn("⚠️ Flight Recorder failed:", logErr.message);
                 }
             }
-
         } catch (e) {
             console.error("❌ SIMULATION FAILED:", e);
         }
+    }
 
-        // Capture "AFTER" state
-        this.metabolicSnapshot.after = {
+    async _captureMetabolicState(label) {
+        console.log(`🧬 Capturing Metabolic ${label}...`);
+        return {
             identity: await window.cacheAPI.getTechnicalIdentity('mauro3422'),
             profile: await window.cacheAPI.getCognitiveProfile('mauro3422'),
-            architecture: await window.cacheAPI.getTechnicalIdentity('theme:architecture:mauro3422'),
-            habits: await window.cacheAPI.getTechnicalIdentity('theme:habits:mauro3422')
+            ...(label === 'AFTER' && {
+                architecture: await window.cacheAPI.getTechnicalIdentity('theme:architecture:mauro3422'),
+                habits: await window.cacheAPI.getTechnicalIdentity('theme:habits:mauro3422')
+            })
         };
-
-        // FINAL REFRESH: Ensure all worker data is captured
-        this.latestStats = analyzer.coordinator.getStats();
-        if (!this.latestTotalFiles || this.latestTotalFiles === 0) {
-            this.latestTotalFiles = this.latestStats.totalFiles;
-        }
-
-        return results;
     }
 
     async _generateSummary(results) {

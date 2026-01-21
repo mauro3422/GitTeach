@@ -25,7 +25,8 @@ export const LabelRenderer = {
 
         // RELATIVE offset based on scaled node radius
         const radius = (dynamicRadius || (isSatellite ? 25 : 35)) * zoomScale;
-        const padding = 15; // screen space pixels
+        // Compact label: reduce vertical padding to bring lines closer
+        const padding = 10; // screen space pixels
         const yOffset = node.labelPosition === 'top' ? -(radius + padding) : (radius + padding);
         const labelY = y + yOffset;
 
@@ -44,19 +45,21 @@ export const LabelRenderer = {
             ctx.globalAlpha = 1;
         };
 
-        // Split label
+        // Split label into multiple lines if needed
         const lines = node.label.length > 12 ? node.label.split(' ') : [node.label];
         const mainFont = `bold ${fontSize}px var(--font-mono), monospace`;
         const mainColor = isHovered ? '#ffffff' : (node.isSatellite ? (node.color || '#8b949e') : '#e6edf3');
 
+        // Tighten vertical spacing between lines for compact labels
+        const lineHeight = Math.max(4, Math.floor(fontSize * 0.75));
         lines.forEach((line, idx) => {
-            const lineOffset = idx * (fontSize + 6);
+            const lineOffset = idx * lineHeight;
             drawText(line, x, labelY + lineOffset, mainFont, mainColor);
         });
 
         // Sublabel
         if (node.sublabel) {
-            const sublabelY = labelY + (lines.length * (fontSize + 6)) + 10;
+            const sublabelY = labelY + (lines.length * (fontSize + 2)) + 4;
             const subFont = `${subFontSize}px var(--font-mono), monospace`;
             const subColor = node.isSatellite ? '#8b949e' : '#8b949e';
             drawText(node.sublabel, x, sublabelY, subFont, subColor, 0.9);

@@ -11,9 +11,12 @@ import { LabelRenderer } from './LabelRenderer.js';
 import { LayoutEngine } from './LayoutEngine.js';
 import { ConnectionRouter } from './ConnectionRouter.js';
 import * as LanguageTheme from './LanguageTheme.js';
+import ContainerBoxManager from '../../utils/ContainerBoxManager.js';
+import { initializeContainers } from '../../utils/initializeContainers.js';
 
 export const PipelineRenderer = {
     initialized: false,
+    containersInitialized: false,
 
     /**
      * Clear and update physics
@@ -22,6 +25,10 @@ export const PipelineRenderer = {
         if (!this.initialized) {
             LayoutEngine.init(width, height);
             this.initialized = true;
+        }
+        if (!this.containersInitialized) {
+            initializeContainers();
+            this.containersInitialized = true;
         }
         LayoutEngine.update(width, height);
         ctx.clearRect(0, 0, width, height);
@@ -111,6 +118,11 @@ export const PipelineRenderer = {
         SectorRenderer.drawWorkerSector(ctx, width, height, nodeStates);
         SectorRenderer.drawCpuSector(ctx, width, height, nodeStates);
         SectorRenderer.drawCacheContainer(ctx, width, height, nodeStates, nodeStats);
+
+        // Apply container enforcement after all boxes are drawn and bounds are set
+        if (typeof ContainerBoxManager?.enforceAll === 'function') {
+            ContainerBoxManager.enforceAll();
+        }
 
         Object.entries(PIPELINE_NODES).forEach(([id, node]) => {
             if (node.isRepoContainer || (node.isDynamic && node.hidden)) return;

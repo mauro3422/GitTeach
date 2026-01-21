@@ -16,6 +16,7 @@ import { PipelineStateManager } from './pipeline/PipelineStateManager.js';
 import { PipelineEventHandler } from './pipeline/PipelineEventHandler.js';
 import { LayoutEngine } from './pipeline/LayoutEngine.js';
 import { PipelineSimulation } from './pipeline/PipelineSimulation.js';
+import { initializeContainers } from '../utils/initializeContainers.js';
 
 export const PipelineCanvas = {
     canvas: null,
@@ -38,6 +39,7 @@ export const PipelineCanvas = {
         try {
             this.createCanvas();
             PipelineStateManager.init();
+            initializeContainers();
             this.bindEvents();
             this.subscribeToUpdates();
             this.startRenderLoop();
@@ -49,6 +51,19 @@ export const PipelineCanvas = {
                 simulateSlot: (slotNum = 1) => PipelineSimulation.simulateTaskInSlot(slotNum, (e) => this.handlePipelineEvent(e)),
                 simulateFault: (port = 8000, online = false) => {
                     this.handleFleetStatus({ [port]: { online } });
+                },
+                testContainerBox: () => {
+                    console.log('Testing ContainerBoxManager...');
+                    try {
+                        const { ContainerBoxManager } = require('../utils/ContainerBoxManager.js');
+                        console.log('ContainerBoxManager loaded:', !!ContainerBoxManager);
+                        console.log('Registry size:', ContainerBoxManager.registry.size);
+                        console.log('User boxes:', ContainerBoxManager.getUserBoxes());
+                        return 'ContainerBoxManager working!';
+                    } catch (error) {
+                        console.error('ContainerBoxManager test failed:', error);
+                        return 'Error: ' + error.message;
+                    }
                 }
             };
 
