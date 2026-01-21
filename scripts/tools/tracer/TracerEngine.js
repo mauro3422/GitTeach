@@ -24,23 +24,34 @@ export class TracerEngine {
     }
 
     async run() {
-        // 1. Setup Environment
+        await this._setupEnvironment();
+        await this._initializeMocks();
+        await this._warmupAI();
+        const results = await this._executePipeline();
+        await this._generateSummary(results);
+        await this._cleanup();
+    }
+
+    async _setupEnvironment() {
+        // Setup Environment
         TracerEnvironment.setupHighlanderProtocol();
         TracerEnvironment.initializeSessionFolders();
 
-        // 2. Start Forensic Logging
+        // Start Forensic Logging
         loggerCapture.start();
 
-        // 2.1 Capture AI Server log positions for session-aware extraction
+        // Capture AI Server log positions for session-aware extraction
         aiLogCopier.captureStartPositions();
 
         console.log(`\n🧬 TRACER ENGINE START: ${SESSION_ID}`);
+    }
 
-        // 3. Auth & Globals (Critical order!)
+    async _initializeMocks() {
+        // Auth & Globals (Critical order!)
         const authToken = GithubMock.loadToken();
         Globals.inject(authToken);
 
-        // 4. Dynamic Import of App Services
+        // Dynamic Import of App Services
         const { AIService } = await import('../../../src/renderer/js/services/aiService.js');
         const { ProfileAnalyzer } = await import('../../../src/renderer/js/services/profileAnalyzer.js');
         const { DebugLogger } = await import('../../../src/renderer/js/utils/debugLogger.js');
@@ -48,18 +59,9 @@ export class TracerEngine {
         const { EmbeddingService } = await import('../../../src/renderer/js/services/ai/EmbeddingService.js');
         const { memoryManager } = await import('../../../src/renderer/js/services/memory/MemoryManager.js');
 
-        // 4.1 Dependency Injection for Tracer
+        // Dependency Injection for Tracer
         const embeddingService = new EmbeddingService();
         memoryManager.setEmbeddingService(embeddingService);
-
-        // 5. Health Check
-        try {
-            await AIService.callAI("Test", "OK", 0.0);
-            console.log('✅ AI Server ONLINE.');
-        } catch (e) {
-            console.error('❌ AI Server OFFLINE or Error:', e.message);
-            process.exit(1);
-        }
 
         // Setup DebugLogger for Node FS
         DebugLogger.setEnabled(true);
@@ -80,7 +82,30 @@ export class TracerEngine {
             }
         } catch (e) { }
 
-        // 6. Capture "BEFORE" state
+        return { AIService, ProfileAnalyzer, DebugLogger };
+    }
+
+    async _warmupAI() {
+        // Dynamic import needed here too since this is called after _initializeMocks
+        const { AIService } = await import('../../../src/renderer/js/services/aiService.js');
+
+        // Health Check
+        try {
+            await AIService.callAI("Test", "OK", 0.0);
+            console.log('✅ AI Server ONLINE.');
+        } catch (e) {
+            console.error('❌ AI Server OFFLINE or Error:', e.message);
+            process.exit(1);
+        }
+    }
+
+    async _executePipeline() {
+        // Dynamic imports needed here
+        const { AIService } = await import('../../../src/renderer/js/services/aiService.js');
+        const { ProfileAnalyzer } = await import('../../../src/renderer/js/services/profileAnalyzer.js');
+        const { DebugLogger } = await import('../../../src/renderer/js/utils/debugLogger.js');
+
+        // Capture "BEFORE" state
         console.log('🧬 Capturing Metabolic Baseline...');
         this.metabolicSnapshot.before = {
             identity: await window.cacheAPI.getTechnicalIdentity('mauro3422'),
@@ -126,7 +151,7 @@ export class TracerEngine {
             console.error('\n🚨 EMERGENCY STOP: AI Service is in a fatal state. Skipping further phases.');
             this.generateSummary('FAILED_CRITICAL');
             console.log(`\n❌ TRACE ABORTED DUE TO CRITICAL AI FAILURE. Sessions: ${SESSION_ID}`);
-            return; // Terminate run early
+            return results; // Terminate early
         }
 
         // Ensure stats are fresh after analyze() returns (Phase 1 finished)
@@ -153,7 +178,7 @@ export class TracerEngine {
         console.log("⏳ Waiting 10s for Autonomous Reactions (Streaming)...");
         await new Promise(r => setTimeout(r, 10000));
 
-        // 7. Phase 3: Interactive Chat Simulation (Tool-Augmented Retrieval Verification)
+        // Phase 3: Interactive Chat Simulation (Tool-Augmented Retrieval Verification)
         console.log('\n--- PHASE 3: INTERACTIVE CHAT SIMULATION (TOOLS) ---');
         try {
             const prompts = [
@@ -226,7 +251,7 @@ export class TracerEngine {
             console.error("❌ SIMULATION FAILED:", e);
         }
 
-        // 8. Capture "AFTER" state
+        // Capture "AFTER" state
         this.metabolicSnapshot.after = {
             identity: await window.cacheAPI.getTechnicalIdentity('mauro3422'),
             profile: await window.cacheAPI.getCognitiveProfile('mauro3422'),
@@ -240,7 +265,16 @@ export class TracerEngine {
             this.latestTotalFiles = this.latestStats.totalFiles;
         }
 
+        return results;
+    }
+
+    async _generateSummary(results) {
         this.generateSummary('COMPLETE');
+    }
+
+    async _cleanup() {
+        // Dynamic import needed here
+        const { AIService } = await import('../../../src/renderer/js/services/aiService.js');
 
         // EXPORT: Dump final Session Context (Requested by User)
         try {

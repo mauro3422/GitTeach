@@ -18,7 +18,16 @@ export const BlueprintManager = {
             blueprint.layout[node.id] = {
                 x: node.x / scale,
                 y: node.y / scale,
-                label: node.label
+                label: node.label,
+                message: node.message || "",
+                // Sticky note specific fields
+                isStickyNote: node.isStickyNote || false,
+                text: node.text || "",
+                width: node.width,
+                height: node.height,
+                color: node.color,
+                // Container specific
+                isRepoContainer: node.isRepoContainer || false
             };
         });
 

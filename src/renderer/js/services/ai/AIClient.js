@@ -82,51 +82,53 @@ export class AIClient {
     }
 
     /**
-     * Call AI on main endpoint (GPU)
+     * Shared endpoint caller for both GPU and CPU AI calls
      */
-    async callAI(systemPrompt, userMessage, temperature, format = null, schema = null, priority = AISlotPriorities.NORMAL) {
-        this._checkCircuit('main');
-        const _window = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global.window : {});
-        const ENDPOINT = (_window?.AI_CONFIG?.endpoint) || 'http://127.0.0.1:8000/v1/chat/completions';
-        const isUrgent = priority === AISlotPriorities.URGENT;
-        const eventPayload = {
-            port: 8000,
-            type: 'gpu-inference',
-            priority
-        };
+    async _callEndpoint(config) {
+        const { endpoint, port, useSlots, priority, type, timeout, maxRetries, keepAlive, slotManager } = config;
+        const circuitType = type.includes('gpu') ? 'main' : 'cpu';
 
-        await aiSlotManager.acquire(priority);
-        // NUEVO: Emitir evento de inicio
-        pipelineEventBus.emit('ai:gpu:start', eventPayload);
+        this._checkCircuit(circuitType);
+
+        if (useSlots) {
+            await slotManager.acquire(priority);
+        }
+
+        const isUrgent = priority === AISlotPriorities.URGENT;
+        const eventPayload = { port, type, priority };
+
+        pipelineEventBus.emit(`ai:${type.split('-')[0]}:start`, eventPayload);
+
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 180000);
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
 
             const payload = {
                 model: "lfm2.5",
-                messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userMessage }],
-                temperature,
+                messages: [{ role: "system", content: config.systemPrompt }, { role: "user", content: config.userMessage }],
+                temperature: config.temperature,
                 n_predict: 4096
             };
 
-            if (format === 'json_object') {
+            if (config.format === 'json_object') {
                 payload.response_format = { type: "json_object" };
-                if (schema) payload.response_format.schema = schema;
+                if (config.schema) payload.response_format.schema = config.schema;
             }
 
             let response;
             let attempt = 0;
-            const maxRetries = 4; // Increased retries
 
             while (attempt < maxRetries) {
                 try {
-                    response = await fetch(ENDPOINT, {
+                    const headers = {
+                        'Content-Type': 'application/json'
+                    };
+                    if (keepAlive) headers['Connection'] = 'keep-alive';
+
+                    response = await fetch(endpoint, {
                         signal: controller.signal,
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Connection': 'keep-alive'
-                        },
+                        headers,
                         body: JSON.stringify(payload)
                     });
 
@@ -147,7 +149,7 @@ export class AIClient {
                         throw err;
                     }
 
-                    // Exponential backoff: 3s, 9s, 27s... 
+                    // Exponential backoff: 3s, 9s, 27s...
                     const delay = Math.pow(3, attempt) * 1000;
                     this.logger.warn(`AI [${isTimeout ? 'Timeout' : 'NetError'}] Retry ${attempt}/${maxRetries} in ${delay}ms...`);
                     await new Promise(r => setTimeout(r, delay));
@@ -166,15 +168,13 @@ export class AIClient {
 
             const data = await response.json();
             this.updateHealth(true);
-            this._onSuccess('main');
-            // NUEVO: Emitir evento de fin exitoso
-            pipelineEventBus.emit('ai:gpu:end', { ...eventPayload, success: true });
+            this._onSuccess(circuitType);
+            pipelineEventBus.emit(`ai:${type.split('-')[0]}:end`, { ...eventPayload, success: true });
             return data.choices[0].message.content;
         } catch (error) {
             this.updateHealth(false);
-            this._onFailure('main');
-            // NUEVO: Emitir evento de fin con error
-            pipelineEventBus.emit('ai:gpu:end', { ...eventPayload, success: false, error: error.message });
+            this._onFailure(circuitType);
+            pipelineEventBus.emit(`ai:${type.split('-')[0]}:end`, { ...eventPayload, success: false, error: error.message });
 
             if (error.message.includes('fetch failed')) {
                 this.logger.error(`🚨 CRITICAL NETWORK FAILURE: Connection reset or server crash. Check llama.cpp.`);
@@ -183,105 +183,60 @@ export class AIClient {
             }
             throw error;
         } finally {
-            aiSlotManager.release(isUrgent);
+            if (useSlots) {
+                slotManager.release(isUrgent);
+            }
         }
     }
 
     /**
+     * Call AI on main endpoint (GPU)
+     */
+    async callAI(systemPrompt, userMessage, temperature, format = null, schema = null, priority = AISlotPriorities.NORMAL) {
+        const _window = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global.window : {});
+        const endpoint = (_window?.AI_CONFIG?.endpoint) || 'http://127.0.0.1:8000/v1/chat/completions';
+
+        return this._callEndpoint({
+            endpoint,
+            port: 8000,
+            useSlots: true,
+            priority,
+            type: 'gpu-inference',
+            timeout: 180000,
+            maxRetries: 4,
+            keepAlive: true,
+            slotManager: aiSlotManager,
+            systemPrompt,
+            userMessage,
+            temperature,
+            format,
+            schema
+        });
+    }
+
+    /**
      * Call AI on CPU server (Port 8002) - Dedicated for Mappers
-     * Does NOT use slot manager since CPU has its own dedicated slots
      */
     async callAI_CPU(systemPrompt, userMessage, temperature, format = null, schema = null) {
-        this._checkCircuit('cpu');
+        const _window = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global.window : {});
+        const endpoint = (_window?.AI_CONFIG?.mapperEndpoint) || 'http://127.0.0.1:8002/v1/chat/completions';
 
-        await this.cpuSlotManager.acquire();
-        const startTime = Date.now();
-        const eventPayload = {
+        return this._callEndpoint({
+            endpoint,
             port: 8002,
-            type: 'cpu-inference'
-        };
-
-        // NUEVO: Emitir evento de inicio
-        pipelineEventBus.emit('ai:cpu:start', eventPayload);
-
-        try {
-            const _window = typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global.window : {});
-            const CPU_ENDPOINT = (_window?.AI_CONFIG?.mapperEndpoint) || 'http://127.0.0.1:8002/v1/chat/completions';
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => {
-                const elapsed = Date.now() - startTime;
-                this.logger.warn(`CPU AI request timing out after ${elapsed}ms...`);
-                controller.abort();
-            }, 900000); // Increased to 15 minutes for dense synthesis
-
-            const payload = {
-                model: "lfm2.5",
-                messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userMessage }],
-                temperature,
-                n_predict: 4096
-            };
-
-            if (format === 'json_object') {
-                payload.response_format = { type: "json_object" };
-                if (schema) payload.response_format.schema = schema;
-            }
-
-            let response;
-            let attempt = 0;
-            const maxRetries = 2;
-
-            while (attempt < maxRetries) {
-                try {
-                    response = await fetch(CPU_ENDPOINT, {
-                        signal: controller.signal,
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (response.ok) break;
-                    if (response.status >= 400 && response.status < 500) break;
-                    throw new Error(`Server returned ${response.status}`);
-                } catch (err) {
-                    attempt++;
-                    if (attempt >= maxRetries || err.name === 'AbortError') throw err;
-                    const delay = attempt * 3000;
-                    this.logger.warn(`CPU AI Retry ${attempt}/${maxRetries} after ${delay}ms: ${err.message}`);
-                    await new Promise(r => setTimeout(r, delay));
-                }
-            }
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                const elapsed = Date.now() - startTime;
-                this.logger.error(`CPU Response ERROR: ${response.status} after ${elapsed}ms`);
-                this._onFailure('cpu');
-                throw new Error(`CPU Status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            const elapsed = Date.now() - startTime;
-            this.logger.info(`CPU AI Success in ${elapsed}ms`);
-            this._onSuccess('cpu');
-            // NUEVO: Emitir evento de fin exitoso
-            pipelineEventBus.emit('ai:cpu:end', { ...eventPayload, success: true });
-            return data.choices[0].message.content;
-        } catch (error) {
-            const elapsed = Date.now() - startTime;
-            // NUEVO: Emitir evento de fin con error
-            pipelineEventBus.emit('ai:cpu:end', { ...eventPayload, success: false, error: error.message });
-            if (error.name === 'AbortError') {
-                this.logger.error(`❌ CPU AI ABORTED after ${elapsed}ms. Reason: ${error.message}`);
-            } else {
-                this.logger.error(`❌ CPU AI Error after ${elapsed}ms: ${error.message}`);
-            }
-            this._onFailure('cpu');
-            throw error;
-        } finally {
-            this.cpuSlotManager.release();
-        }
+            useSlots: true,
+            priority: AISlotPriorities.NORMAL, // CPU doesn't use priority but needs the parameter
+            type: 'cpu-inference',
+            timeout: 900000,
+            maxRetries: 2,
+            keepAlive: false,
+            slotManager: this.cpuSlotManager,
+            systemPrompt,
+            userMessage,
+            temperature,
+            format,
+            schema
+        });
     }
 
     /**

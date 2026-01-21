@@ -8,6 +8,27 @@ All notable changes to the GitTeach project will be documented in this file.
 
 ---
 
+## [2.54.0] - Screen-Space Labels & Dynamic Node Architecture - 2026-01-21
+### 🎨 Resolution-Independent UI (Screen Space)
+- **Screen-Space Rendering**: All text labels, icons, and message badges now render in 1:1 screen pixels, ensuring perfect crispness at any zoom level.
+- **Anchored Label Logic**: Labels and icons are anchored relative to nodes' scaled radii, preventing "drifting" when zooming out.
+- **High-Contrast Typography**: Unified black stroke outlines for all UI text to guarantee readability against any background.
+- **Dynamic Node Scaling**: Implemented Square-Root Compensation for nodes; they grow slightly when zooming out to maintain a solid visual presence.
+- **Proportional Icon Clamping**: Icons now resize intelligently to stay perfectly centered and contained within nodes at all zoom scales.
+
+### 🏗️ Cache Store & Hierarchy Refactor
+- **First-Class Folder Nodes**: Internal Cache Store components (Repository, Cache Manager, etc.) are now real, interactive child nodes.
+- **Text-Aware Bounding Boxes**: Container boxes now estimate children's label widths to prevent clipping and ensure professional layout.
+- **Subtler Interaction Feedback**: Tuned drop-target expansion factor to 1.10x for a smoother, premium-grade visual response.
+- **Layout Optimization**: Increased horizontal/vertical component gaps (220px/120px) for maximum architectural clarity.
+
+### ⌨️ Inline Renaming & Messaging
+- **Double-Click Renaming**: Users can now rename any node, container, or sticky note by double-clicking the title in the message drawer.
+- **Unified Messaging Logic**: Renaming is integrated with history persistence, providing full Undo/Redo (Ctrl+Z) support.
+- **Architectural Tooltips**: Integrated component descriptions into drawer tooltips for real-time guidance.
+
+---
+
 ## [2.52.0] - Routing Playground & Visual Blueprint Designer - 2026-01-20
 ### 🎨 Routing Playground: Visual AI Alignment
 - **Routing Playground (New)**: Interactive visual designer for manual and automatic pipeline blueprinting.

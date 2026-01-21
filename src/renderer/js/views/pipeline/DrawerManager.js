@@ -13,12 +13,12 @@ export class DrawerManager {
     /**
      * Initialize the drawer element
      */
-    initialize(container) {
-        this.drawer = document.getElementById('pipeline-drawer');
+    initialize(container, id = 'pipeline-drawer', className = 'pipeline-drawer') {
+        this.drawer = document.getElementById(id);
         if (!this.drawer) {
             this.drawer = document.createElement('div');
-            this.drawer.id = 'pipeline-drawer';
-            this.drawer.className = 'pipeline-drawer';
+            this.drawer.id = id;
+            this.drawer.className = className;
             container.appendChild(this.drawer);
         }
         return this.drawer;
@@ -27,12 +27,17 @@ export class DrawerManager {
     /**
      * Show the inspection drawer for a specific node
      */
-    show(container, selectedNode, nodeStats, nodeHistory, nodeStates, onClose) {
-        const drawer = this.initialize(container);
+    show(container, id = 'pipeline-drawer', className = 'pipeline-drawer') {
+        const drawer = this.initialize(container, id, className);
         drawer.classList.add('open');
-
-        // Update content will be handled by PipelineUI facade
         return drawer;
+    }
+
+    /**
+     * Compatibility: Show the inspection drawer for a specific node
+     */
+    showInspection(container, selectedNode, nodeStats, nodeHistory, nodeStates, onClose) {
+        return this.show(container);
     }
 
     /**
@@ -202,15 +207,15 @@ export class DrawerManager {
     /**
      * Render drawer header
      */
-    renderHeader(node, displayTitle, displaySubtitle, onClose) {
+    renderHeader(node, displayTitle, displaySubtitle, onClose, closeBtnId = 'drawer-close') {
         return `
             <div class="drawer-header">
-                <span class="drawer-icon">${node.icon}</span>
+                <span class="drawer-icon" id="drawer-icon-id">${node.icon || '📝'}</span>
                 <div class="drawer-title-group">
-                    <div class="drawer-title">${displayTitle}</div>
-                    <div class="drawer-subtitle">${displaySubtitle}</div>
+                    <div class="drawer-title" id="drawer-title-id">${displayTitle}</div>
+                    <div class="drawer-subtitle" id="drawer-subtitle-id">${displaySubtitle}</div>
                 </div>
-                <button class="drawer-close" id="drawer-close">×</button>
+                <button class="drawer-close" id="${closeBtnId}">×</button>
             </div>
         `;
     }

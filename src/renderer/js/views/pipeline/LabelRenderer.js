@@ -7,36 +7,59 @@ export const LabelRenderer = {
     /**
      * Draw main label and sublabel for a node
      */
-    drawNodeLabel(ctx, node, x, y, isHovered) {
+    drawNodeLabel(ctx, node, x, y, isHovered, zoomScale = 1, dynamicRadius = null) {
         if (!node.label) return;
 
         const isSatellite = node.isSatellite === true;
-        const fontSize = isSatellite ? 8 : (isHovered ? 11 : 10);
-        const subFontSize = isSatellite ? 6 : 8;
+
+        // STANDARD Screen-Space sizes
+        const baseFontSize = isSatellite ? 14 : (isHovered ? 26 : 22);
+        const baseSubFontSize = isSatellite ? 11 : 16;
+
+        const fontSize = baseFontSize;
+        const subFontSize = baseSubFontSize;
 
         ctx.save();
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        // Split label into lines if it has a space and is long
-        const lines = node.label.length > 12 ? node.label.split(' ') : [node.label];
-        const labelY = y + (node.labelPosition === 'top' ? -58 : 55);
+        // RELATIVE offset based on scaled node radius
+        const radius = (dynamicRadius || (isSatellite ? 25 : 35)) * zoomScale;
+        const padding = 15; // screen space pixels
+        const yOffset = node.labelPosition === 'top' ? -(radius + padding) : (radius + padding);
+        const labelY = y + yOffset;
 
-        // Draw Main Label
-        ctx.font = `bold ${fontSize}px var(--font-mono), monospace`;
-        ctx.fillStyle = isHovered ? '#ffffff' : (node.isSatellite ? (node.color || '#8b949e') : '#e6edf3');
+        // Configuration for high-visibility text
+        const drawText = (txt, px, py, font, color, alpha = 1) => {
+            ctx.font = font;
+            // High contrast outline
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 3;
+            ctx.lineJoin = 'round';
+            ctx.strokeText(txt, px, py);
+
+            ctx.fillStyle = color;
+            ctx.globalAlpha = alpha;
+            ctx.fillText(txt, px, py);
+            ctx.globalAlpha = 1;
+        };
+
+        // Split label
+        const lines = node.label.length > 12 ? node.label.split(' ') : [node.label];
+        const mainFont = `bold ${fontSize}px var(--font-mono), monospace`;
+        const mainColor = isHovered ? '#ffffff' : (node.isSatellite ? (node.color || '#8b949e') : '#e6edf3');
 
         lines.forEach((line, idx) => {
-            const lineOffset = idx * (fontSize + 3);
-            ctx.fillText(line, x, labelY + lineOffset);
+            const lineOffset = idx * (fontSize + 6);
+            drawText(line, x, labelY + lineOffset, mainFont, mainColor);
         });
 
-        // Draw Sublabel
+        // Sublabel
         if (node.sublabel) {
-            const sublabelY = labelY + (lines.length * (fontSize + 3)) + 4;
-            ctx.font = `${subFontSize}px var(--font-mono), monospace`;
-            ctx.fillStyle = node.isSatellite ? 'rgba(139, 148, 158, 0.6)' : '#8b949e';
-            ctx.fillText(node.sublabel, x, sublabelY);
+            const sublabelY = labelY + (lines.length * (fontSize + 6)) + 10;
+            const subFont = `${subFontSize}px var(--font-mono), monospace`;
+            const subColor = node.isSatellite ? '#8b949e' : '#8b949e';
+            drawText(node.sublabel, x, sublabelY, subFont, subColor, 0.9);
         }
 
         ctx.restore();
@@ -116,7 +139,7 @@ export const LabelRenderer = {
      */
     drawStandardText(ctx, text, x, y, options = {}) {
         const {
-            fontSize = 8,
+            fontSize = 14,
             color = '#8b949e',
             align = 'center',
             bold = false,
@@ -125,9 +148,17 @@ export const LabelRenderer = {
 
         ctx.save();
         ctx.font = `${bold ? 'bold ' : ''}${fontSize}px var(--font-mono), monospace`;
-        ctx.fillStyle = color;
+
         ctx.textAlign = align;
         ctx.textBaseline = baseline;
+
+        // Contrast stroke (drawn first so fill is on top)
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.lineJoin = 'round';
+        ctx.strokeText(text, x, y);
+
+        ctx.fillStyle = color;
         ctx.fillText(text, x, y);
         ctx.restore();
     },
@@ -135,13 +166,24 @@ export const LabelRenderer = {
     /**
      * Draw node icon with consistent offset
      */
-    drawNodeIcon(ctx, icon, x, y, isSatellite) {
+    drawNodeIcon(ctx, icon, x, y, isSatellite, zoomScale = 1, dynamicRadius = null) {
         ctx.save();
-        ctx.font = isSatellite ? '12px sans-serif' : '20px sans-serif';
+
+        // Standard icon size
+        const baseSize = isSatellite ? 18 : 28;
+        const radius = (dynamicRadius || (isSatellite ? 25 : 35)) * zoomScale;
+
+        // RE-CALCULATION: Keep icon relative to node but with readability limits
+        const finalSize = Math.min(baseSize, Math.max(12, radius * 1.5));
+
+        ctx.font = `${finalSize}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#ffffff'; // Icons are usually white/colored emojis
-        ctx.fillText(icon, x, y - (isSatellite ? 0 : 5));
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 4;
+
+        ctx.fillText(icon, x, y);
         ctx.restore();
     },
 

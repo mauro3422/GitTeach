@@ -7,6 +7,62 @@
 import { UI_COLORS } from './colors.js';
 
 // =============================================
+//   INTERNAL COMPONENT DESCRIPTIONS
+// =============================================
+export const INTERNAL_COMPONENT_DESCRIPTIONS = {
+    // API Fetch
+    'RepoTreeFetcher': 'Busca y descarga la estructura de archivos de un repositorio.',
+    'FileDownloader': 'Gestiona la descarga asíncrona de archivos individuales.',
+
+    // Cache Store
+    'CacheRepository': 'Clase principal para persistencia de datos en repositorios locales.',
+    'RepoCacheManager': 'Orquesta la sincronización entre el servidor y la cache local.',
+    'FileCacheManager': 'Gestiona el ciclo de vida y versionado de archivos en la cache.',
+    'fs/temp_store': 'Directorio temporal para archivos en procesamiento intermedio.',
+    'lib/buffer_cache': 'Capa de abstracción en memoria para acceso rápido a archivos frecuentes.',
+    'sys/integrity_check': 'Módulo de validación de checksums para garantizar datos íntegros.',
+
+    // Auditor
+    'FileAuditor': 'Analiza el contenido de los archivos para determinar su relevancia forense.',
+    'FindingsCurator': 'Filtra y agrupa hallazgos técnicos para evitar redundancias.',
+    'FileProcessor': 'Aplica transformaciones y extracciones básicas a nivel de archivo.',
+    'FileFilter': 'Configuración de exclusión basándose en patrones de nombre y tipo.',
+
+    // Worker Hub
+    'AIWorkerPool': 'Gestiona el conjunto de workers de IA y su estado de carga.',
+    'QueueManager': 'Administra la prioridad y el orden de los archivos en la cola de análisis.',
+    'CoordinatorAgent': 'Supervisa la distribución de tareas entre GPU y CPU.',
+
+    // Embedding
+    'EmbeddingService': 'Interfaz con el modelo de IA para generar vectores semánticos.',
+    'VectorStore': 'Base de datos temporal para almacenar y buscar vectores de similitud.',
+
+    // Mixing Buffer
+    'StreamingHandler': 'Maneja el flujo de datos en tiempo real hacia los mappers.',
+    'EvidenceStore': 'Almacén centralizado de evidencias recolectadas por los workers.',
+    'MemoryManager': 'Optimiza el uso de RAM durante el mezclado de grandes volúmenes de datos.',
+
+    // Compaction
+    'RepoContextManager': 'Mantiene el contexto global del repositorio durante la compactación.',
+    'InsightsCurator': 'Refina los hallazgos para extraer patrones de alto nivel.',
+    'InsightPartitioner': 'Divide los hallazgos en categorías lógicas para su análisis.',
+
+    // DNA Synth
+    'DNASynthesizer': 'Generador del perfil técnico principal basándose en evidencias.',
+    'SynthesisOrchestrator': 'Coordina los diferentes motores de síntesis técnica.',
+    'DNAPromptBuilder': 'Construye prompts dinámicos para los modelos de síntesis.',
+    'DNAParser': 'Interpreta y estructura la salida XML/JSON de los modelos de DNA.',
+
+    // Persistence
+    'CacheService': 'Servicio principal de acceso a datos persistidos.',
+    'LevelDBManager': 'Gestor de bajo nivel para la base de datos key-value.',
+
+    // Intelligence
+    'IntelligenceSynthesizer': 'Capa final que genera la identidad humana y profesional.',
+    'GlobalIdentityRefiner': 'Pulimenta el perfil final asegurando coherencia semántica.'
+};
+
+// =============================================
 //   NODE COLOR PRESETS
 // =============================================
 const COLORS = {
@@ -91,7 +147,14 @@ export const PIPELINE_NODES = {
         activeColor: UI_COLORS.GREEN,
         isRepoContainer: true,
         description: 'Almacena localmente los archivos descargados. Evita re-descargas usando checksums (SHA).',
-        internalClasses: ['CacheRepository', 'RepoCacheManager', 'FileCacheManager']
+        internalClasses: [
+            'CacheRepository',
+            'RepoCacheManager',
+            'FileCacheManager',
+            'fs/temp_store',
+            'lib/buffer_cache',
+            'sys/integrity_check'
+        ]
     }),
 
     // === AUDITOR FACTORY ===
@@ -128,9 +191,9 @@ export const PIPELINE_NODES = {
     worker_3: createWorkerSlot(3, 0.62, 0.90),
 
     // === MIXING BUFFER FACTORY ===
-    mixing_buffer: createNode('mixing_buffer', 'Evidence Mixer', '🧬', 1.25, 0.50, 'blue', {
-        sublabel: 'Buffer Handler',
-        description: 'Mezcla esqueletos con Rich Findings. Gatekeeper: richRepos >= 1 || decentRepos >= 2.',
+    mixing_buffer: createNode('mixing_buffer', 'Mixing Buffer', '🌪️', 0.72, 0.50, 'neutral', {
+        activeColor: UI_COLORS.PURPLE,
+        description: 'Mezcla y organiza evidencias parciales antes de la síntesis final.',
         internalClasses: ['StreamingHandler', 'EvidenceStore', 'MemoryManager']
     }),
 

@@ -11,7 +11,7 @@ export const PipelineUI = {
      * Show the inspection drawer for a specific node
      */
     showDrawer(container, selectedNode, nodeStats, nodeHistory, nodeStates, onClose) {
-        drawerManager.show(container, selectedNode, nodeStats, nodeHistory, nodeStates, onClose);
+        drawerManager.show(container);
         drawerManager.updateDrawer(selectedNode, nodeStats, nodeHistory, nodeStates, onClose);
     },
 

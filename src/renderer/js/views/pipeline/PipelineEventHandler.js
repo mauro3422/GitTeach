@@ -8,80 +8,15 @@ import { PIPELINE_NODES, EVENT_NODE_MAP } from './PipelineConstants.js';
 import { PIPELINE_CONFIG } from './pipelineConfig.js';
 import { UI_COLORS } from './colors.js';
 import { PipelineStateManager } from './PipelineStateManager.js';
+import { RepoEventStrategies } from './strategies/RepoEventStrategies.js';
+import { WorkerEventStrategies } from './strategies/WorkerEventStrategies.js';
+import { MapperEventStrategies } from './strategies/MapperEventStrategies.js';
 
 export const PipelineEventHandler = {
     // Strategy pattern for event handling
     eventStrategies: {
-        'repo:detected': function (entry, spawnParticles, spawnTravelingPackage) {
-            const slotId = PipelineStateManager.assignRepoToSlot(entry.payload.repo);
-            if (slotId) {
-                PipelineEventHandler.handleDynamicRepoNode(slotId, entry.payload, 'detected');
-            }
-
-            // Phase C: Pulse data_source as visual entry point
-            const dataSourceStats = PipelineStateManager.nodeStats['data_source'];
-            dataSourceStats.count = (dataSourceStats.count || 0) + 1;
-            dataSourceStats.currentLabel = entry.payload.repo;
-            PipelineStateManager.nodeStates['data_source'] = 'active';
-            spawnParticles('data_source', UI_COLORS.NEUTRAL_ACTIVE);
-            spawnTravelingPackage('data_source', 'api_fetch', 'RAW_FILE');
-
-            return { nodeId: slotId, status: 'detected', isDynamic: true };
-        },
-
-        'repo:tree:fetched': function (entry, spawnParticles, spawnTravelingPackage) {
-            const slotId = PipelineStateManager.updateRepoSlotState(entry.payload.repo, {
-                filesCount: entry.payload.filesCount,
-                status: 'fetched'
-            });
-            if (slotId) {
-                PipelineEventHandler.handleDynamicRepoNode(slotId, entry.payload, 'fetched');
-            }
-            return { nodeId: slotId, status: 'fetched', isDynamic: true };
-        },
-
-        'repo:files:extracting': function (entry, spawnParticles, spawnTravelingPackage) {
-            const slotId = PipelineStateManager.updateRepoSlotState(entry.payload.repo, {
-                status: 'extracting'
-            });
-            if (slotId) {
-                PipelineEventHandler.handleDynamicRepoNode(slotId, entry.payload, 'extracting');
-                spawnTravelingPackage(slotId, 'auditor', 'RAW_FILE');
-            }
-            return { nodeId: slotId, status: 'extracting', isDynamic: true };
-        },
-
-        'repo:complete': function (entry, spawnParticles, spawnTravelingPackage) {
-            PipelineStateManager.releaseRepoSlot(entry.payload.repo);
-            return { nodeId: 'cache', status: 'complete', isDynamic: true };
-        },
-
-        'file:cache:hit': function (entry, spawnParticles, spawnTravelingPackage) {
-            // Golden Ray: Bypass AI workers
-            spawnTravelingPackage('workers_hub', 'mixing_buffer', 'FRAGMENT', UI_COLORS.GOLDEN_HIT || '#FFD700');
-            return { nodeId: 'mixing_buffer', status: 'receiving' };
-        },
-
-        'hub:circuit:open': function (entry, spawnParticles, spawnTravelingPackage) {
-            const stats = PipelineStateManager.nodeStats['workers_hub'];
-            stats.status = 'paused';
-            stats.currentLabel = '⚠️ CIRCUIT BREAKER OPEN';
-            spawnParticles('workers_hub', UI_COLORS.RED);
-            return { nodeId: 'workers_hub', status: 'paused' };
-        },
-
-        'hub:circuit:closed': function (entry, spawnParticles, spawnTravelingPackage) {
-            const stats = PipelineStateManager.nodeStats['workers_hub'];
-            stats.status = 'active';
-            stats.currentLabel = 'Worker Hub';
-            return { nodeId: 'workers_hub', status: 'idle' };
-        },
-
-        'pipeline:resurrection': function (entry, spawnParticles, spawnTravelingPackage) {
-            // Emergency Lane
-            spawnTravelingPackage('cache', 'mixing_buffer', 'FRAGMENT', UI_COLORS.AMBER || '#FFBF00');
-            return { nodeId: 'mixing_buffer', status: 'receiving' };
-        },
+        ...RepoEventStrategies,
+        ...WorkerEventStrategies,
 
         'mixer:gate:locked': function (entry, spawnParticles, spawnTravelingPackage) {
             const stats = PipelineStateManager.nodeStats['mixing_buffer'];
@@ -111,43 +46,7 @@ export const PipelineEventHandler = {
             return { nodeId: 'intelligence', status: 'active' };
         },
 
-        // ===== CPU SECTOR: 3 Parallel Mappers =====
-        'mapper:start': function (entry, spawnParticles, spawnTravelingPackage) {
-            const mapperType = entry.payload?.mapper; // architecture | habits | stack
-            const nodeId = mapperType ? `mapper_${mapperType}` : 'mapper_habits';
-
-            const stats = PipelineStateManager.nodeStats[nodeId];
-            const states = PipelineStateManager.nodeStates;
-
-            states[nodeId] = 'active';
-            stats.count = (stats.count || 0) + 1;
-            stats.status = 'processing';
-            stats.currentLabel = `${mapperType?.toUpperCase() || 'MAPPER'}`;
-            stats.startTime = Date.now();
-
-            spawnParticles(nodeId, UI_COLORS.YELLOW_ACTIVE);
-            spawnTravelingPackage('mixing_buffer', nodeId, 'METADATA');
-
-            return { nodeId, status: 'active' };
-        },
-
-        'mapper:end': function (entry, spawnParticles, spawnTravelingPackage) {
-            const mapperType = entry.payload?.mapper;
-            const nodeId = mapperType ? `mapper_${mapperType}` : 'mapper_habits';
-
-            const stats = PipelineStateManager.nodeStats[nodeId];
-            const states = PipelineStateManager.nodeStates;
-
-            states[nodeId] = 'idle';
-            stats.status = entry.payload?.success ? 'done' : 'error';
-            stats.durationMs = stats.startTime ? Date.now() - stats.startTime : 0;
-            stats.currentLabel = entry.payload?.success ? `✓ ${mapperType}` : `✗ ${mapperType}`;
-
-            // Flow to DNA Synth
-            spawnTravelingPackage(nodeId, 'dna_synth', 'INSIGHT');
-
-            return { nodeId, status: 'idle' };
-        },
+        ...MapperEventStrategies,
 
         // ===== Phase B: Embedding Server (port 8001) =====
         'embedding:start': function (entry, spawnParticles, spawnTravelingPackage) {
