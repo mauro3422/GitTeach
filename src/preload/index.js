@@ -94,4 +94,8 @@ contextBridge.exposeInMainWorld('debugAPI', {
     listSessions: () => ipcRenderer.invoke('debug:list-sessions')
 });
 
-// Información básica del sistema si hace falta
+// Designer Blueprint API (File-based persistence for debugging)
+contextBridge.exposeInMainWorld('designerAPI', {
+    saveBlueprint: (blueprint) => ipcRenderer.invoke('designer:save-blueprint', blueprint),
+    loadBlueprint: () => ipcRenderer.invoke('designer:load-blueprint')
+});

@@ -1,36 +1,32 @@
 import { DesignerCanvas } from './DesignerCanvas.js';
+import { PanZoomHandler } from './interaction/PanZoomHandler.js';
+import { DragHandler } from './interaction/DragHandler.js';
+import { ResizeHandler } from './interaction/ResizeHandler.js';
+import { ConnectionDrawer } from './interaction/ConnectionDrawer.js';
 
 export const DesignerInteraction = {
     canvas: null,
     nodes: null,
     onUpdate: null,
-    onConnection: null, // NEW: Callback for when a connection is finished
-    onNodeDoubleClick: null, // NEW: Callback for messaging
-    onNodeDrop: null, // NEW: Callback for parenting
-    draggedNodeId: null,
-    dropTargetId: null, // Track potential parent container
-    panAnimation: null, // Track active centering animation
+    onConnection: null,
+    onNodeDoubleClick: null,
+    onNodeDrop: null,
+    onStickyNoteEdit: null,
+    onInteractionEnd: null,
 
-    // Resize state
-    resizingNodeId: null,
-    resizeCorner: null, // 'nw' | 'ne' | 'sw' | 'se'
-    resizeStartWorld: null,
-    resizeStartSize: null,
-    resizeChildPositions: null, // { childId: { relX, relY } } - relative positions at resize start
-
-    // NEW: Manual Connection state
-    mode: 'DRAG', // 'DRAG' or 'DRAW'
-    activeConnection: null, // { fromNode, currentPos }
-    hoveredNodeId: null, // Track mouse over node
-
-    state: {
-        panOffset: { x: 0, y: 0 },
-        zoomScale: 1.5, // Start zoomed in for better readability
-        isPanning: false,
-        lastPanPos: { x: 0, y: 0 },
-        minZoom: 0.3,
-        maxZoom: 4.0
+    // Compatibility getter - delegates to PanZoomHandler
+    get state() {
+        return PanZoomHandler.state;
     },
+
+    // Compatibility getter - delegates to ConnectionDrawer
+    get activeConnection() {
+        return ConnectionDrawer.activeConnection;
+    },
+
+    // Interaction mode
+    mode: 'DRAG', // 'DRAG' or 'DRAW'
+    hoveredNodeId: null, // Track mouse over node
 
     init(canvas, nodes, onUpdate, onConnection, onNodeDoubleClick, onNodeDrop, onStickyNoteEdit, onInteractionEnd) {
         this.canvas = canvas;
@@ -41,6 +37,12 @@ export const DesignerInteraction = {
         this.onNodeDrop = onNodeDrop;
         this.onStickyNoteEdit = onStickyNoteEdit;
         this.onInteractionEnd = onInteractionEnd;
+
+        // Initialize interaction modules
+        PanZoomHandler.init({ panOffset: { x: 0, y: 0 }, zoomScale: 1.5 });
+        DragHandler.init(nodes);
+        ResizeHandler.init(nodes);
+        ConnectionDrawer.init(canvas);
 
         this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
@@ -60,7 +62,7 @@ export const DesignerInteraction = {
         window.addEventListener('keyup', (e) => {
             if (e.key === 'Control' && this.mode === 'DRAW') {
                 this.mode = 'DRAG';
-                this.activeConnection = null; // Cancel any in-progress connection
+                ConnectionDrawer.cancelConnection();
                 this.canvas.style.cursor = 'default';
                 this.onUpdate?.();
             }
@@ -89,56 +91,13 @@ export const DesignerInteraction = {
     },
 
     cancelInteraction() {
-        if (this.draggedNodeId) {
-            const node = this.nodes[this.draggedNodeId];
-            if (node) node.isDragging = false;
-            this.draggedNodeId = null;
-        }
-        this.activeConnection = null;
+        DragHandler.cancelDrag();
+        ConnectionDrawer.cancelConnection();
         this.onUpdate();
     },
 
     centerOnNode(nodeId, drawerWidth = 0) {
-        const node = this.nodes[nodeId];
-        if (!node) return;
-
-        const targetX = (window.innerWidth - drawerWidth) / 2;
-        const targetY = window.innerHeight / 2;
-
-        const targetPanX = targetX - (node.x * this.state.zoomScale);
-        const targetPanY = targetY - (node.y * this.state.zoomScale);
-
-        this.animatePan(targetPanX, targetPanY);
-    },
-
-    animatePan(targetX, targetY) {
-        if (this.panAnimation) cancelAnimationFrame(this.panAnimation);
-
-        const startX = this.state.panOffset.x;
-        const startY = this.state.panOffset.y;
-        const duration = 400; // ms
-        const startTime = performance.now();
-
-        const step = (now) => {
-            const elapsed = now - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-
-            // Easing: easeOutCubic
-            const ease = 1 - Math.pow(1 - progress, 3);
-
-            this.state.panOffset.x = startX + (targetX - startX) * ease;
-            this.state.panOffset.y = startY + (targetY - startY) * ease;
-
-            this.onUpdate();
-
-            if (progress < 1) {
-                this.panAnimation = requestAnimationFrame(step);
-            } else {
-                this.panAnimation = null;
-            }
-        };
-
-        this.panAnimation = requestAnimationFrame(step);
+        PanZoomHandler.centerOnNode(this.nodes[nodeId], { width: window.innerWidth, height: window.innerHeight }, drawerWidth);
     },
 
     getMousePos(e) {
@@ -150,10 +109,11 @@ export const DesignerInteraction = {
     },
 
     screenToWorld(pos) {
-        return {
-            x: (pos.x - this.state.panOffset.x) / this.state.zoomScale,
-            y: (pos.y - this.state.panOffset.y) / this.state.zoomScale
-        };
+        return PanZoomHandler.screenToWorld(pos);
+    },
+
+    worldToScreen(pos) {
+        return PanZoomHandler.worldToScreen(pos);
     },
 
     findNodeAt(worldPos, excludeId = null) {
@@ -178,7 +138,7 @@ export const DesignerInteraction = {
             if (node.isRepoContainer || node.isStickyNote) continue;
 
             // Use the same dynamic radius as rendering for pixel-perfect hit detection
-            const radius = DesignerCanvas.getNodeRadius(node, this.state.zoomScale);
+            const radius = DesignerCanvas.getNodeRadius(node, PanZoomHandler.state.zoomScale);
             const dist = Math.sqrt((node.x - worldPos.x) ** 2 + (node.y - worldPos.y) ** 2);
             if (dist < radius) return node;
         }
@@ -188,7 +148,7 @@ export const DesignerInteraction = {
             if (excludeId && node.id === excludeId) continue;
             if (!node.isRepoContainer) continue;
 
-            const bounds = DesignerCanvas.getContainerBounds(node, this.nodes, this.state.zoomScale);
+            const bounds = DesignerCanvas.getContainerBounds(node, this.nodes, PanZoomHandler.state.zoomScale);
             const w = bounds.w + 10;
             const h = bounds.h + 10;
             if (worldPos.x >= node.x - w / 2 && worldPos.x <= node.x + w / 2 &&
@@ -208,7 +168,7 @@ export const DesignerInteraction = {
 
             let w, h;
             if (node.isRepoContainer) {
-                const bounds = DesignerCanvas.getContainerBounds(node, this.nodes, this.state.zoomScale);
+                const bounds = DesignerCanvas.getContainerBounds(node, this.nodes, PanZoomHandler.state.zoomScale);
                 w = bounds.w;
                 h = bounds.h;
             } else {
@@ -232,75 +192,31 @@ export const DesignerInteraction = {
     },
 
     handleMouseDown(e) {
-        if (this.panAnimation) {
-            cancelAnimationFrame(this.panAnimation);
-            this.panAnimation = null;
-        }
-
         const rawPos = this.getMousePos(e);
         const worldPos = this.screenToWorld(rawPos);
 
         // PANNING (Middle or Right button)
         if (e.button === 1 || e.button === 2) {
-            this.state.isPanning = true;
-            this.state.lastPanPos = { ...rawPos };
+            PanZoomHandler.startPan(rawPos);
             return;
         }
 
         // LEFT CLICK
         if (e.button === 0) {
-            const clickedNode = this.findNodeAt(worldPos);
-
-            // Priority 1: Regular Node Drag (Prevents accidental container resize)
-            if (clickedNode && !clickedNode.isRepoContainer && !clickedNode.isStickyNote) {
-                if (this.mode === 'DRAG') {
-                    this.draggedNodeId = clickedNode.id;
-                    clickedNode.isDragging = true;
-                    this.onUpdate();
-                    return;
-                }
-            }
-
-            // Priority 2: Resize handles (For sticky notes and potentially containers if no node was hit)
-            const resizeHandle = this.findResizeHandle(worldPos);
+            // Priority 1: Resize handles
+            const resizeHandle = ResizeHandler.findResizeHandle(worldPos);
             if (resizeHandle) {
-                this.resizingNodeId = resizeHandle.nodeId;
-                this.resizeCorner = resizeHandle.corner;
-                this.resizeStartWorld = { ...worldPos };
-                this.resizeStartSize = { w: resizeHandle.w, h: resizeHandle.h };
-
-                // Capture relative positions of children for proportional scaling
-                const containerNode = this.nodes[resizeHandle.nodeId];
-                if (containerNode && containerNode.isRepoContainer) {
-                    this.resizeChildPositions = {};
-                    Object.values(this.nodes).forEach(child => {
-                        if (child.parentId === resizeHandle.nodeId) {
-                            // Store position relative to container center
-                            this.resizeChildPositions[child.id] = {
-                                relX: child.x - containerNode.x,
-                                relY: child.y - containerNode.y
-                            };
-                        }
-                    });
-                }
+                ResizeHandler.startResize(resizeHandle.nodeId, resizeHandle.corner, worldPos);
                 return;
             }
 
-            // Priority 3: Sticky Note Drag or Container Drag
+            // Priority 2: Node interactions
+            const clickedNode = this.findNodeAt(worldPos);
             if (clickedNode) {
                 if (this.mode === 'DRAG') {
-                    this.draggedNodeId = clickedNode.id;
-                    clickedNode.isDragging = true;
+                    DragHandler.startDrag(clickedNode.id, worldPos);
                 } else if (this.mode === 'DRAW') {
-                    if (this.activeConnection) {
-                        if (this.activeConnection.fromNode.id === clickedNode.id) {
-                            this.activeConnection = null;
-                        } else {
-                            this.finishConnection(clickedNode);
-                        }
-                    } else {
-                        this.activeConnection = { fromNode: clickedNode, currentPos: worldPos };
-                    }
+                    ConnectionDrawer.handleClick(worldPos, this.nodes, this.onConnection);
                 }
             }
             this.onUpdate();
@@ -312,76 +228,25 @@ export const DesignerInteraction = {
         const worldPos = this.screenToWorld(rawPos);
 
         // Cursor feedback for resize handles
-        const resizeHandle = this.findResizeHandle(worldPos);
+        const resizeHandle = ResizeHandler.findResizeHandle(worldPos);
         if (resizeHandle) {
-            const cursor = (resizeHandle.corner === 'nw' || resizeHandle.corner === 'se') ? 'nwse-resize' : 'nesw-resize';
-            this.canvas.style.cursor = cursor;
-        } else if (!this.resizingNodeId) {
+            this.canvas.style.cursor = ResizeHandler.getResizeCursor(resizeHandle.corner);
+        } else if (!ResizeHandler.isResizing()) {
             this.canvas.style.cursor = 'default';
         }
 
-        // RESIZING
-        if (this.resizingNodeId) {
-            const node = this.nodes[this.resizingNodeId];
-            const dx = worldPos.x - this.resizeStartWorld.x;
-            const dy = worldPos.y - this.resizeStartWorld.y;
-            const minW = 60, minH = 40;
-
-            let newW = this.resizeStartSize.w;
-            let newH = this.resizeStartSize.h;
-
-            // Apply delta based on corner
-            if (this.resizeCorner === 'se') { newW += dx * 2; newH += dy * 2; }
-            if (this.resizeCorner === 'sw') { newW -= dx * 2; newH += dy * 2; }
-            if (this.resizeCorner === 'ne') { newW += dx * 2; newH -= dy * 2; }
-            if (this.resizeCorner === 'nw') { newW -= dx * 2; newH -= dy * 2; }
-
-            if (node.isStickyNote) {
-                node.width = Math.max(minW, newW);
-                node.height = Math.max(minH, newH);
-            } else {
-                node.manualWidth = Math.max(minW, newW);
-                node.manualHeight = Math.max(minH, newH);
-            }
-
-            // PROPORTIONAL SCALING: Move child nodes maintaining relative positions
-            // Note: Designer uses this.nodes, NOT LayoutEngine, so we enforce directly here
-            if (node.isRepoContainer && this.resizeChildPositions) {
-                const newWidth = node.manualWidth || node.width || 180;
-                const newHeight = node.manualHeight || node.height || 100;
-                const startWidth = this.resizeStartSize.w;
-                const startHeight = this.resizeStartSize.h;
-                const margin = 40;
-
-                // Calculate scale factors (how much the container shrank/grew)
-                const scaleX = (newWidth - margin * 2) / Math.max(startWidth - margin * 2, 1);
-                const scaleY = (newHeight - margin * 2) / Math.max(startHeight - margin * 2, 1);
-
-                const bounds = {
-                    minX: node.x - newWidth / 2 + margin,
-                    minY: node.y - newHeight / 2 + margin,
-                    maxX: node.x + newWidth / 2 - margin,
-                    maxY: node.y + newHeight / 2 - margin
-                };
-
-                // Scale children proportionally and clamp to bounds
-                Object.values(this.nodes).forEach(child => {
-                    if (child.parentId === node.id && this.resizeChildPositions[child.id]) {
-                        const startRel = this.resizeChildPositions[child.id];
-                        // Apply proportional scaling from center
-                        const newRelX = startRel.relX * scaleX;
-                        const newRelY = startRel.relY * scaleY;
-                        child.x = node.x + newRelX;
-                        child.y = node.y + newRelY;
-                        // Final clamp to stay within bounds
-                        child.x = Math.max(bounds.minX, Math.min(bounds.maxX, child.x));
-                        child.y = Math.max(bounds.minY, Math.min(bounds.maxY, child.y));
-                    }
-                });
-            }
-
+        // Handle interactions in priority order
+        if (ResizeHandler.isResizing()) {
+            ResizeHandler.updateResize(worldPos, this.onUpdate);
+        } else if (PanZoomHandler.state.isPanning) {
+            PanZoomHandler.updatePan(rawPos);
             this.onUpdate();
-            return;
+        } else if (DragHandler.isDragging()) {
+            DragHandler.updateDrag(worldPos, this.nodes);
+            this.onUpdate();
+        } else if (ConnectionDrawer.isDrawing()) {
+            ConnectionDrawer.updateConnection(worldPos);
+            this.onUpdate();
         }
 
         // Update hovered node
@@ -389,140 +254,39 @@ export const DesignerInteraction = {
         const newHoverId = overNode ? overNode.id : null;
         if (this.hoveredNodeId !== newHoverId) {
             this.hoveredNodeId = newHoverId;
-            // Update all nodes' hover state
             Object.values(this.nodes).forEach(n => n.isHovered = (n.id === newHoverId));
-            this.onUpdate();
-        }
-
-        if (this.state.isPanning) {
-            const dx = rawPos.x - this.state.lastPanPos.x;
-            const dy = rawPos.y - this.state.lastPanPos.y;
-            this.state.panOffset.x += dx;
-            this.state.panOffset.y += dy;
-            this.state.lastPanPos = { ...rawPos };
-            this.onUpdate();
-            return;
-        }
-
-        if (this.mode === 'DRAG' && this.draggedNodeId) {
-            const node = this.nodes[this.draggedNodeId];
-            const dx = worldPos.x - node.x;
-            const dy = worldPos.y - node.y;
-
-            node.x = worldPos.x;
-            node.y = worldPos.y;
-
-            // --- DROP DETECTION ---
-            if (!node.isRepoContainer) {
-                const target = this.findNodeAt(worldPos, this.draggedNodeId);
-                this.dropTargetId = (target && target.isRepoContainer) ? target.id : null;
-                // Sync state for rendering
-                Object.values(this.nodes).forEach(n => n.isDropTarget = (n.id === this.dropTargetId));
-            }
-
-            // Group Dragging: Move children with parent
-            if (node.isRepoContainer) {
-                Object.values(this.nodes).forEach(child => {
-                    if (child.parentId === node.id) {
-                        child.x += dx;
-                        child.y += dy;
-                    }
-                });
-            }
-
-            this.onUpdate();
-        } else if (this.mode === 'DRAW' && this.activeConnection) {
-            this.activeConnection.currentPos = worldPos;
             this.onUpdate();
         }
     },
 
     handleMouseUp() {
-        if (this.state.isPanning) {
-            this.state.isPanning = false;
-        }
+        PanZoomHandler.endPan();
 
-        // Clear resize state
-        if (this.resizingNodeId) {
-            this.resizingNodeId = null;
-            this.resizeCorner = null;
-            this.resizeStartWorld = null;
-            this.resizeStartSize = null;
-            this.resizeChildPositions = null; // Clear child positions snapshot
+        if (ResizeHandler.isResizing()) {
+            ResizeHandler.endResize();
             this.canvas.style.cursor = 'default';
             this.onUpdate();
             return;
         }
 
-        if (this.mode === 'DRAG' && this.draggedNodeId) {
-            const node = this.nodes[this.draggedNodeId];
-
-            // Finalize Drop Parenting (drop INTO a container)
-            if (this.dropTargetId && this.onNodeDrop) {
-                this.onNodeDrop(this.draggedNodeId, this.dropTargetId);
-            }
-            // Unparent Detection (drag OUT of a container)
-            else if (node.parentId && !this.dropTargetId) {
-                const parent = this.nodes[node.parentId];
-                if (parent) {
-                    const bounds = DesignerCanvas.getContainerBounds(parent, this.nodes);
-                    const isInside = node.x >= parent.x - bounds.w / 2 && node.x <= parent.x + bounds.w / 2 &&
-                        node.y >= parent.y - bounds.h / 2 && node.y <= parent.y + bounds.h / 2;
-                    if (!isInside) {
-                        console.log(`[DesignerInteraction] Unparented ${node.id} from ${node.parentId}`);
-                        node.parentId = null;
-                    }
-                }
-            }
-
-            node.isDragging = false;
-            this.draggedNodeId = null;
-            this.dropTargetId = null;
-            Object.values(this.nodes).forEach(n => n.isDropTarget = false);
-        } else if (this.mode === 'DRAW' && this.activeConnection) {
-            const worldPos = this.activeConnection.currentPos;
-            const endNode = this.findNodeAt(worldPos);
-
-            // Drag-Drop completion: only if the mouse moved away from start node
-            if (endNode && endNode.id !== this.activeConnection.fromNode.id) {
-                this.finishConnection(endNode);
-            }
-            // We DON'T null activeConnection here to allow click-click style, 
-            // unless we actually finished it.
+        if (this.mode === 'DRAG' && DragHandler.isDragging()) {
+            DragHandler.endDrag(this.onNodeDrop);
+            this.onUpdate();
         }
 
         this.onUpdate();
         if (this.onInteractionEnd) this.onInteractionEnd();
     },
 
-    finishConnection(endNode) {
-        if (!this.activeConnection) return;
-        if (this.onConnection) {
-            this.onConnection(this.activeConnection.fromNode.id, endNode.id);
-        }
-        this.activeConnection = null;
-    },
-
     handleWheel(e) {
         e.preventDefault();
+        const rawPos = this.getMousePos(e);
+        PanZoomHandler.handleWheel(e.deltaY, rawPos, this.onUpdate);
 
-        if (this.panAnimation) {
-            cancelAnimationFrame(this.panAnimation);
-            this.panAnimation = null;
-        }
-
-        const delta = e.deltaY > 0 ? 0.9 : 1.1;
-        const nextZoom = this.state.zoomScale * delta;
-        if (nextZoom >= this.state.minZoom && nextZoom <= this.state.maxZoom) {
-            this.state.zoomScale = nextZoom;
-
-            // Update zoom indicator
-            const indicator = document.getElementById('zoom-value');
-            if (indicator) {
-                indicator.textContent = `${Math.round(nextZoom * 100)}%`;
-            }
-
-            this.onUpdate();
+        // Update zoom indicator
+        const indicator = document.getElementById('zoom-value');
+        if (indicator) {
+            indicator.textContent = `${Math.round(PanZoomHandler.state.zoomScale * 100)}%`;
         }
     }
 };

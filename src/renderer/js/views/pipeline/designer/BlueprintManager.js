@@ -8,9 +8,15 @@ export const BlueprintManager = {
     save(manualConnections = [], nodesOverride = null) {
         const blueprint = this.generateBlueprint(manualConnections, nodesOverride);
 
-        // Persistent save in LocalStorage
+        // Persistent save to file system (primary) and LocalStorage (backup)
+        if (window.designerAPI) {
+            window.designerAPI.saveBlueprint(blueprint).then(result => {
+                console.log(`[BlueprintManager] Saved to: ${result.path}`);
+            });
+        }
         localStorage.setItem('giteach_designer_blueprint', JSON.stringify(blueprint));
 
+        // Also download for manual backup
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(blueprint, null, 2));
         const downloadAnchorNode = document.createElement('a');
         downloadAnchorNode.setAttribute("href", dataStr);
@@ -19,15 +25,35 @@ export const BlueprintManager = {
         downloadAnchorNode.click();
         downloadAnchorNode.remove();
 
-        console.log("[BlueprintManager] Saved manual blueprint and persisted to localStorage:", blueprint);
+        console.log("[BlueprintManager] Saved manual blueprint and persisted:", blueprint);
     },
 
-    autoSave(nodes, manualConnections = []) {
+    async autoSave(nodes, manualConnections = []) {
         const blueprint = this.generateBlueprint(manualConnections, nodes);
+
+        // Save to file system (primary) for debugging
+        if (window.designerAPI) {
+            await window.designerAPI.saveBlueprint(blueprint);
+        }
+        // Also save to LocalStorage as backup
         localStorage.setItem('giteach_designer_blueprint', JSON.stringify(blueprint));
     },
 
-    loadFromLocalStorage() {
+    async loadFromLocalStorage() {
+        // Try file system first (for debugging persistence)
+        if (window.designerAPI) {
+            try {
+                const fileData = await window.designerAPI.loadBlueprint();
+                if (fileData) {
+                    console.log("[BlueprintManager] Loaded from file system");
+                    return fileData;
+                }
+            } catch (e) {
+                console.warn("[BlueprintManager] File system load failed:", e);
+            }
+        }
+
+        // Fallback to LocalStorage
         const data = localStorage.getItem('giteach_designer_blueprint');
         if (!data) return null;
         try {

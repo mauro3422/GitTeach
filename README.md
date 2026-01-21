@@ -5,15 +5,14 @@ GitTeach is a high-performance desktop platform (Electron) engineered for deep t
 
 ---
 
-## 🍱 **The Master UI (v2.55.0)**
-The latest evolution introduces **Magnetic Scaling** and **Routing Designer Fixes**:
-- **Proportional Magnetic Scaling**: Elements inside dynamic containers now maintain their relative distance during interactive resizing.
-- **Routing Designer Improvements**: Stabilized module loading and persistent registry for custom layout boxes.
-- **Resolution-Independent UI**: All text labels, icons, and badges are rendered in 1:1 screen pixels, ensuring perfect clarity at all zoom levels.
-- **Dynamic Node Scaling**: Implemented mathematical compensation that grows nodes as you zoom out, maintaining a solid visual presence.
-- **Interactive Architectural Hierarchy**: First-class support for child components (e.g., Cache Store folders) and text-aware bounding boxes.
-- **Inline Renaming Engine**: Real-time label editing directly from the message drawer with full history (Undo/Redo) persistence.
-- **Master Data Highway**: A high-DPI canvas visualizer that tracks every forensic package as it moves through the pipeline.
+## 🍱 **The Master UI (v2.60.0)**
+The latest evolution introduces **SOLID Architecture** and **Disk Persistence**:
+- **SOLID Architectural Pivot**: The entire Designer has been modularized into specialized state-based handlers for interaction, rendering, and domain logic.
+- **Persistent Disk Blueprints**: Blueprints are now saved primarily to the file system (`%appdata%`), ensuring layouts persist even after cache cleared.
+- **Proportional Magnetic Scaling**: Fixed world-space delta logic for pixel-perfect container resizing across all zoom levels.
+- **Resolution-Independent UI**: All text labels, icons, and badges are rendered in 1:1 screen pixels for maximum clarity.
+- **Dynamic Node scaling**: Smart compensation keeps nodes readable at high zoom-out levels.
+- **Improved AI Service**: Decoupled AI transport logic into modular client classes.
 
 ---
 

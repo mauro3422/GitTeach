@@ -8,6 +8,27 @@ All notable changes to the GitTeach project will be documented in this file.
 
 ---
 
+## [2.60.0] - SOLID Architectural Pivot & Persistent Blueprints - 2026-01-21
+### 🏗️ SOLID Architecture Refactor
+- **Monolith Decomposition**: Decoupled `RoutingDesigner.js` and `DesignerInteraction.js` into 13 specialized modules across `modules/`, `interaction/`, and `renderers/` directories.
+- **Composite Rendering Pipeline**: Implemented a phased rendering system in `DesignerCanvas.js` using dedicated renderers for Grid, Containers, Nodes, Connections, and UI.
+- **Stateful Interaction Handlers**: Extracted resize, drag, pan-zoom, and connection logic into encapsulated state machines, improving maintainability and reducing complexity.
+
+### 💾 Persistent File-Based Blueprints
+- **Disk Persistence**: Transitioned from LocalStorage-only to primary file-system persistence at `%appdata%/Giteach/designer_blueprint.json`.
+- **Hybrid Load Strategy**: Automatic fallback to LocalStorage if the physical blueprint file is missing or corrupted.
+- **Designer IPC Bridge**: Implemented secure Electron IPC handlers (`designer:save-blueprint`, `designer:load-blueprint`) for cross-process file access.
+
+### 🔧 Resize Engine v2.0 & Bug Fixes
+- **World-Space Scaling**: Synchronized resize delta calculations with world coordinates, eliminating "zoom-level drift" during container modification.
+- **Predictable Delta Logic**: Refactored `ResizeHandler` to use initial mouse-click anchoring for pixel-perfect scaling control.
+- **Path Resolution Fixes**: Corrected critical relative import paths for `DrawerManager` and `ContainerBoxManager` across the new modular directory structure.
+
+### 🤖 AI Service Modularization
+- **AIClient Decomposition**: Split `AIClient.js` into targeted `APIClient` (HTTP/Stream transport) and `MessageHandler` (Prompt/Response processing) modules.
+
+---
+
 ## [2.55.0] - Magnetic Scaling & Container Resilience - 2026-01-21
 ### 🎨 Designer UX: Proportional Magnetic Scaling
 - **Magnetic Node Scaling**: Implemented proportional node movement during container resize. Nodes now maintain their relative distance to the center, creating a "compressed space" effect.

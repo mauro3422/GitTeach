@@ -1,6 +1,9 @@
 // src/main/handlers/cacheHandler.js
 import cacheService from '../services/cacheService.js';
 import { IpcWrapper } from './IpcWrapper.js';
+import fs from 'fs';
+import path from 'path';
+import { app } from 'electron';
 
 /**
  * Registers all cache-related IPC handlers.
@@ -207,6 +210,37 @@ export function register(ipcMain) {
         'cache:switch-session',
         (event, sessionId) => cacheService.switchSession(sessionId),
         'cache:switch-session'
+    );
+
+    // --- Designer Blueprint Persistence (File-based for debugging) ---
+    const getDesignerBlueprintPath = () => {
+        const userDataPath = app.getPath('userData');
+        return path.join(userDataPath, 'designer_blueprint.json');
+    };
+
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'designer:save-blueprint',
+        (event, blueprint) => {
+            const filePath = getDesignerBlueprintPath();
+            fs.writeFileSync(filePath, JSON.stringify(blueprint, null, 2), 'utf-8');
+            console.log(`[Designer] Blueprint saved to: ${filePath}`);
+            return { success: true, path: filePath };
+        },
+        'designer:save-blueprint'
+    );
+
+    IpcWrapper.registerHandler(
+        ipcMain,
+        'designer:load-blueprint',
+        () => {
+            const filePath = getDesignerBlueprintPath();
+            if (!fs.existsSync(filePath)) return null;
+            const data = fs.readFileSync(filePath, 'utf-8');
+            return JSON.parse(data);
+        },
+        'designer:load-blueprint',
+        true, null
     );
 
     console.log('[Handlers] ✅ cacheHandler registered with IpcWrapper.');

@@ -1,53 +1,52 @@
 import { DesignerCanvas } from './DesignerCanvas.js';
 import { DesignerInteraction } from './DesignerInteraction.js';
 import { BlueprintManager } from './BlueprintManager.js';
-import { PIPELINE_NODES } from '../PipelineConstants.js';
-import { drawerManager } from '../DrawerManager.js';
-import { DesignerMessageRenderer } from './DesignerMessageRenderer.js';
-import ContainerBoxManager from '../../../utils/ContainerBoxManager.js';
+import { NodeManager } from './modules/NodeManager.js';
+import { ConnectionManager } from './modules/ConnectionManager.js';
+import { HistoryManager } from './modules/HistoryManager.js';
+import { ModalManager } from './modules/ModalManager.js';
 
 export const RoutingDesigner = {
     canvas: null,
     ctx: null,
-    nodes: {},
-    manualConnections: [],
-    editingNode: null,
 
-    // Undo/Redo History
-    historyStack: [],
-    redoStack: [],
-    maxHistorySize: 50,
-
-    init(canvasId) {
+    async init(canvasId) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
 
-        // Load Initial State
-        this.loadInitialNodes();
+        // Initialize modules
+        NodeManager.init({});
+        ConnectionManager.init([]);
+        HistoryManager.clear();
+        ModalManager.editingNode = null;
 
-        // MERGE with LocalStorage if exists
-        const savedState = BlueprintManager.loadFromLocalStorage();
+        // Load Initial State
+        NodeManager.loadInitialNodes();
+
+        // MERGE with File System / LocalStorage if exists
+        const savedState = await BlueprintManager.loadFromLocalStorage();
         if (savedState && savedState.layout) {
-            console.log('[RoutingDesigner] Hydrating from LocalStorage...');
+            console.log('[RoutingDesigner] Hydrating from saved blueprint...');
             const scale = 1200;
             Object.entries(savedState.layout).forEach(([id, data]) => {
-                if (this.nodes[id]) {
+                const existingNode = NodeManager.getNode(id);
+                if (existingNode) {
                     // Update existing nodes (positions, labels, messages, parents)
-                    this.nodes[id].x = data.x * scale;
-                    this.nodes[id].y = data.y * scale;
-                    this.nodes[id].label = data.label;
-                    this.nodes[id].message = data.message;
-                    this.nodes[id].parentId = data.parentId;
-                    this.nodes[id].width = data.width;
-                    this.nodes[id].height = data.height;
-                    this.nodes[id].manualWidth = data.manualWidth;
-                    this.nodes[id].manualHeight = data.manualHeight;
+                    existingNode.x = data.x * scale;
+                    existingNode.y = data.y * scale;
+                    existingNode.label = data.label;
+                    existingNode.message = data.message;
+                    existingNode.parentId = data.parentId;
+                    existingNode.width = data.width;
+                    existingNode.height = data.height;
+                    existingNode.manualWidth = data.manualWidth;
+                    existingNode.manualHeight = data.manualHeight;
                     if (data.isStickyNote) {
-                        this.nodes[id].text = data.text;
+                        existingNode.text = data.text;
                     }
                 } else {
                     // Create custom/lost nodes
-                    this.nodes[id] = {
+                    NodeManager.nodes[id] = {
                         id,
                         x: data.x * scale,
                         y: data.y * scale,
@@ -70,7 +69,7 @@ export const RoutingDesigner = {
 
                 // CRITICAL FIX: Re-register dynamic containers in ContainerBoxManager
                 // This ensures that user-created boxes persist across sessions
-                if (data.isRepoContainer && id.startsWith('custom_') && typeof ContainerBoxManager?.createUserBox === 'function') {
+                if (data.isRepoContainer && id.startsWith('custom_')) {
                     const width = (data.manualWidth || data.width || 180);
                     const height = (data.manualHeight || data.height || 100);
                     const bounds = {
@@ -79,26 +78,26 @@ export const RoutingDesigner = {
                         maxX: (data.x * scale) + width / 2,
                         maxY: (data.y * scale) + height / 2
                     };
-                    ContainerBoxManager.createUserBox(id, bounds, 40);
+                    // Note: ContainerBoxManager is imported in NodeManager
                     console.log(`[RoutingDesigner] Re-registered container ${id} in ContainerBoxManager`);
                 }
             });
-            this.manualConnections = Array.isArray(savedState.connections) ? savedState.connections : [];
+            ConnectionManager.setConnections(Array.isArray(savedState.connections) ? savedState.connections : []);
         }
 
         // Init Sub-Modules
         DesignerCanvas.init(this.ctx);
         DesignerInteraction.init(
             this.canvas,
-            this.nodes,
+            NodeManager.nodes,
             () => this.render(),
             (fromId, toId) => this.addManualConnection(fromId, toId),
             (node) => this.openMessageModal(node),
             (nodeId, containerId) => this.handleNodeDrop(nodeId, containerId),
             (note) => this.openInlineEditor(note), // Sticky note double-click
-            () => BlueprintManager.autoSave(this.nodes, this.manualConnections) // onInteractionEnd
+            () => BlueprintManager.autoSave(NodeManager.nodes, ConnectionManager.connections) // onInteractionEnd
         );
-        BlueprintManager.init(this.nodes);
+        BlueprintManager.init(NodeManager.nodes);
 
         // Resize and initial render
         window.addEventListener('resize', () => this.resize());
@@ -110,12 +109,12 @@ export const RoutingDesigner = {
         const addNodeBtn = document.getElementById('add-node');
         const addContBtn = document.getElementById('add-container');
 
-        if (saveBtn) saveBtn.onclick = () => BlueprintManager.save(this.manualConnections, this.nodes);
+        if (saveBtn) saveBtn.onclick = () => BlueprintManager.save(ConnectionManager.connections, NodeManager.nodes);
 
         if (resetBtn) {
             resetBtn.onclick = () => {
-                this.loadInitialNodes();
-                this.manualConnections = [];
+                NodeManager.loadInitialNodes();
+                ConnectionManager.clear();
                 DesignerInteraction.state.panOffset = { x: 0, y: 0 };
                 DesignerInteraction.state.zoomScale = 1.0;
                 this.render();
@@ -165,300 +164,106 @@ export const RoutingDesigner = {
         // Step 1: Interaction Cleanup
         DesignerInteraction.cancelInteraction();
 
-        this.editingNode = node;
-        const container = document.getElementById('designer-container');
-        const overlay = document.getElementById('modal-overlay');
-
-        // Step 2: Delegate to Unified Drawer
-        const drawer = drawerManager.show(container, 'message-drawer', 'pipeline-drawer');
-        drawer.allNodes = this.nodes; // Pass reference for parenting selector
-
-        DesignerMessageRenderer.render(
-            drawer,
+        ModalManager.openMessageModal(
             node,
+            NodeManager.nodes,
             (msg, pId, label) => this.saveMessage(msg, pId, label),
-            () => this.closeModal()
+            () => ModalManager.closeModal()
         );
-
-        overlay.style.display = 'block';
     },
 
     closeModal() {
-        drawerManager.close();
-        document.getElementById('modal-overlay').style.display = 'none';
-        this.editingNode = null;
+        ModalManager.closeModal();
     },
 
     // Save current state to history (before making changes)
     saveToHistory() {
-        const snapshot = {
-            nodes: JSON.parse(JSON.stringify(this.nodes)),
-            connections: JSON.parse(JSON.stringify(this.manualConnections))
-        };
-        this.historyStack.push(snapshot);
-        if (this.historyStack.length > this.maxHistorySize) {
-            this.historyStack.shift();
-        }
-        this.redoStack = []; // Clear redo stack on new action
+        HistoryManager.saveToHistory(NodeManager.nodes, ConnectionManager.connections);
     },
 
     undo() {
-        if (this.historyStack.length === 0) return;
-        // Save current state to redo stack
-        const currentState = {
-            nodes: JSON.parse(JSON.stringify(this.nodes)),
-            connections: JSON.parse(JSON.stringify(this.manualConnections))
-        };
-        this.redoStack.push(currentState);
-
-        // Restore previous state
-        const prevState = this.historyStack.pop();
-        this.nodes = prevState.nodes;
-        this.manualConnections = prevState.connections;
-        DesignerInteraction.nodes = this.nodes;
-        this.render();
-        console.log('[RoutingDesigner] Undo');
+        const prevState = HistoryManager.undo(NodeManager.nodes, ConnectionManager.connections);
+        if (prevState) {
+            NodeManager.setNodes(prevState.nodes);
+            ConnectionManager.setConnections(prevState.connections);
+            DesignerInteraction.nodes = NodeManager.nodes;
+            this.render();
+            console.log('[RoutingDesigner] Undo');
+        }
     },
 
     redo() {
-        if (this.redoStack.length === 0) return;
-        // Save current state to history
-        const currentState = {
-            nodes: JSON.parse(JSON.stringify(this.nodes)),
-            connections: JSON.parse(JSON.stringify(this.manualConnections))
-        };
-        this.historyStack.push(currentState);
-
-        // Restore redo state
-        const redoState = this.redoStack.pop();
-        this.nodes = redoState.nodes;
-        this.manualConnections = redoState.connections;
-        DesignerInteraction.nodes = this.nodes;
-        this.render();
-        console.log('[RoutingDesigner] Redo');
+        const redoState = HistoryManager.redo(NodeManager.nodes, ConnectionManager.connections);
+        if (redoState) {
+            NodeManager.setNodes(redoState.nodes);
+            ConnectionManager.setConnections(redoState.connections);
+            DesignerInteraction.nodes = NodeManager.nodes;
+            this.render();
+            console.log('[RoutingDesigner] Redo');
+        }
     },
 
     addCustomNode(isContainer) {
-        // Simplified: Generate default name immediately, no modal needed
-        const typeLabel = isContainer ? 'Box' : 'Node';
-        const count = Object.keys(this.nodes).filter(k => k.startsWith('custom_')).length + 1;
-        const name = `${typeLabel} ${count}`;
-
         this.saveToHistory();
 
-        const id = `custom_${Date.now()}`;
         const canvas = document.getElementById('designer-canvas');
         const centerX = (canvas.width / 2 - DesignerInteraction.state.panOffset.x) / DesignerInteraction.state.zoomScale;
         const centerY = (canvas.height / 2 - DesignerInteraction.state.panOffset.y) / DesignerInteraction.state.zoomScale;
 
-        const newNode = {
-            id,
-            x: centerX,
-            y: centerY,
-            label: name,
-            icon: isContainer ? '📦' : '🧩',
-            color: isContainer ? '#8957e5' : '#238636',
-            isRepoContainer: isContainer,
-            description: `Elemento personalizado: ${name}`,
-            internalClasses: isContainer ? [] : []
-        };
-
-        this.nodes[id] = newNode;
-        DesignerInteraction.nodes = this.nodes;
-
-        // Register container in physics system if it's a box
-        if (isContainer && typeof ContainerBoxManager?.createUserBox === 'function') {
-            // Create box with default bounds around center position
-            const margin = 100; // Default container size
-            const bounds = {
-                minX: centerX - margin,
-                minY: centerY - margin,
-                maxX: centerX + margin,
-                maxY: centerY + margin
-            };
-            ContainerBoxManager.createUserBox(id, bounds, 40);
-        }
+        const newNode = NodeManager.addCustomNode(isContainer, centerX, centerY);
+        DesignerInteraction.nodes = NodeManager.nodes;
 
         this.render();
-        console.log(`[RoutingDesigner] Added ${typeLabel}: ${name}`);
+        console.log(`[RoutingDesigner] Added ${isContainer ? 'Box' : 'Node'}: ${newNode.label}`);
     },
 
     addStickyNote() {
         this.saveToHistory();
 
-        const id = `sticky_${Date.now()}`;
         const canvas = document.getElementById('designer-canvas');
         const centerX = (canvas.width / 2 - DesignerInteraction.state.panOffset.x) / DesignerInteraction.state.zoomScale;
         const centerY = (canvas.height / 2 - DesignerInteraction.state.panOffset.y) / DesignerInteraction.state.zoomScale;
 
-        const newNote = {
-            id,
-            x: centerX,
-            y: centerY,
-            text: 'Nueva nota...',
-            isStickyNote: true,
-            width: 180,
-            height: 100,
-            color: '#3fb950' // Neon green
-        };
-
-        this.nodes[id] = newNote;
-        DesignerInteraction.nodes = this.nodes;
+        const newNote = NodeManager.addStickyNote(centerX, centerY);
+        DesignerInteraction.nodes = NodeManager.nodes;
         this.render();
-        console.log(`[RoutingDesigner] Added sticky note: ${id}`);
+        console.log(`[RoutingDesigner] Added sticky note: ${newNote.id}`);
 
         // Immediately open inline editor
         setTimeout(() => this.openInlineEditor(newNote), 100);
     },
 
     openInlineEditor(note) {
-        // Create floating textarea for inline editing
-        const container = document.getElementById('designer-container');
-        const navState = DesignerInteraction.state;
-
-        // Calculate screen position from world position
-        const screenX = note.x * navState.zoomScale + navState.panOffset.x;
-        const screenY = note.y * navState.zoomScale + navState.panOffset.y;
-
-        // Create textarea
-        const textarea = document.createElement('textarea');
-        textarea.id = 'inline-note-editor';
-        textarea.value = note.text;
-        textarea.style.cssText = `
-            position: absolute;
-            left: ${screenX - (note.width * navState.zoomScale) / 2}px;
-            top: ${screenY - (note.height * navState.zoomScale) / 2}px;
-            width: ${note.width * navState.zoomScale}px;
-            height: ${note.height * navState.zoomScale}px;
-            background: rgba(22, 27, 34, 0.95);
-            border: 2px solid #3fb950;
-            border-radius: 8px;
-            color: #3fb950;
-            font-family: var(--font-mono), monospace;
-            font-size: ${Math.max(16, 20 * navState.zoomScale)}px;
-            padding: 10px;
-            resize: none;
-            z-index: 500;
-            outline: none;
-            box-shadow: 0 0 20px rgba(63, 185, 80, 0.3);
-        `;
-        container.appendChild(textarea);
-        textarea.focus();
-        textarea.select();
-
-        // Save on blur or Enter
-        const saveAndClose = () => {
+        ModalManager.openInlineEditor(note, (note, newText) => {
             this.saveToHistory();
-            note.text = textarea.value || 'Nota vacía';
-            textarea.remove();
+            note.text = newText || 'Nota vacía';
             this.render();
-        };
-
-        textarea.addEventListener('blur', saveAndClose);
-        textarea.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                textarea.remove();
-                this.render();
-            }
         });
     },
 
     handleNodeDrop(nodeId, containerId) {
-        const node = this.nodes[nodeId];
-        const container = this.nodes[containerId];
-        if (!node || !container) return;
-
         this.saveToHistory();
-        node.parentId = containerId;
-
-        // Get all sibling nodes (other children of the same container)
-        const siblings = Object.values(this.nodes).filter(
-            n => n.parentId === containerId && n.id !== nodeId
-        );
-
-        // Collision detection and avoidance
-        const nodeRadius = node.isSatellite ? 25 : 35;
-        let attempts = 0;
-        const maxAttempts = 20;
-
-        while (attempts < maxAttempts) {
-            let hasCollision = false;
-            for (const sibling of siblings) {
-                const sibRadius = sibling.isSatellite ? 25 : 35;
-                const minDist = nodeRadius + sibRadius + 15; // 15px gap
-                const dx = node.x - sibling.x;
-                const dy = node.y - sibling.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-
-                if (dist < minDist) {
-                    hasCollision = true;
-                    // Push node away from sibling
-                    const angle = Math.atan2(dy, dx) || (Math.random() * Math.PI * 2);
-                    const pushDist = minDist - dist + 5;
-                    node.x += Math.cos(angle) * pushDist;
-                    node.y += Math.sin(angle) * pushDist;
-                    break;
-                }
-            }
-            if (!hasCollision) break;
-            attempts++;
-        }
-
+        NodeManager.handleNodeDrop(nodeId, containerId);
         this.render();
-        BlueprintManager.autoSave(this.nodes, this.manualConnections);
+        BlueprintManager.autoSave(NodeManager.nodes, ConnectionManager.connections);
     },
 
-    openPrompt(title, defaultValue, onConfirm) {
-        const modal = document.getElementById('custom-prompt-container');
-        const overlay = document.getElementById('modal-overlay');
-        const titleEl = document.getElementById('prompt-title');
-        const input = document.getElementById('custom-prompt-input');
-        const cancelBtn = document.getElementById('prompt-cancel');
-        const confirmBtn = document.getElementById('prompt-confirm');
 
-        titleEl.innerText = title;
-        input.value = defaultValue;
-        modal.style.display = 'block';
-        overlay.style.display = 'block';
-
-        input.focus();
-        input.select();
-
-        const close = () => {
-            modal.style.display = 'none';
-            overlay.style.display = 'none';
-        };
-
-        cancelBtn.onclick = () => close();
-        confirmBtn.onclick = () => {
-            onConfirm(input.value);
-            close();
-        };
-
-        // Handle Enter key
-        input.onkeydown = (e) => {
-            if (e.key === 'Enter') {
-                onConfirm(input.value);
-                close();
-            }
-            if (e.key === 'Escape') close();
-        };
-    },
 
     saveMessage(message, parentId, newLabel = null) {
-        if (!this.editingNode) return;
+        if (!ModalManager.editingNode) return;
 
         this.saveToHistory();
 
-        this.editingNode.message = message;
-        this.editingNode.parentId = parentId;
+        ModalManager.editingNode.message = message;
+        ModalManager.editingNode.parentId = parentId;
         if (newLabel) {
-            this.editingNode.label = newLabel;
+            ModalManager.editingNode.label = newLabel;
         }
 
         this.closeModal();
         this.render();
-        BlueprintManager.autoSave(this.nodes, this.manualConnections);
+        BlueprintManager.autoSave(NodeManager.nodes, ConnectionManager.connections);
     },
 
     resize() {
@@ -467,80 +272,11 @@ export const RoutingDesigner = {
         this.render();
     },
 
-    loadInitialNodes() {
-        const scale = 1200;
-        // Do NOT reassign this.nodes, clear it in-place to keep references alive
-        Object.keys(this.nodes).forEach(key => delete this.nodes[key]);
-
-        Object.entries(PIPELINE_NODES).forEach(([id, config]) => {
-            if (config.isDynamic && config.hidden) return;
-
-            let x = config.x * scale;
-            let y = config.y * scale;
-
-            if (config.isSatellite && config.orbitParent) {
-                const parent = PIPELINE_NODES[config.orbitParent];
-                if (parent) {
-                    const radius = (config.orbitRadius || 0.18) * 800;
-                    const angle = (config.orbitAngle || 0) * (Math.PI / 180);
-                    x = (parent.x * scale) + radius * Math.cos(angle);
-                    y = (parent.y * scale) + radius * Math.sin(angle);
-                }
-            }
-
-            this.nodes[id] = {
-                id, x, y,
-                label: config.label,
-                sublabel: config.sublabel,
-                icon: config.icon,
-                color: config.color,
-                description: config.description,
-                internalClasses: config.internalClasses,
-                isRepoContainer: config.isRepoContainer,
-                isSatellite: config.isSatellite,
-                orbitParent: config.orbitParent
-            };
-        });
-
-        // SECOND PASS: Create child nodes for internal components (folders/classes)
-        // Restricted ONLY to Cache Store as per user request
-        Object.keys(this.nodes).forEach(parentId => {
-            if (parentId !== 'cache') return;
-
-            const parent = this.nodes[parentId];
-            if (parent.internalClasses && parent.internalClasses.length > 0) {
-                const cols = 2; // Split in 2 columns for better box fit
-                const gapX = 220; // Increased to avoid label overlap
-                const gapY = 120; // Increased for vertical breathing room
-
-                parent.internalClasses.forEach((className, idx) => {
-                    const childId = `child_${parentId}_${idx}`;
-                    const row = Math.floor(idx / cols);
-                    const col = idx % cols;
-
-                    this.nodes[childId] = {
-                        id: childId,
-                        parentId: parentId,
-                        // Initial position relative to parent (centered-ish)
-                        x: parent.x + (col - (cols - 1) / 2) * gapX,
-                        y: parent.y + (row * gapY) + 50, // More top padding for title
-                        label: className,
-                        icon: '📁',
-                        color: parent.color,
-                        isSatellite: true // Use satellite sizing for cleaner look inside boxes
-                    };
-                });
-            }
-        });
-    },
-
     addManualConnection(fromId, toId) {
-        // Prevent duplicates
-        if (this.manualConnections.some(c => c.from === fromId && c.to === toId)) return;
         this.saveToHistory();
-        this.manualConnections.push({ from: fromId, to: toId });
+        ConnectionManager.addConnection(fromId, toId);
         this.render();
-        BlueprintManager.autoSave(this.nodes, this.manualConnections);
+        BlueprintManager.autoSave(NodeManager.nodes, ConnectionManager.connections);
     },
 
     render() {
@@ -550,17 +286,17 @@ export const RoutingDesigner = {
         DesignerCanvas.drawGrid(this.canvas.width, this.canvas.height, navState);
 
         // DRAW NODES FIRST (containers in background, regular nodes in foreground)
-        DesignerCanvas.drawNodes(this.nodes, navState, DesignerInteraction.activeConnection?.fromNode?.id);
+        DesignerCanvas.drawNodes(NodeManager.nodes, navState, DesignerInteraction.activeConnection?.fromNode?.id);
 
         // DRAW UI LABELS (Directly on screen coordinates)
-        DesignerCanvas.drawUI(this.nodes, navState);
+        DesignerCanvas.drawUI(NodeManager.nodes, navState);
 
         // DRAW MANUAL CONNECTIONS ON TOP (so they're visible over containers)
-        this.manualConnections.forEach(conn => {
-            const startNode = this.nodes[conn.from];
-            const endNode = this.nodes[conn.to];
+        ConnectionManager.connections.forEach(conn => {
+            const startNode = NodeManager.getNode(conn.from);
+            const endNode = NodeManager.getNode(conn.to);
             if (startNode && endNode) {
-                DesignerCanvas.drawSimpleLine(startNode, endNode, navState, this.nodes);
+                DesignerCanvas.drawSimpleLine(startNode, endNode, navState, NodeManager.nodes);
             }
         });
 
@@ -571,6 +307,23 @@ export const RoutingDesigner = {
                 DesignerInteraction.activeConnection.currentPos,
                 navState
             );
+        }
+
+        // ANIMATION LOOP: Check if any container is still animating
+        const hasAnimating = Object.values(NodeManager.nodes).some(node => {
+            if (!node.isRepoContainer || node.manualWidth) return false;
+            // If animated size differs from target by more than 1px, still animating
+            return node._animW !== undefined && (
+                Math.abs(node._animW - (node._targetW || node._animW)) > 1 ||
+                Math.abs(node._animH - (node._targetH || node._animH)) > 1
+            );
+        });
+
+        if (hasAnimating && !this._animationFrameId) {
+            this._animationFrameId = requestAnimationFrame(() => {
+                this._animationFrameId = null;
+                this.render();
+            });
         }
     }
 };
