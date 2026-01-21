@@ -3,6 +3,8 @@
  * Responsabilidad: Gestión del arrastre de nodos y detección de drop targets
  */
 
+import { DesignerCanvas } from '../DesignerCanvas.js';
+
 export const DragHandler = {
     state: {
         draggingNodeId: null,
@@ -137,6 +139,7 @@ export const DragHandler = {
     findDropTarget(worldPos, nodes) {
         for (const node of Object.values(nodes).slice().reverse()) {
             if (!node.isRepoContainer) continue;
+            if (node.id === this.state.draggingNodeId) continue; // Don't drop into yourself
 
             const bounds = this.getContainerBounds(node);
             if (worldPos.x >= bounds.minX && worldPos.x <= bounds.maxX &&
@@ -151,13 +154,15 @@ export const DragHandler = {
      * Get container bounds for drop detection
      */
     getContainerBounds(container) {
-        const w = (container.manualWidth || container.width || 180) / 2;
-        const h = (container.manualHeight || container.height || 100) / 2;
+        // Use unified logic from DesignerCanvas to ensure consistency
+        const bounds = DesignerCanvas.getContainerBounds(container, this.nodes);
+        const w = bounds.w;
+        const h = bounds.h;
         return {
-            minX: container.x - w,
-            maxX: container.x + w,
-            minY: container.y - h,
-            maxY: container.y + h
+            minX: bounds.centerX - w / 2,
+            maxX: bounds.centerX + w / 2,
+            minY: bounds.centerY - h / 2,
+            maxY: bounds.centerY + h / 2
         };
     },
 
@@ -165,15 +170,21 @@ export const DragHandler = {
      * Handle unparenting when dragging node out of container
      */
     handleUnparenting(node) {
-        const parent = this.nodes[node.parentId];
+        const parentId = node.parentId;
+        if (!parentId) return;
+
+        const parent = this.nodes[parentId];
         if (!parent) return;
 
         const bounds = this.getContainerBounds(parent);
-        const isInside = node.x >= bounds.minX && node.x <= bounds.maxX &&
-            node.y >= bounds.minY && node.y <= bounds.maxY;
+
+        // Add a small buffer (margin) to make it easier to stay inside
+        const margin = 20;
+        const isInside = node.x >= bounds.minX - margin && node.x <= bounds.maxX + margin &&
+            node.y >= bounds.minY - margin && node.y <= bounds.maxY + margin;
 
         if (!isInside) {
-            console.log(`[DragHandler] Unparented ${node.id} from ${node.parentId}`);
+            console.log(`[DragHandler] Unparented ${node.id} from ${parentId}`);
             node.parentId = null;
         }
     },

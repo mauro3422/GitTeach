@@ -4,18 +4,11 @@
  * Handles dynamicRepoSlots assignments, states, and counter.
  */
 
-// Estado de slots de repositorio dinámicos - ILIMITADO
-const dynamicRepoSlots = {
-    assignments: {},  // { 'GitTeach': 'repo_0', 'OtherRepo': 'repo_1', ... }
-    states: {},       // { 'repo_0': { repo: 'GitTeach', filesCount: 0, status: 'detected', index: 0 } }
-    counter: 0        // Auto-increment counter for unique IDs
-};
-
 export class DynamicSlotManager {
     constructor() {
-        this.assignments = dynamicRepoSlots.assignments;
-        this.states = dynamicRepoSlots.states;
-        this.counter = dynamicRepoSlots.counter;
+        this.assignments = {};  // { 'GitTeach': 'repo_0', 'OtherRepo': 'repo_1', ... }
+        this.states = {};       // { 'repo_0': { repo: 'GitTeach', filesCount: 0, status: 'detected', index: 0 } }
+        this.counter = 0;       // Auto-increment counter for unique IDs
     }
 
     /**

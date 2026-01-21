@@ -1,19 +1,11 @@
-/**
- * NodeManager.js
- * Responsabilidad: CRUD y manipulación de nodos
- */
-
 import { PIPELINE_NODES } from '../../PipelineConstants.js';
 import ContainerBoxManager from '../../../../utils/ContainerBoxManager.js';
+import { DesignerStore } from './DesignerStore.js';
 
 export const NodeManager = {
-    nodes: {},
-
-    /**
-     * Initialize with existing nodes
-     */
-    init(nodes = {}) {
-        this.nodes = nodes;
+    // Getter for convenience, but state is held in DesignerStore
+    get nodes() {
+        return DesignerStore.state.nodes;
     },
 
     /**
@@ -38,12 +30,30 @@ export const NodeManager = {
     },
 
     /**
+     * Unificar Sistema de Dimensiones (Issue #6)
+     * Centraliza propiedades de tamaño y animación
+     */
+    _ensureDimensions(node, config = {}) {
+        if (!node.dimensions) {
+            node.dimensions = {
+                w: config.width || 180,
+                h: config.height || 100,
+                targetW: config.width || 180,
+                targetH: config.height || 100,
+                animW: config.width || 180,
+                animH: config.height || 100,
+                isManual: !!(config.manualWidth || config.manualHeight)
+            };
+        }
+        return node.dimensions;
+    },
+
+    /**
      * Load initial pipeline nodes
      */
     loadInitialNodes() {
         const scale = 1200;
-        // Do NOT reassign this.nodes, clear it in-place to keep references alive
-        Object.keys(this.nodes).forEach(key => delete this.nodes[key]);
+        const newNodes = {};
 
         Object.entries(PIPELINE_NODES).forEach(([id, config]) => {
             if (config.isDynamic && config.hidden) return;
@@ -61,7 +71,7 @@ export const NodeManager = {
                 }
             }
 
-            this.nodes[id] = {
+            const node = {
                 id, x, y,
                 label: config.label,
                 sublabel: config.sublabel,
@@ -73,49 +83,50 @@ export const NodeManager = {
                 isSatellite: config.isSatellite,
                 orbitParent: config.orbitParent
             };
+            this._ensureDimensions(node, config);
+            newNodes[id] = node;
         });
 
-        // SECOND PASS: Create child nodes for internal components (folders/classes)
-        // Restricted ONLY to Cache Store as per user request
-        Object.keys(this.nodes).forEach(parentId => {
+        // SECOND PASS: Internal components
+        Object.keys(newNodes).forEach(parentId => {
             if (parentId !== 'cache') return;
-
-            const parent = this.nodes[parentId];
+            const parent = newNodes[parentId];
             if (parent.internalClasses && parent.internalClasses.length > 0) {
-                const cols = 2; // Split in 2 columns for better box fit
-                const gapX = 220; // Increased to avoid label overlap
-                const gapY = 120; // Increased for vertical breathing room
+                const cols = 2;
+                const gapX = 220;
+                const gapY = 120;
 
                 parent.internalClasses.forEach((className, idx) => {
                     const childId = `child_${parentId}_${idx}`;
                     const row = Math.floor(idx / cols);
                     const col = idx % cols;
 
-                    this.nodes[childId] = {
+                    const child = {
                         id: childId,
                         parentId: parentId,
-                        // Initial position relative to parent (centered-ish)
                         x: parent.x + (col - (cols - 1) / 2) * gapX,
-                        y: parent.y + (row * gapY) + 50, // More top padding for title
+                        y: parent.y + (row * gapY) + 50,
                         label: className,
                         icon: '📁',
                         color: parent.color,
-                        isSatellite: true // Use satellite sizing for cleaner look inside boxes
+                        isSatellite: true
                     };
+                    this._ensureDimensions(child);
+                    newNodes[childId] = child;
                 });
             }
         });
+
+        DesignerStore.setState({ nodes: newNodes });
     },
 
     /**
-     * Add a custom node (container or regular)
+     * Add a custom node
      */
     addCustomNode(isContainer, centerX, centerY) {
-        // Simplified: Generate default name immediately, no modal needed
         const typeLabel = isContainer ? 'Box' : 'Node';
         const count = Object.keys(this.nodes).filter(k => k.startsWith('custom_')).length + 1;
         const name = `${typeLabel} ${count}`;
-
         const id = `custom_${Date.now()}`;
 
         const newNode = {
@@ -127,15 +138,15 @@ export const NodeManager = {
             color: isContainer ? '#8957e5' : '#238636',
             isRepoContainer: isContainer,
             description: `Elemento personalizado: ${name}`,
-            internalClasses: isContainer ? [] : []
+            internalClasses: []
         };
+        this._ensureDimensions(newNode);
 
-        this.nodes[id] = newNode;
+        const updatedNodes = { ...this.nodes, [id]: newNode };
+        DesignerStore.setState({ nodes: updatedNodes });
 
-        // Register container in physics system if it's a box
         if (isContainer && typeof ContainerBoxManager?.createUserBox === 'function') {
-            // Create box with default bounds around center position
-            const margin = 100; // Default container size
+            const margin = 100;
             const bounds = {
                 minX: centerX - margin,
                 minY: centerY - margin,
@@ -145,7 +156,6 @@ export const NodeManager = {
             ContainerBoxManager.createUserBox(id, bounds, 40);
         }
 
-        console.log(`[NodeManager] Added ${typeLabel}: ${name}`);
         return newNode;
     },
 
@@ -154,20 +164,18 @@ export const NodeManager = {
      */
     addStickyNote(centerX, centerY) {
         const id = `sticky_${Date.now()}`;
-
         const newNote = {
             id,
             x: centerX,
             y: centerY,
             text: 'Nueva nota...',
             isStickyNote: true,
-            width: 180,
-            height: 100,
-            color: '#3fb950' // Neon green
+            color: '#3fb950'
         };
+        this._ensureDimensions(newNote, { width: 180, height: 100 });
 
-        this.nodes[id] = newNote;
-        console.log(`[NodeManager] Added sticky note: ${id}`);
+        const updatedNodes = { ...this.nodes, [id]: newNote };
+        DesignerStore.setState({ nodes: updatedNodes });
         return newNote;
     },
 
@@ -176,41 +184,36 @@ export const NodeManager = {
      */
     handleNodeDrop(nodeId, containerId) {
         const node = this.nodes[nodeId];
-        const container = this.nodes[containerId];
-        if (!node || !container) return;
+        if (!node) return;
 
         node.parentId = containerId;
 
-        // Get all sibling nodes (other children of the same container)
+        // Collision detection logic preserved, operates on Store references
         const siblings = this.getChildren(containerId).filter(n => n.id !== nodeId);
-
-        // Collision detection and avoidance
         const nodeRadius = node.isSatellite ? 25 : 35;
         let attempts = 0;
-        const maxAttempts = 20;
-
-        while (attempts < maxAttempts) {
+        while (attempts < 20) {
             let hasCollision = false;
             for (const sibling of siblings) {
                 const sibRadius = sibling.isSatellite ? 25 : 35;
-                const minDist = nodeRadius + sibRadius + 15; // 15px gap
+                const minDist = nodeRadius + sibRadius + 15;
                 const dx = node.x - sibling.x;
                 const dy = node.y - sibling.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
                 if (dist < minDist) {
                     hasCollision = true;
-                    // Push node away from sibling
                     const angle = Math.atan2(dy, dx) || (Math.random() * Math.PI * 2);
-                    const pushDist = minDist - dist + 5;
-                    node.x += Math.cos(angle) * pushDist;
-                    node.y += Math.sin(angle) * pushDist;
+                    node.x += Math.cos(angle) * (minDist - dist + 5);
+                    node.y += Math.sin(angle) * (minDist - dist + 5);
                     break;
                 }
             }
             if (!hasCollision) break;
             attempts++;
         }
+
+        DesignerStore.notify(); // Force re-render of observers
     },
 
     /**
@@ -218,7 +221,9 @@ export const NodeManager = {
      */
     removeNode(nodeId) {
         if (this.nodes[nodeId]) {
-            delete this.nodes[nodeId];
+            const updatedNodes = { ...this.nodes };
+            delete updatedNodes[nodeId];
+            DesignerStore.setState({ nodes: updatedNodes });
             return true;
         }
         return false;
@@ -230,6 +235,7 @@ export const NodeManager = {
     updateNode(nodeId, updates) {
         if (!this.nodes[nodeId]) return false;
         Object.assign(this.nodes[nodeId], updates);
+        DesignerStore.notify();
         return true;
     },
 
@@ -237,6 +243,6 @@ export const NodeManager = {
      * Set nodes (for undo/redo)
      */
     setNodes(nodes) {
-        this.nodes = { ...nodes };
+        DesignerStore.setState({ nodes });
     }
 };

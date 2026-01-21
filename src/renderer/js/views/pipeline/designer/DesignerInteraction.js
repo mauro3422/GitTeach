@@ -3,6 +3,7 @@ import { PanZoomHandler } from './interaction/PanZoomHandler.js';
 import { DragHandler } from './interaction/DragHandler.js';
 import { ResizeHandler } from './interaction/ResizeHandler.js';
 import { ConnectionDrawer } from './interaction/ConnectionDrawer.js';
+import { CanvasUtils } from './CanvasUtils.js';
 
 export const DesignerInteraction = {
     canvas: null,
@@ -101,49 +102,64 @@ export const DesignerInteraction = {
     },
 
     getMousePos(e) {
-        const rect = this.canvas.getBoundingClientRect();
-        return {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
-        };
+        return CanvasUtils.getMouseScreenPos(e, this.canvas);
     },
 
+    /** @typedef {{x: number, y: number}} WorldPos */
+    /** @typedef {{x: number, y: number}} ScreenPos */
+
+    /**
+     * Map screen coordinates to world coordinates
+     * @param {ScreenPos} pos
+     * @returns {WorldPos}
+     */
     screenToWorld(pos) {
-        return PanZoomHandler.screenToWorld(pos);
+        return CanvasUtils.screenToWorld(pos, PanZoomHandler.state);
     },
 
+    /**
+     * Map world coordinates to screen coordinates
+     * @param {WorldPos} pos
+     * @returns {ScreenPos}
+     */
     worldToScreen(pos) {
-        return PanZoomHandler.worldToScreen(pos);
+        return CanvasUtils.worldToScreen(pos, PanZoomHandler.state);
     },
 
+    /**
+     * Find the top-most node at a world position
+     * @param {WorldPos} worldPos 
+     * @param {string|null} excludeId 
+     * @returns {Object|null}
+     */
     findNodeAt(worldPos, excludeId = null) {
+        if (!this.nodes) return null;
         const nodeList = Object.values(this.nodes);
 
-        // PASS 0: Check sticky notes FIRST (rectangular hit detection)
+        // PASS 0: Sticky Notes (Rectangular)
         for (const node of nodeList.slice().reverse()) {
             if (excludeId && node.id === excludeId) continue;
-            if (!node.isStickyNote) continue;
+            if (!node.isStickyNote || !node.dimensions) continue;
 
-            const w = (node.width || 180) / 2;
-            const h = (node.height || 100) / 2;
+            const w = node.dimensions.w / 2;
+            const h = node.dimensions.h / 2;
             if (worldPos.x >= node.x - w && worldPos.x <= node.x + w &&
                 worldPos.y >= node.y - h && worldPos.y <= node.y + h) {
                 return node;
             }
         }
 
-        // PASS 1: Check non-container, non-sticky nodes (circular)
+        // PASS 1: Regular Nodes (Circular)
         for (const node of nodeList.slice().reverse()) {
             if (excludeId && node.id === excludeId) continue;
             if (node.isRepoContainer || node.isStickyNote) continue;
 
-            // Use the same dynamic radius as rendering for pixel-perfect hit detection
             const radius = DesignerCanvas.getNodeRadius(node, PanZoomHandler.state.zoomScale);
             const dist = Math.sqrt((node.x - worldPos.x) ** 2 + (node.y - worldPos.y) ** 2);
             if (dist < radius) return node;
         }
 
-        // PASS 2: Check containers (only if no node was found)
+        // PASS 2: Containers
         for (const node of nodeList.slice().reverse()) {
             if (excludeId && node.id === excludeId) continue;
             if (!node.isRepoContainer) continue;
@@ -151,8 +167,8 @@ export const DesignerInteraction = {
             const bounds = DesignerCanvas.getContainerBounds(node, this.nodes, PanZoomHandler.state.zoomScale);
             const w = bounds.w + 10;
             const h = bounds.h + 10;
-            if (worldPos.x >= node.x - w / 2 && worldPos.x <= node.x + w / 2 &&
-                worldPos.y >= node.y - h / 2 && worldPos.y <= node.y + h / 2) {
+            if (worldPos.x >= bounds.centerX - w / 2 && worldPos.x <= bounds.centerX + w / 2 &&
+                worldPos.y >= bounds.centerY - h / 2 && worldPos.y <= bounds.centerY + h / 2) {
                 return node;
             }
         }
@@ -160,42 +176,11 @@ export const DesignerInteraction = {
         return null;
     },
 
-    // Check if worldPos is over a resize handle of any container or sticky note
-    findResizeHandle(worldPos) {
-        const handleSize = 12;
-        for (const node of Object.values(this.nodes).slice().reverse()) {
-            if (!node.isRepoContainer && !node.isStickyNote) continue;
-
-            let w, h;
-            if (node.isRepoContainer) {
-                const bounds = DesignerCanvas.getContainerBounds(node, this.nodes, PanZoomHandler.state.zoomScale);
-                w = bounds.w;
-                h = bounds.h;
-            } else {
-                w = node.width || 180;
-                h = node.height || 100;
-            }
-
-            const corners = {
-                'nw': { x: node.x - w / 2, y: node.y - h / 2 },
-                'ne': { x: node.x + w / 2, y: node.y - h / 2 },
-                'sw': { x: node.x - w / 2, y: node.y + h / 2 },
-                'se': { x: node.x + w / 2, y: node.y + h / 2 }
-            };
-            for (const [corner, pos] of Object.entries(corners)) {
-                if (Math.abs(worldPos.x - pos.x) < handleSize && Math.abs(worldPos.y - pos.y) < handleSize) {
-                    return { nodeId: node.id, corner, w, h };
-                }
-            }
-        }
-        return null;
-    },
-
     handleMouseDown(e) {
         const rawPos = this.getMousePos(e);
         const worldPos = this.screenToWorld(rawPos);
 
-        // PANNING (Middle or Right button)
+        // PANNING
         if (e.button === 1 || e.button === 2) {
             PanZoomHandler.startPan(rawPos);
             return;
@@ -203,20 +188,30 @@ export const DesignerInteraction = {
 
         // LEFT CLICK
         if (e.button === 0) {
-            // Priority 1: Resize handles
+            // DRAW mode priority
+            if (this.mode === 'DRAW') {
+                const clickedNode = this.findNodeAt(worldPos);
+                if (clickedNode && !clickedNode.isRepoContainer && !clickedNode.isStickyNote) {
+                    ConnectionDrawer.handleClick(worldPos, clickedNode, this.onConnection);
+                    this.onUpdate();
+                    return;
+                }
+            }
+
+            // RESIZE priority
             const resizeHandle = ResizeHandler.findResizeHandle(worldPos);
             if (resizeHandle) {
                 ResizeHandler.startResize(resizeHandle.nodeId, resizeHandle.corner, worldPos);
                 return;
             }
 
-            // Priority 2: Node interactions
+            // Interaction priority
             const clickedNode = this.findNodeAt(worldPos);
             if (clickedNode) {
                 if (this.mode === 'DRAG') {
                     DragHandler.startDrag(clickedNode.id, worldPos);
                 } else if (this.mode === 'DRAW') {
-                    ConnectionDrawer.handleClick(worldPos, this.nodes, this.onConnection);
+                    ConnectionDrawer.handleClick(worldPos, clickedNode, this.onConnection);
                 }
             }
             this.onUpdate();
@@ -227,15 +222,13 @@ export const DesignerInteraction = {
         const rawPos = this.getMousePos(e);
         const worldPos = this.screenToWorld(rawPos);
 
-        // Cursor feedback for resize handles
         const resizeHandle = ResizeHandler.findResizeHandle(worldPos);
-        if (resizeHandle) {
+        if (resizeHandle && (this.mode === 'DRAG' || ResizeHandler.isResizing())) {
             this.canvas.style.cursor = ResizeHandler.getResizeCursor(resizeHandle.corner);
         } else if (!ResizeHandler.isResizing()) {
-            this.canvas.style.cursor = 'default';
+            this.canvas.style.cursor = this.mode === 'DRAW' ? 'crosshair' : 'default';
         }
 
-        // Handle interactions in priority order
         if (ResizeHandler.isResizing()) {
             ResizeHandler.updateResize(worldPos, this.onUpdate);
         } else if (PanZoomHandler.state.isPanning) {
@@ -249,7 +242,6 @@ export const DesignerInteraction = {
             this.onUpdate();
         }
 
-        // Update hovered node
         const overNode = this.findNodeAt(worldPos);
         const newHoverId = overNode ? overNode.id : null;
         if (this.hoveredNodeId !== newHoverId) {
@@ -265,16 +257,16 @@ export const DesignerInteraction = {
         if (ResizeHandler.isResizing()) {
             ResizeHandler.endResize();
             this.canvas.style.cursor = 'default';
-            this.onUpdate();
-            return;
-        }
-
-        if (this.mode === 'DRAG' && DragHandler.isDragging()) {
+        } else if (this.mode === 'DRAG' && DragHandler.isDragging()) {
             DragHandler.endDrag(this.onNodeDrop);
-            this.onUpdate();
         }
 
-        this.onUpdate();
+        // Cleanup temporary state in the store (Issue #5)
+        import('./modules/DesignerStore.js').then(({ DesignerStore }) => {
+            DesignerStore.validateAndCleanup();
+            this.onUpdate();
+        });
+
         if (this.onInteractionEnd) this.onInteractionEnd();
     },
 

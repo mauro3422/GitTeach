@@ -40,26 +40,43 @@ export const BlueprintManager = {
     },
 
     async loadFromLocalStorage() {
-        // Try file system first (for debugging persistence)
+        let rawData = null;
         if (window.designerAPI) {
-            try {
-                const fileData = await window.designerAPI.loadBlueprint();
-                if (fileData) {
-                    console.log("[BlueprintManager] Loaded from file system");
-                    return fileData;
-                }
-            } catch (e) {
-                console.warn("[BlueprintManager] File system load failed:", e);
-            }
+            try { rawData = await window.designerAPI.loadBlueprint(); } catch (e) { }
         }
+        if (!rawData) {
+            const data = localStorage.getItem('giteach_designer_blueprint');
+            if (data) try { rawData = JSON.parse(data); } catch (e) { }
+        }
+        if (!rawData) return null;
 
-        // Fallback to LocalStorage
-        const data = localStorage.getItem('giteach_designer_blueprint');
-        if (!data) return null;
+        // Validation & Dimension Migration
         try {
-            return JSON.parse(data);
-        } catch (e) {
-            console.error("[BlueprintManager] Error loading from localStorage:", e);
+            if (!rawData.layout || typeof rawData.layout !== 'object') return null;
+
+            Object.keys(rawData.layout).forEach(id => {
+                const node = rawData.layout[id];
+                node.x = node.x ?? 0.5;
+                node.y = node.y ?? 0.5;
+                node.label = node.label || id;
+
+                // MIGRATION: Convert old size properties to unified dimensions
+                if (!node.dimensions) {
+                    node.dimensions = {
+                        w: node.manualWidth || node.width || 180,
+                        h: node.manualHeight || node.height || 100,
+                        isManual: !!(node.manualWidth || node.manualHeight)
+                    };
+                    // Ensure animation properties exist for fresh loads
+                    node.dimensions.animW = node.dimensions.w;
+                    node.dimensions.animH = node.dimensions.h;
+                    node.dimensions.targetW = node.dimensions.w;
+                    node.dimensions.targetH = node.dimensions.h;
+                }
+            });
+
+            return rawData;
+        } catch (err) {
             return null;
         }
     },
@@ -67,7 +84,7 @@ export const BlueprintManager = {
     generateBlueprint(manualConnections, nodesOverride = null) {
         const nodesToExport = nodesOverride || this.nodes;
         const blueprint = {
-            version: "1.2.0 (Forensic Persistence)",
+            version: "1.3.0 (Unified Dimensions)",
             timestamp: new Date().toISOString(),
             layout: {},
             connections: manualConnections
@@ -75,25 +92,27 @@ export const BlueprintManager = {
 
         const scale = 1200;
         Object.values(nodesToExport).forEach(node => {
-            blueprint.layout[node.id] = {
+            // Clean up temporary props before saving (Issue #5)
+            const exportNode = {
                 x: node.x / scale,
                 y: node.y / scale,
                 label: node.label,
                 message: node.message || "",
-                parentId: node.parentId || null, // CRITICAL: Preserve hierarchy
-                // Sticky note specific fields
+                parentId: node.parentId || null,
                 isStickyNote: node.isStickyNote || false,
                 text: node.text || "",
-                width: node.width,
-                height: node.height,
-                manualWidth: node.manualWidth,
-                manualHeight: node.manualHeight,
                 color: node.color,
-                // Container specific
                 isRepoContainer: node.isRepoContainer || false,
                 isSatellite: node.isSatellite || false,
-                orbitParent: node.orbitParent || null
+                orbitParent: node.orbitParent || null,
+                // Only save essential dimensions
+                dimensions: {
+                    w: node.dimensions?.w || 180,
+                    h: node.dimensions?.h || 100,
+                    isManual: node.dimensions?.isManual || false
+                }
             };
+            blueprint.layout[node.id] = exportNode;
         });
         return blueprint;
     }

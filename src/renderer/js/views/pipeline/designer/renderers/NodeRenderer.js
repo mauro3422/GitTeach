@@ -10,15 +10,12 @@ export const NodeRenderer = {
      * Draw regular nodes (non-containers)
      */
     render(ctx, nodes, navState, activeConnectionId) {
-        const { panOffset, zoomScale } = navState;
-        ctx.save();
-        ctx.translate(panOffset.x, panOffset.y);
-        ctx.scale(zoomScale, zoomScale);
+        const { zoomScale } = navState;
 
         Object.values(nodes).forEach(node => {
             if (node.isRepoContainer || node.isStickyNote) return;
 
-            const { x, y, color, icon, label, isSatellite } = node;
+            const { x, y, color } = node;
             const radius = DesignerCanvas.getNodeRadius(node, zoomScale);
 
             ctx.save();
@@ -42,7 +39,5 @@ export const NodeRenderer = {
             ctx.stroke();
             ctx.restore();
         });
-
-        ctx.restore();
     }
 };

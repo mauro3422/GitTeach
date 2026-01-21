@@ -23,17 +23,16 @@ export const ResizeHandler = {
      */
     startResize(nodeId, corner, mousePos) {
         const node = this.nodes[nodeId];
-        if (!node) return;
+        if (!node || !node.dimensions) return;
 
         this.state.resizingNodeId = nodeId;
         this.state.resizeCorner = corner;
-        this.state.resizeStartMouse = { ...mousePos }; // Store initial mouse position
+        this.state.resizeStartMouse = { ...mousePos };
         this.state.resizeStartSize = {
-            w: node.manualWidth || node.width || 180,
-            h: node.manualHeight || node.height || 100
+            w: node.dimensions.w,
+            h: node.dimensions.h
         };
 
-        // Store relative positions of children for proportional scaling
         if (node.isRepoContainer) {
             this.captureChildPositions(node);
         }
@@ -46,9 +45,8 @@ export const ResizeHandler = {
         if (!this.state.resizingNodeId || !this.state.resizeStartMouse) return;
 
         const node = this.nodes[this.state.resizingNodeId];
-        if (!node) return;
+        if (!node || !node.dimensions) return;
 
-        // Calculate delta from initial mouse position
         const dx = mousePos.x - this.state.resizeStartMouse.x;
         const dy = mousePos.y - this.state.resizeStartMouse.y;
 
@@ -57,39 +55,21 @@ export const ResizeHandler = {
         const minW = node.isStickyNote ? 60 : 140;
         const minH = node.isStickyNote ? 40 : 100;
 
-        // Apply delta based on corner (multiply by 2 because node is centered)
         switch (this.state.resizeCorner) {
-            case 'se':
-                newW += dx * 2;
-                newH += dy * 2;
-                break;
-            case 'sw':
-                newW -= dx * 2;
-                newH += dy * 2;
-                break;
-            case 'ne':
-                newW += dx * 2;
-                newH -= dy * 2;
-                break;
-            case 'nw':
-                newW -= dx * 2;
-                newH -= dy * 2;
-                break;
+            case 'se': newW += dx * 2; newH += dy * 2; break;
+            case 'sw': newW -= dx * 2; newH += dy * 2; break;
+            case 'ne': newW += dx * 2; newH -= dy * 2; break;
+            case 'nw': newW -= dx * 2; newH -= dy * 2; break;
         }
 
-        // Apply limits
         newW = Math.max(minW, newW);
         newH = Math.max(minH, newH);
 
-        if (node.isStickyNote) {
-            node.width = newW;
-            node.height = newH;
-        } else {
-            node.manualWidth = newW;
-            node.manualHeight = newH;
-        }
+        // Update unified dimensions
+        node.dimensions.w = newW;
+        node.dimensions.h = newH;
+        node.dimensions.isManual = true;
 
-        // Handle proportional scaling for containers
         if (node.isRepoContainer && this.state.resizeChildPositions) {
             this.scaleChildrenProportionally(node, newW, newH);
         }
@@ -102,7 +82,6 @@ export const ResizeHandler = {
      */
     endResize() {
         if (!this.state.resizingNodeId) return;
-
         this.clearResizeState();
     },
 
@@ -111,7 +90,6 @@ export const ResizeHandler = {
      */
     captureChildPositions(containerNode) {
         this.state.resizeChildPositions = {};
-
         Object.values(this.nodes).forEach(child => {
             if (child.parentId === containerNode.id) {
                 this.state.resizeChildPositions[child.id] = {
@@ -130,7 +108,6 @@ export const ResizeHandler = {
         const startHeight = this.state.resizeStartSize.h;
         const margin = 40;
 
-        // Calculate scale factors
         const scaleX = (newWidth - margin * 2) / Math.max(startWidth - margin * 2, 1);
         const scaleY = (newHeight - margin * 2) / Math.max(startHeight - margin * 2, 1);
 
@@ -141,19 +118,12 @@ export const ResizeHandler = {
             maxY: containerNode.y + newHeight / 2 - margin
         };
 
-        // Scale and clamp children
         Object.values(this.nodes).forEach(child => {
             if (child.parentId === containerNode.id && this.state.resizeChildPositions[child.id]) {
                 const startRel = this.state.resizeChildPositions[child.id];
+                child.x = containerNode.x + startRel.relX * scaleX;
+                child.y = containerNode.y + startRel.relY * scaleY;
 
-                // Apply proportional scaling
-                const newRelX = startRel.relX * scaleX;
-                const newRelY = startRel.relY * scaleY;
-
-                child.x = containerNode.x + newRelX;
-                child.y = containerNode.y + newRelY;
-
-                // Clamp to bounds
                 child.x = Math.max(bounds.minX, Math.min(bounds.maxX, child.x));
                 child.y = Math.max(bounds.minY, Math.min(bounds.maxY, child.y));
             }
@@ -168,15 +138,10 @@ export const ResizeHandler = {
 
         for (const node of Object.values(this.nodes).slice().reverse()) {
             if (!node.isRepoContainer && !node.isStickyNote) continue;
+            if (!node.dimensions) continue;
 
-            let w, h;
-            if (node.isRepoContainer) {
-                w = (node.manualWidth || node.width || 180);
-                h = (node.manualHeight || node.height || 100);
-            } else {
-                w = node.width || 180;
-                h = node.height || 100;
-            }
+            const w = node.dimensions.w;
+            const h = node.dimensions.h;
 
             const corners = {
                 'nw': { x: node.x - w / 2, y: node.y - h / 2 },
@@ -196,36 +161,19 @@ export const ResizeHandler = {
         return null;
     },
 
-    /**
-     * Get appropriate cursor for resize handle
-     */
     getResizeCursor(corner) {
-        const cursors = {
-            'nw': 'nw-resize',
-            'ne': 'ne-resize',
-            'sw': 'sw-resize',
-            'se': 'se-resize'
-        };
+        const cursors = { 'nw': 'nw-resize', 'ne': 'ne-resize', 'sw': 'sw-resize', 'se': 'se-resize' };
         return cursors[corner] || 'default';
     },
 
-    /**
-     * Check if currently resizing
-     */
     isResizing() {
         return this.state.resizingNodeId !== null;
     },
 
-    /**
-     * Cancel current resize
-     */
     cancelResize() {
         this.clearResizeState();
     },
 
-    /**
-     * Clear resize state
-     */
     clearResizeState() {
         this.state.resizingNodeId = null;
         this.state.resizeCorner = null;

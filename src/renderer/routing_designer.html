@@ -67,7 +67,9 @@
             left: 20px;
             width: 48px;
             height: 48px;
-            background: linear-gradient(135deg, #238636, #1a7f37);
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
             border-radius: 12px;
             display: flex;
             align-items: center;
@@ -75,9 +77,9 @@
             font-size: 24px;
             cursor: pointer;
             z-index: 200;
-            box-shadow: 0 4px 16px rgba(35, 134, 54, 0.4);
+            box-shadow: var(--glass-shadow);
             transition: all 0.2s ease;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--glass-border);
         }
 
         .toolbox-toggle:hover {
@@ -89,17 +91,20 @@
         .toolbox-drawer {
             position: absolute;
             top: 0;
-            left: -260px;
-            width: 250px;
+            left: -310px;
+            width: 300px;
             height: 100%;
-            background: rgba(22, 27, 34, 0.98);
-            border-right: 1px solid #30363d;
-            z-index: 300;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border-right: 1.5px solid rgba(88, 166, 255, 0.4);
+            z-index: 1000;
             padding: 16px;
             box-sizing: border-box;
-            transition: left 0.25s ease;
+            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
             flex-direction: column;
+            box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
         }
 
         .toolbox-drawer.open {
@@ -114,7 +119,9 @@
             font-weight: bold;
             margin-bottom: 20px;
             padding-bottom: 12px;
-            border-bottom: 1px solid #30363d;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            color: #58a6ff;
+            text-shadow: 0 0 10px rgba(88, 166, 255, 0.3);
         }
 
         .toolbox-close {
@@ -221,7 +228,7 @@
 
         .toolbox-divider {
             border: none;
-            border-top: 1px solid #30363d;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
             margin: 8px 0;
         }
 
@@ -243,14 +250,18 @@
             left: 0;
             width: 100vw;
             height: 100vh;
-            background: rgba(0, 0, 0, 0.4);
+            background: transparent;
+            /* REMOVED: backdrop-filter so canvas stays sharp */
             display: none;
             z-index: 900;
         }
 
         .pipeline-drawer {
-            border-left: 1px solid rgba(88, 166, 255, 0.3);
+            border-left: 1.5px solid rgba(88, 166, 255, 0.4);
             border-radius: 0;
+            width: 400px;
+            /* Match standard node drawer width */
+            box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
         }
 
         .drawer-content textarea {
@@ -285,12 +296,14 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: #161b22;
-            border: 1px solid #30363d;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1.5px solid rgba(88, 166, 255, 0.4);
             border-radius: 12px;
             padding: 24px;
             width: 350px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
             z-index: 1000;
         }
 

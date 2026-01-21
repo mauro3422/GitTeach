@@ -86,9 +86,7 @@ export const ConnectionDrawer = {
     /**
      * Handle mouse click for connection drawing
      */
-    handleClick(mousePos, nodes, onConnection) {
-        const clickedNode = this.findNodeAt(mousePos, nodes);
-
+    handleClick(mousePos, clickedNode, onConnection) {
         if (!clickedNode) {
             this.cancelConnection();
             return;
@@ -101,21 +99,5 @@ export const ConnectionDrawer = {
             // Start new connection
             this.startConnection(clickedNode, mousePos);
         }
-    },
-
-    /**
-     * Find node at position (simplified version)
-     */
-    findNodeAt(worldPos, nodes) {
-        // Simple circle hit detection
-        for (const node of Object.values(nodes).slice().reverse()) {
-            if (node.isRepoContainer || node.isStickyNote) continue;
-
-            const radius = node.isSatellite ? 25 : 35;
-            const dist = Math.sqrt((node.x - worldPos.x) ** 2 + (node.y - worldPos.y) ** 2);
-            if (dist < radius) return node;
-        }
-
-        return null;
     }
 };

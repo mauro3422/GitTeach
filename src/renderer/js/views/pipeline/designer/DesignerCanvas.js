@@ -22,34 +22,31 @@ export const DesignerCanvas = {
     /**
      * Main render method using composite renderer pattern
      */
-    render(width, height, nodes, navState, connections, activeConnectionId) {
-        // Render using all registered renderers in order
-        this.renderers.forEach(renderer => {
-            if (renderer === GridRenderer) {
-                renderer.render(this.ctx, width, height, navState);
-            } else if (renderer === ConnectionRenderer) {
-                renderer.render(this.ctx, nodes, navState, connections);
-            } else if (renderer === NodeRenderer) {
-                renderer.render(this.ctx, nodes, navState, activeConnectionId);
-            } else {
-                renderer.render(this.ctx, nodes, navState);
-            }
-        });
-    },
-
-    // Compatibility wrappers for legacy API
-    drawGrid(width, height, navState) {
+    render(width, height, nodes, navState, connections, activeConnectionId, activeConnection = null) {
+        // 1. Grid Renderer (Handles its own space/tiling)
         GridRenderer.render(this.ctx, width, height, navState);
-    },
 
-    drawNodes(nodes, navState, activeConnectionId = null) {
+        // 2. World Space Renderers (Apply camera transform once)
+        this.ctx.save();
+        this.ctx.translate(navState.panOffset.x, navState.panOffset.y);
+        this.ctx.scale(navState.zoomScale, navState.zoomScale);
+
         ContainerRenderer.render(this.ctx, nodes, navState);
         NodeRenderer.render(this.ctx, nodes, navState, activeConnectionId);
-    },
+        ConnectionRenderer.render(this.ctx, nodes, navState, connections);
 
-    drawUI(nodes, navState) {
+        // 2.1 Active ghost line (part of world-space)
+        if (activeConnection) {
+            this.drawActiveLine(activeConnection.fromNode, activeConnection.currentPos, navState);
+        }
+
+        this.ctx.restore();
+
+        // 3. Screen Space Renderers (UI, Tooltips)
         UIRenderer.render(this.ctx, nodes, navState);
     },
+
+
 
     /**
      * Calculate dynamic node radius based on zoom to maintain visual presence
@@ -70,12 +67,21 @@ export const DesignerCanvas = {
      */
     getEdgePoint(node, targetX, targetY, nodes, navState) {
         const angle = Math.atan2(targetY - node.y, targetX - node.x);
+        const isRectangular = node.isRepoContainer || node.isStickyNote;
 
-        if (node.isRepoContainer) {
+        if (isRectangular) {
             // For rectangles, calculate intersection with border
-            const bounds = this.getContainerBounds(node, nodes);
+            const bounds = node.isRepoContainer
+                ? this.getContainerBounds(node, nodes, navState?.zoomScale || 1.0)
+                : {
+                    w: node.dimensions?.animW || node.dimensions?.w || 180,
+                    h: node.dimensions?.animH || node.dimensions?.h || 100
+                };
+
             const w = bounds.w / 2;
             const h = bounds.h / 2;
+            const centerX = bounds.centerX || node.x;
+            const centerY = bounds.centerY || node.y;
 
             // Calculate intersection with rectangle edges
             const tanAngle = Math.tan(angle);
@@ -84,19 +90,19 @@ export const DesignerCanvas = {
             // Check intersection with vertical edges (left/right)
             if (Math.abs(Math.cos(angle)) > 0.001) {
                 const xSign = Math.cos(angle) > 0 ? 1 : -1;
-                edgeX = node.x + w * xSign;
-                edgeY = node.y + w * xSign * tanAngle;
+                edgeX = centerX + w * xSign;
+                edgeY = centerY + w * xSign * tanAngle;
 
                 // Check if this point is within the horizontal bounds
-                if (Math.abs(edgeY - node.y) <= h) {
+                if (Math.abs(edgeY - centerY) <= h) {
                     return { x: edgeX, y: edgeY };
                 }
             }
 
             // Otherwise intersect with horizontal edges (top/bottom)
             const ySign = Math.sin(angle) > 0 ? 1 : -1;
-            edgeY = node.y + h * ySign;
-            edgeX = node.x + h * ySign / tanAngle;
+            edgeY = centerY + h * ySign;
+            edgeX = centerX + h * ySign / tanAngle;
             return { x: edgeX, y: edgeY };
         } else {
             // For circles, use dynamic radius
@@ -114,10 +120,6 @@ export const DesignerCanvas = {
      */
     drawSimpleLine(fromNode, toNode, navState, nodes) {
         const ctx = this.ctx;
-
-        ctx.save();
-        ctx.translate(navState.panOffset.x, navState.panOffset.y);
-        ctx.scale(navState.zoomScale, navState.zoomScale);
 
         // Get edge points for both nodes (handles circles and rectangles)
         const startPoint = this.getEdgePoint(fromNode, toNode.x, toNode.y, nodes, navState);
@@ -143,8 +145,6 @@ export const DesignerCanvas = {
         ctx.closePath();
         ctx.fillStyle = '#58a6ff';
         ctx.fill();
-
-        ctx.restore();
     },
 
     /**
@@ -152,9 +152,6 @@ export const DesignerCanvas = {
      */
     drawActiveLine(fromNode, mouseWorldPos, navState) {
         const ctx = this.ctx;
-        ctx.save();
-        ctx.translate(navState.panOffset.x, navState.panOffset.y);
-        ctx.scale(navState.zoomScale, navState.zoomScale);
 
         const angle = Math.atan2(mouseWorldPos.y - fromNode.y, mouseWorldPos.x - fromNode.x);
         const fromRadius = fromNode.isSatellite ? 25 : 35;
@@ -168,23 +165,28 @@ export const DesignerCanvas = {
         ctx.moveTo(startX, startY);
         ctx.lineTo(mouseWorldPos.x, mouseWorldPos.y);
         ctx.stroke();
-
-        ctx.restore();
     },
 
     // Unified logic to calculate container dimensions based on children
-    // Now with smooth animation support
+    // Now using the unified dimensions schema (Issue #6)
     getContainerBounds(node, nodes, zoomScale = 1.0) {
         const containerId = node.id;
         const isScaleUp = node.isDropTarget;
-        // Tuned scale factor: 1.10 is subtler than 1.15 (~3-5px less in typical view)
         const scaleFactor = isScaleUp ? 1.10 : 1.0;
 
-        // MANUAL MODE: If user has resized manually, use those dimensions
-        if (node.manualWidth && node.manualHeight) {
+        // Initialize dimensions if missing (legacy recovery)
+        if (!node.dimensions) {
+            node.dimensions = {
+                w: 180, h: 100, animW: 180, animH: 100, targetW: 180, targetH: 100, isManual: false
+            };
+        }
+        const dims = node.dimensions;
+
+        // MANUAL MODE: Use user-provided dimensions
+        if (dims.isManual) {
             return {
-                w: node.manualWidth * scaleFactor,
-                h: node.manualHeight * scaleFactor,
+                w: dims.w * scaleFactor,
+                h: dims.h * scaleFactor,
                 centerX: node.x,
                 centerY: node.y
             };
@@ -224,27 +226,21 @@ export const DesignerCanvas = {
         }
 
         // SMOOTH ANIMATION: Interpolate current size towards target
-        const easing = 0.15; // Lower = slower, smoother transition
+        const easing = 0.15;
+        dims.targetW = targetW;
+        dims.targetH = targetH;
 
-        // Store targets for animation loop detection
-        node._targetW = targetW;
-        node._targetH = targetH;
+        // Interpolate anim properties
+        dims.animW += (targetW - dims.animW) * easing;
+        dims.animH += (targetH - dims.animH) * easing;
 
-        // Initialize animated properties if not present
-        if (node._animW === undefined) node._animW = targetW;
-        if (node._animH === undefined) node._animH = targetH;
-
-        // Interpolate towards target
-        node._animW += (targetW - node._animW) * easing;
-        node._animH += (targetH - node._animH) * easing;
-
-        // Snap to target if close enough (prevent endless micro-animations)
-        if (Math.abs(targetW - node._animW) < 0.5) node._animW = targetW;
-        if (Math.abs(targetH - node._animH) < 0.5) node._animH = targetH;
+        // Snap to target if close enough
+        if (Math.abs(targetW - dims.animW) < 0.5) dims.animW = targetW;
+        if (Math.abs(targetH - dims.animH) < 0.5) dims.animH = targetH;
 
         return {
-            w: node._animW * scaleFactor,
-            h: node._animH * scaleFactor,
+            w: dims.animW * scaleFactor,
+            h: dims.animH * scaleFactor,
             centerX: targetCenterX,
             centerY: targetCenterY
         };

@@ -3,6 +3,9 @@
  * Responsabilidad: Gestión de pan, zoom y conversiones de coordenadas
  */
 
+import { CanvasUtils } from '../CanvasUtils.js';
+import { AnimationManager } from '../AnimationManager.js';
+
 export const PanZoomHandler = {
     state: {
         panOffset: { x: 0, y: 0 },
@@ -80,20 +83,14 @@ export const PanZoomHandler = {
      * Convert screen coordinates to world coordinates
      */
     screenToWorld(screenPos) {
-        return {
-            x: (screenPos.x - this.state.panOffset.x) / this.state.zoomScale,
-            y: (screenPos.y - this.state.panOffset.y) / this.state.zoomScale
-        };
+        return CanvasUtils.screenToWorld(screenPos, this.state);
     },
 
     /**
      * Convert world coordinates to screen coordinates
      */
     worldToScreen(worldPos) {
-        return {
-            x: worldPos.x * this.state.zoomScale + this.state.panOffset.x,
-            y: worldPos.y * this.state.zoomScale + this.state.panOffset.y
-        };
+        return CanvasUtils.worldToScreen(worldPos, this.state);
     },
 
     /**
@@ -105,24 +102,25 @@ export const PanZoomHandler = {
         const duration = 400; // ms
         const startTime = performance.now();
 
-        const step = (now) => {
-            const elapsed = now - startTime;
-            const progress = Math.min(elapsed / duration, 1);
+        AnimationManager.registerTween({
+            id: 'pan-animation',
+            animate: () => {
+                const elapsed = performance.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
 
-            // Easing: easeOutCubic
-            const ease = 1 - Math.pow(1 - progress, 3);
+                // Easing: easeOutCubic
+                const ease = 1 - Math.pow(1 - progress, 3);
 
-            this.state.panOffset.x = startX + (targetX - startX) * ease;
-            this.state.panOffset.y = startY + (targetY - startY) * ease;
+                this.state.panOffset.x = startX + (targetX - startX) * ease;
+                this.state.panOffset.y = startY + (targetY - startY) * ease;
 
-            if (onUpdate) onUpdate();
+                if (onUpdate) onUpdate();
 
-            if (progress < 1) {
-                requestAnimationFrame(step);
+                if (progress >= 1) {
+                    AnimationManager.unregisterTween({ id: 'pan-animation' });
+                }
             }
-        };
-
-        requestAnimationFrame(step);
+        });
     },
 
     /**

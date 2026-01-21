@@ -10,11 +10,6 @@ export const ConnectionRenderer = {
      * Draw manual connections between nodes
      */
     render(ctx, nodes, navState, connections) {
-        const { panOffset, zoomScale } = navState;
-        ctx.save();
-        ctx.translate(panOffset.x, panOffset.y);
-        ctx.scale(zoomScale, zoomScale);
-
         connections.forEach(conn => {
             const startNode = nodes[conn.from];
             const endNode = nodes[conn.to];
@@ -22,7 +17,5 @@ export const ConnectionRenderer = {
                 DesignerCanvas.drawSimpleLine(startNode, endNode, navState, nodes);
             }
         });
-
-        ctx.restore();
     }
 };

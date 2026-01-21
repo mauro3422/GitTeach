@@ -8,9 +8,24 @@ All notable changes to the GitTeach project will be documented in this file.
 
 ---
 
+## [2.65.0] - Routing Designer Architectural Overhaul & Standardization - 2026-01-21
+### 🏗️ Architectural Standardization
+- **Unified Animation Manager**: Implemented `AnimationManager.js` to replace multiple independent `requestAnimationFrame` loops with a centralized tween library, significantly improving performance and battery usage.
+- **Coordinate System Unification**: Created `CanvasUtils.js` as the single source of truth for screen-to-world and world-to-screen transformations, eliminating widespread logic duplication.
+- **UI Logic Decoupling**: Extracted all DOM event handling and keyboard shortcuts from `RoutingDesigner.js` into a dedicated `UIManager.js`.
+- **Render Pipeline Normalization**: Consolidated camera transformations (pan/zoom) in `DesignerCanvas.js`. The world-space renderers (`ContainerRenderer`, `NodeRenderer`, etc.) now receive a pre-transformed context, simplifying their implementation.
+
+### 🐛 Visual Consistency & Precision
+- **Precision Linking**: Fixed "double transformation" bug in connection rendering. Links now draw in unified world-space, ensuring perfect alignment at any zoom level.
+- **Geometric Centering**: Standardized container rendering and hit-detection to use the calculated `centerX/Y` (centroid of children) instead of the parent node's origin. Containers and their labels are now perfectly centered over their contents.
+- **Sticky Note Anchoring**: Updated edge-point calculations to treat Sticky Notes as dynamic rectangles using their animated dimensions (`animW`/`animH`), ensuring connections stay attached to the border during resize operations.
+- **Glassmorphism Correction**: Restored screen-space coordinates for non-container nodes in `UIRenderer`, fixing issues where labels and icons would disappear or misalign.
+
 ## [2.60.0] - SOLID Architectural Pivot & Persistent Blueprints - 2026-01-21
 ### 🏗️ SOLID Architecture Refactor
-- **Monolith Decomposition**: Decoupled `RoutingDesigner.js` and `DesignerInteraction.js` into 13 specialized modules across `modules/`, `interaction/`, and `renderers/` directories.
+- **Monolith Decomposition**: Decoupled `RoutingDesigner.js`, `DesignerCanvas.js`, and `PipelineCanvas.js` into specialized modules.
+- **Pipeline Canvas Modularization**: Split `PipelineCanvas.js` into `PipelineCanvasRenderer`, `PipelineCanvasEventManager`, and `PipelineCanvasUI`.
+- **State Management Refinement**: Extracted particle and packet life-cycle logic from `PipelineStateManager.js` to `PipelineParticleManager.js`.
 - **Composite Rendering Pipeline**: Implemented a phased rendering system in `DesignerCanvas.js` using dedicated renderers for Grid, Containers, Nodes, Connections, and UI.
 - **Stateful Interaction Handlers**: Extracted resize, drag, pan-zoom, and connection logic into encapsulated state machines, improving maintainability and reducing complexity.
 

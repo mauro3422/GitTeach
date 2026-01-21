@@ -124,7 +124,7 @@ class ContainerBoxManager {
         userBoxes.push({
           id: boxId,
           nodeIds: [...entry.nodeIds],
-          bounds: entry.bounds ? {...entry.bounds} : null,
+          bounds: entry.bounds ? { ...entry.bounds } : null,
           margin: entry.margin
         });
       }

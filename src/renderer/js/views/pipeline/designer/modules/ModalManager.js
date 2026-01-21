@@ -42,6 +42,13 @@ export const ModalManager = {
      */
     closeModal() {
         drawerManager.close();
+
+        // Close Toolbox if open
+        const toolbox = document.getElementById('toolbox-drawer');
+        const toolboxToggle = document.getElementById('toolbox-toggle');
+        if (toolbox) toolbox.classList.remove('open');
+        if (toolboxToggle) toolboxToggle.style.display = 'flex';
+
         document.getElementById('modal-overlay').style.display = 'none';
         this.editingNode = null;
     },
@@ -99,16 +106,19 @@ export const ModalManager = {
         const screenX = note.x * navState.zoomScale + navState.panOffset.x;
         const screenY = note.y * navState.zoomScale + navState.panOffset.y;
 
+        const w = (note.dimensions?.w || 180) * navState.zoomScale;
+        const h = (note.dimensions?.h || 100) * navState.zoomScale;
+
         // Create textarea
         const textarea = document.createElement('textarea');
         textarea.id = 'inline-note-editor';
         textarea.value = note.text;
         textarea.style.cssText = `
             position: absolute;
-            left: ${screenX - (note.width * navState.zoomScale) / 2}px;
-            top: ${screenY - (note.height * navState.zoomScale) / 2}px;
-            width: ${note.width * navState.zoomScale}px;
-            height: ${note.height * navState.zoomScale}px;
+            left: ${screenX - w / 2}px;
+            top: ${screenY - h / 2}px;
+            width: ${w}px;
+            height: ${h}px;
             background: rgba(22, 27, 34, 0.95);
             border: 2px solid #3fb950;
             border-radius: 8px;

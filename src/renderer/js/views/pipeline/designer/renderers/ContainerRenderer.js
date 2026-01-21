@@ -11,21 +11,18 @@ export const ContainerRenderer = {
      * Draw containers and sticky notes
      */
     render(ctx, nodes, navState) {
-        const { panOffset, zoomScale } = navState;
-        ctx.save();
-        ctx.translate(panOffset.x, panOffset.y);
-        ctx.scale(zoomScale, zoomScale);
+        const { zoomScale } = navState;
 
         // Phase 1: Containers (background)
         Object.values(nodes).forEach(node => {
             if (!node.isRepoContainer) return;
-            const { color, icon, label, isDropTarget } = node;
+            const { color, isDropTarget } = node;
             const bounds = DesignerCanvas.getContainerBounds(node, nodes, zoomScale);
 
-            const x = node.x;
-            const y = node.y;
-            const w = bounds.w;
-            const h = bounds.h;
+            const sW = bounds.w;
+            const sH = bounds.h;
+            const centerX = bounds.centerX || node.x;
+            const centerY = bounds.centerY || node.y;
 
             ctx.save();
             ctx.beginPath();
@@ -39,25 +36,20 @@ export const ContainerRenderer = {
                 ctx.lineWidth = 3;
             }
 
-            if (ctx.roundRect) ctx.roundRect(x - w / 2, y - h / 2, w, h, 12);
-            else ctx.rect(x - w / 2, y - h / 2, w, h);
+            if (ctx.roundRect) ctx.roundRect(centerX - sW / 2, centerY - sH / 2, sW, sH, 12);
+            else ctx.rect(centerX - sW / 2, centerY - sH / 2, sW, sH);
             ctx.fill();
             ctx.stroke();
             ctx.restore();
 
-            // Message Indicator Badge for containers
-            if (node.message) {
-                this.drawMessageBadge(ctx, x + w / 2 - 10, y - h / 2 + 10, color);
-            }
-
             // Resize Handles (visible on hover only)
             if (node.isHovered) {
-                const handleSize = 8;
+                const handleSize = 8 / zoomScale;
                 const corners = [
-                    { x: x - w / 2, y: y - h / 2 }, // nw
-                    { x: x + w / 2, y: y - h / 2 }, // ne
-                    { x: x - w / 2, y: y + h / 2 }, // sw
-                    { x: x + w / 2, y: y + h / 2 }  // se
+                    { x: centerX - sW / 2, y: centerY - sH / 2 },
+                    { x: centerX + sW / 2, y: centerY - sH / 2 },
+                    { x: centerX - sW / 2, y: centerY + sH / 2 },
+                    { x: centerX + sW / 2, y: centerY + sH / 2 }
                 ];
                 ctx.save();
                 ctx.fillStyle = color;
@@ -72,9 +64,9 @@ export const ContainerRenderer = {
         Object.values(nodes).forEach(node => {
             if (!node.isStickyNote) return;
 
-            const { x, y, width, height, text, color } = node;
-            const w = width || 180;
-            const h = height || 100;
+            const { x, y, color, dimensions } = node;
+            const w = dimensions?.w || 180;
+            const h = dimensions?.h || 100;
 
             ctx.save();
 
@@ -101,9 +93,9 @@ export const ContainerRenderer = {
             ctx.fill();
             ctx.stroke();
 
-            // Resize Handles (stay in world space)
+            // Resize Handles
             if (node.isHovered) {
-                const handleSize = 8 / zoomScale; // keep handle size consistent
+                const handleSize = 8 / zoomScale;
                 const corners = [
                     { x: x - w / 2, y: y - h / 2 }, // nw
                     { x: x + w / 2, y: y - h / 2 }, // ne
@@ -120,8 +112,6 @@ export const ContainerRenderer = {
 
             ctx.restore();
         });
-
-        ctx.restore();
     },
 
     /**

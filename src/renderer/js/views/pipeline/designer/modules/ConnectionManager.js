@@ -1,46 +1,38 @@
-/**
- * ConnectionManager.js
- * Responsabilidad: Gestión de conexiones manuales entre nodos
- */
+import { DesignerStore } from './DesignerStore.js';
 
 export const ConnectionManager = {
-    connections: [],
-
-    /**
-     * Initialize with existing connections
-     */
-    init(connections = []) {
-        this.connections = connections;
+    get connections() {
+        return DesignerStore.state.connections;
     },
 
     /**
-     * Add a manual connection between two nodes
+     * Add a manual connection
      */
     addConnection(fromId, toId) {
-        // Prevent duplicates
         if (this.connections.some(c => c.from === fromId && c.to === toId)) return false;
 
-        this.connections.push({ from: fromId, to: toId });
+        const updatedConnections = [...this.connections, { from: fromId, to: toId }];
+        DesignerStore.setState({ connections: updatedConnections });
         return true;
     },
 
     /**
-     * Remove a connection between two nodes
+     * Remove a connection
      */
     removeConnection(fromId, toId) {
-        const index = this.connections.findIndex(c => c.from === fromId && c.to === toId);
-        if (index !== -1) {
-            this.connections.splice(index, 1);
+        const updatedConnections = this.connections.filter(c => !(c.from === fromId && c.to === toId));
+        if (updatedConnections.length !== this.connections.length) {
+            DesignerStore.setState({ connections: updatedConnections });
             return true;
         }
         return false;
     },
 
     /**
-     * Get all connections
+     * Set connections (for undo/redo)
      */
-    getConnections() {
-        return [...this.connections];
+    setConnections(connections) {
+        DesignerStore.setState({ connections });
     },
 
     /**
@@ -48,27 +40,5 @@ export const ConnectionManager = {
      */
     getConnectionsFor(nodeId) {
         return this.connections.filter(c => c.from === nodeId || c.to === nodeId);
-    },
-
-    /**
-     * Check if a connection can be made (no duplicates, no self-loops)
-     */
-    canConnect(fromId, toId) {
-        if (fromId === toId) return false; // No self-loops
-        return !this.connections.some(c => c.from === fromId && c.to === toId);
-    },
-
-    /**
-     * Clear all connections
-     */
-    clear() {
-        this.connections = [];
-    },
-
-    /**
-     * Set connections (for undo/redo)
-     */
-    setConnections(connections) {
-        this.connections = [...connections];
     }
 };

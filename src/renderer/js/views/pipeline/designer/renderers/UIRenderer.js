@@ -19,20 +19,25 @@ export const UIRenderer = {
 
             if (node.isRepoContainer) {
                 const bounds = DesignerCanvas.getContainerBounds(node, nodes, zoomScale);
+                const cX = bounds.centerX || node.x;
+                const cY = bounds.centerY || node.y;
+                const scX = cX * zoomScale + panOffset.x;
+                const scY = cY * zoomScale + panOffset.y;
+
                 const sW = bounds.w * zoomScale;
                 const sH = bounds.h * zoomScale;
-                LabelRenderer.drawStandardText(ctx, node.label.toUpperCase(), screenX, screenY - sH / 2 + 20, {
+                LabelRenderer.drawStandardText(ctx, node.label.toUpperCase(), scX, scY - sH / 2 + 20, {
                     fontSize: 22,
                     color: node.isHovered ? '#ffffff' : node.color,
                     bold: true
                 });
 
                 if (node.message) {
-                    this.drawMessageBadge(ctx, screenX + sW / 2 - 15, screenY - sH / 2 + 15, node.color);
+                    this.drawMessageBadge(ctx, scX + sW / 2 - 15, scY - sH / 2 + 15, node.color);
                 }
             } else if (node.isStickyNote) {
-                const sW = (node.width || 180) * zoomScale;
-                const sH = (node.height || 100) * zoomScale;
+                const sW = (node.dimensions?.w || 180) * zoomScale;
+                const sH = (node.dimensions?.h || 100) * zoomScale;
 
                 ctx.save();
                 const fSize = 18;
