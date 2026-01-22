@@ -4,7 +4,7 @@
  */
 
 import { drawerManager } from '../../DrawerManager.js';
-import { DesignerMessageRenderer } from '../DesignerMessageRenderer.js';
+import { UIDrawerRenderer } from '../UIDrawerRenderer.js';
 import { DesignerInteraction } from '../DesignerInteraction.js';
 import { globalEventBus } from '../../../../core/EventBus.js';
 
@@ -32,7 +32,7 @@ export const ModalManager = {
         const drawer = drawerManager.show(container, 'message-drawer', 'pipeline-drawer');
         drawer.allNodes = nodes; // Pass reference for parenting selector
 
-        DesignerMessageRenderer.render(
+        UIDrawerRenderer.render(
             drawer,
             node,
             (msg, pId, label) => {

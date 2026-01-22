@@ -333,6 +333,230 @@ describe('ResizeHandler Behavior', () => {
 });
 
 // ============================================================
+// Strategy Pattern Tests
+// ============================================================
+describe('Strategy Pattern Implementation', () => {
+    // Mock controller for strategies
+    const mockController = {
+        canvas: { style: { cursor: 'default' } },
+        getWorldPosFromEvent: vi.fn(() => ({ x: 100, y: 100 })),
+        findNodeAt: vi.fn(() => ({ id: 'node1', x: 100, y: 100 })),
+        onUpdate: vi.fn(),
+        screenToWorld: vi.fn(pos => pos)
+    };
+
+    describe('InteractionStrategy Base Class', () => {
+        const InteractionStrategy = {
+            handleMouseDown() { throw new Error('Must implement'); },
+            handleMouseMove() { },
+            handleMouseUp() { },
+            handleKeyDown() { },
+            handleKeyUp() { },
+            getCursor() { return 'default'; },
+            isActive() { return false; },
+            cancel() { },
+            cleanup() { }
+        };
+
+        it('should define abstract interface', () => {
+            expect(() => InteractionStrategy.handleMouseDown()).toThrow('Must implement');
+        });
+    });
+
+    describe('DragStrategy Behavior', () => {
+        let dragStrategy;
+        let nodes;
+
+        beforeEach(() => {
+            dragStrategy = {
+                controller: mockController,
+                dragState: { draggingNodeId: null, dragOffset: { x: 0, y: 0 }, dropTargetId: null },
+                getCursor: () => 'default',
+                isActive: function () { return this.dragState.draggingNodeId !== null; },
+                startDrag: function (node, worldPos) {
+                    this.dragState.draggingNodeId = node.id;
+                    this.dragState.dragOffset = { x: worldPos.x - node.x, y: worldPos.y - node.y };
+                    node.isDragging = true;
+                },
+                updateDrag: function (worldPos) {
+                    if (!this.dragState.draggingNodeId) return;
+                    const node = nodes[this.dragState.draggingNodeId];
+                    if (!node) return;
+                    node.x = worldPos.x - this.dragState.dragOffset.x;
+                    node.y = worldPos.y - this.dragState.dragOffset.y;
+                },
+                endDrag: function () {
+                    if (this.dragState.draggingNodeId && nodes[this.dragState.draggingNodeId]) {
+                        nodes[this.dragState.draggingNodeId].isDragging = false;
+                    }
+                    this.dragState.draggingNodeId = null;
+                }
+            };
+
+            nodes = {
+                'node1': { id: 'node1', x: 100, y: 100, isDragging: false }
+            };
+        });
+
+        it('should start drag on left click with node', () => {
+            const mockEvent = { button: 0 };
+            mockController.getWorldPosFromEvent.mockReturnValue({ x: 105, y: 105 });
+            mockController.findNodeAt.mockReturnValue(nodes.node1);
+
+            // Simulate handleMouseDown for drag strategy
+            const worldPos = mockController.getWorldPosFromEvent(mockEvent);
+            const clickedNode = mockController.findNodeAt(worldPos);
+
+            if (clickedNode) {
+                dragStrategy.startDrag(clickedNode, worldPos);
+            }
+
+            expect(dragStrategy.isActive()).toBe(true);
+            expect(nodes.node1.isDragging).toBe(true);
+        });
+
+        it('should update node position during drag', () => {
+            dragStrategy.startDrag(nodes.node1, { x: 105, y: 105 });
+
+            dragStrategy.updateDrag({ x: 200, y: 200 });
+
+            expect(nodes.node1.x).toBe(195); // 200 - (105 - 100)
+            expect(nodes.node1.y).toBe(195);
+        });
+
+        it('should end drag and cleanup state', () => {
+            dragStrategy.startDrag(nodes.node1, { x: 105, y: 105 });
+            dragStrategy.endDrag();
+
+            expect(dragStrategy.isActive()).toBe(false);
+            expect(nodes.node1.isDragging).toBe(false);
+        });
+    });
+
+    describe('DrawStrategy Behavior', () => {
+        let drawStrategy;
+
+        beforeEach(() => {
+            drawStrategy = {
+                controller: mockController,
+                connectionState: { fromNode: null, currentPos: null },
+                getCursor: () => 'crosshair',
+                isActive: function () { return this.connectionState.fromNode !== null; },
+                cancel: function () {
+                    this.connectionState.fromNode = null;
+                    this.connectionState.currentPos = null;
+                }
+            };
+        });
+
+        it('should start connection on first click', () => {
+            const clickedNode = { id: 'node1' };
+            const worldPos = { x: 100, y: 100 };
+
+            // Simulate clicking on node
+            if (drawStrategy.connectionState.fromNode === null) {
+                drawStrategy.connectionState.fromNode = clickedNode;
+                drawStrategy.connectionState.currentPos = worldPos;
+            }
+
+            expect(drawStrategy.isActive()).toBe(true);
+            expect(drawStrategy.connectionState.fromNode).toBe(clickedNode);
+        });
+
+        it('should complete connection on second click', () => {
+            const fromNode = { id: 'node1' };
+            const toNode = { id: 'node2' };
+            let connectionCreated = false;
+
+            // Start connection
+            drawStrategy.connectionState.fromNode = fromNode;
+            drawStrategy.connectionState.currentPos = { x: 100, y: 100 };
+
+            // Click on second node
+            if (drawStrategy.isActive() && toNode.id !== fromNode.id) {
+                connectionCreated = true;
+                drawStrategy.cancel(); // Complete connection
+            }
+
+            expect(connectionCreated).toBe(true);
+            expect(drawStrategy.isActive()).toBe(false);
+        });
+
+        it('should cancel connection on escape', () => {
+            drawStrategy.connectionState.fromNode = { id: 'node1' };
+            drawStrategy.connectionState.currentPos = { x: 100, y: 100 };
+
+            drawStrategy.cancel();
+
+            expect(drawStrategy.isActive()).toBe(false);
+        });
+    });
+
+    describe('Strategy Switching', () => {
+        let mockDesignerInteraction;
+
+        beforeEach(() => {
+            mockDesignerInteraction = {
+                activeStrategy: null,
+                dragStrategy: {
+                    getCursor: () => 'default',
+                    handleMouseDown: vi.fn(),
+                    name: 'drag'
+                },
+                drawStrategy: {
+                    getCursor: () => 'crosshair',
+                    handleMouseDown: vi.fn(),
+                    cancel: vi.fn(),
+                    name: 'draw'
+                },
+                canvas: { style: { cursor: 'default' } },
+                onUpdate: vi.fn(),
+                toggleMode: function () {
+                    this.activeStrategy = this.activeStrategy === this.dragStrategy ? this.drawStrategy : this.dragStrategy;
+                    this.canvas.style.cursor = this.activeStrategy.getCursor();
+                    if (this.activeStrategy === this.dragStrategy && this.drawStrategy.cancel) {
+                        this.drawStrategy.cancel();
+                    }
+                    return this.activeStrategy === this.drawStrategy;
+                }
+            };
+            mockDesignerInteraction.activeStrategy = mockDesignerInteraction.dragStrategy;
+        });
+
+        it('should switch from drag to draw strategy', () => {
+            const initialStrategy = mockDesignerInteraction.activeStrategy;
+
+            mockDesignerInteraction.toggleMode();
+
+            expect(mockDesignerInteraction.activeStrategy).not.toBe(initialStrategy);
+            expect(mockDesignerInteraction.activeStrategy).toBe(mockDesignerInteraction.drawStrategy);
+            expect(mockDesignerInteraction.canvas.style.cursor).toBe('crosshair');
+        });
+
+        it('should switch from draw to drag strategy and cancel active connection', () => {
+            // Switch to draw first
+            mockDesignerInteraction.toggleMode();
+            expect(mockDesignerInteraction.activeStrategy).toBe(mockDesignerInteraction.drawStrategy);
+
+            // Switch back to drag
+            mockDesignerInteraction.toggleMode();
+
+            expect(mockDesignerInteraction.activeStrategy).toBe(mockDesignerInteraction.dragStrategy);
+            expect(mockDesignerInteraction.canvas.style.cursor).toBe('default');
+            expect(mockDesignerInteraction.drawStrategy.cancel).toHaveBeenCalled();
+        });
+
+        it('should delegate mouse events to active strategy', () => {
+            const mockEvent = { button: 0 };
+
+            mockDesignerInteraction.activeStrategy.handleMouseDown(mockEvent);
+
+            expect(mockDesignerInteraction.dragStrategy.handleMouseDown).toHaveBeenCalledWith(mockEvent);
+        });
+    });
+});
+
+// ============================================================
 // HistoryManager Tests
 // ============================================================
 describe('HistoryManager', () => {

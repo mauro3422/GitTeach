@@ -2,8 +2,6 @@ import { BaseController } from '../../../core/BaseController.js';
 import { DesignerCanvas } from './DesignerCanvas.js';
 import { DesignerInteraction } from './DesignerInteraction.js';
 import { BlueprintManager } from './BlueprintManager.js';
-import { NodeManager } from './modules/NodeManager.js';
-import { ConnectionManager } from './modules/ConnectionManager.js';
 import { HistoryManager } from './modules/HistoryManager.js';
 import { ModalManager } from './modules/ModalManager.js';
 import { RoutingDesignerStateLoader } from './RoutingDesignerStateLoader.js';
@@ -11,10 +9,20 @@ import { UIManager } from './UIManager.js';
 import { CoordinateUtils } from './CoordinateUtils.js';
 import { AnimationManager } from './AnimationManager.js';
 import { DesignerStore } from './modules/DesignerStore.js';
+import {
+    commandManager,
+    AddNodeCommand,
+    AddStickyNoteCommand,
+    DeleteNodeCommand,
+    UpdateLabelCommand,
+    CreateConnectionCommand,
+    MoveNodeCommand,
+    DropNodeCommand
+} from './commands/DesignerCommands.js';
 // Removed direct DragHandler import, accessed via DesignerInteraction
 import { globalEventBus } from '../../../core/EventBus.js';
 
-class RoutingDesignerController extends BaseController {
+class DesignerControllerClass extends BaseController {
     constructor() {
         super();
         this.canvas = null;
@@ -92,15 +100,15 @@ class RoutingDesignerController extends BaseController {
         DesignerCanvas.init(this.ctx);
         DesignerInteraction.init(
             this.canvas,
-            () => NodeManager.nodes, // Pass as FUNCTION, not Object Reference
+            () => DesignerStore.state.nodes, // Pass as FUNCTION from Store
             () => this.render(),
             (fromId, toId) => this.addManualConnection(fromId, toId),
             (node) => this.openMessageModal(node),
             (nodeId, containerId) => this.handleNodeDrop(nodeId, containerId),
             (note) => this.openInlineEditor(note),
-            () => BlueprintManager.autoSave(NodeManager.nodes, ConnectionManager.connections)
+            () => BlueprintManager.autoSave(DesignerStore.state.nodes, DesignerStore.state.connections)
         );
-        BlueprintManager.init(NodeManager.nodes);
+        BlueprintManager.init(DesignerStore.state.nodes);
     }
 
     openMessageModal(node) {
@@ -112,7 +120,7 @@ class RoutingDesignerController extends BaseController {
         DesignerInteraction.cancelInteraction();
         ModalManager.openMessageModal(
             node,
-            NodeManager.nodes,
+            DesignerStore.state.nodes,
             (msg, pId, label) => this.saveMessage(msg, pId, label),
             () => ModalManager.closeModal()
         );
@@ -123,45 +131,42 @@ class RoutingDesignerController extends BaseController {
     }
 
     saveToHistory() {
-        HistoryManager.saveToHistory(NodeManager.nodes, ConnectionManager.connections);
+        DesignerStore.savepoint();
     }
 
     undo() {
-        const prevState = HistoryManager.undo(NodeManager.nodes, ConnectionManager.connections);
-        if (prevState) {
-            NodeManager.setNodes(prevState.nodes);
-            ConnectionManager.setConnections(prevState.connections);
+        if (DesignerStore.undo()) {
             this.render();
-            // console.log('[RoutingDesigner] Undo');
+            console.log('[DesignerController] Undo executed via Store');
         }
     }
 
     redo() {
-        const redoState = HistoryManager.redo(NodeManager.nodes, ConnectionManager.connections);
-        if (redoState) {
-            NodeManager.setNodes(redoState.nodes);
-            ConnectionManager.setConnections(redoState.connections);
+        if (DesignerStore.redo()) {
             this.render();
-            // console.log('[RoutingDesigner] Redo');
+            console.log('[DesignerController] Redo executed via Store');
         }
     }
 
     addCustomNode(isContainer) {
-        this.saveToHistory();
         const centerPos = CoordinateUtils.getCanvasCenterWorldPos(this.canvas, DesignerInteraction.state);
+        const command = new AddNodeCommand(isContainer, centerPos.x, centerPos.y);
 
-        NodeManager.addCustomNode(isContainer, centerPos.x, centerPos.y);
+        commandManager.execute(command);
         this.render();
     }
 
     addStickyNote() {
-        this.saveToHistory();
         const centerPos = CoordinateUtils.getCanvasCenterWorldPos(this.canvas, DesignerInteraction.state);
+        const command = new AddStickyNoteCommand(centerPos.x, centerPos.y);
 
-        const newNote = NodeManager.addStickyNote(centerPos.x, centerPos.y);
+        const newNote = commandManager.execute(command);
         this.render();
+
         // Use safe timeout from BaseController
-        this.setTimeout(() => this.openInlineEditor(newNote), 100);
+        if (newNote) {
+            this.setTimeout(() => this.openInlineEditor(newNote), 100);
+        }
     }
 
     openInlineEditor(note) {
@@ -174,9 +179,9 @@ class RoutingDesignerController extends BaseController {
 
     handleNodeDrop(nodeId, containerId) {
         this.saveToHistory();
-        NodeManager.handleNodeDrop(nodeId, containerId);
+        DesignerStore.dropNode(nodeId, containerId);
         this.render();
-        BlueprintManager.autoSave(NodeManager.nodes, ConnectionManager.connections);
+        BlueprintManager.autoSave(DesignerStore.state.nodes, DesignerStore.state.connections);
     }
 
     saveMessage(message, parentId, newLabel = null) {
@@ -188,7 +193,7 @@ class RoutingDesignerController extends BaseController {
 
         this.closeModal();
         this.render();
-        BlueprintManager.autoSave(NodeManager.nodes, ConnectionManager.connections);
+        BlueprintManager.autoSave(DesignerStore.state.nodes, DesignerStore.state.connections);
     }
 
     resize() {
@@ -200,9 +205,9 @@ class RoutingDesignerController extends BaseController {
 
     addManualConnection(fromId, toId) {
         this.saveToHistory();
-        ConnectionManager.addConnection(fromId, toId);
+        DesignerStore.addConnection(fromId, toId);
         this.render();
-        BlueprintManager.autoSave(NodeManager.nodes, ConnectionManager.connections);
+        BlueprintManager.autoSave(DesignerStore.state.nodes, DesignerStore.state.connections);
     }
 
     render() {
@@ -221,18 +226,32 @@ class RoutingDesignerController extends BaseController {
             return;
         }
 
-        // Use unified composite rendering
+        // Use unified composite rendering (Defensive sanity check)
+        const activeConnId = (DesignerInteraction.activeConnection && DesignerInteraction.activeConnection.fromNode)
+            ? DesignerInteraction.activeConnection.fromNode.id
+            : null;
+
+        const activeConn = DesignerInteraction.activeConnection || null;
+
+        const dropTargetId = (DesignerInteraction.dragStrategy && DesignerInteraction.dragStrategy.dragState)
+            ? DesignerInteraction.dragStrategy.dragState.dropTargetId
+            : null;
+
+        const resizingNodeId = (DesignerInteraction.resizeHandler && typeof DesignerInteraction.resizeHandler.getState === 'function')
+            ? (DesignerInteraction.resizeHandler.getState() || {}).resizingNodeId
+            : null;
+
         DesignerCanvas.render(
             this.canvas.width,
             this.canvas.height,
-            NodeManager.nodes,
+            DesignerStore.state.nodes,
             navState,
-            ConnectionManager.connections,
-            DesignerInteraction.activeConnection?.fromNode?.id,
-            DesignerInteraction.activeConnection,
+            DesignerStore.state.connections,
+            activeConnId,
+            activeConn,
             DesignerInteraction.hoveredNodeId,
-            DesignerInteraction.dragHandler.getState().dropTargetId,
-            DesignerInteraction.resizeHandler.getState().resizingNodeId
+            dropTargetId,
+            resizingNodeId
         );
 
         // Sync inline editor if active
@@ -243,7 +262,7 @@ class RoutingDesignerController extends BaseController {
     }
 
     checkAnimations() {
-        const hasAnimating = Object.values(NodeManager.nodes).some(node => {
+        const hasAnimating = Object.values(DesignerStore.state.nodes).some(node => {
             if (!node.isRepoContainer || !node.dimensions || node.dimensions.isManual) return false;
             const d = node.dimensions;
             const isSizing = Math.abs(d.animW - d.targetW) > 1 || Math.abs(d.animH - d.targetH) > 1;
@@ -265,4 +284,4 @@ class RoutingDesignerController extends BaseController {
 }
 
 // Export singleton to maintain API
-export const RoutingDesigner = new RoutingDesignerController();
+export const RoutingDesigner = new DesignerControllerClass();

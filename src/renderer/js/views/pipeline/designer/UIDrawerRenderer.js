@@ -1,6 +1,6 @@
 import { INTERNAL_COMPONENT_DESCRIPTIONS } from '../PipelineConstants.js';
 
-export const DesignerMessageRenderer = {
+export const UIDrawerRenderer = {
     /**
      * Render the messaging view into the drawer
      */

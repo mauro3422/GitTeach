@@ -1,15 +1,18 @@
 import { DesignerCanvas } from './DesignerCanvas.js';
 import { PanZoomHandler } from './interaction/PanZoomHandler.js';
-import { DragHandler } from './interaction/DragHandler.js';
 import { ResizeHandler } from './interaction/ResizeHandler.js';
-import { ConnectionHandler } from './interaction/ConnectionHandler.js';
 import { CoordinateUtils } from './CoordinateUtils.js';
 import { GeometryUtils } from './GeometryUtils.js';
 import { VisualStateManager } from './modules/VisualStateManager.js';
 import { InputManager } from './modules/InputManager.js';
+import { DragStrategy } from './strategies/DragStrategy.js';
+import { DrawStrategy } from './strategies/DrawStrategy.js';
+import { DesignerStore } from './modules/DesignerStore.js';
 
 export const DesignerInteraction = {
+    // Sanity Check: Strategy Pattern v2 active
     canvas: null,
+    DEBUG_INTERACTION: true, // Habilitar logs de hit-detection para depuración
     /**
      * @type {() => Object} - Returns the current nodes object
      */
@@ -20,8 +23,10 @@ export const DesignerInteraction = {
         return this.nodeProvider ? this.nodeProvider() : {};
     },
 
-    // Interaction mode
-    mode: 'DRAG', // 'DRAG' or 'DRAW'
+    // Active interaction strategy
+    activeStrategy: null,
+    dragStrategy: null,
+    drawStrategy: null,
     hoveredNodeId: null, // Track mouse over node
 
     // Compatibility getter - delegates to PanZoomHandler instance
@@ -29,9 +34,9 @@ export const DesignerInteraction = {
         return this.panZoomHandler ? this.panZoomHandler.getState() : { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 };
     },
 
-    // Compatibility getter - delegates to ConnectionHandler
+    // Compatibility getter - delegates to active draw strategy
     get activeConnection() {
-        return (this.connectionHandler && this.connectionHandler.isActive()) ? this.connectionHandler.getState() : null;
+        return this.drawStrategy ? this.drawStrategy.getConnectionState() : null;
     },
 
     /**
@@ -42,8 +47,8 @@ export const DesignerInteraction = {
         return {
             hoveredId: this.hoveredNodeId,
             selectedId: null, // TODO: Implement selection
-            draggingId: this.dragHandler?.isActive() ? this.dragHandler.getState().draggingNodeId : null,
-            activeConnectionId: this.connectionHandler?.isActive() ? this.connectionHandler.getState()?.fromNode?.id : null,
+            draggingId: this.dragStrategy?.isActive() ? this.dragStrategy.dragState.draggingNodeId : null,
+            activeConnectionId: this.drawStrategy?.isActive() ? this.drawStrategy.connectionState.fromNode?.id : null,
             resizingId: this.resizeHandler?.isActive() ? this.resizeHandler.getState().resizingNodeId : null
         };
     },
@@ -73,11 +78,14 @@ export const DesignerInteraction = {
         this.onStickyNoteEdit = onStickyNoteEdit;
         this.onInteractionEnd = onInteractionEnd;
 
-        // Instantiate Handlers
-        this.dragHandler = new DragHandler(this);
+        // Instantiate strategies
+        this.dragStrategy = new DragStrategy(this);
+        this.drawStrategy = new DrawStrategy(this);
+        this.activeStrategy = this.dragStrategy; // Default to drag strategy
+
+        // Instantiate legacy handlers for compatibility
         this.resizeHandler = new ResizeHandler(this);
         this.panZoomHandler = new PanZoomHandler(this);
-        this.connectionHandler = new ConnectionHandler(this);
 
         // Initialize interaction modules
         this.panZoomHandler.init({ panOffset: { x: 0, y: 0 }, zoomScale: 1.5 });
@@ -96,30 +104,28 @@ export const DesignerInteraction = {
             windowMouseUp: true // Necesario para drag fuera del canvas
         });
 
-        // Registrar shortcut para DRAW mode via InputManager
+        // Registrar shortcut para cambiar a DRAW strategy
         InputManager.registerShortcut('Control', 'DrawMode', () => {
-            if (this.mode !== 'DRAW') {
-                this.mode = 'DRAW';
+            if (this.activeStrategy !== this.drawStrategy) {
+                this.activeStrategy = this.drawStrategy;
                 this.canvas.style.cursor = 'crosshair';
                 this.onUpdate?.();
             }
         });
 
         // Registrar Undo/Redo shortcuts
-        import('./modules/DesignerStore.js').then(({ DesignerStore }) => {
-            InputManager.registerShortcut('controlkey+keyz', 'Undo', () => {
-                if (DesignerStore.undo()) {
-                    this.onUpdate?.();
-                    console.log('[Interaction] ⏪ Undo executed');
-                }
-            });
+        InputManager.registerShortcut('controlkey+keyz', 'Undo', () => {
+            if (DesignerStore.undo()) {
+                this.onUpdate?.();
+                console.log('[Interaction] ⏪ Undo executed (Store)');
+            }
+        });
 
-            InputManager.registerShortcut('controlkey+keyy', 'Redo', () => {
-                if (DesignerStore.redo()) {
-                    this.onUpdate?.();
-                    console.log('[Interaction] ⏩ Redo executed');
-                }
-            });
+        InputManager.registerShortcut('controlkey+keyy', 'Redo', () => {
+            if (DesignerStore.redo()) {
+                this.onUpdate?.();
+                console.log('[Interaction] ⏩ Redo executed (Store)');
+            }
         });
 
         // 🧪 DEBUG MODE TOGGLE (Scientific Method)
@@ -134,26 +140,36 @@ export const DesignerInteraction = {
      * Internal keyboard handlers for InputManager
      */
     _handleKeyDown(e) {
-        // Lógica actual de keydown - Ctrl para DRAW mode
-        if (e.key === 'Control' && this.mode !== 'DRAW') {
-            this.mode = 'DRAW';
-            this.canvas.style.cursor = 'crosshair';
-            this.onUpdate?.();
+        // Delegate to active strategy
+        if (this.activeStrategy && this.activeStrategy.handleKeyDown) {
+            this.activeStrategy.handleKeyDown(e);
         }
     },
 
     _handleKeyUp(e) {
-        if (e.key === 'Control' && this.mode === 'DRAW') {
-            this.mode = 'DRAG';
-            this.connectionHandler.cancel();
-            this.canvas.style.cursor = 'default';
-            this.onUpdate?.();
+        // Delegate to active strategy
+        if (this.activeStrategy && this.activeStrategy.handleKeyUp) {
+            this.activeStrategy.handleKeyUp(e);
+        }
+
+        // Strategy switching logic
+        if (e.key === 'Control') {
+            if (this.activeStrategy === this.drawStrategy) {
+                this.activeStrategy = this.dragStrategy;
+                this.drawStrategy.cancel(); // Cancel any active connection
+                this.canvas.style.cursor = 'default';
+                this.onUpdate?.();
+            }
         }
     },
 
     toggleMode() {
-        this.mode = this.mode === 'DRAG' ? 'DRAW' : 'DRAG';
-        return this.mode === 'DRAW';
+        this.activeStrategy = this.activeStrategy === this.dragStrategy ? this.drawStrategy : this.dragStrategy;
+        this.canvas.style.cursor = this.activeStrategy.getCursor();
+        if (this.activeStrategy === this.dragStrategy) {
+            this.drawStrategy.cancel(); // Cancel any active connection when switching to drag
+        }
+        return this.activeStrategy === this.drawStrategy;
     },
 
     handleDoubleClick(e) {
@@ -183,10 +199,16 @@ export const DesignerInteraction = {
     },
 
     cancelInteraction() {
-        this.dragHandler.cancel();
+        // Cancel active strategy
+        if (this.activeStrategy && this.activeStrategy.cancel) {
+            this.activeStrategy.cancel();
+        }
+
+        // Cancel legacy handlers for compatibility
         this.resizeHandler.cancel();
-        this.connectionHandler.cancel();
-        this.onUpdate();
+        this.panZoomHandler.cancel();
+
+        this.onUpdate?.();
     },
 
     centerOnNode(nodeId, drawerWidth = 0) {
@@ -235,51 +257,38 @@ export const DesignerInteraction = {
      * @returns {Object|null}
      */
     findNodeAt(worldPos, excludeId = null) {
-        // Importación dinámica para evitar ciclos si fuera necesario, 
-        // pero DesignerInteraction ya conoce a DesignerStore indirectamente.
-        // Para simplificar, asumimos que el Store tiene esta lógica ahora.
-        const { DesignerStore } = require('./modules/DesignerStore.js');
-        return DesignerStore.findNodeAt(worldPos, excludeId, this.state.zoomScale);
+        const node = DesignerStore.findNodeAt(worldPos, excludeId, this.state.zoomScale);
+
+        // Debug logging for hit detection failures (Only if worldPos is within typical range)
+        if (!node && this.DEBUG_INTERACTION) {
+            console.log(`[HitTest] No node found at WorldPos: (${Math.round(worldPos.x)}, ${Math.round(worldPos.y)})`);
+        } else if (node && this.DEBUG_INTERACTION) {
+            console.log(`[HitTest] Hit: ${node.id} at (${Math.round(worldPos.x)}, ${Math.round(worldPos.y)})`);
+        }
+
+        return node;
     },
 
     handleMouseDown(e) {
-        const worldPos = this.getWorldPosFromEvent(e);
-
-        // PANNING
+        // PANNING priority (bypass strategy)
         if (e.button === 1 || e.button === 2) {
             this.panZoomHandler.start(e, { rawPos: this.getMousePos(e) });
             return;
         }
 
-        // LEFT CLICK
+        // RESIZE priority (bypass strategy)
         if (e.button === 0) {
-            // DRAW mode priority
-            if (this.mode === 'DRAW') {
-                const clickedNode = this.findNodeAt(worldPos);
-                if (clickedNode && !clickedNode.isRepoContainer && !clickedNode.isStickyNote) {
-                    this.connectionHandler.handleClick(e, clickedNode, this.onConnection);
-                    this.onUpdate();
-                    return;
-                }
-            }
-
-            // RESIZE priority
+            const worldPos = this.getWorldPosFromEvent(e);
             const resizeHit = this.resizeHandler.findResizeHandle(worldPos);
             if (resizeHit) {
                 this.resizeHandler.start(e, { nodeId: resizeHit.nodeId, corner: resizeHit.corner, initialPos: worldPos });
                 return;
             }
+        }
 
-            // Interaction priority
-            const clickedNode = this.findNodeAt(worldPos);
-            if (clickedNode) {
-                if (this.mode === 'DRAG') {
-                    this.dragHandler.start(e, { nodeId: clickedNode.id, initialPos: worldPos });
-                } else if (this.mode === 'DRAW') {
-                    this.connectionHandler.handleClick(e, clickedNode, this.onConnection);
-                }
-            }
-            this.onUpdate();
+        // Delegate to active strategy
+        if (this.activeStrategy && this.activeStrategy.handleMouseDown) {
+            this.activeStrategy.handleMouseDown(e);
         }
     },
 
@@ -288,26 +297,29 @@ export const DesignerInteraction = {
         const resizeHit = this.resizeHandler.findResizeHandle(worldPos);
 
         // Cursor Management
-        if (resizeHit && (this.mode === 'DRAG' || this.resizeHandler.isActive())) {
+        if (resizeHit) {
             this.canvas.style.cursor = this.resizeHandler.getResizeCursor(resizeHit.corner);
         } else if (!this.resizeHandler.isActive()) {
-            this.canvas.style.cursor = this.mode === 'DRAW' ? 'crosshair' : 'default';
+            // Use active strategy cursor
+            this.canvas.style.cursor = this.activeStrategy ? this.activeStrategy.getCursor() : 'default';
         }
 
+        // Handle resize (priority)
         if (this.resizeHandler.isActive()) {
             this.resizeHandler.update(e);
             this.onUpdate();
-        } else if (this.panZoomHandler.isActive()) {
+        }
+        // Handle panning
+        else if (this.panZoomHandler.isActive()) {
             this.panZoomHandler.update(e);
             this.onUpdate();
-        } else if (this.dragHandler.isActive()) {
-            this.dragHandler.update(e);
-            this.onUpdate();
-        } else if (this.connectionHandler.isDrawing()) {
-            this.connectionHandler.update(e);
-            this.onUpdate();
+        }
+        // Delegate to active strategy
+        else if (this.activeStrategy && this.activeStrategy.handleMouseMove) {
+            this.activeStrategy.handleMouseMove(e);
         }
 
+        // Update hover state (always)
         const overNode = this.findNodeAt(worldPos);
         const newHoverId = overNode ? overNode.id : null;
         if (this.hoveredNodeId !== newHoverId) {
@@ -317,22 +329,25 @@ export const DesignerInteraction = {
     },
 
     handleMouseUp(e) { // 'e' might be undefined if window listener calls it, check usage
+        // Handle panning end
         if (this.panZoomHandler.isActive()) {
             this.panZoomHandler.end(e);
         }
 
+        // Handle resize end
         if (this.resizeHandler.isActive()) {
             this.resizeHandler.end(e);
             this.canvas.style.cursor = 'default';
-        } else if (this.mode === 'DRAG' && this.dragHandler.isActive()) {
-            this.dragHandler.end(e);
+        }
+
+        // Delegate to active strategy
+        if (this.activeStrategy && this.activeStrategy.handleMouseUp) {
+            this.activeStrategy.handleMouseUp(e);
         }
 
         // Cleanup temporary state in the store (Issue #5)
-        import('./modules/DesignerStore.js').then(({ DesignerStore }) => {
-            DesignerStore.validateAndCleanup();
-            this.onUpdate();
-        });
+        DesignerStore.validateAndCleanup();
+        this.onUpdate();
 
         if (this.onInteractionEnd) this.onInteractionEnd();
     },

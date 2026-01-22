@@ -4,9 +4,8 @@
  */
 
 import { BlueprintManager } from './BlueprintManager.js';
-import { NodeManager } from './modules/NodeManager.js';
-import { ConnectionManager } from './modules/ConnectionManager.js';
 import { DesignerInteraction } from './DesignerInteraction.js';
+import { DesignerStore } from './modules/DesignerStore.js';
 
 export const UIManager = {
     designerContext: null,
@@ -35,14 +34,13 @@ export const UIManager = {
 
         if (saveBtn) {
             saveBtn.onclick = () => {
-                BlueprintManager.save(ConnectionManager.connections, NodeManager.nodes);
+                BlueprintManager.save(DesignerStore.state.connections, DesignerStore.state.nodes);
             };
         }
 
         if (resetBtn) {
             resetBtn.onclick = () => {
-                NodeManager.loadInitialNodes();
-                ConnectionManager.clear();
+                DesignerStore.loadInitialNodes();
                 DesignerInteraction.state.panOffset = { x: 0, y: 0 };
                 DesignerInteraction.state.zoomScale = 1.0;
                 this.designerContext.render();
@@ -93,17 +91,12 @@ export const UIManager = {
     },
 
     /**
-     * Configura shortcuts de teclado
+     * Configura shortcuts de teclado - DEPRECATED
+     * Los shortcuts ahora se manejan centralizadamente en InputManager
+     * @deprecated Use InputManager.registerShortcut instead
      */
     setupKeyboardShortcuts() {
-        window.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 'z') {
-                e.preventDefault();
-                this.designerContext.undo();
-            } else if (e.ctrlKey && e.key === 'y') {
-                e.preventDefault();
-                this.designerContext.redo();
-            }
-        });
+        console.warn('[UIManager] setupKeyboardShortcuts is deprecated. Shortcuts are now handled by InputManager.');
+        // No longer registers any listeners here - delegated to InputManager
     }
 };

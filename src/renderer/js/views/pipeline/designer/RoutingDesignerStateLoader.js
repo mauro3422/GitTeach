@@ -1,5 +1,3 @@
-import { NodeManager } from './modules/NodeManager.js';
-import { ConnectionManager } from './modules/ConnectionManager.js';
 import { BlueprintManager } from './BlueprintManager.js';
 import { DesignerStore } from './modules/DesignerStore.js';
 import ContainerBoxManager from '../../../utils/ContainerBoxManager.js';
@@ -10,7 +8,7 @@ export const RoutingDesignerStateLoader = {
      */
     async loadAndHydrate() {
         // Load Initial State
-        NodeManager.loadInitialNodes();
+        DesignerStore.loadInitialNodes();
 
         // MERGE with File System / LocalStorage if exists
         const savedState = await BlueprintManager.loadFromLocalStorage();
@@ -19,7 +17,7 @@ export const RoutingDesignerStateLoader = {
             Object.entries(savedState.layout).forEach(([id, data]) => {
                 this.hydrateNode(id, data, scale);
             });
-            ConnectionManager.setConnections(Array.isArray(savedState.connections) ? savedState.connections : []);
+            DesignerStore.setConnections(Array.isArray(savedState.connections) ? savedState.connections : []);
 
             // Final notify after all hydration is done
             DesignerStore.setState({}, 'HYDRATION_COMPLETE');
@@ -30,7 +28,7 @@ export const RoutingDesignerStateLoader = {
      * Hidrata un nodo individual desde el estado guardado
      */
     hydrateNode(id, data, scale) {
-        let node = NodeManager.getNode(id);
+        let node = DesignerStore.getNode(id);
 
         if (!node) {
             // Create custom/lost nodes

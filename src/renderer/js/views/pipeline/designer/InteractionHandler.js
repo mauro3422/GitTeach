@@ -1,119 +1,71 @@
 /**
  * InteractionHandler.js
- * Clase base abstracta para todos los handlers de interacción
- * Proporciona una interfaz común y gestión de estado estandarizada
+ * Base class for specialized interaction modules (Resize, PanZoom, etc.)
+ * Provides a common bridge between the controller and specific logic
  */
-
 export class InteractionHandler {
     constructor(controller) {
         this.controller = controller;
-        this._isInteractionActive = false;
         this.state = {};
+        this._active = false;
+    }
+
+    // --- Lifecycle hooks intended to be overridden by subclasses ---
+
+    init(config) { }
+
+    onStart(e, context) { }
+
+    onUpdate(e) { }
+
+    onEnd(e) { }
+
+    onCancel() { }
+
+    // --- State management helpers ---
+
+    setState(updates) {
+        this.state = { ...this.state, ...updates };
+        this._active = true;
+    }
+
+    getState() {
+        return this.state;
+    }
+
+    clearState() {
+        this.state = {};
+        this._active = false;
+    }
+
+    isActive() {
+        return this._active;
     }
 
     /**
-     * Inicia la interacción
-     * @param {MouseEvent} e - Evento del mouse
-     * @param {Object} context - Contexto adicional (nodos, etc.)
+     * Entry points called by the controller
      */
-    start(e, context) {
-        this._isInteractionActive = true;
+    start(e, context = {}) {
         this.onStart(e, context);
     }
 
-    /**
-     * Actualiza la interacción en curso
-     * @param {MouseEvent} e - Evento del mouse
-     */
     update(e) {
-        if (this._isInteractionActive) {
+        if (this._active) {
             this.onUpdate(e);
         }
     }
 
-    /**
-     * Finaliza la interacción
-     * @param {MouseEvent} e - Evento del mouse
-     */
     end(e) {
-        if (this._isInteractionActive) {
-            this._isInteractionActive = false;
+        if (this._active) {
             this.onEnd(e);
+            this._active = false; // Just deactivate, don't wipe state
         }
     }
 
-    /**
-     * Cancela la interacción
-     */
     cancel() {
-        if (this._isInteractionActive) {
-            this._isInteractionActive = false;
+        if (this._active) {
             this.onCancel();
+            this._active = false; // Just deactivate
         }
-    }
-
-    // Métodos abstractos que deben ser implementados por subclases
-
-    /**
-     * Lógica específica para iniciar la interacción
-     * @param {MouseEvent} e
-     * @param {Object} context
-     */
-    onStart(e, context) {
-        throw new Error('InteractionHandler.onStart() must be implemented by subclass');
-    }
-
-    /**
-     * Lógica específica para actualizar la interacción
-     * @param {MouseEvent} e
-     */
-    onUpdate(e) {
-        throw new Error('InteractionHandler.onUpdate() must be implemented by subclass');
-    }
-
-    /**
-     * Lógica específica para finalizar la interacción
-     * @param {MouseEvent} e
-     */
-    onEnd(e) {
-        // Implementación por defecto vacía
-    }
-
-    /**
-     * Lógica específica para cancelar la interacción
-     */
-    onCancel() {
-        // Implementación por defecto vacía
-    }
-
-    /**
-     * Verifica si la interacción está activa
-     * @returns {boolean}
-     */
-    isActive() {
-        return this._isInteractionActive;
-    }
-
-    /**
-     * Obtiene el estado interno del handler
-     * @returns {Object}
-     */
-    getState() {
-        return { ...this.state };
-    }
-
-    /**
-     * Establece el estado interno del handler
-     * @param {Object} newState
-     */
-    setState(newState) {
-        Object.assign(this.state, newState);
-    }
-
-    /**
-     * Limpia el estado interno
-     */
-    clearState() {
-        this.state = {};
     }
 }

@@ -8,6 +8,23 @@ All notable changes to the GitTeach project will be documented in this file.
 
 ---
 
+## [2.75.0] - Designer Modularity & Runtime Stability - 2026-01-21
+### 🛡️ Runtime Stability & Crash Prevention
+- **Interaction Handler Fix**: Resolved a critical `Cannot read properties of undefined` crash during pan/zoom operations.
+  - **Root Cause**: `InteractionHandler.end()` was aggressively clearing state (`clearState`), wiping `panOffset` and `zoomScale` required by `PanZoomHandler`.
+  - **Fix**: Decoupled activation logic from state management. `PanZoomHandler` now retains its coordinates between interactions, ensuring smooth navigation.
+- **Import Integrity**: Added `tests/import-integrity.test.js` to the CI pipeline to automatically detect `ERR_FILE_NOT_FOUND` regressions by scanning all `import` statements in the designer module.
+
+### 🏗️ Code Health: "Zombie" Liquidation
+- **Zombie File Removal**: Permanently deleted 5+ obsolete files (`DragHandler.js`, `ConnectionHandler.js`, etc.) that were causing confusion and potential import errors.
+- **Refactoring & Modularization**:
+  - `DesignerStore.js`: Reduced from 500+ to ~230 lines by extracting `DesignerHydrator` and `DesignerLogic` helper modules.
+  - `InputManager.js`: Reduced from 470+ to ~150 lines by moving normalization logic to `InputUtils.js`.
+  - `DesignerCommands.js`: Refactored from a monolithic class to a Command Pattern directory (`commands/`), with dedicated files for each action (`AddNodeCommand`, `MoveNodeCommand`, etc.).
+- **Architecture Enforcement**: Renamed `DesignerMessageRenderer` to `UIDrawerRenderer` to clearly distinguish it from canvas-based renderers, and updated `DesignerController` to be the standardized entry point.
+
+---
+
 ## [2.70.0] - UI Precision & Magnetic Sizing - 2026-01-21
 ### 🎨 Designer UI: Precision & Bug Fixes
 - **Double Label Elimination**: Resolved the "Double Label" glitch by removing redundant world-space rendering from `ContainerRenderer.js`, centralizing all identity logic in the screen-space `UIRenderer.js`.
