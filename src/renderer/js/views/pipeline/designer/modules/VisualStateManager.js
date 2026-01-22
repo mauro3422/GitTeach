@@ -1,8 +1,4 @@
-/**
- * VisualStateManager.js
- * Gestión centralizada de estados visuales
- * Calcula opacidades, escalas y prioridades de renderizado basados en interacción
- */
+import { ThemeManager } from '../../../../core/ThemeManager.js';
 
 export const VisualStateManager = {
     /**
@@ -163,14 +159,14 @@ export const VisualStateManager = {
         const state = this.getVisualState(node, interactionState);
 
         if (state.glowIntensity > 1.0) {
-            return '#2f81f7'; // Color de acento para estados activos - TODO: usar ThemeManager.colors.primary
+            return ThemeManager.colors.primary;
         }
 
         if (state.state === this.STATES.HOVERED) {
-            return '#8b949e'; // Color ligeramente más claro para hover - TODO: usar ThemeManager.colors.hoverBorder
+            return ThemeManager.colors.hoverBorder;
         }
 
-        return baseColor || '#30363d'; // TODO: usar ThemeManager.colors.border
+        return baseColor || ThemeManager.colors.border;
     },
 
     /**

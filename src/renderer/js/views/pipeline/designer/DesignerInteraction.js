@@ -90,7 +90,8 @@ export const DesignerInteraction = {
             onDoubleClick: (e) => this.handleDoubleClick(e),
             onWheel: (e) => this.handleWheel(e),
             onKeyDown: (e) => this._handleKeyDown(e),
-            onKeyUp: (e) => this._handleKeyUp(e)
+            onKeyUp: (e) => this._handleKeyUp(e),
+            onResize: () => this.handleResize()
         }, {
             windowMouseUp: true // Necesario para drag fuera del canvas
         });
@@ -102,6 +103,23 @@ export const DesignerInteraction = {
                 this.canvas.style.cursor = 'crosshair';
                 this.onUpdate?.();
             }
+        });
+
+        // Registrar Undo/Redo shortcuts
+        import('./modules/DesignerStore.js').then(({ DesignerStore }) => {
+            InputManager.registerShortcut('controlkey+keyz', 'Undo', () => {
+                if (DesignerStore.undo()) {
+                    this.onUpdate?.();
+                    console.log('[Interaction] ⏪ Undo executed');
+                }
+            });
+
+            InputManager.registerShortcut('controlkey+keyy', 'Redo', () => {
+                if (DesignerStore.redo()) {
+                    this.onUpdate?.();
+                    console.log('[Interaction] ⏩ Redo executed');
+                }
+            });
         });
 
         // 🧪 DEBUG MODE TOGGLE (Scientific Method)
@@ -141,8 +159,8 @@ export const DesignerInteraction = {
     handleDoubleClick(e) {
         e.preventDefault();
         e.stopPropagation();
-        const rawPos = this.getMousePos(e);
-        const worldPos = this.screenToWorld(rawPos);
+
+        const worldPos = this.getWorldPosFromEvent(e);
         const clickedNode = this.findNodeAt(worldPos);
 
         if (clickedNode) {
@@ -155,6 +173,13 @@ export const DesignerInteraction = {
                 this.onNodeDoubleClick(clickedNode);
             }
         }
+    },
+
+    handleResize() {
+        if (!this.canvas) return;
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        this.onUpdate?.();
     },
 
     cancelInteraction() {
@@ -176,6 +201,15 @@ export const DesignerInteraction = {
     /** @typedef {{x: number, y: number}} ScreenPos */
 
     /**
+     * Helper to get world coordinates directly from a DOM event
+     * @param {MouseEvent|PointerEvent|TouchEvent} e 
+     * @returns {WorldPos}
+     */
+    getWorldPosFromEvent(e) {
+        return this.screenToWorld(this.getMousePos(e));
+    },
+
+    /**
      * Map screen coordinates to world coordinates
      * @param {ScreenPos} pos
      * @returns {WorldPos}
@@ -195,60 +229,25 @@ export const DesignerInteraction = {
 
     /**
      * Find the top-most node at a world position
+     * Delegado al Store para centralizar lógica de colecciones
      * @param {WorldPos} worldPos 
      * @param {string|null} excludeId 
      * @returns {Object|null}
      */
     findNodeAt(worldPos, excludeId = null) {
-        if (!this.nodes) return null;
-        const nodeList = Object.values(this.nodes);
-        const zoomScale = this.state.zoomScale;
-
-        // PASS 0: Sticky Notes - ULTRA PRIORITY
-        for (const node of nodeList.slice().reverse()) {
-            if (excludeId && node.id === excludeId) continue;
-            const isSticky = node.isStickyNote === true || node.id?.startsWith('sticky_');
-            if (!isSticky) continue;
-
-            // Hit area with 20px "Magnetic" buffer
-            const margin = 20;
-            const dims = node.dimensions || {};
-            const rect = {
-                x: node.x,
-                y: node.y,
-                w: (dims.animW || dims.w || 180) + margin * 2,
-                h: (dims.animH || dims.h || 100) + margin * 2
-            };
-
-            if (GeometryUtils.isPointInRectangle(worldPos, rect)) return node;
-        }
-
-        // PASS 1: Regular Nodes (Circular)
-        for (const node of nodeList.slice().reverse()) {
-            if (excludeId && node.id === excludeId) continue;
-            if (node.isRepoContainer || node.isStickyNote) continue;
-
-            if (GeometryUtils.isPointInNode(worldPos, node, zoomScale)) return node;
-        }
-
-        // PASS 2: Containers
-        for (const node of nodeList.slice().reverse()) {
-            if (excludeId && node.id === excludeId) continue;
-            if (!node.isRepoContainer) continue;
-
-            if (GeometryUtils.isPointInContainer(worldPos, node, this.nodes, zoomScale)) return node;
-        }
-
-        return null;
+        // Importación dinámica para evitar ciclos si fuera necesario, 
+        // pero DesignerInteraction ya conoce a DesignerStore indirectamente.
+        // Para simplificar, asumimos que el Store tiene esta lógica ahora.
+        const { DesignerStore } = require('./modules/DesignerStore.js');
+        return DesignerStore.findNodeAt(worldPos, excludeId, this.state.zoomScale);
     },
 
     handleMouseDown(e) {
-        const rawPos = this.getMousePos(e);
-        const worldPos = this.screenToWorld(rawPos);
+        const worldPos = this.getWorldPosFromEvent(e);
 
         // PANNING
         if (e.button === 1 || e.button === 2) {
-            this.panZoomHandler.start(e, { rawPos });
+            this.panZoomHandler.start(e, { rawPos: this.getMousePos(e) });
             return;
         }
 
@@ -285,9 +284,7 @@ export const DesignerInteraction = {
     },
 
     handleMouseMove(e) {
-        const rawPos = this.getMousePos(e);
-        const worldPos = this.screenToWorld(rawPos);
-
+        const worldPos = this.getWorldPosFromEvent(e);
         const resizeHit = this.resizeHandler.findResizeHandle(worldPos);
 
         // Cursor Management

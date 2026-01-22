@@ -39,6 +39,6 @@ export const ConnectionManager = {
      * Get connections for a specific node
      */
     getConnectionsFor(nodeId) {
-        return this.connections.filter(c => c.from === nodeId || c.to === nodeId);
+        return DesignerStore.getConnectionsFor(nodeId);
     }
 };

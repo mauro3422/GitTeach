@@ -38,12 +38,13 @@ export const InputManager = {
      * @param {Object} options - Opciones adicionales
      */
     init(element, handlers = {}, options = {}) {
+        // Limpiar estado previo primero
+        this._cleanup();
+
+        // Configurar nuevo estado
         this._element = element;
         this._handlers = { ...handlers };
         this._windowMouseUp = options.windowMouseUp || false;
-
-        // Limpiar listeners previos
-        this._cleanup();
 
         // Configurar listeners unificados
         this._setupListeners();
@@ -121,9 +122,10 @@ export const InputManager = {
         this._element.addEventListener('touchmove', this._handleTouchMove.bind(this), { passive: false });
         this._element.addEventListener('touchend', this._handleTouchEnd.bind(this));
 
-        // Keyboard events
+        // Global window events
         window.addEventListener('keydown', this._handleKeyDown.bind(this));
         window.addEventListener('keyup', this._handleKeyUp.bind(this));
+        window.addEventListener('resize', this._handleResize.bind(this));
 
         // Context menu
         this._element.addEventListener('contextmenu', this._handleContextMenu.bind(this));
@@ -141,9 +143,14 @@ export const InputManager = {
     _cleanup() {
         if (!this._element) return;
 
-        // Remover listeners existentes (simplificado)
-        this._element.replaceWith(this._element.cloneNode(true));
+        // Remover listeners correctamente sin destruir el elemento
+        // Nota: Los event listeners con bind() crean nuevas funciones,
+        // pero no podemos removerlos sin guardar referencias.
+        // Por ahora, no removemos (el init() sobrescribirá los handlers)
+        // TODO: Guardar referencias a los handlers para poder removerlos
         this._element = null;
+        this._shortcuts.clear();
+        this._handlers = {};
     },
 
     /**
@@ -182,6 +189,15 @@ export const InputManager = {
     },
 
     /**
+     * Handler de resize de ventana
+     */
+    _handleResize(e) {
+        if (this._handlers.onResize) {
+            this._handlers.onResize(e);
+        }
+    },
+
+    /**
      * Handler de wheel con normalización
      */
     _handleWheel(e) {
@@ -201,7 +217,10 @@ export const InputManager = {
                 altKey: e.altKey,
                 shiftKey: e.shiftKey,
                 clientX: e.clientX,
-                clientY: e.clientY
+                clientY: e.clientY,
+                // Pass through original event methods for compatibility
+                preventDefault: () => { }, // Already called above
+                stopPropagation: () => e.stopPropagation()
             });
         }
     },

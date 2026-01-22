@@ -12,8 +12,12 @@ import { ThemeManager } from '../src/renderer/js/core/ThemeManager.js';
 
 describe('ThemeManager Color Cache', () => {
     beforeEach(() => {
-        // Clear cache before each test
-        ThemeManager._nodeColorCache.clear();
+        // Clear persistent cache before each test
+        if (window.__GITEACH_COLOR_CACHE__) {
+            window.__GITEACH_COLOR_CACHE__.clear();
+        } else {
+            window.__GITEACH_COLOR_CACHE__ = new Map();
+        }
     });
 
     it('should return different colors for different IDs', () => {

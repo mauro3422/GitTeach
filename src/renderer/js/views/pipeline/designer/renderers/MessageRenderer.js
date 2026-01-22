@@ -80,8 +80,8 @@ export const MessageRenderer = {
      */
     drawChatBubble(ctx, text, x, y, style = {}) {
         const {
-            bgColor = 'rgba(255, 255, 255, 0.95)',
-            borderColor = '#30363d',
+            bgColor = ThemeManager.overlays.tooltip,
+            borderColor = ThemeManager.colors.border,
             textColor = ThemeManager.colors.text,
             maxWidth = 200,
             padding = 10,
@@ -150,7 +150,7 @@ export const MessageRenderer = {
 
         const {
             bgColor = ThemeManager.colors.error,
-            textColor = '#ffffff',
+            textColor = ThemeManager.colors.text,
             size = 18
         } = style;
 
@@ -202,9 +202,9 @@ export const MessageRenderer = {
         // Importar TextRenderer dinámicamente para evitar dependencias circulares
         import('./TextRenderer.js').then(({ TextRenderer }) => {
             TextRenderer.drawTooltip(ctx, fullText, x, y, {
-                bgColor: 'rgba(13, 17, 23, 0.98)',
-                borderColor: ThemeManager.colors.border || '#30363d',
-                textColor: '#e6edf3',
+                bgColor: ThemeManager.overlays.tooltip,
+                borderColor: ThemeManager.colors.border,
+                textColor: ThemeManager.colors.text,
                 maxWidth: maxWidth,
                 fontSize: 13
             });

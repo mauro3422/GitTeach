@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { CanvasCamera } from '../src/renderer/js/core/CanvasCamera.js';
-import { CanvasUtils } from '../src/renderer/js/views/pipeline/designer/CanvasUtils.js';
+import { CoordinateUtils } from '../src/renderer/js/views/pipeline/designer/CoordinateUtils.js';
 
 /**
  * 🧪 PRUEBA DE CAMPO REAL: Sincronización Canvas vs HTML
@@ -22,7 +22,7 @@ describe('Sincronización de Espacios (Mundo -> Pantalla)', () => {
         const screenPosA = camera.toScreen(stickyNote.x, stickyNote.y);
 
         // Método B: Usando las utilidades globales (Lógica estática)
-        const screenPosB = CanvasUtils.worldToScreen(stickyNote, {
+        const screenPosB = CoordinateUtils.worldToScreen(stickyNote, {
             zoomScale: camera.zoom,
             panOffset: camera.pan
         });

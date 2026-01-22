@@ -44,17 +44,11 @@ class RoutingDesignerController extends BaseController {
         super.mount();
 
         // 1. Subscribe to Store
-        // registerDisposable ensures it cleans up on destroy()
         this.registerDisposable(
             DesignerStore.subscribe(() => this.render())
         );
 
-        // 2. Window Resize Listener
-        const resizeHandler = () => this.resize();
-        window.addEventListener('resize', resizeHandler);
-        this.registerDisposable(() => window.removeEventListener('resize', resizeHandler));
-
-        // 3. Event-driven rendering subscription
+        // 2. Event-driven rendering subscription
         this.registerDisposable(
             globalEventBus.on('designer:render:request', () => this.render())
         );

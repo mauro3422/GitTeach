@@ -39,66 +39,20 @@ export const VisualEffects = {
     },
 
     /**
-     * Dibuja panel tipo vidrio con borde neón
+     * Dibuja panel tipo vidrio con borde neón delegando a CanvasPrimitives
+     * Mantiene compatibilidad con coordenadas top-left pero usa el motor premium
      * @param {CanvasRenderingContext2D} ctx
-     * @param {number} x, y, w, h - Rectángulo del panel
+     * @param {number} x, y, w, h - Rectángulo del panel (top-left)
      * @param {number} radius - Radio de esquinas redondeadas
      * @param {Object} style - Configuración visual
      */
     drawGlassPanel(ctx, x, y, w, h, radius, style = {}) {
-        const {
-            shadowColor = null,
-            shadowBlur = 15,
-            borderColor = ThemeManager.colors.border,
-            borderWidth = 1.5,
-            glassOpacity = 0.1,
-            isResizing = false,
-            isHovered = false
-        } = style;
+        // Convertimos de top-left (x, y) a centro (centerX, centerY) 
+        // porque CanvasPrimitives.drawGlassPanel usa coordenadas basadas en centro
+        const centerX = x + w / 2;
+        const centerY = y + h / 2;
 
-        ctx.save();
-
-        // Aplicar sombra si especificada
-        if (shadowColor) {
-            ctx.shadowBlur = shadowBlur;
-            ctx.shadowColor = shadowColor;
-        }
-
-        // Panel de vidrio semitransparente
-        ctx.fillStyle = `rgba(255, 255, 255, ${glassOpacity})`;
-        ctx.strokeStyle = borderColor;
-        ctx.lineWidth = borderWidth;
-
-        if (ctx.roundRect) {
-            ctx.roundRect(x, y, w, h, radius);
-        } else {
-            // Fallback para navegadores sin roundRect
-            ctx.beginPath();
-            ctx.moveTo(x + radius, y);
-            ctx.lineTo(x + w - radius, y);
-            ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-            ctx.lineTo(x + w, y + h - radius);
-            ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
-            ctx.lineTo(x + radius, y + h);
-            ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
-            ctx.lineTo(x, y + radius);
-            ctx.quadraticCurveTo(x, y, x + radius, y);
-            ctx.closePath();
-        }
-
-        ctx.fill();
-        ctx.stroke();
-
-        // Efecto adicional para resizing/hover
-        if (isResizing || isHovered) {
-            ctx.shadowBlur = isResizing ? 25 : 18;
-            ctx.shadowColor = shadowColor || borderColor;
-            ctx.strokeStyle = borderColor;
-            ctx.lineWidth = isResizing ? 2 : 1.5;
-            ctx.stroke();
-        }
-
-        ctx.restore();
+        CanvasPrimitives.drawGlassPanel(ctx, centerX, centerY, w, h, radius, style);
     },
 
     /**

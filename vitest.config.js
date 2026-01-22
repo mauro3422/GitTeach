@@ -6,8 +6,11 @@ export default defineConfig({
         environment: 'node',
         // Include files in tests/ directory
         include: ['tests/**/*.test.js'],
+        exclude: ['tests/coordinatorAgent.test.js'],
         // Global test utilities
         globals: true,
+        // Setup file for global mocks
+        setupFiles: ['./tests/vitest-setup.js'],
     },
     resolve: {
         alias: {

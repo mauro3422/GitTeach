@@ -1,20 +1,51 @@
 /**
  * HistoryManager.js
- * Responsabilidad: Gestión del historial de undo/redo
+ * Responsabilidad: Gestión del historial de undo/redo con acciones granulares
  */
 
 export const HistoryManager = {
+    // Action types for granular undo/redo
+    ACTION_TYPES: {
+        NODE_CREATE: 'node:create',
+        NODE_DELETE: 'node:delete',
+        NODE_MOVE: 'node:move',
+        NODE_RESIZE: 'node:resize',
+        NODE_UPDATE: 'node:update',
+        CONNECTION_CREATE: 'connection:create',
+        CONNECTION_DELETE: 'connection:delete',
+        BULK_UPDATE: 'bulk:update'
+    },
+
     undoStack: [],
     redoStack: [],
     maxSize: 50,
+    _isRecording: true,
+
+    /**
+     * Enable/disable recording (useful during undo/redo operations)
+     */
+    setRecording(enabled) {
+        this._isRecording = enabled;
+    },
 
     /**
      * Save current state to history (before making changes)
+     * @param {Object} nodes - Current nodes state
+     * @param {Array} connections - Current connections state
+     * @param {string} actionType - Type of action (from ACTION_TYPES)
+     * @param {Object} metadata - Additional action info { nodeId, description }
      */
-    saveToHistory(nodes, connections) {
+    saveToHistory(nodes, connections, actionType = 'BULK_UPDATE', metadata = {}) {
+        if (!this._isRecording) return;
+
         const snapshot = {
             nodes: JSON.parse(JSON.stringify(nodes)),
-            connections: JSON.parse(JSON.stringify(connections))
+            connections: JSON.parse(JSON.stringify(connections)),
+            actionType,
+            metadata: {
+                timestamp: Date.now(),
+                ...metadata
+            }
         };
         this.undoStack.push(snapshot);
         if (this.undoStack.length > this.maxSize) {

@@ -12,21 +12,21 @@ export const NodeManager = {
      * Get a node by ID
      */
     getNode(id) {
-        return this.nodes[id];
+        return DesignerStore.getNode(id);
     },
 
     /**
      * Get all nodes
      */
     getAllNodes() {
-        return Object.values(this.nodes);
+        return DesignerStore.getAllNodes();
     },
 
     /**
      * Get children of a parent node
      */
     getChildren(parentId) {
-        return this.getAllNodes().filter(n => n.parentId === parentId);
+        return DesignerStore.getChildren(parentId);
     },
 
     /**
