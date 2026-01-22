@@ -8,7 +8,7 @@ export const GridRenderer = {
      * Draw the background grid
      */
     render(ctx, width, height, camera) {
-        ctx.clearRect(0, 0, width, height);
+        // PERF: clearRect removed - already done in DesignerController
         camera.apply(ctx);
         ctx.strokeStyle = 'rgba(48, 54, 61, 0.4)';
         ctx.lineWidth = 1 / camera.zoomScale;

@@ -1,0 +1,104 @@
+import { DragStrategy } from '../strategies/DragStrategy.js';
+import { DrawStrategy } from '../strategies/DrawStrategy.js';
+
+export class StrategyManager {
+    constructor(interactionContext) {
+        this.context = interactionContext;
+
+        // Instantiate strategies with the main context
+        this.dragStrategy = new DragStrategy(interactionContext);
+        this.drawStrategy = new DrawStrategy(interactionContext);
+
+        // Default strategy
+        this.activeStrategy = this.dragStrategy;
+    }
+
+    /**
+     * Switch between Drag and Draw modes
+     * @returns {boolean} true if Draw mode is now active
+     */
+    toggleMode() {
+        // Cancel current before switching
+        this.cancel();
+
+        this.activeStrategy = this.activeStrategy === this.dragStrategy
+            ? this.drawStrategy
+            : this.dragStrategy;
+
+        return this.activeStrategy === this.drawStrategy;
+    }
+
+    setDrawMode() {
+        if (this.activeStrategy !== this.drawStrategy) {
+            this.cancel();
+            this.activeStrategy = this.drawStrategy;
+            return true;
+        }
+        return false;
+    }
+
+    setDragMode() {
+        if (this.activeStrategy !== this.dragStrategy) {
+            this.cancel();
+            this.activeStrategy = this.dragStrategy;
+            return true;
+        }
+        return false;
+    }
+
+    getActiveStrategy() {
+        return this.activeStrategy;
+    }
+
+    getCursor() {
+        return this.activeStrategy.getCursor();
+    }
+
+    cancel() {
+        if (this.activeStrategy && this.activeStrategy.cancel) {
+            this.activeStrategy.cancel();
+        }
+    }
+
+    // --- Event Delegation ---
+
+    handleMouseDown(e) {
+        if (this.activeStrategy.handleMouseDown) {
+            this.activeStrategy.handleMouseDown(e);
+        }
+    }
+
+    handleMouseMove(e) {
+        if (this.activeStrategy.handleMouseMove) {
+            this.activeStrategy.handleMouseMove(e);
+        }
+    }
+
+    handleMouseUp(e) {
+        if (this.activeStrategy.handleMouseUp) {
+            this.activeStrategy.handleMouseUp(e);
+        }
+    }
+
+    handleKeyDown(e) {
+        if (this.activeStrategy.handleKeyDown) {
+            this.activeStrategy.handleKeyDown(e);
+        }
+    }
+
+    handleKeyUp(e) {
+        if (this.activeStrategy.handleKeyUp) {
+            this.activeStrategy.handleKeyUp(e);
+        }
+    }
+
+    // --- State Getters ---
+
+    getDragState() {
+        return this.dragStrategy.isActive() ? this.dragStrategy.dragState : null;
+    }
+
+    getConnectionState() {
+        return this.drawStrategy.isActive() ? this.drawStrategy.connectionState : null;
+    }
+}

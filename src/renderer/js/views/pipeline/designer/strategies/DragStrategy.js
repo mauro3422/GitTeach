@@ -72,13 +72,7 @@ export class DragStrategy extends InteractionStrategy {
             this.controller.canvas.style.cursor = this.getCursor();
         }
 
-        // Update hover state
-        const overNode = this.controller.findNodeAt(worldPos);
-        const newHoverId = overNode ? overNode.id : null;
-        if (this.controller.hoveredNodeId !== newHoverId) {
-            this.controller.hoveredNodeId = newHoverId;
-            this.controller.onUpdate?.();
-        }
+
     }
 
     /**

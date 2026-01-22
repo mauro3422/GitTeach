@@ -3,8 +3,9 @@ import { DesignerCanvas } from './DesignerCanvas.js';
 import { DesignerInteraction } from './DesignerInteraction.js';
 import { BlueprintManager } from './BlueprintManager.js';
 import { HistoryManager } from './modules/HistoryManager.js';
-import { ModalManager } from './modules/ModalManager.js';
-import { RoutingDesignerStateLoader } from './RoutingDesignerStateLoader.js';
+import { ModalController } from './modules/ModalController.js';
+import { InlineEditor } from './interaction/InlineEditor.js';
+import { DesignerLoader } from './modules/DesignerLoader.js';
 import { UIManager } from './UIManager.js';
 import { CoordinateUtils } from './CoordinateUtils.js';
 import { AnimationManager } from './AnimationManager.js';
@@ -20,11 +21,13 @@ import {
     DropNodeCommand
 } from './commands/DesignerCommands.js';
 // Removed direct DragHandler import, accessed via DesignerInteraction
-import { globalEventBus } from '../../../core/EventBus.js';
+import { DesignerEvents } from './core/DesignerEvents.js';
 
 class DesignerControllerClass extends BaseController {
     constructor() {
         super();
+        this.rafPending = false; // RAF batching flag
+        this.rafId = null;
         this.canvas = null;
         this.ctx = null;
     }
@@ -41,7 +44,7 @@ class DesignerControllerClass extends BaseController {
         // Lifecycle: MOUNT (Start listening to events)
         this.mount();
 
-        await RoutingDesignerStateLoader.loadAndHydrate();
+        await DesignerLoader.loadAndHydrate();
         UIManager.init(this);
     }
 
@@ -58,12 +61,12 @@ class DesignerControllerClass extends BaseController {
 
         // 2. Event-driven rendering subscription
         this.registerDisposable(
-            globalEventBus.on('designer:render:request', () => this.render())
+            DesignerEvents.on('designer:render:request', () => this.render())
         );
 
         // 4. Global Event Listener for debugging (wildcard support verification)
         this.registerDisposable(
-            globalEventBus.on('*', console.log)
+            DesignerEvents.on('*', console.log)
         );
 
         // Initial resize to set correct dimensions
@@ -88,7 +91,7 @@ class DesignerControllerClass extends BaseController {
      */
     initializeModules() {
         HistoryManager.clear();
-        ModalManager.editingNode = null;
+        ModalController.editingNode = null;
     }
 
     /**
@@ -118,16 +121,16 @@ class DesignerControllerClass extends BaseController {
         }
 
         DesignerInteraction.cancelInteraction();
-        ModalManager.openMessageModal(
+        ModalController.openMessageModal(
             node,
             DesignerStore.state.nodes,
             (msg, pId, label) => this.saveMessage(msg, pId, label),
-            () => ModalManager.closeModal()
+            () => ModalController.closeModal()
         );
     }
 
     closeModal() {
-        ModalManager.closeModal();
+        ModalController.closeModal();
     }
 
     saveToHistory() {
@@ -170,7 +173,7 @@ class DesignerControllerClass extends BaseController {
     }
 
     openInlineEditor(note) {
-        ModalManager.openInlineEditor(note, (note, newText) => {
+        InlineEditor.open(note, (note, newText) => {
             this.saveToHistory();
             note.text = newText || 'Nota vacía';
             this.render();
@@ -185,11 +188,11 @@ class DesignerControllerClass extends BaseController {
     }
 
     saveMessage(message, parentId, newLabel = null) {
-        if (!ModalManager.editingNode) return;
+        if (!ModalController.editingNode) return;
         this.saveToHistory();
-        ModalManager.editingNode.message = message;
-        ModalManager.editingNode.parentId = parentId;
-        if (newLabel) ModalManager.editingNode.label = newLabel;
+        ModalController.editingNode.message = message;
+        ModalController.editingNode.parentId = parentId;
+        if (newLabel) ModalController.editingNode.label = newLabel;
 
         this.closeModal();
         this.render();
@@ -210,31 +213,52 @@ class DesignerControllerClass extends BaseController {
         BlueprintManager.autoSave(DesignerStore.state.nodes, DesignerStore.state.connections);
     }
 
+    /**
+     * Schedule a render using RAF batching
+     * Multiple calls within the same frame will only trigger one render
+     */
     render() {
-        if (!this.ctx) return;
+        // RAF Batching: If already pending, skip scheduling
+        if (this.rafPending) return;
 
-        let navState = null;
+        this.rafPending = true;
+        this.rafId = requestAnimationFrame(() => {
+            this.rafPending = false;
+            this._executeRender();
+        });
+    }
+
+    /**
+     * Internal render execution (called by RAF)
+     */
+    _executeRender() {
+        if (!this.canvas || !this.canvas.getContext) return;
+
+        // Clear entire canvas
+        const ctx = this.canvas.getContext('2d');
+        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        let navState;
         try {
             navState = DesignerInteraction.state;
+            if (!navState || !navState.panOffset) {
+                navState = { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 };
+            }
         } catch (e) {
             console.warn('[RoutingDesigner] Interaction state access failed:', e);
+            navState = { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 };
         }
 
-        if (!navState || !navState.panOffset) {
-            // Fallback to prevent crash during init
-            // console.warn('[RoutingDesigner] Waiting for navigation state...');
-            return;
+        let activeConn = null;
+        let activeConnId = null;
+        if (DesignerInteraction.activeConnection) {
+            activeConn = DesignerInteraction.activeConnection;
+            activeConnId = activeConn.fromNode ? activeConn.fromNode.id : null;
         }
 
-        // Use unified composite rendering (Defensive sanity check)
-        const activeConnId = (DesignerInteraction.activeConnection && DesignerInteraction.activeConnection.fromNode)
-            ? DesignerInteraction.activeConnection.fromNode.id
-            : null;
-
-        const activeConn = DesignerInteraction.activeConnection || null;
-
-        const dropTargetId = (DesignerInteraction.dragStrategy && DesignerInteraction.dragStrategy.dragState)
-            ? DesignerInteraction.dragStrategy.dragState.dropTargetId
+        const interactionState = DesignerInteraction.getInteractionState();
+        const dropTargetId = interactionState?.draggingId
+            ? DesignerStore.findDropTarget(interactionState.draggingId)
             : null;
 
         const resizingNodeId = (DesignerInteraction.resizeHandler && typeof DesignerInteraction.resizeHandler.getState === 'function')
@@ -255,7 +279,7 @@ class DesignerControllerClass extends BaseController {
         );
 
         // Sync inline editor if active
-        ModalManager.syncNoteEditorPosition();
+        InlineEditor.syncPosition();
 
         // Check for container animations
         this.checkAnimations();

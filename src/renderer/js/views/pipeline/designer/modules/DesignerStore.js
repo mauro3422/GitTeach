@@ -182,8 +182,10 @@ class DesignerStoreClass extends Store {
     findNodeAt(worldPos, excludeId = null, zoomScale = 1.0) {
         const nodeList = this.getAllNodes();
 
+        // PERF: Iterate backwards without .slice().reverse() (saves allocation)
         // 1. Sticky Notes (Top-most)
-        for (const node of nodeList.slice().reverse()) {
+        for (let i = nodeList.length - 1; i >= 0; i--) {
+            const node = nodeList[i];
             if (excludeId && node.id === excludeId) continue;
             if (!node.isStickyNote) continue;
             const m = 20;
@@ -193,17 +195,42 @@ class DesignerStoreClass extends Store {
         }
 
         // 2. Regular Nodes
-        for (const node of nodeList.slice().reverse()) {
+        for (let i = nodeList.length - 1; i >= 0; i--) {
+            const node = nodeList[i];
             if (excludeId && node.id === excludeId || node.isRepoContainer || node.isStickyNote) continue;
             if (GeometryUtils.isPointInNode(worldPos, node, zoomScale)) return node;
         }
 
-        // 3. Containers
-        for (const node of nodeList.slice().reverse()) {
+        // 3. Containers (Bottom-most)
+        for (let i = nodeList.length - 1; i >= 0; i--) {
+            const node = nodeList[i];
             if (excludeId && node.id === excludeId || !node.isRepoContainer) continue;
-            if (GeometryUtils.isPointInContainer(worldPos, node, this.state.nodes, zoomScale)) return node;
+            const bounds = GeometryUtils.getContainerBounds(node, this.state.nodes, zoomScale);
+            if (GeometryUtils.isPointInRectangle(worldPos, {
+                x: bounds.centerX, y: bounds.centerY, w: bounds.w, h: bounds.h
+            })) return node;
         }
 
+        return null;
+    }
+
+    findDropTarget(draggingNodeId) {
+        const draggingNode = this.state.nodes[draggingNodeId];
+        if (!draggingNode) return null;
+
+        const nodeList = this.getAllNodes();
+        // PERF: Iterate backwards without allocation
+        for (let i = nodeList.length - 1; i >= 0; i--) {
+            const container = nodeList[i];
+            if (!container.isRepoContainer || container.id === draggingNodeId) continue;
+            const bounds = GeometryUtils.getContainerBounds(container, this.state.nodes, 1.0);
+            if (GeometryUtils.isPointInRectangle(
+                { x: draggingNode.x, y: draggingNode.y },
+                { x: bounds.centerX, y: bounds.centerY, w: bounds.w, h: bounds.h }
+            )) {
+                return container.id;
+            }
+        }
         return null;
     }
 

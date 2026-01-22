@@ -6,6 +6,7 @@
 
 import { CanvasPrimitives } from '../../../../core/CanvasPrimitives.js';
 import { ThemeManager } from '../../../../core/ThemeManager.js';
+import { RendererRegistry } from './RendererRegistry.js';
 
 export const MessageRenderer = {
     /**
@@ -199,8 +200,9 @@ export const MessageRenderer = {
             `${title}\n${timestamp}\n\n${message}` :
             `${title}\n\n${message}`;
 
-        // Importar TextRenderer dinámicamente para evitar dependencias circulares
-        import('./TextRenderer.js').then(({ TextRenderer }) => {
+        // Usar RendererRegistry para evitar dependencias circulares
+        const TextRenderer = RendererRegistry.get('TextRenderer');
+        if (TextRenderer && TextRenderer.drawTooltip) {
             TextRenderer.drawTooltip(ctx, fullText, x, y, {
                 bgColor: ThemeManager.overlays.tooltip,
                 borderColor: ThemeManager.colors.border,
@@ -208,7 +210,7 @@ export const MessageRenderer = {
                 maxWidth: maxWidth,
                 fontSize: 13
             });
-        });
+        }
     },
 
     /**

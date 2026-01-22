@@ -7,7 +7,6 @@ import { LabelRenderer } from '../../LabelRenderer.js';
 import { GeometryUtils } from '../GeometryUtils.js';
 import { CanvasPrimitives } from '../../../../core/CanvasPrimitives.js';
 import { ThemeManager } from '../../../../core/ThemeManager.js';
-import { ModalManager } from '../modules/ModalManager.js';
 import { TextRenderer } from './TextRenderer.js';
 
 export const UIRenderer = {

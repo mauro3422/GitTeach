@@ -15,6 +15,9 @@ export class PanZoomHandler extends InteractionHandler {
             minZoom: 0.3,
             maxZoom: 4.0
         };
+        // Throttle state for wheel events
+        this.lastWheelTime = 0;
+        this.wheelThrottleMs = 16; // ~60fps max
     }
 
     init(config) {
@@ -71,6 +74,13 @@ export class PanZoomHandler extends InteractionHandler {
     // --- Specialized Methods ---
 
     handleWheel(e, onUpdate) {
+        // PERF: Throttle wheel events to prevent render spam
+        const now = performance.now();
+        if (now - this.lastWheelTime < this.wheelThrottleMs) {
+            return; // Skip this wheel event
+        }
+        this.lastWheelTime = now;
+
         const deltaY = e.deltaY;
         const mousePos = this.controller.getMousePos(e);
 

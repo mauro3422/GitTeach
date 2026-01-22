@@ -1,8 +1,8 @@
-import { BlueprintManager } from './BlueprintManager.js';
-import { DesignerStore } from './modules/DesignerStore.js';
-import ContainerBoxManager from '../../../utils/ContainerBoxManager.js';
+import { BlueprintManager } from '../BlueprintManager.js';
+import { DesignerStore } from './DesignerStore.js';
+import ContainerBoxManager from '../../../../utils/ContainerBoxManager.js';
 
-export const RoutingDesignerStateLoader = {
+export const DesignerLoader = {
     /**
      * Carga y hidrata el estado desde LocalStorage/File System
      */

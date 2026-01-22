@@ -7,8 +7,8 @@ import { GeometryUtils } from '../GeometryUtils.js';
 import { CanvasPrimitives } from '../../../../core/CanvasPrimitives.js';
 import { ThemeManager } from '../../../../core/ThemeManager.js';
 import ContainerBoxManager from '../../../../utils/ContainerBoxManager.js';
-import { ModalManager } from '../modules/ModalManager.js';
-import { globalEventBus } from '../../../../core/EventBus.js';
+import { InlineEditor } from '../interaction/InlineEditor.js';
+import { DesignerEvents } from '../core/DesignerEvents.js';
 import { TextRenderer } from './TextRenderer.js';
 import { VisualEffects } from '../utils/VisualEffects.js';
 
@@ -42,9 +42,7 @@ export const ContainerRenderer = {
             const isDragging = node.isDragging;
 
             // DEBUG: Proof shared IDs
-            if (isHovered) {
-                console.log(`[Render] 🔥 Hovered ID: ${node.id} (${node.label || 'unlabeled'})`);
-            }
+            // Render container with visual state
 
             const bounds = GeometryUtils.getContainerBounds(node, nodes, zoomScale, dropTargetId);
             const sW = bounds.w;
@@ -117,7 +115,7 @@ export const ContainerRenderer = {
             });
 
             // Text content (Multiline, World-space)
-            if (node.text && ModalManager.activeInlineRef?.note.id !== node.id) {
+            if (node.text && InlineEditor.activeRef?.note.id !== node.id) {
                 const padding = 15;
                 const textX = x - w / 2 + padding;
                 const textY = y - h / 2 + padding;
@@ -138,7 +136,7 @@ export const ContainerRenderer = {
                         dimensions.h = targetH;
                         dimensions.targetH = targetH;
                         // Trigger re-render to animate transition
-                        globalEventBus.emit('designer:render:request');
+                        DesignerEvents.requestRender();
                     }
                 }
 
