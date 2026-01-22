@@ -12,17 +12,32 @@ export const ResizeHandler = {
     },
 
     /**
-     * Initialize with nodes reference
+     * @type {() => Object}
      */
-    init(nodes) {
-        this.nodes = nodes;
+    nodeProvider: null,
+
+    /**
+     * Initialize with nodes reference or provider
+     */
+    init(nodeProvider) {
+        if (typeof nodeProvider === 'function') {
+            this.nodeProvider = nodeProvider;
+            this.nodes = null;
+        } else {
+            this.nodes = nodeProvider;
+        }
+    },
+
+    getNodes() {
+        return this.nodeProvider ? this.nodeProvider() : this.nodes;
     },
 
     /**
      * Start resizing a node
      */
     startResize(nodeId, corner, mousePos) {
-        const node = this.nodes[nodeId];
+        const nodes = this.getNodes();
+        const node = nodes[nodeId];
         if (!node || !node.dimensions) return;
 
         this.state.resizingNodeId = nodeId;
@@ -44,7 +59,8 @@ export const ResizeHandler = {
     updateResize(mousePos, onUpdate) {
         if (!this.state.resizingNodeId || !this.state.resizeStartMouse) return;
 
-        const node = this.nodes[this.state.resizingNodeId];
+        const nodes = this.getNodes();
+        const node = nodes[this.state.resizingNodeId];
         if (!node || !node.dimensions) return;
 
         const dx = mousePos.x - this.state.resizeStartMouse.x;
@@ -52,8 +68,8 @@ export const ResizeHandler = {
 
         let newW = this.state.resizeStartSize.w;
         let newH = this.state.resizeStartSize.h;
-        const minW = node.isStickyNote ? 60 : 140;
-        const minH = node.isStickyNote ? 40 : 100;
+        const minW = node.isStickyNote ? 180 : 140;
+        const minH = node.isStickyNote ? 100 : 100;
 
         switch (this.state.resizeCorner) {
             case 'se': newW += dx * 2; newH += dy * 2; break;
@@ -89,8 +105,9 @@ export const ResizeHandler = {
      * Capture relative positions of children at resize start
      */
     captureChildPositions(containerNode) {
+        const nodes = this.getNodes();
         this.state.resizeChildPositions = {};
-        Object.values(this.nodes).forEach(child => {
+        Object.values(nodes).forEach(child => {
             if (child.parentId === containerNode.id) {
                 this.state.resizeChildPositions[child.id] = {
                     relX: child.x - containerNode.x,
@@ -104,6 +121,7 @@ export const ResizeHandler = {
      * Scale children proportionally during resize
      */
     scaleChildrenProportionally(containerNode, newWidth, newHeight) {
+        const nodes = this.getNodes();
         const startWidth = this.state.resizeStartSize.w;
         const startHeight = this.state.resizeStartSize.h;
         const margin = 40;
@@ -118,7 +136,7 @@ export const ResizeHandler = {
             maxY: containerNode.y + newHeight / 2 - margin
         };
 
-        Object.values(this.nodes).forEach(child => {
+        Object.values(nodes).forEach(child => {
             if (child.parentId === containerNode.id && this.state.resizeChildPositions[child.id]) {
                 const startRel = this.state.resizeChildPositions[child.id];
                 child.x = containerNode.x + startRel.relX * scaleX;
@@ -134,20 +152,65 @@ export const ResizeHandler = {
      * Check if mouse is over a resize handle
      */
     findResizeHandle(worldPos) {
-        const handleSize = 12;
+        const nodes = this.getNodes();
+        const handleSize = 30; // Generous hit area for UX
 
-        for (const node of Object.values(this.nodes).slice().reverse()) {
+        for (const node of Object.values(nodes).slice().reverse()) {
             if (!node.isRepoContainer && !node.isStickyNote) continue;
-            if (!node.dimensions) continue;
 
-            const w = node.dimensions.w;
-            const h = node.dimensions.h;
+            let w, h, centerX, centerY;
+
+            if (node.isStickyNote) {
+                // Sticky notes use static dimensions
+                w = node.dimensions?.w || 180;
+                h = node.dimensions?.h || 100;
+                centerX = node.x;
+                centerY = node.y;
+            } else if (node.isRepoContainer) {
+                // For containers, calculate bounds inline to avoid circular imports
+                const dims = node.dimensions || {};
+
+                if (dims.isManual && dims.w && dims.h) {
+                    // Manual mode: use stored dimensions
+                    w = dims.w;
+                    h = dims.h;
+                    centerX = node.x;
+                    centerY = node.y;
+                } else {
+                    // Auto mode: calculate from children
+                    const containerId = node.id;
+                    const children = Object.values(nodes).filter(n => n.parentId === containerId);
+
+                    if (children.length === 0) {
+                        w = 140;
+                        h = 100;
+                        centerX = node.x;
+                        centerY = node.y;
+                    } else {
+                        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                        children.forEach(c => {
+                            const r = 35; // Default node radius
+                            minX = Math.min(minX, c.x - r);
+                            maxX = Math.max(maxX, c.x + r);
+                            minY = Math.min(minY, c.y - r);
+                            maxY = Math.max(maxY, c.y + r);
+                        });
+                        const padding = 60;
+                        w = (maxX - minX) + padding;
+                        h = (maxY - minY) + padding + 40;
+                        centerX = (minX + maxX) / 2;
+                        centerY = (minY + maxY) / 2;
+                    }
+                }
+            }
+
+            if (!w || !h) continue;
 
             const corners = {
-                'nw': { x: node.x - w / 2, y: node.y - h / 2 },
-                'ne': { x: node.x + w / 2, y: node.y - h / 2 },
-                'sw': { x: node.x - w / 2, y: node.y + h / 2 },
-                'se': { x: node.x + w / 2, y: node.y + h / 2 }
+                'nw': { x: centerX - w / 2, y: centerY - h / 2 },
+                'ne': { x: centerX + w / 2, y: centerY - h / 2 },
+                'sw': { x: centerX - w / 2, y: centerY + h / 2 },
+                'se': { x: centerX + w / 2, y: centerY + h / 2 }
             };
 
             for (const [corner, pos] of Object.entries(corners)) {

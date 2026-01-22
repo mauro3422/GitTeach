@@ -9,6 +9,7 @@ import { PipelineStateManager } from './pipeline/PipelineStateManager.js';
 import { PipelineParticleManager } from './pipeline/PipelineParticleManager.js';
 import { LayoutEngine } from './pipeline/LayoutEngine.js';
 import { RendererLogger } from '../utils/RendererLogger.js';
+import { CanvasCamera } from '../core/CanvasCamera.js';
 
 export const PipelineCanvasRenderer = {
     ctx: null,
@@ -17,6 +18,7 @@ export const PipelineCanvasRenderer = {
     height: 450,
     hoveredNode: null,
     selectedNode: null,
+    camera: new CanvasCamera(),
 
     /**
      * Inicializa el renderer con el contexto del canvas
@@ -62,8 +64,14 @@ export const PipelineCanvasRenderer = {
      * Actualiza la cámara suavemente hacia el punto focal
      */
     updateCamera() {
+        // Sync with interaction state (Transition phase)
+        this.camera.zoom = PipelineInteraction.state.zoomScale;
+
         // Don't auto-pan if the user is currently interacting or has manual control
-        if (PipelineInteraction.state.isPanning || !PipelineInteraction.state.autoFollow) return;
+        if (PipelineInteraction.state.isPanning || !PipelineInteraction.state.autoFollow) {
+            this.camera.pan = PipelineInteraction.state.panOffset;
+            return;
+        }
 
         const focalPoint = LayoutEngine.getFocalPoint(
             this.width,
@@ -81,6 +89,8 @@ export const PipelineCanvasRenderer = {
         const lerpFactor = 0.08;
         PipelineInteraction.state.panOffset.x += (targetPanX - PipelineInteraction.state.panOffset.x) * lerpFactor;
         PipelineInteraction.state.panOffset.y += (targetPanY - PipelineInteraction.state.panOffset.y) * lerpFactor;
+
+        this.camera.pan = PipelineInteraction.state.panOffset;
     },
 
     /**
@@ -98,9 +108,7 @@ export const PipelineCanvasRenderer = {
         PipelineRenderer.prepare(this.ctx, this.width, this.height);
 
         // --- GLOBAL TRANSFORM START ---
-        this.ctx.save();
-        this.ctx.translate(PipelineInteraction.state.panOffset.x, PipelineInteraction.state.panOffset.y);
-        this.ctx.scale(PipelineInteraction.state.zoomScale, PipelineInteraction.state.zoomScale);
+        this.camera.apply(this.ctx);
 
         // Dibujar elementos
         PipelineRenderer.drawConnections(this.ctx, this.width, this.height, PipelineStateManager.nodeStats);
@@ -127,7 +135,7 @@ export const PipelineCanvasRenderer = {
             PipelineRenderer.drawTooltip(this.ctx, this.width, this.height, this.hoveredNode, PipelineStateManager.nodeStats);
         }
 
-        this.ctx.restore();
+        this.camera.restore(this.ctx);
         // --- GLOBAL TRANSFORM END ---
     },
 

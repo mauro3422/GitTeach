@@ -3,10 +3,13 @@ import { ContainerRenderer } from './renderers/ContainerRenderer.js';
 import { NodeRenderer } from './renderers/NodeRenderer.js';
 import { ConnectionRenderer } from './renderers/ConnectionRenderer.js';
 import { UIRenderer } from './renderers/UIRenderer.js';
+import { CanvasCamera } from '../../../core/CanvasCamera.js';
+import { ThemeManager } from '../../../core/ThemeManager.js';
 
 export const DesignerCanvas = {
     ctx: null,
     renderers: [],
+    camera: new CanvasCamera(), // Nueva instancia de camera
 
     init(ctx) {
         this.ctx = ctx;
@@ -22,28 +25,33 @@ export const DesignerCanvas = {
     /**
      * Main render method using composite renderer pattern
      */
-    render(width, height, nodes, navState, connections, activeConnectionId, activeConnection = null) {
+    render(width, height, nodes, navState, connections, activeConnectionId, activeConnection = null, hoveredNodeId = null, dropTargetId = null) {
+        // Sincronizar camera con navState (temporal para compatibilidad)
+        this.camera.pan = navState.panOffset;
+        this.camera.zoom = navState.zoomScale;
+
         // 1. Grid Renderer (Handles its own space/tiling)
-        GridRenderer.render(this.ctx, width, height, navState);
+        GridRenderer.render(this.ctx, width, height, this.camera);
 
         // 2. World Space Renderers (Apply camera transform once)
-        this.ctx.save();
-        this.ctx.translate(navState.panOffset.x, navState.panOffset.y);
-        this.ctx.scale(navState.zoomScale, navState.zoomScale);
+        this.camera.apply(this.ctx);
 
-        ContainerRenderer.render(this.ctx, nodes, navState);
-        NodeRenderer.render(this.ctx, nodes, navState, activeConnectionId);
-        ConnectionRenderer.render(this.ctx, nodes, navState, connections);
+        ContainerRenderer.render(this.ctx, nodes, this.camera, hoveredNodeId, dropTargetId);
+        NodeRenderer.render(this.ctx, nodes, this.camera, activeConnectionId, hoveredNodeId);
+        ConnectionRenderer.render(this.ctx, nodes, this.camera, connections);
 
         // 2.1 Active ghost line (part of world-space)
         if (activeConnection) {
-            this.drawActiveLine(activeConnection.fromNode, activeConnection.currentPos, navState);
+            this.drawActiveLine(activeConnection.fromNode, activeConnection.currentPos, this.camera);
         }
 
-        this.ctx.restore();
+        this.camera.restore(this.ctx);
 
-        // 3. Screen Space Renderers (UI, Tooltips)
-        UIRenderer.render(this.ctx, nodes, navState);
+        // EXTRA SAFETY: Ensure context is clean before UI
+        this.ctx.globalAlpha = 1.0;
+        this.ctx.shadowBlur = 0;
+
+        UIRenderer.render(this.ctx, nodes, this.camera, hoveredNodeId, dropTargetId);
     },
 
 
@@ -65,14 +73,14 @@ export const DesignerCanvas = {
     /**
      * Calculate the edge point of a node (circle or rectangle) towards a target
      */
-    getEdgePoint(node, targetX, targetY, nodes, navState) {
+    getEdgePoint(node, targetX, targetY, nodes, camera) {
         const angle = Math.atan2(targetY - node.y, targetX - node.x);
         const isRectangular = node.isRepoContainer || node.isStickyNote;
 
         if (isRectangular) {
             // For rectangles, calculate intersection with border
             const bounds = node.isRepoContainer
-                ? this.getContainerBounds(node, nodes, navState?.zoomScale || 1.0)
+                ? this.getContainerBounds(node, nodes, camera.zoomScale)
                 : {
                     w: node.dimensions?.animW || node.dimensions?.w || 180,
                     h: node.dimensions?.animH || node.dimensions?.h || 100
@@ -106,7 +114,7 @@ export const DesignerCanvas = {
             return { x: edgeX, y: edgeY };
         } else {
             // For circles, use dynamic radius
-            const zoomScale = navState?.zoomScale || 1;
+            const zoomScale = camera.zoomScale;
             const radius = this.getNodeRadius(node, zoomScale);
             return {
                 x: node.x + radius * Math.cos(angle),
@@ -115,22 +123,28 @@ export const DesignerCanvas = {
         }
     },
 
+
     /**
      * Draw a persistent manual connection between two nodes
      */
-    drawSimpleLine(fromNode, toNode, navState, nodes) {
+    drawSimpleLine(fromNode, toNode, camera, nodes) {
         const ctx = this.ctx;
+        ctx.save(); // CRITICAL: Isolate state changes
 
         // Get edge points for both nodes (handles circles and rectangles)
-        const startPoint = this.getEdgePoint(fromNode, toNode.x, toNode.y, nodes, navState);
-        const endPoint = this.getEdgePoint(toNode, fromNode.x, fromNode.y, nodes, navState);
+        const startPoint = this.getEdgePoint(fromNode, toNode.x, toNode.y, nodes, camera);
+        const endPoint = this.getEdgePoint(toNode, fromNode.x, fromNode.y, nodes, camera);
 
         const angle = Math.atan2(endPoint.y - startPoint.y, endPoint.x - startPoint.x);
 
         ctx.beginPath();
-        ctx.strokeStyle = '#58a6ff';
+        ctx.strokeStyle = ThemeManager.colors.connection;
         ctx.lineWidth = 2.5;
         ctx.globalAlpha = 0.9;
+
+        // Neon Glow for connections
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = ThemeManager.colors.connection;
 
         ctx.moveTo(startPoint.x, startPoint.y);
         ctx.lineTo(endPoint.x, endPoint.y);
@@ -138,20 +152,23 @@ export const DesignerCanvas = {
 
         // Arrow head
         const headlen = 10;
-        ctx.beginPath();
+        ctx.beginPath(); // New path for arrow
         ctx.moveTo(endPoint.x, endPoint.y);
         ctx.lineTo(endPoint.x - headlen * Math.cos(angle - Math.PI / 6), endPoint.y - headlen * Math.sin(angle - Math.PI / 6));
         ctx.lineTo(endPoint.x - headlen * Math.cos(angle + Math.PI / 6), endPoint.y - headlen * Math.sin(angle + Math.PI / 6));
         ctx.closePath();
-        ctx.fillStyle = '#58a6ff';
+        ctx.fillStyle = ThemeManager.colors.connection;
         ctx.fill();
+
+        ctx.restore(); // CRITICAL
     },
 
     /**
      * Draw the "ghost" line while the user is actively drawing a connection
      */
-    drawActiveLine(fromNode, mouseWorldPos, navState) {
+    drawActiveLine(fromNode, mouseWorldPos, camera) {
         const ctx = this.ctx;
+        ctx.save();
 
         const angle = Math.atan2(mouseWorldPos.y - fromNode.y, mouseWorldPos.x - fromNode.x);
         const fromRadius = fromNode.isSatellite ? 25 : 35;
@@ -159,19 +176,23 @@ export const DesignerCanvas = {
         const startY = fromNode.y + fromRadius * Math.sin(angle);
 
         ctx.beginPath();
-        ctx.strokeStyle = '#2f81f7';
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = ThemeManager.colors.primary;
+        ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]);
+        ctx.globalAlpha = 0.7;
+
         ctx.moveTo(startX, startY);
         ctx.lineTo(mouseWorldPos.x, mouseWorldPos.y);
         ctx.stroke();
+
+        ctx.restore();
     },
 
     // Unified logic to calculate container dimensions based on children
     // Now using the unified dimensions schema (Issue #6)
-    getContainerBounds(node, nodes, zoomScale = 1.0) {
+    getContainerBounds(node, nodes, zoomScale = 1.0, dropTargetId = null) {
         const containerId = node.id;
-        const isScaleUp = node.isDropTarget;
+        const isScaleUp = node.id === dropTargetId;
         const scaleFactor = isScaleUp ? 1.10 : 1.0;
 
         // Initialize dimensions if missing (legacy recovery)
@@ -217,16 +238,36 @@ export const DesignerCanvas = {
                 maxY = Math.max(maxY, c.y + r);
             });
 
-            const padding = 60;
-            const hPadding = 60;
-            targetW = (maxX - minX) + padding;
+            // Base padding increases slightly with more children to give "breathing room"
+            const basePadding = 60 + Math.min(children.length * 5, 40);
+            const hPadding = basePadding;
+
+            targetW = (maxX - minX) + basePadding;
             targetH = (maxY - minY) + hPadding + 40;
             targetCenterX = (minX + maxX) / 2;
             targetCenterY = (minY + maxY) / 2;
         }
 
+        // ELASTIC TRANSITION LOGIC
+        // If the number of children changed, trigger an expansion pulse
+        if (dims._lastChildCount !== undefined && children.length > dims._lastChildCount) {
+            dims.transitionPadding = 50; // Extra temporary padding to "pop" open
+            console.log(`[Animation] 🚀 Container ${node.id} expanding for new node.`);
+        }
+        dims._lastChildCount = children.length;
+        dims.transitionPadding = dims.transitionPadding || 0;
+
+        // Apply transition padding to target (elastic effect)
+        targetW += dims.transitionPadding;
+        targetH += dims.transitionPadding;
+
         // SMOOTH ANIMATION: Interpolate current size towards target
         const easing = 0.15;
+
+        // Decay transition padding smoothly back to 0
+        dims.transitionPadding *= 0.85;
+        if (dims.transitionPadding < 0.1) dims.transitionPadding = 0;
+
         dims.targetW = targetW;
         dims.targetH = targetH;
 

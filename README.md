@@ -5,14 +5,15 @@ GitTeach is a high-performance desktop platform (Electron) engineered for deep t
 
 ---
 
-## 🍱 **The Master UI (v2.60.0)**
-The latest evolution introduces **SOLID Architecture** and **Disk Persistence**:
+## 🍱 **The Master UI (v2.70.0)**
+The latest evolution introduces **UI Precision** and **Magnetic Sizing**:
+- **Double Label Fix**: Centralized container identities in the screen-space UI layer, eliminating redundant legacy labels.
+- **Magnetic Sticky Notes**: Automatic height adjustment to fit text content, combined with strict minimum size constraints.
+- **Coordinate Synchronization**: Perfect alignment of HTML overlays (editors) with the underlying WebGL/Canvas world.
 - **SOLID Architectural Pivot**: The entire Designer has been modularized into specialized state-based handlers for interaction, rendering, and domain logic.
 - **Persistent Disk Blueprints**: Blueprints are now saved primarily to the file system (`%appdata%`), ensuring layouts persist even after cache cleared.
 - **Proportional Magnetic Scaling**: Fixed world-space delta logic for pixel-perfect container resizing across all zoom levels.
 - **Resolution-Independent UI**: All text labels, icons, and badges are rendered in 1:1 screen pixels for maximum clarity.
-- **Dynamic Node scaling**: Smart compensation keeps nodes readable at high zoom-out levels.
-- **Improved AI Service**: Decoupled AI transport logic into modular client classes.
 
 ---
 

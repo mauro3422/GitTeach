@@ -1,0 +1,72 @@
+{
+  "timestamp": "2026-01-21T21:54:16.848Z",
+  "steps": [
+    {
+      "step": 1,
+      "name": "Initial Colors",
+      "pass": true,
+      "colors": [
+        {
+          "id": "custom_001",
+          "color": "#a5d6ff",
+          "isHovered": false
+        },
+        {
+          "id": "custom_002",
+          "color": "#f778ba",
+          "isHovered": false
+        },
+        {
+          "id": "custom_003",
+          "color": "#58a6ff",
+          "isHovered": false
+        }
+      ]
+    },
+    {
+      "step": 2,
+      "name": "Hover on custom_002",
+      "pass": true,
+      "hoveredIds": [
+        "custom_002"
+      ]
+    },
+    {
+      "step": 3,
+      "name": "Colors stable after hover",
+      "pass": true,
+      "before": [
+        "#a5d6ff",
+        "#f778ba",
+        "#58a6ff"
+      ],
+      "after": [
+        "#a5d6ff",
+        "#f778ba",
+        "#58a6ff"
+      ]
+    },
+    {
+      "step": 4,
+      "name": "Colors stable after resize",
+      "pass": true,
+      "before": [
+        "#a5d6ff",
+        "#f778ba",
+        "#58a6ff"
+      ],
+      "after": [
+        "#a5d6ff",
+        "#f778ba",
+        "#58a6ff"
+      ]
+    },
+    {
+      "step": 5,
+      "name": "Cache populated",
+      "pass": true,
+      "cacheSize": 3
+    }
+  ],
+  "diagnosis": "ThemeManager cache works in isolation. Bug is in real rendering layer."
+}

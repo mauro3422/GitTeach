@@ -3,6 +3,8 @@
  * Specialized module for rendering labels, sublabels, and orbital satellites.
  * Focuses on readability, multiline support, and collision prevention.
  */
+import { ThemeManager } from '../../core/ThemeManager.js';
+
 export const LabelRenderer = {
     /**
      * Draw main label and sublabel for a node
@@ -41,8 +43,18 @@ export const LabelRenderer = {
 
             ctx.fillStyle = color;
             ctx.globalAlpha = alpha;
+
+            // Add subtle glow for neon colors on white text
+            if (isHovered) {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = color === '#ffffff' ? ThemeManager.colors.primary : color;
+            } else {
+                ctx.shadowBlur = 0;
+            }
+
             ctx.fillText(txt, px, py);
             ctx.globalAlpha = 1;
+            ctx.shadowBlur = 0; // Reset for next element
         };
 
         // Split label into multiple lines if needed
@@ -177,7 +189,7 @@ export const LabelRenderer = {
         const radius = (dynamicRadius || (isSatellite ? 25 : 35)) * zoomScale;
 
         // RE-CALCULATION: Keep icon relative to node but with readability limits
-        const finalSize = Math.min(baseSize, Math.max(12, radius * 1.5));
+        const finalSize = Math.max(1, radius * 1.2);
 
         ctx.font = `${finalSize}px sans-serif`;
         ctx.textAlign = 'center';

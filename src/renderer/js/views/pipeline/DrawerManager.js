@@ -28,6 +28,8 @@ export class DrawerManager {
      * Show the inspection drawer for a specific node
      */
     show(container, id = 'pipeline-drawer', className = 'pipeline-drawer') {
+        console.log(`[Drawer] 🔍 Showing drawer ID: ${id}`);
+        console.trace(); // Trace the caller
         const drawer = this.initialize(container, id, className);
         drawer.classList.add('open');
         return drawer;

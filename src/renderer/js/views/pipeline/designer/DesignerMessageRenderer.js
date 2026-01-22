@@ -65,6 +65,7 @@ export const DesignerMessageRenderer = {
         // Content HTML
         const contentHtml = `
             <div class="drawer-content">
+                ${node.isStickyNote ? '<div style="background: #f85149; color: white; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-weight: bold;">⚠️ ERROR: INLINE EDITOR FAILED. Using fallback drawer.</div>' : ''}
                 ${descriptionHtml}
                 ${parentingHtml}
                 ${componentsHtml}

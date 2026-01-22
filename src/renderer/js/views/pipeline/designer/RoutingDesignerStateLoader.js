@@ -22,7 +22,7 @@ export const RoutingDesignerStateLoader = {
             ConnectionManager.setConnections(Array.isArray(savedState.connections) ? savedState.connections : []);
 
             // Final notify after all hydration is done
-            DesignerStore.notify();
+            DesignerStore.setState({}, 'HYDRATION_COMPLETE');
         }
     },
 
@@ -44,8 +44,8 @@ export const RoutingDesignerStateLoader = {
                 icon: data.isStickyNote ? '📝' : (data.isRepoContainer ? '📦' : '🧩'),
                 color: data.color || '#30363d',
                 isRepoContainer: data.isRepoContainer,
-                isStickyNote: data.isStickyNote,
-                text: data.text,
+                isStickyNote: data.isStickyNote || id.startsWith('sticky_'),
+                text: data.text || (id.startsWith('sticky_') ? "Contenido recuperado..." : ""),
                 isSatellite: data.isSatellite,
                 orbitParent: data.orbitParent
             };
@@ -57,7 +57,10 @@ export const RoutingDesignerStateLoader = {
             node.label = data.label;
             node.message = data.message;
             node.parentId = data.parentId;
-            if (data.isStickyNote) node.text = data.text;
+            if (data.isStickyNote || id.startsWith('sticky_')) {
+                node.isStickyNote = true;
+                node.text = data.text || node.text;
+            }
         }
 
         // Hydrate Dimensions (Issue #6)

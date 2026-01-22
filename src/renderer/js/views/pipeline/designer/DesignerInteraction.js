@@ -7,13 +7,19 @@ import { CanvasUtils } from './CanvasUtils.js';
 
 export const DesignerInteraction = {
     canvas: null,
-    nodes: null,
-    onUpdate: null,
-    onConnection: null,
-    onNodeDoubleClick: null,
-    onNodeDrop: null,
-    onStickyNoteEdit: null,
-    onInteractionEnd: null,
+    /**
+     * @type {() => Object} - Returns the current nodes object
+     */
+    nodeProvider: null,
+
+    // Dynamic getter for nodes to ensure freshness
+    get nodes() {
+        return this.nodeProvider ? this.nodeProvider() : {};
+    },
+
+    // Interaction mode
+    mode: 'DRAG', // 'DRAG' or 'DRAW'
+    hoveredNodeId: null, // Track mouse over node
 
     // Compatibility getter - delegates to PanZoomHandler
     get state() {
@@ -25,13 +31,15 @@ export const DesignerInteraction = {
         return ConnectionDrawer.activeConnection;
     },
 
-    // Interaction mode
-    mode: 'DRAG', // 'DRAG' or 'DRAW'
-    hoveredNodeId: null, // Track mouse over node
-
-    init(canvas, nodes, onUpdate, onConnection, onNodeDoubleClick, onNodeDrop, onStickyNoteEdit, onInteractionEnd) {
+    init(canvas, nodeProvider, onUpdate, onConnection, onNodeDoubleClick, onNodeDrop, onStickyNoteEdit, onInteractionEnd) {
         this.canvas = canvas;
-        this.nodes = nodes;
+        this.nodeProvider = typeof nodeProvider === 'function' ? nodeProvider : () => nodeProvider; // Backwards combatibility
+
+        // Safety check
+        if (!this.nodes || Object.keys(this.nodes).length === 0) {
+            console.warn('[DesignerInteraction] Initialized with empty nodes. Interaction may fail until nodes are loaded.');
+        }
+
         this.onUpdate = onUpdate;
         this.onConnection = onConnection;
         this.onNodeDoubleClick = onNodeDoubleClick;
@@ -41,8 +49,8 @@ export const DesignerInteraction = {
 
         // Initialize interaction modules
         PanZoomHandler.init({ panOffset: { x: 0, y: 0 }, zoomScale: 1.5 });
-        DragHandler.init(nodes);
-        ResizeHandler.init(nodes);
+        DragHandler.init(this.nodeProvider);
+        ResizeHandler.init(this.nodeProvider);
         ConnectionDrawer.init(canvas);
 
         this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
@@ -60,6 +68,13 @@ export const DesignerInteraction = {
                 this.onUpdate?.();
             }
         });
+
+        // 🧪 DEBUG MODE TOGGLE (Scientific Method)
+        window.ENABLE_STICKY_DEBUG = () => {
+            window.DEBUG_STICKY = true;
+            console.log('[Scientific Method] 🔬 Sticky Debug Enabled. Seeing magenta hitboxes?');
+            this.onUpdate();
+        };
         window.addEventListener('keyup', (e) => {
             if (e.key === 'Control' && this.mode === 'DRAW') {
                 this.mode = 'DRAG';
@@ -83,9 +98,12 @@ export const DesignerInteraction = {
         const clickedNode = this.findNodeAt(worldPos);
 
         if (clickedNode) {
+            console.log(`[Interaction] 🚀 Double Click on: ${clickedNode.id} (Sticky: ${!!clickedNode.isStickyNote})`);
             if (clickedNode.isStickyNote && this.onStickyNoteEdit) {
+                console.log(`[Interaction] 📝 Triggering StickyNote inline edit`);
                 this.onStickyNoteEdit(clickedNode);
             } else if (this.onNodeDoubleClick) {
+                console.log(`[Interaction] 🗒️ Triggering standard Node modal`);
                 this.onNodeDoubleClick(clickedNode);
             }
         }
@@ -136,15 +154,26 @@ export const DesignerInteraction = {
         if (!this.nodes) return null;
         const nodeList = Object.values(this.nodes);
 
-        // PASS 0: Sticky Notes (Rectangular)
+        // PASS 0: Sticky Notes - ULTRA PRIORITY (Checked before any other Node or Container)
         for (const node of nodeList.slice().reverse()) {
             if (excludeId && node.id === excludeId) continue;
-            if (!node.isStickyNote || !node.dimensions) continue;
 
-            const w = node.dimensions.w / 2;
-            const h = node.dimensions.h / 2;
-            if (worldPos.x >= node.x - w && worldPos.x <= node.x + w &&
-                worldPos.y >= node.y - h && worldPos.y <= node.y + h) {
+            const isSticky = node.isStickyNote === true || node.id?.startsWith('sticky_');
+            if (!isSticky) continue;
+
+            // Sync with renderer dims (Match visual box)
+            const dims = node.dimensions || {};
+            const w = dims.animW || dims.w || 180;
+            const h = dims.animH || dims.h || 100;
+            const hw = w / 2;
+            const hh = h / 2;
+
+            // Hit area with 20px "Magnetic" buffer
+            const margin = 20;
+            const hit = worldPos.x >= node.x - hw - margin && worldPos.x <= node.x + hw + margin &&
+                worldPos.y >= node.y - hh - margin && worldPos.y <= node.y + hh + margin;
+
+            if (hit) {
                 return node;
             }
         }
@@ -156,7 +185,10 @@ export const DesignerInteraction = {
 
             const radius = DesignerCanvas.getNodeRadius(node, PanZoomHandler.state.zoomScale);
             const dist = Math.sqrt((node.x - worldPos.x) ** 2 + (node.y - worldPos.y) ** 2);
-            if (dist < radius) return node;
+            if (dist < radius) {
+                // console.log(`[Interaction] Hit Node: ${node.id}`);
+                return node;
+            }
         }
 
         // PASS 2: Containers
@@ -167,8 +199,12 @@ export const DesignerInteraction = {
             const bounds = DesignerCanvas.getContainerBounds(node, this.nodes, PanZoomHandler.state.zoomScale);
             const w = bounds.w + 10;
             const h = bounds.h + 10;
-            if (worldPos.x >= bounds.centerX - w / 2 && worldPos.x <= bounds.centerX + w / 2 &&
-                worldPos.y >= bounds.centerY - h / 2 && worldPos.y <= bounds.centerY + h / 2) {
+
+            const hit = worldPos.x >= bounds.centerX - w / 2 && worldPos.x <= bounds.centerX + w / 2 &&
+                worldPos.y >= bounds.centerY - h / 2 && worldPos.y <= bounds.centerY + h / 2;
+
+            if (hit) {
+                // console.log(`[Interaction] Hit Container: ${node.id}`);
                 return node;
             }
         }
@@ -246,7 +282,6 @@ export const DesignerInteraction = {
         const newHoverId = overNode ? overNode.id : null;
         if (this.hoveredNodeId !== newHoverId) {
             this.hoveredNodeId = newHoverId;
-            Object.values(this.nodes).forEach(n => n.isHovered = (n.id === newHoverId));
             this.onUpdate();
         }
     },

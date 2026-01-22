@@ -5,30 +5,37 @@
 
 import { LabelRenderer } from '../../LabelRenderer.js';
 import { DesignerCanvas } from '../DesignerCanvas.js';
+import { CanvasPrimitives } from '../../../../core/CanvasPrimitives.js';
+import { ThemeManager } from '../../../../core/ThemeManager.js';
+import { ModalManager } from '../modules/ModalManager.js';
 
 export const UIRenderer = {
     /**
      * Draw UI elements (labels, icons, tooltips) in screen space
      */
-    render(ctx, nodes, navState) {
-        const { panOffset, zoomScale } = navState;
+    render(ctx, nodes, camera, hoveredNodeId = null, dropTargetId = null) {
 
         Object.values(nodes).forEach(node => {
-            const screenX = node.x * zoomScale + panOffset.x;
-            const screenY = node.y * zoomScale + panOffset.y;
+            const screenPos = camera.toScreen(node.x, node.y);
+            const screenX = screenPos.x;
+            const screenY = screenPos.y;
+            const isHovered = node.id === hoveredNodeId;
 
             if (node.isRepoContainer) {
-                const bounds = DesignerCanvas.getContainerBounds(node, nodes, zoomScale);
+                const bounds = DesignerCanvas.getContainerBounds(node, nodes, camera.zoomScale, dropTargetId);
                 const cX = bounds.centerX || node.x;
                 const cY = bounds.centerY || node.y;
-                const scX = cX * zoomScale + panOffset.x;
-                const scY = cY * zoomScale + panOffset.y;
+                const screenCenter = camera.toScreen(cX, cY);
+                const scX = screenCenter.x;
+                const scY = screenCenter.y;
 
-                const sW = bounds.w * zoomScale;
-                const sH = bounds.h * zoomScale;
-                LabelRenderer.drawStandardText(ctx, node.label.toUpperCase(), scX, scY - sH / 2 + 20, {
+                const sW = bounds.w * camera.zoomScale;
+                const sH = bounds.h * camera.zoomScale;
+                const neonColor = ThemeManager.getNeonColorForId(node.id);
+
+                LabelRenderer.drawStandardText(ctx, node.label?.toUpperCase() || 'BOX', scX, scY - sH / 2 + 20, {
                     fontSize: 22,
-                    color: node.isHovered ? '#ffffff' : node.color,
+                    color: isHovered ? '#ffffff' : neonColor,
                     bold: true
                 });
 
@@ -36,70 +43,31 @@ export const UIRenderer = {
                     this.drawMessageBadge(ctx, scX + sW / 2 - 15, scY - sH / 2 + 15, node.color);
                 }
             } else if (node.isStickyNote) {
-                const sW = (node.dimensions?.w || 180) * zoomScale;
-                const sH = (node.dimensions?.h || 100) * zoomScale;
-
-                ctx.save();
-                const fSize = 18;
-                ctx.font = `${fSize}px var(--font-mono), monospace`;
-                ctx.fillStyle = node.color || '#3fb950';
-                ctx.textAlign = 'left';
-                ctx.textBaseline = 'top';
-
-                const maxWidth = sW - 24;
-                const words = (node.text || '').split(' ');
-                let line = '';
-                let yOff = screenY - sH / 2 + 20;
-
-                for (const word of words) {
-                    const testLine = line + word + ' ';
-                    if (ctx.measureText(testLine).width > maxWidth && line !== '') {
-                        ctx.fillText(line, screenX - sW / 2 + 12, yOff);
-                        line = word + ' ';
-                        yOff += fSize + 6;
-                        if (yOff > screenY + sH / 2 - 25) break;
-                    } else {
-                        line = testLine;
-                    }
-                }
-                ctx.fillText(line, screenX - sW / 2 + 12, yOff);
-                ctx.restore();
+                // Render unificado en World Space
             } else {
                 // Regular Nodes
-                const radius = DesignerCanvas.getNodeRadius(node, zoomScale);
-                LabelRenderer.drawNodeIcon(ctx, node.icon, screenX, screenY, node.isSatellite, zoomScale, radius);
-                LabelRenderer.drawNodeLabel(ctx, node, screenX, screenY, node.isHovered, zoomScale, radius);
+                const radius = DesignerCanvas.getNodeRadius(node, camera.zoomScale);
+                LabelRenderer.drawNodeIcon(ctx, node.icon, screenX, screenY, node.isSatellite, camera.zoomScale, radius);
+                LabelRenderer.drawNodeLabel(ctx, node, screenX, screenY, isHovered, camera.zoomScale, radius);
 
                 if (node.message) {
-                    const sRadius = radius * zoomScale;
+                    const sRadius = radius * camera.zoomScale;
                     this.drawMessageBadge(ctx, screenX + sRadius * 0.7, screenY - sRadius * 0.7, node.color);
                 }
 
                 // Tooltip in screen space for better readability
-                if (node.isHovered && node.description) {
-                    this.drawDescriptionTooltip(ctx, node, screenX, screenY, node.color, zoomScale);
+                if (isHovered && node.description) {
+                    this.drawDescriptionTooltip(ctx, node, screenX, screenY, node.color, camera.zoomScale);
                 }
             }
         });
     },
 
     /**
-     * Draw message badge
+     * Draw message badge using CanvasPrimitives
      */
     drawMessageBadge(ctx, x, y, color) {
-        ctx.save();
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = '#f1e05a';
-        ctx.fillStyle = '#f1e05a';
-        ctx.beginPath();
-        ctx.arc(x, y, 12, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-
-        ctx.fillStyle = '#000';
-        ctx.font = 'bold 18px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('✎', x, y + 6);
+        CanvasPrimitives.drawBadge(ctx, '✎', x, y, ThemeManager.colors.textDim);
     },
 
     /**

@@ -14,17 +14,32 @@ export const DragHandler = {
     },
 
     /**
-     * Initialize with nodes reference
+     * @type {() => Object}
      */
-    init(nodes) {
-        this.nodes = nodes;
+    nodeProvider: null,
+
+    /**
+     * Initialize with nodes reference or provider
+     */
+    init(nodeProvider) {
+        if (typeof nodeProvider === 'function') {
+            this.nodeProvider = nodeProvider;
+            this.nodes = null; // Clear static ref
+        } else {
+            this.nodes = nodeProvider; // Legacy support
+        }
+    },
+
+    getNodes() {
+        return this.nodeProvider ? this.nodeProvider() : this.nodes;
     },
 
     /**
      * Start dragging a node
      */
     startDrag(nodeId, mousePos) {
-        const node = this.nodes[nodeId];
+        const nodes = this.getNodes();
+        const node = nodes[nodeId];
         if (!node) return;
 
         this.state.draggingNodeId = nodeId;
@@ -41,10 +56,12 @@ export const DragHandler = {
     /**
      * Update drag position
      */
-    updateDrag(mousePos, nodes) {
+    updateDrag(mousePos, nodesArg) {
+        // nodesArg is ignored in favor of fresh state from provider if available
+        const nodes = this.getNodes();
         if (!this.state.draggingNodeId) return;
 
-        const node = this.nodes[this.state.draggingNodeId];
+        const node = nodes[this.state.draggingNodeId];
         if (!node) return;
 
         // Update node position
@@ -64,9 +81,10 @@ export const DragHandler = {
      * End dragging
      */
     endDrag(onNodeDrop) {
+        const nodes = this.getNodes();
         if (!this.state.draggingNodeId) return;
 
-        const node = this.nodes[this.state.draggingNodeId];
+        const node = nodes[this.state.draggingNodeId];
         if (!node) return;
 
         node.isDragging = false;
@@ -87,10 +105,11 @@ export const DragHandler = {
      * Update positions of child nodes when dragging a container
      */
     updateChildPositions(containerNode, mousePos) {
+        const nodes = this.getNodes();
         const dx = mousePos.x - this.state.dragStart.x;
         const dy = mousePos.y - this.state.dragStart.y;
 
-        Object.values(this.nodes).forEach(child => {
+        Object.values(nodes).forEach(child => {
             if (child.parentId === containerNode.id) {
                 // Store original position on first drag
                 if (!child._originalPos) {
@@ -107,8 +126,9 @@ export const DragHandler = {
     /**
      * Update drop target detection
      */
-    updateDropTarget(mousePos, nodes) {
-        const draggingNode = this.nodes[this.state.draggingNodeId];
+    updateDropTarget(mousePos, nodesArg) {
+        const nodes = this.getNodes();
+        const draggingNode = nodes[this.state.draggingNodeId];
         if (!draggingNode || draggingNode.isRepoContainer) {
             this.clearDropTarget();
             return;
@@ -116,28 +136,17 @@ export const DragHandler = {
 
         // Find potential drop target (container under mouse)
         const target = this.findDropTarget(mousePos, nodes);
-        const newDropTargetId = target ? target.id : null;
-
-        if (this.state.dropTargetId !== newDropTargetId) {
-            // Clear previous drop target
-            if (this.state.dropTargetId) {
-                const prevTarget = this.nodes[this.state.dropTargetId];
-                if (prevTarget) prevTarget.isDropTarget = false;
-            }
-
-            // Set new drop target
-            this.state.dropTargetId = newDropTargetId;
-            if (newDropTargetId) {
-                target.isDropTarget = true;
-            }
-        }
+        this.state.dropTargetId = target ? target.id : null;
     },
 
     /**
      * Find container at position that can accept drops
      */
     findDropTarget(worldPos, nodes) {
-        for (const node of Object.values(nodes).slice().reverse()) {
+        // Higher nodes (last in list) take precedence
+        const nodeList = Object.values(nodes);
+        for (let i = nodeList.length - 1; i >= 0; i--) {
+            const node = nodeList[i];
             if (!node.isRepoContainer) continue;
             if (node.id === this.state.draggingNodeId) continue; // Don't drop into yourself
 
@@ -154,15 +163,16 @@ export const DragHandler = {
      * Get container bounds for drop detection
      */
     getContainerBounds(container) {
-        // Use unified logic from DesignerCanvas to ensure consistency
-        const bounds = DesignerCanvas.getContainerBounds(container, this.nodes);
+        const nodes = this.getNodes();
+        // Use unified logic from DesignerCanvas (non-mutating for hit testing)
+        const bounds = DesignerCanvas.getContainerBounds(container, nodes);
         const w = bounds.w;
         const h = bounds.h;
         return {
-            minX: bounds.centerX - w / 2,
-            maxX: bounds.centerX + w / 2,
-            minY: bounds.centerY - h / 2,
-            maxY: bounds.centerY + h / 2
+            minX: (bounds.centerX || container.x) - w / 2,
+            maxX: (bounds.centerX || container.x) + w / 2,
+            minY: (bounds.centerY || container.y) - h / 2,
+            maxY: (bounds.centerY || container.y) + h / 2
         };
     },
 
@@ -170,10 +180,11 @@ export const DragHandler = {
      * Handle unparenting when dragging node out of container
      */
     handleUnparenting(node) {
+        const nodes = this.getNodes();
         const parentId = node.parentId;
         if (!parentId) return;
 
-        const parent = this.nodes[parentId];
+        const parent = nodes[parentId];
         if (!parent) return;
 
         const bounds = this.getContainerBounds(parent);
@@ -193,10 +204,6 @@ export const DragHandler = {
      * Clear drop target state
      */
     clearDropTarget() {
-        if (this.state.dropTargetId) {
-            const target = this.nodes[this.state.dropTargetId];
-            if (target) target.isDropTarget = false;
-        }
         this.state.dropTargetId = null;
     },
 
@@ -204,12 +211,13 @@ export const DragHandler = {
      * Clear all drag state
      */
     clearDragState() {
-        if (this.state.draggingNodeId) {
-            const node = this.nodes[this.state.draggingNodeId];
+        const nodes = this.getNodes();
+        if (this.state.draggingNodeId && nodes) {
+            const node = nodes[this.state.draggingNodeId];
             if (node) {
                 node.isDragging = false;
                 // Clean up temporary drag data
-                Object.values(this.nodes).forEach(child => {
+                Object.values(nodes).forEach(child => {
                     if (child._originalPos) {
                         delete child._originalPos;
                     }

@@ -8,6 +8,21 @@ All notable changes to the GitTeach project will be documented in this file.
 
 ---
 
+## [2.70.0] - UI Precision & Magnetic Sizing - 2026-01-21
+### 🎨 Designer UI: Precision & Bug Fixes
+- **Double Label Elimination**: Resolved the "Double Label" glitch by removing redundant world-space rendering from `ContainerRenderer.js`, centralizing all identity logic in the screen-space `UIRenderer.js`.
+- **Sticky Note "Magnetic" Sizing**: Implemented automatic height adjustment for sticky notes in `ContainerRenderer.js`. Notes now "snap" to fit their text content unless manually resized.
+- **HTML Overlay Synchronization**: Fixed sticky note editor "ghosting" by synchronizing coordinate systems in `ModalManager.js` using `getBoundingClientRect()` of the container.
+- **Hit-Test Precision**: Refined `DesignerInteraction.js` to use animated dimensions (`animW/animH`) for click detection, ensuring the interactive area matches the visual state perfectly.
+- **Minimum UI Constraints**: Enforced a strict 180x100 minimum size for sticky notes in `ResizeHandler.js` to maintain usability.
+
+### 🏗️ Technical Utilities & Tooling
+- **TextUtils.js (New)**: Created a dedicated canvas utility for high-precision multiline text measurement and overflow handling (ellipsis protection).
+- **Execution Context Audit**: Enhanced the `/depurador` skill with a mandatory check for module scope and object accessibility (import vs window global).
+- **No-Mock Policy**: Updated the `/replicate-bug` workflow to explicitly forbid mocks in core system tests, ensuring high-fidelity technical audits.
+
+---
+
 ## [2.65.0] - Routing Designer Architectural Overhaul & Standardization - 2026-01-21
 ### 🏗️ Architectural Standardization
 - **Unified Animation Manager**: Implemented `AnimationManager.js` to replace multiple independent `requestAnimationFrame` loops with a centralized tween library, significantly improving performance and battery usage.
@@ -50,7 +65,7 @@ All notable changes to the GitTeach project will be documented in this file.
 - **Direct Containment Enforcement**: Migrated containment logic from `LayoutEngine` to direct enforcement in `DesignerInteraction.js`, ensuring pixel-perfect node stay-in-box behavior.
 - **Import Path Restoration**: Fixed critical pathing issues in `DesignerInteraction.js` and `RoutingDesigner.js` that caused module load failures in Electron.
 
-### 🏗️ Persistence & Hydration
+### �️ Persistence & Hydration
 - **Dynamic Box Registry**: Added verification logic to `RoutingDesigner.js` to re-register user-created boxes in the layout engine's memory after loading from LocalStorage.
 - **Resizing Resilience**: Eliminated "Box not registered" console warnings during interactive resizing of custom nodes.
 

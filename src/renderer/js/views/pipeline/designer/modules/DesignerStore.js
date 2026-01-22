@@ -4,90 +4,93 @@
  * Centraliza el estado para evitar desincronización entre módulos.
  */
 
-export const DesignerStore = {
-    state: {
-        nodes: {},
-        connections: [],
-        navigation: {
-            panOffset: { x: 0, y: 0 },
-            zoomScale: 1.5
-        },
-        interaction: {
-            mode: 'DRAG', // 'DRAG' | 'DRAW' | 'RESIZE'
-            hoveredNodeId: null,
-            selectedNodeId: null,
-            activeConnection: null, // { fromNode, currentPos }
-            draggingNodeId: null,
-            resizingNodeId: null
-        }
-    },
+import { Store } from '../../../../core/Store.js';
 
-    listeners: [],
-
-    /**
-     * Subscribe to state changes
-     */
-    subscribe(listener) {
-        this.listeners.push(listener);
-        return () => {
-            this.listeners = this.listeners.filter(l => l !== listener);
-        };
-    },
-
-    /**
-     * Notify all listeners of changes
-     */
-    notify() {
-        this.listeners.forEach(listener => listener(this.state));
-    },
+class DesignerStoreClass extends Store {
+    constructor() {
+        super({
+            nodes: {},
+            connections: [],
+            navigation: {
+                panOffset: { x: 0, y: 0 },
+                zoomScale: 1.5
+            },
+            interaction: {
+                mode: 'DRAG', // 'DRAG' | 'DRAW' | 'RESIZE'
+                hoveredNodeId: null,
+                selectedNodeId: null,
+                activeConnection: null, // { fromNode, currentPos }
+                draggingNodeId: null,
+                resizingNodeId: null
+            }
+        });
+    }
 
     /**
      * Update state and notify
+     * Override to provide specific deep merge logic for this domain
      */
-    setState(updates) {
-        // Deep merge logic simplified for this scope
+    setState(updates, actionName = 'DESIGNER_UPDATE') {
+        // Prepare the next state based on updates
+        const nextState = { ...this.state };
+
         if (updates.nodes) {
-            // In-place update to preserve references if needed (though store pattern discourages it)
-            Object.keys(this.state.nodes).forEach(key => delete this.state.nodes[key]);
-            Object.assign(this.state.nodes, JSON.parse(JSON.stringify(updates.nodes)));
+            // In-place update approach (legacy compatibility)
+            // Ideally we should replace the object, but for now we keep the reference structure
+            // logical, but create new object for the store
+            nextState.nodes = { ...updates.nodes };
         }
 
         if (updates.connections) {
-            this.state.connections = [...updates.connections];
+            nextState.connections = [...updates.connections];
         }
 
         if (updates.navigation) {
-            this.state.navigation = { ...this.state.navigation, ...updates.navigation };
+            nextState.navigation = { ...this.state.navigation, ...updates.navigation };
         }
 
         if (updates.interaction) {
-            this.state.interaction = { ...this.state.interaction, ...updates.interaction };
+            nextState.interaction = { ...this.state.interaction, ...updates.interaction };
         }
 
-        this.notify();
-    },
+        // Call parent setState with the fully resolved object
+        super.setState(nextState, actionName);
+    }
 
     /**
      * Validation and Cleanup (Issue #5 & #7)
      */
     validateAndCleanup() {
-        const nodeIds = Object.keys(this.state.nodes);
+        const state = this.getState();
+        const nodeIds = Object.keys(state.nodes);
+        let hasChanges = false;
 
-        // 1. Connection integrity (remove connections to non-existent nodes)
-        this.state.connections = this.state.connections.filter(c =>
+        // 1. Connection integrity
+        const newConnections = state.connections.filter(c =>
             nodeIds.includes(c.from) && nodeIds.includes(c.to)
         );
 
-        // 2. Parent integrity (remove parentId if parent doesn't exist)
-        Object.values(this.state.nodes).forEach(node => {
+        if (newConnections.length !== state.connections.length) {
+            hasChanges = true;
+        }
+
+        // 2. Parent integrity
+        const newNodes = { ...state.nodes };
+        Object.values(newNodes).forEach(node => {
             if (node.parentId && !nodeIds.includes(node.parentId)) {
                 console.warn(`[DesignerStore] Removing invalid parentId ${node.parentId} from ${node.id}`);
                 node.parentId = null;
+                hasChanges = true;
             }
-
-            // 3. Property Cleanup (Issue #5)
-            // Remove temporary animation/interaction properties before long-term storage
-            // This is handled during serialization by the store getters if needed
         });
+
+        if (hasChanges) {
+            this.setState({
+                connections: newConnections,
+                nodes: newNodes
+            }, 'VALIDATION_CLEANUP');
+        }
     }
-};
+}
+
+export const DesignerStore = new DesignerStoreClass();

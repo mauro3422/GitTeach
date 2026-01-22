@@ -127,7 +127,9 @@ export const NodeManager = {
         const typeLabel = isContainer ? 'Box' : 'Node';
         const count = Object.keys(this.nodes).filter(k => k.startsWith('custom_')).length + 1;
         const name = `${typeLabel} ${count}`;
-        const id = `custom_${Date.now()}`;
+
+        // Use a more robust unique ID generator to prevent duplicates
+        const id = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
         const newNode = {
             id,
@@ -135,7 +137,7 @@ export const NodeManager = {
             y: centerY,
             label: name,
             icon: isContainer ? '📦' : '🧩',
-            color: isContainer ? '#8957e5' : '#238636',
+            // No hardcoded color - let ContainerRenderer assign random neon color
             isRepoContainer: isContainer,
             description: `Elemento personalizado: ${name}`,
             internalClasses: []
@@ -148,12 +150,12 @@ export const NodeManager = {
         if (isContainer && typeof ContainerBoxManager?.createUserBox === 'function') {
             const margin = 100;
             const bounds = {
-                minX: centerX - margin,
-                minY: centerY - margin,
-                maxX: centerX + margin,
-                maxY: centerY + margin
+                xMin: centerX - 100,
+                xMax: centerX + 100,
+                yMin: centerY - 100,
+                yMax: centerY + 100
             };
-            ContainerBoxManager.createUserBox(id, bounds, 40);
+            ContainerBoxManager.createUserBox(id, bounds);
         }
 
         return newNode;
@@ -163,20 +165,18 @@ export const NodeManager = {
      * Add a sticky note
      */
     addStickyNote(centerX, centerY) {
-        const id = `sticky_${Date.now()}`;
-        const newNote = {
-            id,
-            x: centerX,
-            y: centerY,
-            text: 'Nueva nota...',
+        const id = `sticky_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+        const newNode = {
+            id, x: centerX, y: centerY,
+            label: 'Nota',
+            text: 'Doble click para editar...',
             isStickyNote: true,
-            color: '#3fb950'
+            dimensions: { w: 180, h: 100, animW: 180, animH: 100, targetW: 180, targetH: 100 }
         };
-        this._ensureDimensions(newNote, { width: 180, height: 100 });
 
-        const updatedNodes = { ...this.nodes, [id]: newNote };
+        const updatedNodes = { ...this.nodes, [id]: newNode };
         DesignerStore.setState({ nodes: updatedNodes });
-        return newNote;
+        return newNode;
     },
 
     /**
@@ -213,7 +213,7 @@ export const NodeManager = {
             attempts++;
         }
 
-        DesignerStore.notify(); // Force re-render of observers
+        DesignerStore.setState({}); // Force re-render of observers
     },
 
     /**
@@ -235,7 +235,7 @@ export const NodeManager = {
     updateNode(nodeId, updates) {
         if (!this.nodes[nodeId]) return false;
         Object.assign(this.nodes[nodeId], updates);
-        DesignerStore.notify();
+        DesignerStore.setState({}); // Force update
         return true;
     },
 

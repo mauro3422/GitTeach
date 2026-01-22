@@ -4,40 +4,39 @@
  */
 
 import { DesignerCanvas } from '../DesignerCanvas.js';
+import { CanvasPrimitives } from '../../../../core/CanvasPrimitives.js';
+import { ThemeManager } from '../../../../core/ThemeManager.js';
 
 export const NodeRenderer = {
     /**
      * Draw regular nodes (non-containers)
      */
-    render(ctx, nodes, navState, activeConnectionId) {
-        const { zoomScale } = navState;
+    render(ctx, nodes, camera, activeConnectionId, hoveredNodeId = null) {
+        const zoomScale = camera.zoomScale;
 
         Object.values(nodes).forEach(node => {
             if (node.isRepoContainer || node.isStickyNote) return;
 
-            const { x, y, color } = node;
+            const { x, y, color, id } = node;
             const radius = DesignerCanvas.getNodeRadius(node, zoomScale);
+            const isHovered = id === hoveredNodeId;
 
-            ctx.save();
-            ctx.beginPath();
-            ctx.fillStyle = 'rgba(22, 27, 34, 0.9)';
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
+            // Usar CanvasPrimitives para dibujar el círculo del nodo
+            CanvasPrimitives.drawNodeCircle(ctx, x, y, radius, color,
+                node.isDragging || isHovered);
 
-            if (node.isDragging || node.isHovered) {
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = color;
-                ctx.lineWidth = 3;
-            }
+            // Efectos adicionales para conexiones activas
             if (activeConnectionId === node.id) {
-                ctx.shadowBlur = 20; ctx.shadowColor = '#2f81f7';
-                ctx.lineWidth = 4; ctx.strokeStyle = '#2f81f7';
+                ctx.save();
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = ThemeManager.colors.primary;
+                ctx.strokeStyle = ThemeManager.colors.primary;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
             }
-
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-            ctx.restore();
         });
     }
 };

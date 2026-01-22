@@ -9,12 +9,14 @@ export const ConnectionRenderer = {
     /**
      * Draw manual connections between nodes
      */
-    render(ctx, nodes, navState, connections) {
+    render(ctx, nodes, camera, connections) {
+        if (!connections || !Array.isArray(connections)) return;
+
         connections.forEach(conn => {
             const startNode = nodes[conn.from];
             const endNode = nodes[conn.to];
             if (startNode && endNode) {
-                DesignerCanvas.drawSimpleLine(startNode, endNode, navState, nodes);
+                DesignerCanvas.drawSimpleLine(startNode, endNode, camera, nodes);
             }
         });
     }
