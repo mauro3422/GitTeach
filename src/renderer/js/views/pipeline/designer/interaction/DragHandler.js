@@ -1,247 +1,179 @@
-/**
- * DragHandler.js
- * Responsabilidad: Gestión del arrastre de nodos y detección de drop targets
- */
 
-import { DesignerCanvas } from '../DesignerCanvas.js';
+import { InteractionHandler } from '../InteractionHandler.js';
+import { GeometryUtils } from '../GeometryUtils.js';
 
-export const DragHandler = {
-    state: {
-        draggingNodeId: null,
-        dragStart: null,
-        dragOffset: null,
-        dropTargetId: null
-    },
-
-    /**
-     * @type {() => Object}
-     */
-    nodeProvider: null,
-
-    /**
-     * Initialize with nodes reference or provider
-     */
-    init(nodeProvider) {
-        if (typeof nodeProvider === 'function') {
-            this.nodeProvider = nodeProvider;
-            this.nodes = null; // Clear static ref
-        } else {
-            this.nodes = nodeProvider; // Legacy support
-        }
-    },
-
-    getNodes() {
-        return this.nodeProvider ? this.nodeProvider() : this.nodes;
-    },
+export class DragHandler extends InteractionHandler {
+    constructor(controller) {
+        super(controller);
+        this.nodeProvider = null; // Will use controller.nodes ideally, but keeping flexibility
+    }
 
     /**
      * Start dragging a node
+     * @param {MouseEvent} e
+     * @param {Object} context - { nodeId: string, initialPos: {x,y} }
      */
-    startDrag(nodeId, mousePos) {
-        const nodes = this.getNodes();
+    onStart(e, context) {
+        const { nodeId, initialPos } = context;
+        if (!nodeId) return;
+
+        const nodes = this.controller.nodes;
         const node = nodes[nodeId];
         if (!node) return;
 
-        this.state.draggingNodeId = nodeId;
-        this.state.dragStart = { ...mousePos };
-        this.state.dragOffset = {
-            x: mousePos.x - node.x,
-            y: mousePos.y - node.y
-        };
+        this.setState({
+            draggingNodeId: nodeId,
+            dragStart: { ...initialPos },
+            dragOffset: {
+                x: initialPos.x - node.x,
+                y: initialPos.y - node.y
+            },
+            dropTargetId: null
+        });
 
         node.isDragging = true;
-        this.clearDropTarget();
-    },
+    }
 
     /**
      * Update drag position
+     * @param {MouseEvent} e
      */
-    updateDrag(mousePos, nodesArg) {
-        // nodesArg is ignored in favor of fresh state from provider if available
-        const nodes = this.getNodes();
-        if (!this.state.draggingNodeId) return;
+    onUpdate(e) {
+        const state = this.getState();
+        if (!state.draggingNodeId) return;
 
-        const node = nodes[this.state.draggingNodeId];
+        // Get fresh mouse pos from controller
+        const mousePos = this.controller.screenToWorld(this.controller.getMousePos(e));
+
+        const nodes = this.controller.nodes;
+        const node = nodes[state.draggingNodeId];
         if (!node) return;
 
         // Update node position
-        node.x = mousePos.x - this.state.dragOffset.x;
-        node.y = mousePos.y - this.state.dragOffset.y;
+        node.x = mousePos.x - state.dragOffset.x;
+        node.y = mousePos.y - state.dragOffset.y;
 
-        // Handle group dragging (containers drag their children)
+        // Handle group dragging
         if (node.isRepoContainer) {
             this.updateChildPositions(node, mousePos);
         }
 
         // Update drop target detection
         this.updateDropTarget(mousePos, nodes);
-    },
+    }
 
     /**
      * End dragging
+     * @param {MouseEvent} e
      */
-    endDrag(onNodeDrop) {
-        const nodes = this.getNodes();
-        if (!this.state.draggingNodeId) return;
+    onEnd(e) {
+        const state = this.getState();
+        if (!state.draggingNodeId) return;
 
-        const node = nodes[this.state.draggingNodeId];
-        if (!node) return;
+        const nodes = this.controller.nodes;
+        const node = nodes[state.draggingNodeId];
 
-        node.isDragging = false;
+        if (node) {
+            node.isDragging = false;
 
-        // Handle drop into container
-        if (this.state.dropTargetId && onNodeDrop) {
-            onNodeDrop(this.state.draggingNodeId, this.state.dropTargetId);
+            // Handle Drop
+            if (state.dropTargetId && this.controller.onNodeDrop) {
+                this.controller.onNodeDrop(state.draggingNodeId, state.dropTargetId);
+            }
+            // Handle Unparent
+            else if (node.parentId) {
+                this.handleUnparenting(node);
+            }
         }
-        // Handle unparenting (drag out of container)
-        else if (node.parentId) {
-            this.handleUnparenting(node);
-        }
 
-        this.clearDragState();
-    },
+        this.cleanupState(nodes);
+    }
 
-    /**
-     * Update positions of child nodes when dragging a container
-     */
+    onCancel() {
+        const nodes = this.controller.nodes;
+        this.cleanupState(nodes);
+    }
+
+    // --- Helper Methods ---
+
     updateChildPositions(containerNode, mousePos) {
-        const nodes = this.getNodes();
-        const dx = mousePos.x - this.state.dragStart.x;
-        const dy = mousePos.y - this.state.dragStart.y;
+        const nodes = this.controller.nodes;
+        const state = this.getState();
+        const dx = mousePos.x - state.dragStart.x;
+        const dy = mousePos.y - state.dragStart.y;
 
         Object.values(nodes).forEach(child => {
             if (child.parentId === containerNode.id) {
-                // Store original position on first drag
                 if (!child._originalPos) {
                     child._originalPos = { x: child.x, y: child.y };
                 }
-
-                // Move child relative to container movement
                 child.x = child._originalPos.x + dx;
                 child.y = child._originalPos.y + dy;
             }
         });
-    },
+    }
 
-    /**
-     * Update drop target detection
-     */
-    updateDropTarget(mousePos, nodesArg) {
-        const nodes = this.getNodes();
+    updateDropTarget(mousePos, nodes) {
         const draggingNode = nodes[this.state.draggingNodeId];
         if (!draggingNode || draggingNode.isRepoContainer) {
-            this.clearDropTarget();
+            this.state.dropTargetId = null;
             return;
         }
 
-        // Find potential drop target (container under mouse)
         const target = this.findDropTarget(mousePos, nodes);
         this.state.dropTargetId = target ? target.id : null;
-    },
+    }
 
-    /**
-     * Find container at position that can accept drops
-     */
     findDropTarget(worldPos, nodes) {
-        // Higher nodes (last in list) take precedence
         const nodeList = Object.values(nodes);
         for (let i = nodeList.length - 1; i >= 0; i--) {
             const node = nodeList[i];
             if (!node.isRepoContainer) continue;
-            if (node.id === this.state.draggingNodeId) continue; // Don't drop into yourself
+            if (node.id === this.state.draggingNodeId) continue;
 
-            const bounds = this.getContainerBounds(node);
-            if (worldPos.x >= bounds.minX && worldPos.x <= bounds.maxX &&
-                worldPos.y >= bounds.minY && worldPos.y <= bounds.maxY) {
+            const bounds = GeometryUtils.getContainerBounds(node, nodes);
+            const w = bounds.w;
+            const h = bounds.h;
+
+            // Simple hit test on bounds
+            if (worldPos.x >= (bounds.centerX || node.x) - w / 2 &&
+                worldPos.x <= (bounds.centerX || node.x) + w / 2 &&
+                worldPos.y >= (bounds.centerY || node.y) - h / 2 &&
+                worldPos.y <= (bounds.centerY || node.y) + h / 2) {
                 return node;
             }
         }
         return null;
-    },
+    }
 
-    /**
-     * Get container bounds for drop detection
-     */
-    getContainerBounds(container) {
-        const nodes = this.getNodes();
-        // Use unified logic from DesignerCanvas (non-mutating for hit testing)
-        const bounds = DesignerCanvas.getContainerBounds(container, nodes);
-        const w = bounds.w;
-        const h = bounds.h;
-        return {
-            minX: (bounds.centerX || container.x) - w / 2,
-            maxX: (bounds.centerX || container.x) + w / 2,
-            minY: (bounds.centerY || container.y) - h / 2,
-            maxY: (bounds.centerY || container.y) + h / 2
-        };
-    },
-
-    /**
-     * Handle unparenting when dragging node out of container
-     */
     handleUnparenting(node) {
-        const nodes = this.getNodes();
+        const nodes = this.controller.nodes;
         const parentId = node.parentId;
         if (!parentId) return;
 
         const parent = nodes[parentId];
         if (!parent) return;
 
-        const bounds = this.getContainerBounds(parent);
-
-        // Add a small buffer (margin) to make it easier to stay inside
+        const bounds = GeometryUtils.getContainerBounds(parent, nodes);
         const margin = 20;
-        const isInside = node.x >= bounds.minX - margin && node.x <= bounds.maxX + margin &&
-            node.y >= bounds.minY - margin && node.y <= bounds.maxY + margin;
+
+        const isInside = node.x >= bounds.centerX - bounds.w / 2 - margin &&
+            node.x <= bounds.centerX + bounds.w / 2 + margin &&
+            node.y >= bounds.centerY - bounds.h / 2 - margin &&
+            node.y <= bounds.centerY + bounds.h / 2 + margin;
 
         if (!isInside) {
             console.log(`[DragHandler] Unparented ${node.id} from ${parentId}`);
             node.parentId = null;
         }
-    },
-
-    /**
-     * Clear drop target state
-     */
-    clearDropTarget() {
-        this.state.dropTargetId = null;
-    },
-
-    /**
-     * Clear all drag state
-     */
-    clearDragState() {
-        const nodes = this.getNodes();
-        if (this.state.draggingNodeId && nodes) {
-            const node = nodes[this.state.draggingNodeId];
-            if (node) {
-                node.isDragging = false;
-                // Clean up temporary drag data
-                Object.values(nodes).forEach(child => {
-                    if (child._originalPos) {
-                        delete child._originalPos;
-                    }
-                });
-            }
-        }
-
-        this.state.draggingNodeId = null;
-        this.state.dragStart = null;
-        this.state.dragOffset = null;
-        this.clearDropTarget();
-    },
-
-    /**
-     * Check if currently dragging
-     */
-    isDragging() {
-        return this.state.draggingNodeId !== null;
-    },
-
-    /**
-     * Cancel current drag operation
-     */
-    cancelDrag() {
-        this.clearDragState();
     }
-};
+
+    cleanupState(nodes) {
+        if (nodes) {
+            Object.values(nodes).forEach(child => {
+                delete child._originalPos;
+            });
+        }
+        this.clearState();
+    }
+}

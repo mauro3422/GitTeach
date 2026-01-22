@@ -8,10 +8,11 @@ import { HistoryManager } from './modules/HistoryManager.js';
 import { ModalManager } from './modules/ModalManager.js';
 import { RoutingDesignerStateLoader } from './RoutingDesignerStateLoader.js';
 import { UIManager } from './UIManager.js';
-import { CanvasUtils } from './CanvasUtils.js';
+import { CoordinateUtils } from './CoordinateUtils.js';
 import { AnimationManager } from './AnimationManager.js';
 import { DesignerStore } from './modules/DesignerStore.js';
-import { DragHandler } from './interaction/DragHandler.js';
+// Removed direct DragHandler import, accessed via DesignerInteraction
+import { globalEventBus } from '../../../core/EventBus.js';
 
 class RoutingDesignerController extends BaseController {
     constructor() {
@@ -52,6 +53,16 @@ class RoutingDesignerController extends BaseController {
         const resizeHandler = () => this.resize();
         window.addEventListener('resize', resizeHandler);
         this.registerDisposable(() => window.removeEventListener('resize', resizeHandler));
+
+        // 3. Event-driven rendering subscription
+        this.registerDisposable(
+            globalEventBus.on('designer:render:request', () => this.render())
+        );
+
+        // 4. Global Event Listener for debugging (wildcard support verification)
+        this.registerDisposable(
+            globalEventBus.on('*', console.log)
+        );
 
         // Initial resize to set correct dimensions
         this.resize();
@@ -143,7 +154,7 @@ class RoutingDesignerController extends BaseController {
 
     addCustomNode(isContainer) {
         this.saveToHistory();
-        const centerPos = CanvasUtils.getCanvasCenterWorldPos(this.canvas, DesignerInteraction.state);
+        const centerPos = CoordinateUtils.getCanvasCenterWorldPos(this.canvas, DesignerInteraction.state);
 
         NodeManager.addCustomNode(isContainer, centerPos.x, centerPos.y);
         this.render();
@@ -151,7 +162,7 @@ class RoutingDesignerController extends BaseController {
 
     addStickyNote() {
         this.saveToHistory();
-        const centerPos = CanvasUtils.getCanvasCenterWorldPos(this.canvas, DesignerInteraction.state);
+        const centerPos = CoordinateUtils.getCanvasCenterWorldPos(this.canvas, DesignerInteraction.state);
 
         const newNote = NodeManager.addStickyNote(centerPos.x, centerPos.y);
         this.render();
@@ -226,7 +237,8 @@ class RoutingDesignerController extends BaseController {
             DesignerInteraction.activeConnection?.fromNode?.id,
             DesignerInteraction.activeConnection,
             DesignerInteraction.hoveredNodeId,
-            DragHandler.state.dropTargetId // PASS DROP TARGET EXPLICITLY
+            DesignerInteraction.dragHandler.getState().dropTargetId,
+            DesignerInteraction.resizeHandler.getState().resizingNodeId
         );
 
         // Sync inline editor if active

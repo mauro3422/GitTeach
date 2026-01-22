@@ -2,8 +2,11 @@ import { DesignerCanvas } from './DesignerCanvas.js';
 import { PanZoomHandler } from './interaction/PanZoomHandler.js';
 import { DragHandler } from './interaction/DragHandler.js';
 import { ResizeHandler } from './interaction/ResizeHandler.js';
-import { ConnectionDrawer } from './interaction/ConnectionDrawer.js';
-import { CanvasUtils } from './CanvasUtils.js';
+import { ConnectionHandler } from './interaction/ConnectionHandler.js';
+import { CoordinateUtils } from './CoordinateUtils.js';
+import { GeometryUtils } from './GeometryUtils.js';
+import { VisualStateManager } from './modules/VisualStateManager.js';
+import { InputManager } from './modules/InputManager.js';
 
 export const DesignerInteraction = {
     canvas: null,
@@ -21,14 +24,37 @@ export const DesignerInteraction = {
     mode: 'DRAG', // 'DRAG' or 'DRAW'
     hoveredNodeId: null, // Track mouse over node
 
-    // Compatibility getter - delegates to PanZoomHandler
+    // Compatibility getter - delegates to PanZoomHandler instance
     get state() {
-        return PanZoomHandler.state;
+        return this.panZoomHandler ? this.panZoomHandler.getState() : { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 };
     },
 
-    // Compatibility getter - delegates to ConnectionDrawer
+    // Compatibility getter - delegates to ConnectionHandler
     get activeConnection() {
-        return ConnectionDrawer.activeConnection;
+        return (this.connectionHandler && this.connectionHandler.isActive()) ? this.connectionHandler.getState() : null;
+    },
+
+    /**
+     * Returns the current interaction state for VisualStateManager
+     * @returns {Object} Interaction state object
+     */
+    getInteractionState() {
+        return {
+            hoveredId: this.hoveredNodeId,
+            selectedId: null, // TODO: Implement selection
+            draggingId: this.dragHandler?.isActive() ? this.dragHandler.getState().draggingNodeId : null,
+            activeConnectionId: this.connectionHandler?.isActive() ? this.connectionHandler.getState()?.fromNode?.id : null,
+            resizingId: this.resizeHandler?.isActive() ? this.resizeHandler.getState().resizingNodeId : null
+        };
+    },
+
+    /**
+     * Get visual state for a specific node using VisualStateManager
+     * @param {Object} node - Node to evaluate
+     * @returns {Object} Visual state {opacity, scale, glowIntensity, borderWidth, zIndex, state}
+     */
+    getVisualState(node) {
+        return VisualStateManager.getVisualState(node, this.getInteractionState());
     },
 
     init(canvas, nodeProvider, onUpdate, onConnection, onNodeDoubleClick, onNodeDrop, onStickyNoteEdit, onInteractionEnd) {
@@ -47,22 +73,31 @@ export const DesignerInteraction = {
         this.onStickyNoteEdit = onStickyNoteEdit;
         this.onInteractionEnd = onInteractionEnd;
 
+        // Instantiate Handlers
+        this.dragHandler = new DragHandler(this);
+        this.resizeHandler = new ResizeHandler(this);
+        this.panZoomHandler = new PanZoomHandler(this);
+        this.connectionHandler = new ConnectionHandler(this);
+
         // Initialize interaction modules
-        PanZoomHandler.init({ panOffset: { x: 0, y: 0 }, zoomScale: 1.5 });
-        DragHandler.init(this.nodeProvider);
-        ResizeHandler.init(this.nodeProvider);
-        ConnectionDrawer.init(canvas);
+        this.panZoomHandler.init({ panOffset: { x: 0, y: 0 }, zoomScale: 1.5 });
 
-        this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
-        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-        this.canvas.addEventListener('dblclick', (e) => this.handleDoubleClick(e));
-        window.addEventListener('mouseup', () => this.handleMouseUp());
-        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
-        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        // Initialize InputManager with all handlers
+        InputManager.init(this.canvas, {
+            onMouseDown: (e) => this.handleMouseDown(e),
+            onMouseMove: (e) => this.handleMouseMove(e),
+            onMouseUp: (e) => this.handleMouseUp(e),
+            onDoubleClick: (e) => this.handleDoubleClick(e),
+            onWheel: (e) => this.handleWheel(e),
+            onKeyDown: (e) => this._handleKeyDown(e),
+            onKeyUp: (e) => this._handleKeyUp(e)
+        }, {
+            windowMouseUp: true // Necesario para drag fuera del canvas
+        });
 
-        // Ctrl key hold for DRAW mode
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'Control' && this.mode !== 'DRAW') {
+        // Registrar shortcut para DRAW mode via InputManager
+        InputManager.registerShortcut('Control', 'DrawMode', () => {
+            if (this.mode !== 'DRAW') {
                 this.mode = 'DRAW';
                 this.canvas.style.cursor = 'crosshair';
                 this.onUpdate?.();
@@ -75,14 +110,27 @@ export const DesignerInteraction = {
             console.log('[Scientific Method] 🔬 Sticky Debug Enabled. Seeing magenta hitboxes?');
             this.onUpdate();
         };
-        window.addEventListener('keyup', (e) => {
-            if (e.key === 'Control' && this.mode === 'DRAW') {
-                this.mode = 'DRAG';
-                ConnectionDrawer.cancelConnection();
-                this.canvas.style.cursor = 'default';
-                this.onUpdate?.();
-            }
-        });
+    },
+
+    /**
+     * Internal keyboard handlers for InputManager
+     */
+    _handleKeyDown(e) {
+        // Lógica actual de keydown - Ctrl para DRAW mode
+        if (e.key === 'Control' && this.mode !== 'DRAW') {
+            this.mode = 'DRAW';
+            this.canvas.style.cursor = 'crosshair';
+            this.onUpdate?.();
+        }
+    },
+
+    _handleKeyUp(e) {
+        if (e.key === 'Control' && this.mode === 'DRAW') {
+            this.mode = 'DRAG';
+            this.connectionHandler.cancel();
+            this.canvas.style.cursor = 'default';
+            this.onUpdate?.();
+        }
     },
 
     toggleMode() {
@@ -110,17 +158,18 @@ export const DesignerInteraction = {
     },
 
     cancelInteraction() {
-        DragHandler.cancelDrag();
-        ConnectionDrawer.cancelConnection();
+        this.dragHandler.cancel();
+        this.resizeHandler.cancel();
+        this.connectionHandler.cancel();
         this.onUpdate();
     },
 
     centerOnNode(nodeId, drawerWidth = 0) {
-        PanZoomHandler.centerOnNode(this.nodes[nodeId], { width: window.innerWidth, height: window.innerHeight }, drawerWidth);
+        this.panZoomHandler.centerOnNode(this.nodes[nodeId], { width: window.innerWidth, height: window.innerHeight }, drawerWidth);
     },
 
     getMousePos(e) {
-        return CanvasUtils.getMouseScreenPos(e, this.canvas);
+        return CoordinateUtils.getMouseScreenPos(e, this.canvas);
     },
 
     /** @typedef {{x: number, y: number}} WorldPos */
@@ -132,7 +181,7 @@ export const DesignerInteraction = {
      * @returns {WorldPos}
      */
     screenToWorld(pos) {
-        return CanvasUtils.screenToWorld(pos, PanZoomHandler.state);
+        return CoordinateUtils.screenToWorld(pos, this.state); // Use this.state which delegates to handler
     },
 
     /**
@@ -141,7 +190,7 @@ export const DesignerInteraction = {
      * @returns {ScreenPos}
      */
     worldToScreen(pos) {
-        return CanvasUtils.worldToScreen(pos, PanZoomHandler.state);
+        return CoordinateUtils.worldToScreen(pos, this.state); // Use this.state which delegates to handler
     },
 
     /**
@@ -153,29 +202,25 @@ export const DesignerInteraction = {
     findNodeAt(worldPos, excludeId = null) {
         if (!this.nodes) return null;
         const nodeList = Object.values(this.nodes);
+        const zoomScale = this.state.zoomScale;
 
-        // PASS 0: Sticky Notes - ULTRA PRIORITY (Checked before any other Node or Container)
+        // PASS 0: Sticky Notes - ULTRA PRIORITY
         for (const node of nodeList.slice().reverse()) {
             if (excludeId && node.id === excludeId) continue;
-
             const isSticky = node.isStickyNote === true || node.id?.startsWith('sticky_');
             if (!isSticky) continue;
 
-            // Sync with renderer dims (Match visual box)
-            const dims = node.dimensions || {};
-            const w = dims.animW || dims.w || 180;
-            const h = dims.animH || dims.h || 100;
-            const hw = w / 2;
-            const hh = h / 2;
-
             // Hit area with 20px "Magnetic" buffer
             const margin = 20;
-            const hit = worldPos.x >= node.x - hw - margin && worldPos.x <= node.x + hw + margin &&
-                worldPos.y >= node.y - hh - margin && worldPos.y <= node.y + hh + margin;
+            const dims = node.dimensions || {};
+            const rect = {
+                x: node.x,
+                y: node.y,
+                w: (dims.animW || dims.w || 180) + margin * 2,
+                h: (dims.animH || dims.h || 100) + margin * 2
+            };
 
-            if (hit) {
-                return node;
-            }
+            if (GeometryUtils.isPointInRectangle(worldPos, rect)) return node;
         }
 
         // PASS 1: Regular Nodes (Circular)
@@ -183,12 +228,7 @@ export const DesignerInteraction = {
             if (excludeId && node.id === excludeId) continue;
             if (node.isRepoContainer || node.isStickyNote) continue;
 
-            const radius = DesignerCanvas.getNodeRadius(node, PanZoomHandler.state.zoomScale);
-            const dist = Math.sqrt((node.x - worldPos.x) ** 2 + (node.y - worldPos.y) ** 2);
-            if (dist < radius) {
-                // console.log(`[Interaction] Hit Node: ${node.id}`);
-                return node;
-            }
+            if (GeometryUtils.isPointInNode(worldPos, node, zoomScale)) return node;
         }
 
         // PASS 2: Containers
@@ -196,17 +236,7 @@ export const DesignerInteraction = {
             if (excludeId && node.id === excludeId) continue;
             if (!node.isRepoContainer) continue;
 
-            const bounds = DesignerCanvas.getContainerBounds(node, this.nodes, PanZoomHandler.state.zoomScale);
-            const w = bounds.w + 10;
-            const h = bounds.h + 10;
-
-            const hit = worldPos.x >= bounds.centerX - w / 2 && worldPos.x <= bounds.centerX + w / 2 &&
-                worldPos.y >= bounds.centerY - h / 2 && worldPos.y <= bounds.centerY + h / 2;
-
-            if (hit) {
-                // console.log(`[Interaction] Hit Container: ${node.id}`);
-                return node;
-            }
+            if (GeometryUtils.isPointInContainer(worldPos, node, this.nodes, zoomScale)) return node;
         }
 
         return null;
@@ -218,7 +248,7 @@ export const DesignerInteraction = {
 
         // PANNING
         if (e.button === 1 || e.button === 2) {
-            PanZoomHandler.startPan(rawPos);
+            this.panZoomHandler.start(e, { rawPos });
             return;
         }
 
@@ -228,16 +258,16 @@ export const DesignerInteraction = {
             if (this.mode === 'DRAW') {
                 const clickedNode = this.findNodeAt(worldPos);
                 if (clickedNode && !clickedNode.isRepoContainer && !clickedNode.isStickyNote) {
-                    ConnectionDrawer.handleClick(worldPos, clickedNode, this.onConnection);
+                    this.connectionHandler.handleClick(e, clickedNode, this.onConnection);
                     this.onUpdate();
                     return;
                 }
             }
 
             // RESIZE priority
-            const resizeHandle = ResizeHandler.findResizeHandle(worldPos);
-            if (resizeHandle) {
-                ResizeHandler.startResize(resizeHandle.nodeId, resizeHandle.corner, worldPos);
+            const resizeHit = this.resizeHandler.findResizeHandle(worldPos);
+            if (resizeHit) {
+                this.resizeHandler.start(e, { nodeId: resizeHit.nodeId, corner: resizeHit.corner, initialPos: worldPos });
                 return;
             }
 
@@ -245,9 +275,9 @@ export const DesignerInteraction = {
             const clickedNode = this.findNodeAt(worldPos);
             if (clickedNode) {
                 if (this.mode === 'DRAG') {
-                    DragHandler.startDrag(clickedNode.id, worldPos);
+                    this.dragHandler.start(e, { nodeId: clickedNode.id, initialPos: worldPos });
                 } else if (this.mode === 'DRAW') {
-                    ConnectionDrawer.handleClick(worldPos, clickedNode, this.onConnection);
+                    this.connectionHandler.handleClick(e, clickedNode, this.onConnection);
                 }
             }
             this.onUpdate();
@@ -258,23 +288,26 @@ export const DesignerInteraction = {
         const rawPos = this.getMousePos(e);
         const worldPos = this.screenToWorld(rawPos);
 
-        const resizeHandle = ResizeHandler.findResizeHandle(worldPos);
-        if (resizeHandle && (this.mode === 'DRAG' || ResizeHandler.isResizing())) {
-            this.canvas.style.cursor = ResizeHandler.getResizeCursor(resizeHandle.corner);
-        } else if (!ResizeHandler.isResizing()) {
+        const resizeHit = this.resizeHandler.findResizeHandle(worldPos);
+
+        // Cursor Management
+        if (resizeHit && (this.mode === 'DRAG' || this.resizeHandler.isActive())) {
+            this.canvas.style.cursor = this.resizeHandler.getResizeCursor(resizeHit.corner);
+        } else if (!this.resizeHandler.isActive()) {
             this.canvas.style.cursor = this.mode === 'DRAW' ? 'crosshair' : 'default';
         }
 
-        if (ResizeHandler.isResizing()) {
-            ResizeHandler.updateResize(worldPos, this.onUpdate);
-        } else if (PanZoomHandler.state.isPanning) {
-            PanZoomHandler.updatePan(rawPos);
+        if (this.resizeHandler.isActive()) {
+            this.resizeHandler.update(e);
             this.onUpdate();
-        } else if (DragHandler.isDragging()) {
-            DragHandler.updateDrag(worldPos, this.nodes);
+        } else if (this.panZoomHandler.isActive()) {
+            this.panZoomHandler.update(e);
             this.onUpdate();
-        } else if (ConnectionDrawer.isDrawing()) {
-            ConnectionDrawer.updateConnection(worldPos);
+        } else if (this.dragHandler.isActive()) {
+            this.dragHandler.update(e);
+            this.onUpdate();
+        } else if (this.connectionHandler.isDrawing()) {
+            this.connectionHandler.update(e);
             this.onUpdate();
         }
 
@@ -286,14 +319,16 @@ export const DesignerInteraction = {
         }
     },
 
-    handleMouseUp() {
-        PanZoomHandler.endPan();
+    handleMouseUp(e) { // 'e' might be undefined if window listener calls it, check usage
+        if (this.panZoomHandler.isActive()) {
+            this.panZoomHandler.end(e);
+        }
 
-        if (ResizeHandler.isResizing()) {
-            ResizeHandler.endResize();
+        if (this.resizeHandler.isActive()) {
+            this.resizeHandler.end(e);
             this.canvas.style.cursor = 'default';
-        } else if (this.mode === 'DRAG' && DragHandler.isDragging()) {
-            DragHandler.endDrag(this.onNodeDrop);
+        } else if (this.mode === 'DRAG' && this.dragHandler.isActive()) {
+            this.dragHandler.end(e);
         }
 
         // Cleanup temporary state in the store (Issue #5)
@@ -307,13 +342,12 @@ export const DesignerInteraction = {
 
     handleWheel(e) {
         e.preventDefault();
-        const rawPos = this.getMousePos(e);
-        PanZoomHandler.handleWheel(e.deltaY, rawPos, this.onUpdate);
+        this.panZoomHandler.handleWheel(e, this.onUpdate);
 
         // Update zoom indicator
         const indicator = document.getElementById('zoom-value');
         if (indicator) {
-            indicator.textContent = `${Math.round(PanZoomHandler.state.zoomScale * 100)}%`;
+            indicator.textContent = `${Math.round(this.state.zoomScale * 100)}%`;
         }
     }
 };

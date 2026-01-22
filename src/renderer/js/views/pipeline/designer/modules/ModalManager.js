@@ -6,6 +6,7 @@
 import { drawerManager } from '../../DrawerManager.js';
 import { DesignerMessageRenderer } from '../DesignerMessageRenderer.js';
 import { DesignerInteraction } from '../DesignerInteraction.js';
+import { globalEventBus } from '../../../../core/EventBus.js';
 
 export const ModalManager = {
     editingNode: null,
@@ -156,7 +157,7 @@ export const ModalManager = {
         // REAL-TIME SYNC: Update canvas as you type
         textarea.addEventListener('input', () => {
             note.text = textarea.value;
-            if (window.RoutingDesigner) window.RoutingDesigner.render();
+            globalEventBus.emit('designer:render:request');
         });
 
         // Save on blur or Escape
@@ -165,7 +166,7 @@ export const ModalManager = {
                 if (onSave) onSave(note, textarea.value);
                 textarea.remove();
                 this.activeInlineRef = null;
-                if (window.RoutingDesigner) window.RoutingDesigner.render();
+                globalEventBus.emit('designer:render:request');
             }
         };
 
@@ -174,7 +175,7 @@ export const ModalManager = {
             if (e.key === 'Escape') {
                 textarea.remove();
                 this.activeInlineRef = null;
-                if (window.RoutingDesigner) window.RoutingDesigner.render();
+                globalEventBus.emit('designer:render:request');
             }
             if (e.key === 'Enter' && e.ctrlKey) {
                 saveAndClose();

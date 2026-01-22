@@ -61,7 +61,28 @@ export class ThemeManager {
             node: 'rgba(22, 27, 34, 0.9)',
             container: 'rgba(22, 27, 34, 0.5)',
             connection: '#58a6ff',
-            connectionActive: '#2f81f7'
+            connectionActive: '#2f81f7',
+
+            // NEW: Semantic tokens
+            error: '#f85149',
+            success: '#238636',
+            warning: '#fb923c',
+            debug: '#ff00ff',
+
+            // NEW: Hover states
+            hoverLight: '#8b949e',
+            hoverBorder: '#58a6ff'
+        };
+    }
+
+    static get overlays() {
+        return {
+            tooltip: 'rgba(13, 17, 23, 0.98)',
+            glass: 'rgba(22, 27, 34, 0.75)',
+            glassThin: 'rgba(22, 27, 34, 0.1)',
+            selection: 'rgba(63, 185, 80, 0.3)',
+            border: 'rgba(255, 255, 255, 0.05)',
+            borderLight: 'rgba(255, 255, 255, 0.1)'
         };
     }
 
@@ -75,7 +96,11 @@ export class ThemeManager {
             shadow: {
                 sm: { blur: 4, color: 'rgba(0,0,0,0.3)' },
                 md: { blur: 15, color: 'rgba(0,0,0,0.4)' },
-                glow: { blur: 20, color: '#2f81f7' }
+                lg: { blur: 20, color: 'rgba(0,0,0,0.5)' },
+                glow: { blur: 20, color: '#2f81f7' },
+                // NEW
+                tooltip: { blur: 15, color: 'rgba(0,0,0,0.4)' },
+                neon: (color) => ({ blur: 25, color: color })
             }
         };
     }

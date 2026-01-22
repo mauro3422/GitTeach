@@ -1,8 +1,3 @@
-/**
- * DesignerStore.js
- * Single Source of Truth for the Routing Designer.
- * Centraliza el estado para evitar desincronización entre módulos.
- */
 
 import { Store } from '../../../../core/Store.js';
 
@@ -19,42 +14,86 @@ class DesignerStoreClass extends Store {
                 mode: 'DRAG', // 'DRAG' | 'DRAW' | 'RESIZE'
                 hoveredNodeId: null,
                 selectedNodeId: null,
-                activeConnection: null, // { fromNode, currentPos }
                 draggingNodeId: null,
                 resizingNodeId: null
+            },
+            // Debug / Dev flags
+            debug: {
+                showStartupLogs: true
             }
         });
     }
 
+    // --- Actions ---
+
     /**
-     * Update state and notify
-     * Override to provide specific deep merge logic for this domain
+     * Set the entire node set (e.g. from file load)
+     */
+    setNodes(nodes) {
+        this.setState({ nodes: { ...nodes } }, 'SET_NODES');
+        this.validateAndCleanup();
+    }
+
+    /**
+     * Update a single node or multiple nodes
+     */
+    updateNodes(nodeUpdates) {
+        const nextNodes = { ...this.state.nodes, ...nodeUpdates };
+        this.setState({ nodes: nextNodes }, 'UPDATE_NODES');
+    }
+
+    setConnections(connections) {
+        this.setState({ connections: [...connections] }, 'SET_CONNECTIONS');
+    }
+
+    setInteractionState(partialState) {
+        this.setState({
+            interaction: { ...this.state.interaction, ...partialState }
+        }, 'INTERACTION_UPDATE');
+    }
+
+    setNavigationState(partialState) {
+        this.setState({
+            navigation: { ...this.state.navigation, ...partialState }
+        }, 'NAVIGATION_UPDATE');
+    }
+
+    /**
+     * Override setState for deep merging interaction/navigation if passed directly at root,
+     * maintaining backward compatibility but encouraging use of specific actions.
      */
     setState(updates, actionName = 'DESIGNER_UPDATE') {
-        // Prepare the next state based on updates
         const nextState = { ...this.state };
+        let hasChanges = false;
 
         if (updates.nodes) {
-            // In-place update approach (legacy compatibility)
-            // Ideally we should replace the object, but for now we keep the reference structure
-            // logical, but create new object for the store
             nextState.nodes = { ...updates.nodes };
+            hasChanges = true;
         }
-
         if (updates.connections) {
             nextState.connections = [...updates.connections];
+            hasChanges = true;
         }
-
         if (updates.navigation) {
-            nextState.navigation = { ...this.state.navigation, ...updates.navigation };
+            nextState.navigation = { ...nextState.navigation, ...updates.navigation };
+            hasChanges = true;
         }
-
         if (updates.interaction) {
-            nextState.interaction = { ...this.state.interaction, ...updates.interaction };
+            nextState.interaction = { ...nextState.interaction, ...updates.interaction };
+            hasChanges = true;
         }
 
-        // Call parent setState with the fully resolved object
-        super.setState(nextState, actionName);
+        // Allow other keys
+        Object.keys(updates).forEach(key => {
+            if (!['nodes', 'connections', 'navigation', 'interaction'].includes(key)) {
+                nextState[key] = updates[key];
+                hasChanges = true;
+            }
+        });
+
+        if (hasChanges) {
+            super.setState(nextState, actionName);
+        }
     }
 
     /**
@@ -71,20 +110,24 @@ class DesignerStoreClass extends Store {
         );
 
         if (newConnections.length !== state.connections.length) {
+            console.warn('[DesignerStore] Removed orphaned connections');
             hasChanges = true;
         }
 
         // 2. Parent integrity
         const newNodes = { ...state.nodes };
+        let nodesChanged = false;
         Object.values(newNodes).forEach(node => {
             if (node.parentId && !nodeIds.includes(node.parentId)) {
                 console.warn(`[DesignerStore] Removing invalid parentId ${node.parentId} from ${node.id}`);
                 node.parentId = null;
-                hasChanges = true;
+                nodesChanged = true;
             }
         });
 
-        if (hasChanges) {
+        if (hasChanges || nodesChanged) {
+            // We use the internal setState logic to trigger avoiding infinite loops if carefully managed
+            // but strictly we should just emit. Here we do an atomic update.
             this.setState({
                 connections: newConnections,
                 nodes: newNodes

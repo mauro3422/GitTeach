@@ -72,21 +72,30 @@ export class EventBus {
             }
         });
 
-        // 2. Notificar listeners directos
-        if (this.listeners.has(channel)) {
-            this.listeners.get(channel).forEach(cb => {
-                try {
-                    cb(data);
-                } catch (err) {
-                    console.error(`[EventBus] Error in listener for ${channel}:`, err);
-                }
-            });
+        // 2. Construir patrones jerárquicos
+        const parts = channel.split(':');
+        const patterns = [channel, '*'];
+
+        // Build hierarchical patterns: node:ui:click -> node:ui:*, node:*
+        let currentPath = '';
+        for (let i = 0; i < parts.length - 1; i++) {
+            currentPath += (i === 0 ? '' : ':') + parts[i];
+            patterns.push(`${currentPath}:*`);
         }
 
-        // 3. Notificar listeners globales o wildcards (si se implementan en el futuro)
-        if (this.listeners.has('*')) {
-            this.listeners.get('*').forEach(cb => cb({ channel, data }));
-        }
+        // 3. Notificar todos los patrones coincidentes
+        patterns.forEach(pattern => {
+            if (this.listeners.has(pattern)) {
+                this.listeners.get(pattern).forEach(cb => {
+                    try {
+                        // Para wildcards, pasar el canal original junto con los datos
+                        cb(pattern === channel ? data : { channel, data });
+                    } catch (err) {
+                        console.error(`[EventBus] Error in pattern ${pattern}:`, err);
+                    }
+                });
+            }
+        });
     }
 
     /**

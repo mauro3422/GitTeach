@@ -7,7 +7,6 @@
 import { PipelineUI } from './pipeline/PipelineUI.js';
 import { RendererLogger } from '../utils/RendererLogger.js';
 import { PipelineStateManager } from './pipeline/PipelineStateManager.js';
-import { PipelineSimulation } from './pipeline/PipelineSimulation.js';
 import { initializeContainers } from '../utils/initializeContainers.js';
 
 // Nuevos módulos SOLID
@@ -60,7 +59,13 @@ export const PipelineCanvas = {
             window.PIPELINE_DEBUG = {
                 audit: () => this.auditState(),
                 resize: () => this.resizeCanvas(),
-                simulateSlot: (slotNum = 1) => PipelineSimulation.simulateTaskInSlot(slotNum, (e) => PipelineCanvasEventManager.handlePipelineEvent(e)),
+                simulateSlot: (slotNum = 1) => {
+                    if (window.pipelineSimulation) {
+                        window.pipelineSimulation.simulateTaskInSlot(slotNum, (e) => PipelineCanvasEventManager.handlePipelineEvent(e));
+                    } else {
+                        console.warn('[PipelineCanvas] PipelineSimulation not available');
+                    }
+                },
                 simulateFault: (port = 8000, online = false) => {
                     PipelineCanvasEventManager.handleFleetStatus({ [port]: { online } });
                 },

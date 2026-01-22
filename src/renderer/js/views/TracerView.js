@@ -13,6 +13,10 @@ window.FORCE_REAL_AI = true;
 // Backwards compatibility: expose TracerView as alias to TracerController
 export const TracerView = TracerController;
 
+// Add lifecycle methods for debugger panel management
+TracerView.mountDebuggerPanel = () => TracerController.mountDebuggerPanel();
+TracerView.unmountDebuggerPanel = () => TracerController.unmountDebuggerPanel();
+
 // Start the modular system
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => TracerController.init());

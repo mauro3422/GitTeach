@@ -12,12 +12,14 @@ import { TracerAnalysisManager } from './TracerAnalysisManager.js';
 
 import { fleetMonitor } from '../../services/ai/FleetMonitor.js';
 import { PipelineCanvas } from '../PipelineCanvas.js';
+import { PipelineSimulation } from '../pipeline/PipelineSimulation.js';
 import { logManager } from '../../utils/logManager.js';
 import { RendererLogger } from '../../utils/RendererLogger.js';
 
 export const TracerController = {
     domCache: TracerDOMCache,
     stateManager: TracerStateManager,
+    simulation: null,
 
     /**
      * Initialize the entire Tracer system
@@ -54,11 +56,16 @@ export const TracerController = {
             TracerUIRenderer.init(TracerDOMCache);
             TracerFleetRenderer.init(TracerDOMCache);
 
-            // 6. Initialize event handler & analysis manager
+            // 6. Initialize PipelineSimulation controller
+            this.simulation = new PipelineSimulation();
+            this.simulation.init();
+            window.pipelineSimulation = this.simulation; // Make available globally
+
+            // 7. Initialize event handler & analysis manager
             TracerEventHandler.init(this);
             TracerAnalysisManager.init();
 
-            // 7. Set up external integrations
+            // 8. Set up external integrations
             this.setupIntegrations();
 
             // 8. Initial checks
@@ -241,8 +248,27 @@ export const TracerController = {
         RendererLogger.info(`[TracerController] Session ID: ${id}`, {
             context: { component: 'TracerController', sessionId: id }
         });
+    },
+
+    /**
+     * Mount debugger panel - called when panel is opened
+     */
+    mountDebuggerPanel() {
+        if (this.simulation) {
+            this.simulation.mount();
+        }
+    },
+
+    /**
+     * Unmount debugger panel - called when panel is closed or view is destroyed
+     */
+    unmountDebuggerPanel() {
+        if (this.simulation) {
+            this.simulation.unmount();
+        }
     }
 };
 
-// Make UI renderer available globally for callbacks
+// Make UI renderer and simulation available globally for callbacks
 window.tracerUIRenderer = TracerUIRenderer;
+window.pipelineSimulation = null; // Will be set after init

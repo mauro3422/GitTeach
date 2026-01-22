@@ -3,12 +3,14 @@
  * Responsabilidad: Renderizado de contenedores y nodos sticky
  */
 
-import { DesignerCanvas } from '../DesignerCanvas.js';
+import { GeometryUtils } from '../GeometryUtils.js';
 import { CanvasPrimitives } from '../../../../core/CanvasPrimitives.js';
 import { ThemeManager } from '../../../../core/ThemeManager.js';
 import ContainerBoxManager from '../../../../utils/ContainerBoxManager.js';
-import { ResizeHandler } from '../interaction/ResizeHandler.js';
 import { ModalManager } from '../modules/ModalManager.js';
+import { globalEventBus } from '../../../../core/EventBus.js';
+import { TextRenderer } from './TextRenderer.js';
+import { VisualEffects } from '../utils/VisualEffects.js';
 
 export const ContainerRenderer = {
     /**
@@ -26,9 +28,8 @@ export const ContainerRenderer = {
     /**
      * Draw containers and sticky notes
      */
-    render(ctx, nodes, camera, hoveredNodeId = null, dropTargetId = null) {
+    render(ctx, nodes, camera, hoveredNodeId = null, dropTargetId = null, resizingNodeId = null) {
         const zoomScale = camera.zoomScale;
-        const resizingNodeId = ResizeHandler.state?.resizingNodeId;
 
         // Phase 1: Containers (background)
         Object.values(nodes).forEach(node => {
@@ -45,7 +46,7 @@ export const ContainerRenderer = {
                 console.log(`[Render] 🔥 Hovered ID: ${node.id} (${node.label || 'unlabeled'})`);
             }
 
-            const bounds = DesignerCanvas.getContainerBounds(node, nodes, zoomScale, dropTargetId);
+            const bounds = GeometryUtils.getContainerBounds(node, nodes, zoomScale, dropTargetId);
             const sW = bounds.w;
             const sH = bounds.h;
             const centerX = bounds.centerX || node.x;
@@ -66,7 +67,7 @@ export const ContainerRenderer = {
                 ctx.restore();
             } else {
                 // Glass panel with neon glow
-                CanvasPrimitives.drawGlassPanel(ctx, centerX, centerY, sW, sH, 12, {
+                VisualEffects.drawGlassPanel(ctx, centerX - sW / 2, centerY - sH / 2, sW, sH, 12, {
                     shadowColor: neonColor,
                     shadowBlur: 15,
                     borderColor: neonColor,
@@ -78,7 +79,17 @@ export const ContainerRenderer = {
 
             // Resize Handles (visible on hover or during resize)
             if (isHovered || isResizing) {
-                this.drawResizeHandles(ctx, centerX, centerY, sW, sH, zoomScale, neonColor, isResizing);
+                const corners = [
+                    { x: centerX - sW / 2, y: centerY - sH / 2 },
+                    { x: centerX + sW / 2, y: centerY - sH / 2 },
+                    { x: centerX - sW / 2, y: centerY + sH / 2 },
+                    { x: centerX + sW / 2, y: centerY + sH / 2 }
+                ];
+                VisualEffects.drawResizeHandles(ctx, corners, zoomScale, {
+                    color: neonColor,
+                    activeCorner: null, // TODO: Pass actual active corner if available
+                    handleSize: isResizing ? 16 : 12
+                });
             }
         });
 
@@ -96,7 +107,7 @@ export const ContainerRenderer = {
             ctx.save();
 
             // Sticky note with enhanced glow
-            CanvasPrimitives.drawGlassPanel(ctx, x, y, w, h, 8, {
+            VisualEffects.drawGlassPanel(ctx, x - w / 2, y - h / 2, w, h, 8, {
                 shadowColor: neonColor,
                 shadowBlur: isResizing ? 25 : (isHovered ? 18 : 12),
                 borderColor: neonColor,
@@ -107,63 +118,44 @@ export const ContainerRenderer = {
 
             // Text content (Multiline, World-space)
             if (node.text && ModalManager.activeInlineRef?.note.id !== node.id) {
-                ctx.fillStyle = ThemeManager.colors.text;
-                const fontSize = 16;
-                const fontFamily = '"Fira Code", monospace';
-                ctx.font = `${fontSize}px ${fontFamily}`;
-                ctx.textAlign = 'left';
-                ctx.textBaseline = 'top';
-
                 const padding = 15;
+                const textX = x - w / 2 + padding;
+                const textY = y - h / 2 + padding;
                 const maxWidth = w - padding * 2;
-                const words = (node.text || '').split(' ');
-                let line = '';
-                let yOff = y - h / 2 + padding;
-                const lineHeight = fontSize + 5;
 
-                for (const word of words) {
-                    const testLine = line + word + ' ';
-                    const metrics = ctx.measureText(testLine);
-
-                    if (metrics.width > maxWidth && line !== '') {
-                        ctx.fillText(line, x - w / 2 + padding, yOff);
-                        line = word + ' ';
-                        yOff += lineHeight;
-
-                        // Enforce Height Limits (Overflow Protection)
-                        if (yOff + lineHeight > y + h / 2 - padding) {
-                            ctx.fillText(line.substring(0, line.length - 3) + '...', x - w / 2 + padding, yOff);
-                            line = '';
-                            break;
-                        }
-                    } else {
-                        line = testLine;
-                    }
-                }
-                if (line) {
-                    ctx.fillText(line, x - w / 2 + padding, yOff);
-                    yOff += lineHeight;
-                }
+                // Calcular líneas para determinar altura necesaria
+                const lines = TextRenderer.calculateLines(ctx, node.text, maxWidth, '16px "Fira Code", monospace');
+                const lineHeight = 16 + 5; // fontSize + spacing
+                const contentHeight = lines.length * lineHeight;
+                const requiredHeight = contentHeight + padding * 2;
 
                 // MAGNETIC SIZING: If not manually resized, adjust height to fit content
                 if (!dimensions.isManual) {
-                    const contentHeight = (yOff - (y - h / 2)) + padding;
                     const minH = 100;
-                    const targetH = Math.max(minH, contentHeight);
+                    const targetH = Math.max(minH, requiredHeight);
 
                     if (Math.abs(dimensions.h - targetH) > 1) {
                         dimensions.h = targetH;
                         dimensions.targetH = targetH;
                         // Trigger re-render to animate transition
-                        if (window.RoutingDesigner) window.RoutingDesigner.render();
+                        globalEventBus.emit('designer:render:request');
                     }
                 }
+
+                // Renderizar texto usando TextRenderer
+                TextRenderer.drawMultilineText(ctx, node.text, textX, textY, {
+                    maxWidth: maxWidth,
+                    lineHeight: lineHeight,
+                    font: '16px "Fira Code", monospace',
+                    color: ThemeManager.colors.text,
+                    align: 'left'
+                });
             }
 
             // 🔍 DEBUG: Visualizar Hit-Box Real (Solo si DEBUG_STICKY es true)
             if (window.DEBUG_STICKY) {
                 ctx.save();
-                ctx.strokeStyle = '#ff00ff';
+                ctx.strokeStyle = ThemeManager.colors.debug;
                 ctx.lineWidth = 2;
                 ctx.setLineDash([5, 5]);
                 // El interaction usa animW/animH + margen de 20
@@ -177,46 +169,7 @@ export const ContainerRenderer = {
         });
     },
 
-    /**
-     * Draw resize handles at corners with neon glow
-     */
-    drawResizeHandles(ctx, centerX, centerY, w, h, zoomScale, neonColor, isResizing) {
-        const handleSize = isResizing ? 16 / zoomScale : 12 / zoomScale;
-        const corners = [
-            { x: centerX - w / 2, y: centerY - h / 2 },
-            { x: centerX + w / 2, y: centerY - h / 2 },
-            { x: centerX - w / 2, y: centerY + h / 2 },
-            { x: centerX + w / 2, y: centerY + h / 2 }
-        ];
 
-        corners.forEach(pos => {
-            ctx.save();
-
-            // Neon glow layer
-            ctx.shadowBlur = isResizing ? 25 : 12;
-            ctx.shadowColor = neonColor;
-
-            // Fill with subtle color or white center
-            ctx.fillStyle = isResizing ? neonColor : 'rgba(255, 255, 255, 0.9)';
-            ctx.strokeStyle = neonColor;
-            ctx.lineWidth = isResizing ? 3 : 2;
-
-            ctx.beginPath();
-            ctx.rect(pos.x - handleSize / 2, pos.y - handleSize / 2, handleSize, handleSize);
-            ctx.fill();
-            ctx.stroke();
-
-            // Extra glow ring during resize
-            if (isResizing) {
-                ctx.strokeStyle = neonColor + '60';
-                ctx.lineWidth = 5;
-                ctx.shadowBlur = 35;
-                ctx.stroke();
-            }
-
-            ctx.restore();
-        });
-    },
 
     /**
      * Draw message badge (legacy - usar CanvasPrimitives.drawBadge)
@@ -225,4 +178,3 @@ export const ContainerRenderer = {
         CanvasPrimitives.drawBadge(ctx, '✎', x, y, ThemeManager.colors.textDim);
     }
 };
-

@@ -4,10 +4,11 @@
  */
 
 import { LabelRenderer } from '../../LabelRenderer.js';
-import { DesignerCanvas } from '../DesignerCanvas.js';
+import { GeometryUtils } from '../GeometryUtils.js';
 import { CanvasPrimitives } from '../../../../core/CanvasPrimitives.js';
 import { ThemeManager } from '../../../../core/ThemeManager.js';
 import { ModalManager } from '../modules/ModalManager.js';
+import { TextRenderer } from './TextRenderer.js';
 
 export const UIRenderer = {
     /**
@@ -22,7 +23,7 @@ export const UIRenderer = {
             const isHovered = node.id === hoveredNodeId;
 
             if (node.isRepoContainer) {
-                const bounds = DesignerCanvas.getContainerBounds(node, nodes, camera.zoomScale, dropTargetId);
+                const bounds = GeometryUtils.getContainerBounds(node, nodes, camera.zoomScale, dropTargetId);
                 const cX = bounds.centerX || node.x;
                 const cY = bounds.centerY || node.y;
                 const screenCenter = camera.toScreen(cX, cY);
@@ -35,7 +36,7 @@ export const UIRenderer = {
 
                 LabelRenderer.drawStandardText(ctx, node.label?.toUpperCase() || 'BOX', scX, scY - sH / 2 + 20, {
                     fontSize: 22,
-                    color: isHovered ? '#ffffff' : neonColor,
+                    color: isHovered ? ThemeManager.colors.text : neonColor,
                     bold: true
                 });
 
@@ -46,7 +47,7 @@ export const UIRenderer = {
                 // Render unificado en World Space
             } else {
                 // Regular Nodes
-                const radius = DesignerCanvas.getNodeRadius(node, camera.zoomScale);
+                const radius = GeometryUtils.getNodeRadius(node, camera.zoomScale);
                 LabelRenderer.drawNodeIcon(ctx, node.icon, screenX, screenY, node.isSatellite, camera.zoomScale, radius);
                 LabelRenderer.drawNodeLabel(ctx, node, screenX, screenY, isHovered, camera.zoomScale, radius);
 
@@ -57,7 +58,14 @@ export const UIRenderer = {
 
                 // Tooltip in screen space for better readability
                 if (isHovered && node.description) {
-                    this.drawDescriptionTooltip(ctx, node, screenX, screenY, node.color, camera.zoomScale);
+                    const radius = (node.isRepoContainer ? 75 : 45) * camera.zoomScale;
+                    TextRenderer.drawTooltip(ctx, node.description, screenX + radius, screenY - radius, {
+                        bgColor: 'rgba(13, 17, 23, 0.98)',
+                        borderColor: node.color || ThemeManager.colors.textDim,
+                        textColor: ThemeManager.colors.text,
+                        maxWidth: 220,
+                        fontSize: 15
+                    });
                 }
             }
         });
@@ -70,54 +78,5 @@ export const UIRenderer = {
         CanvasPrimitives.drawBadge(ctx, '✎', x, y, ThemeManager.colors.textDim);
     },
 
-    /**
-     * Draw description tooltip
-     */
-    drawDescriptionTooltip(ctx, node, screenX, screenY, color, zoomScale) {
-        const radius = (node.isRepoContainer ? 75 : 45) * zoomScale;
-        const tooltipX = screenX + radius;
-        const tooltipY = screenY - radius;
-        const maxWidth = 220;
 
-        ctx.save();
-        const fontSize = 15;
-        ctx.font = `${fontSize}px var(--font-mono), monospace`;
-        const words = (node.description || '').split(' ');
-        let lines = [];
-        let currentLine = '';
-
-        words.forEach(word => {
-            const testLine = currentLine + word + ' ';
-            if (ctx.measureText(testLine).width > maxWidth && currentLine.length > 0) {
-                lines.push(currentLine);
-                currentLine = word + ' ';
-            } else {
-                currentLine = testLine;
-            }
-        });
-        lines.push(currentLine);
-
-        const tooltipH = (lines.length * (fontSize + 6)) + 20;
-        const tooltipW = maxWidth + 20;
-
-        ctx.beginPath();
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = 'rgba(0,0,0,0.4)';
-        ctx.fillStyle = 'rgba(13, 17, 23, 0.98)';
-        ctx.strokeStyle = color || '#8b949e';
-        ctx.lineWidth = 2;
-        if (ctx.roundRect) ctx.roundRect(tooltipX, tooltipY, tooltipW, tooltipH, 10);
-        else ctx.rect(tooltipX, tooltipY, tooltipW, tooltipH);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.shadowBlur = 0;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-        ctx.fillStyle = '#e6edf3';
-        lines.forEach((line, i) => {
-            ctx.fillText(line, tooltipX + 10, tooltipY + 10 + i * (fontSize + 6));
-        });
-        ctx.restore();
-    }
 };

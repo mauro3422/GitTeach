@@ -1,8 +1,10 @@
 /**
- * Utilidades compartidas para cálculos de canvas y coordenadas
- * Centraliza lógica común para evitar duplicación
+ * CoordinateUtils.js
+ * Responsabilidad: Transformaciones entre coordenadas de pantalla y mundo
+ * Centraliza toda la lógica matemática de coordenadas
  */
-export const CanvasUtils = {
+
+export const CoordinateUtils = {
     /**
      * Calcula la posición central del canvas en coordenadas mundiales
      * @param {HTMLCanvasElement} canvas - El elemento canvas

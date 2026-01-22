@@ -5,6 +5,7 @@ import { ConnectionRenderer } from './renderers/ConnectionRenderer.js';
 import { UIRenderer } from './renderers/UIRenderer.js';
 import { CanvasCamera } from '../../../core/CanvasCamera.js';
 import { ThemeManager } from '../../../core/ThemeManager.js';
+import { GeometryUtils } from './GeometryUtils.js';
 
 export const DesignerCanvas = {
     ctx: null,
@@ -58,69 +59,19 @@ export const DesignerCanvas = {
 
     /**
      * Calculate dynamic node radius based on zoom to maintain visual presence
+     * Proxy to GeometryUtils
      */
     getNodeRadius(node, zoomScale = 1) {
-        const baseRadius = node.isSatellite ? 25 : 35;
-        // Compensate partially for zoom: radius grows in world space as zoom decreases
-        // At zoom 1.0 -> comp 1.0
-        // At zoom 0.5 -> comp ~1.3
-        // At zoom 0.2 -> comp ~1.9
-        const comp = Math.pow(1 / zoomScale, 0.4);
-        return baseRadius * Math.min(2.5, comp);
+        return GeometryUtils.getNodeRadius(node, zoomScale);
     },
 
 
     /**
      * Calculate the edge point of a node (circle or rectangle) towards a target
+     * Proxy to GeometryUtils
      */
     getEdgePoint(node, targetX, targetY, nodes, camera) {
-        const angle = Math.atan2(targetY - node.y, targetX - node.x);
-        const isRectangular = node.isRepoContainer || node.isStickyNote;
-
-        if (isRectangular) {
-            // For rectangles, calculate intersection with border
-            const bounds = node.isRepoContainer
-                ? this.getContainerBounds(node, nodes, camera.zoomScale)
-                : {
-                    w: node.dimensions?.animW || node.dimensions?.w || 180,
-                    h: node.dimensions?.animH || node.dimensions?.h || 100
-                };
-
-            const w = bounds.w / 2;
-            const h = bounds.h / 2;
-            const centerX = bounds.centerX || node.x;
-            const centerY = bounds.centerY || node.y;
-
-            // Calculate intersection with rectangle edges
-            const tanAngle = Math.tan(angle);
-            let edgeX, edgeY;
-
-            // Check intersection with vertical edges (left/right)
-            if (Math.abs(Math.cos(angle)) > 0.001) {
-                const xSign = Math.cos(angle) > 0 ? 1 : -1;
-                edgeX = centerX + w * xSign;
-                edgeY = centerY + w * xSign * tanAngle;
-
-                // Check if this point is within the horizontal bounds
-                if (Math.abs(edgeY - centerY) <= h) {
-                    return { x: edgeX, y: edgeY };
-                }
-            }
-
-            // Otherwise intersect with horizontal edges (top/bottom)
-            const ySign = Math.sin(angle) > 0 ? 1 : -1;
-            edgeY = centerY + h * ySign;
-            edgeX = centerX + h * ySign / tanAngle;
-            return { x: edgeX, y: edgeY };
-        } else {
-            // For circles, use dynamic radius
-            const zoomScale = camera.zoomScale;
-            const radius = this.getNodeRadius(node, zoomScale);
-            return {
-                x: node.x + radius * Math.cos(angle),
-                y: node.y + radius * Math.sin(angle)
-            };
-        }
+        return GeometryUtils.getEdgePoint(node, targetX, targetY, nodes, camera);
     },
 
 
@@ -191,100 +142,7 @@ export const DesignerCanvas = {
     // Unified logic to calculate container dimensions based on children
     // Now using the unified dimensions schema (Issue #6)
     getContainerBounds(node, nodes, zoomScale = 1.0, dropTargetId = null) {
-        const containerId = node.id;
-        const isScaleUp = node.id === dropTargetId;
-        const scaleFactor = isScaleUp ? 1.10 : 1.0;
-
-        // Initialize dimensions if missing (legacy recovery)
-        if (!node.dimensions) {
-            node.dimensions = {
-                w: 180, h: 100, animW: 180, animH: 100, targetW: 180, targetH: 100, isManual: false
-            };
-        }
-        const dims = node.dimensions;
-
-        // MANUAL MODE: Use user-provided dimensions
-        if (dims.isManual) {
-            return {
-                w: dims.w * scaleFactor,
-                h: dims.h * scaleFactor,
-                centerX: node.x,
-                centerY: node.y
-            };
-        }
-
-        const children = Object.values(nodes).filter(n => n.parentId === containerId);
-
-        // Calculate TARGET dimensions based on children
-        let targetW, targetH, targetCenterX, targetCenterY;
-
-        if (children.length === 0) {
-            targetW = 140;
-            targetH = 100;
-            targetCenterX = node.x;
-            targetCenterY = node.y;
-        } else {
-            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-            children.forEach(c => {
-                const r = this.getNodeRadius(c, zoomScale);
-                const labelStr = c.label || "";
-                const estimatedPixelWidth = labelStr.length * 13;
-                const worldLabelWidth = estimatedPixelWidth / zoomScale;
-                const effectiveHalfWidth = Math.max(r, worldLabelWidth / 2 + 10);
-
-                minX = Math.min(minX, c.x - effectiveHalfWidth);
-                maxX = Math.max(maxX, c.x + effectiveHalfWidth);
-                minY = Math.min(minY, c.y - r);
-                maxY = Math.max(maxY, c.y + r);
-            });
-
-            // Base padding increases slightly with more children to give "breathing room"
-            const basePadding = 60 + Math.min(children.length * 5, 40);
-            const hPadding = basePadding;
-
-            targetW = (maxX - minX) + basePadding;
-            targetH = (maxY - minY) + hPadding + 40;
-            targetCenterX = (minX + maxX) / 2;
-            targetCenterY = (minY + maxY) / 2;
-        }
-
-        // ELASTIC TRANSITION LOGIC
-        // If the number of children changed, trigger an expansion pulse
-        if (dims._lastChildCount !== undefined && children.length > dims._lastChildCount) {
-            dims.transitionPadding = 50; // Extra temporary padding to "pop" open
-            console.log(`[Animation] 🚀 Container ${node.id} expanding for new node.`);
-        }
-        dims._lastChildCount = children.length;
-        dims.transitionPadding = dims.transitionPadding || 0;
-
-        // Apply transition padding to target (elastic effect)
-        targetW += dims.transitionPadding;
-        targetH += dims.transitionPadding;
-
-        // SMOOTH ANIMATION: Interpolate current size towards target
-        const easing = 0.15;
-
-        // Decay transition padding smoothly back to 0
-        dims.transitionPadding *= 0.85;
-        if (dims.transitionPadding < 0.1) dims.transitionPadding = 0;
-
-        dims.targetW = targetW;
-        dims.targetH = targetH;
-
-        // Interpolate anim properties
-        dims.animW += (targetW - dims.animW) * easing;
-        dims.animH += (targetH - dims.animH) * easing;
-
-        // Snap to target if close enough
-        if (Math.abs(targetW - dims.animW) < 0.5) dims.animW = targetW;
-        if (Math.abs(targetH - dims.animH) < 0.5) dims.animH = targetH;
-
-        return {
-            w: dims.animW * scaleFactor,
-            h: dims.animH * scaleFactor,
-            centerX: targetCenterX,
-            centerY: targetCenterY
-        };
+        return GeometryUtils.getContainerBounds(node, nodes, zoomScale, dropTargetId);
     },
 
 

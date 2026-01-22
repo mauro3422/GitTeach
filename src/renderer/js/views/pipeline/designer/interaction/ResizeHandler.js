@@ -1,129 +1,95 @@
-/**
- * ResizeHandler.js
- * Responsabilidad: Gestión del redimensionamiento de contenedores y notas adhesivas
- */
 
-export const ResizeHandler = {
-    state: {
-        resizingNodeId: null,
-        resizeCorner: null,
-        resizeStartSize: null,
-        resizeChildPositions: {}  // Relative positions of children at resize start
-    },
+import { InteractionHandler } from '../InteractionHandler.js';
+import { GeometryUtils } from '../GeometryUtils.js';
 
-    /**
-     * @type {() => Object}
-     */
-    nodeProvider: null,
+export class ResizeHandler extends InteractionHandler {
 
-    /**
-     * Initialize with nodes reference or provider
-     */
-    init(nodeProvider) {
-        if (typeof nodeProvider === 'function') {
-            this.nodeProvider = nodeProvider;
-            this.nodes = null;
-        } else {
-            this.nodes = nodeProvider;
-        }
-    },
-
-    getNodes() {
-        return this.nodeProvider ? this.nodeProvider() : this.nodes;
-    },
-
-    /**
-     * Start resizing a node
-     */
-    startResize(nodeId, corner, mousePos) {
-        const nodes = this.getNodes();
+    onStart(e, context) {
+        const { nodeId, corner, initialPos } = context;
+        const nodes = this.controller.nodes;
         const node = nodes[nodeId];
+
         if (!node || !node.dimensions) return;
 
-        this.state.resizingNodeId = nodeId;
-        this.state.resizeCorner = corner;
-        this.state.resizeStartMouse = { ...mousePos };
-        this.state.resizeStartSize = {
-            w: node.dimensions.w,
-            h: node.dimensions.h
-        };
+        this.setState({
+            resizingNodeId: nodeId,
+            resizeCorner: corner,
+            resizeStartMouse: { ...initialPos },
+            resizeStartSize: {
+                w: node.dimensions.w,
+                h: node.dimensions.h
+            },
+            resizeChildPositions: this.captureChildPositions(node, nodes)
+        });
+    }
 
-        if (node.isRepoContainer) {
-            this.captureChildPositions(node);
-        }
-    },
+    onUpdate(e) {
+        const state = this.getState();
+        if (!state.resizingNodeId) return;
 
-    /**
-     * Update resize operation
-     */
-    updateResize(mousePos, onUpdate) {
-        if (!this.state.resizingNodeId || !this.state.resizeStartMouse) return;
+        const mousePos = this.controller.screenToWorld(this.controller.getMousePos(e));
+        const nodes = this.controller.nodes;
+        const node = nodes[state.resizingNodeId];
 
-        const nodes = this.getNodes();
-        const node = nodes[this.state.resizingNodeId];
         if (!node || !node.dimensions) return;
 
-        const dx = mousePos.x - this.state.resizeStartMouse.x;
-        const dy = mousePos.y - this.state.resizeStartMouse.y;
+        const dx = mousePos.x - state.resizeStartMouse.x;
+        const dy = mousePos.y - state.resizeStartMouse.y;
 
-        let newW = this.state.resizeStartSize.w;
-        let newH = this.state.resizeStartSize.h;
-        const minW = node.isStickyNote ? 180 : 140;
-        const minH = node.isStickyNote ? 100 : 100;
+        let newW = state.resizeStartSize.w;
+        let newH = state.resizeStartSize.h;
+        // Logic duplicated, but simplified here - could move to GeometryUtils if needed? 
+        // For now, keeping logic here as it implies mutation of specific state
 
-        switch (this.state.resizeCorner) {
+        switch (state.resizeCorner) {
             case 'se': newW += dx * 2; newH += dy * 2; break;
             case 'sw': newW -= dx * 2; newH += dy * 2; break;
             case 'ne': newW += dx * 2; newH -= dy * 2; break;
             case 'nw': newW -= dx * 2; newH -= dy * 2; break;
         }
 
+        const minW = node.isStickyNote ? 180 : 140;
+        const minH = node.isStickyNote ? 100 : 100;
+
         newW = Math.max(minW, newW);
         newH = Math.max(minH, newH);
 
-        // Update unified dimensions
         node.dimensions.w = newW;
         node.dimensions.h = newH;
         node.dimensions.isManual = true;
 
-        if (node.isRepoContainer && this.state.resizeChildPositions) {
-            this.scaleChildrenProportionally(node, newW, newH);
+        if (node.isRepoContainer && state.resizeChildPositions) {
+            this.scaleChildrenProportionally(node, newW, newH, nodes);
         }
+    }
 
-        if (onUpdate) onUpdate();
-    },
+    onEnd(e) {
+        this.clearState();
+    }
 
-    /**
-     * End resize operation
-     */
-    endResize() {
-        if (!this.state.resizingNodeId) return;
-        this.clearResizeState();
-    },
+    onCancel() {
+        this.clearState();
+    }
 
-    /**
-     * Capture relative positions of children at resize start
-     */
-    captureChildPositions(containerNode) {
-        const nodes = this.getNodes();
-        this.state.resizeChildPositions = {};
+    // --- Helpers ---
+
+    captureChildPositions(containerNode, nodes) {
+        const positions = {};
         Object.values(nodes).forEach(child => {
             if (child.parentId === containerNode.id) {
-                this.state.resizeChildPositions[child.id] = {
+                positions[child.id] = {
                     relX: child.x - containerNode.x,
                     relY: child.y - containerNode.y
                 };
             }
         });
-    },
+        return positions;
+    }
 
-    /**
-     * Scale children proportionally during resize
-     */
-    scaleChildrenProportionally(containerNode, newWidth, newHeight) {
-        const nodes = this.getNodes();
-        const startWidth = this.state.resizeStartSize.w;
-        const startHeight = this.state.resizeStartSize.h;
+    scaleChildrenProportionally(containerNode, newWidth, newHeight, nodes) {
+        const state = this.getState();
+        const startWidth = state.resizeStartSize.w;
+        const startHeight = state.resizeStartSize.h;
         const margin = 40;
 
         const scaleX = (newWidth - margin * 2) / Math.max(startWidth - margin * 2, 1);
@@ -137,8 +103,8 @@ export const ResizeHandler = {
         };
 
         Object.values(nodes).forEach(child => {
-            if (child.parentId === containerNode.id && this.state.resizeChildPositions[child.id]) {
-                const startRel = this.state.resizeChildPositions[child.id];
+            if (child.parentId === containerNode.id && state.resizeChildPositions[child.id]) {
+                const startRel = state.resizeChildPositions[child.id];
                 child.x = containerNode.x + startRel.relX * scaleX;
                 child.y = containerNode.y + startRel.relY * scaleY;
 
@@ -146,65 +112,28 @@ export const ResizeHandler = {
                 child.y = Math.max(bounds.minY, Math.min(bounds.maxY, child.y));
             }
         });
-    },
+    }
 
-    /**
-     * Check if mouse is over a resize handle
-     */
     findResizeHandle(worldPos) {
-        const nodes = this.getNodes();
-        const handleSize = 30; // Generous hit area for UX
+        const nodes = this.controller.nodes;
+        const handleSize = 30;
 
         for (const node of Object.values(nodes).slice().reverse()) {
             if (!node.isRepoContainer && !node.isStickyNote) continue;
 
-            let w, h, centerX, centerY;
+            const bounds = node.isRepoContainer
+                ? GeometryUtils.getContainerBounds(node, nodes, 1.0)
+                : {
+                    w: node.dimensions?.animW || node.dimensions?.w || 180,
+                    h: node.dimensions?.animH || node.dimensions?.h || 100,
+                    centerX: node.x,
+                    centerY: node.y
+                };
 
-            if (node.isStickyNote) {
-                // Sticky notes use static dimensions
-                w = node.dimensions?.w || 180;
-                h = node.dimensions?.h || 100;
-                centerX = node.x;
-                centerY = node.y;
-            } else if (node.isRepoContainer) {
-                // For containers, calculate bounds inline to avoid circular imports
-                const dims = node.dimensions || {};
-
-                if (dims.isManual && dims.w && dims.h) {
-                    // Manual mode: use stored dimensions
-                    w = dims.w;
-                    h = dims.h;
-                    centerX = node.x;
-                    centerY = node.y;
-                } else {
-                    // Auto mode: calculate from children
-                    const containerId = node.id;
-                    const children = Object.values(nodes).filter(n => n.parentId === containerId);
-
-                    if (children.length === 0) {
-                        w = 140;
-                        h = 100;
-                        centerX = node.x;
-                        centerY = node.y;
-                    } else {
-                        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-                        children.forEach(c => {
-                            const r = 35; // Default node radius
-                            minX = Math.min(minX, c.x - r);
-                            maxX = Math.max(maxX, c.x + r);
-                            minY = Math.min(minY, c.y - r);
-                            maxY = Math.max(maxY, c.y + r);
-                        });
-                        const padding = 60;
-                        w = (maxX - minX) + padding;
-                        h = (maxY - minY) + padding + 40;
-                        centerX = (minX + maxX) / 2;
-                        centerY = (minY + maxY) / 2;
-                    }
-                }
-            }
-
-            if (!w || !h) continue;
+            const w = bounds.w;
+            const h = bounds.h;
+            const centerX = bounds.centerX || node.x;
+            const centerY = bounds.centerY || node.y;
 
             const corners = {
                 'nw': { x: centerX - w / 2, y: centerY - h / 2 },
@@ -216,32 +145,15 @@ export const ResizeHandler = {
             for (const [corner, pos] of Object.entries(corners)) {
                 if (Math.abs(worldPos.x - pos.x) < handleSize &&
                     Math.abs(worldPos.y - pos.y) < handleSize) {
-                    return { nodeId: node.id, corner, w, h };
+                    return { nodeId: node.id, corner };
                 }
             }
         }
-
         return null;
-    },
+    }
 
     getResizeCursor(corner) {
         const cursors = { 'nw': 'nw-resize', 'ne': 'ne-resize', 'sw': 'sw-resize', 'se': 'se-resize' };
         return cursors[corner] || 'default';
-    },
-
-    isResizing() {
-        return this.state.resizingNodeId !== null;
-    },
-
-    cancelResize() {
-        this.clearResizeState();
-    },
-
-    clearResizeState() {
-        this.state.resizingNodeId = null;
-        this.state.resizeCorner = null;
-        this.state.resizeStartMouse = null;
-        this.state.resizeStartSize = null;
-        this.state.resizeChildPositions = {};
     }
-};
+}

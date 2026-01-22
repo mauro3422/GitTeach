@@ -1,101 +1,110 @@
-/**
- * PanZoomHandler.js
- * Responsabilidad: Gestión de pan, zoom y conversiones de coordenadas
- */
 
-import { CanvasUtils } from '../CanvasUtils.js';
+import { InteractionHandler } from '../InteractionHandler.js';
+import { CoordinateUtils } from '../CoordinateUtils.js';
 import { AnimationManager } from '../AnimationManager.js';
 
-export const PanZoomHandler = {
-    state: {
-        panOffset: { x: 0, y: 0 },
-        zoomScale: 1.0,
-        isPanning: false,
-        panStart: null,
-        minZoom: 0.3,
-        maxZoom: 4.0
-    },
+export class PanZoomHandler extends InteractionHandler {
 
-    /**
-     * Initialize with existing state
-     */
-    init(state) {
-        if (state) {
-            this.state.panOffset = state.panOffset || { x: 0, y: 0 };
-            this.state.zoomScale = state.zoomScale || 1.0;
-            this.state.minZoom = state.minZoom || 0.3;
-            this.state.maxZoom = state.maxZoom || 4.0;
+    constructor(controller) {
+        super(controller);
+        this.state = {
+            panOffset: { x: 0, y: 0 },
+            zoomScale: 1.0,
+            isPanning: false,
+            panStart: null,
+            minZoom: 0.3,
+            maxZoom: 4.0
+        };
+    }
+
+    init(config) {
+        if (config) {
+            if (config.panOffset) this.state.panOffset = config.panOffset;
+            if (config.zoomScale) this.state.zoomScale = config.zoomScale;
         }
-    },
+    }
 
-    /**
-     * Start panning
-     */
-    startPan(mousePos) {
-        this.state.isPanning = true;
-        this.state.panStart = { ...mousePos };
-    },
+    // --- InteractionHandler Implementation ---
 
-    /**
-     * Update pan position
-     */
-    updatePan(mousePos) {
-        if (!this.state.isPanning || !this.state.panStart) return;
+    onStart(e, context) {
+        // Context might contain initial mouse pos
+        const rawPos = context && context.rawPos ? context.rawPos : this.controller.getMousePos(e);
 
-        const dx = mousePos.x - this.state.panStart.x;
-        const dy = mousePos.y - this.state.panStart.y;
+        this.setState({
+            isPanning: true,
+            panStart: { ...rawPos }
+        });
+
+        // Use setCursor if available on controller, or set directly
+        if (this.controller.canvas) {
+            this.controller.canvas.style.cursor = 'grabbing';
+        }
+    }
+
+    onUpdate(e) {
+        const state = this.getState();
+        if (!state.isPanning || !state.panStart) return;
+
+        const rawPos = this.controller.getMousePos(e);
+        const dx = rawPos.x - state.panStart.x;
+        const dy = rawPos.y - state.panStart.y;
 
         this.state.panOffset.x += dx;
         this.state.panOffset.y += dy;
-        this.state.panStart = { ...mousePos };
-    },
+        this.state.panStart = { ...rawPos };
+    }
 
-    /**
-     * End panning
-     */
-    endPan() {
-        this.state.isPanning = false;
-        this.state.panStart = null;
-    },
+    onEnd(e) {
+        this.setState({
+            isPanning: false,
+            panStart: null
+        });
+        if (this.controller.canvas) {
+            this.controller.canvas.style.cursor = 'default'; // Or restore previous
+        }
+    }
 
-    /**
-     * Handle zoom with mouse wheel
-     */
-    handleWheel(deltaY, mousePos, onUpdate) {
+    onCancel() {
+        this.onEnd();
+    }
+
+    // --- Specialized Methods ---
+
+    handleWheel(e, onUpdate) {
+        const deltaY = e.deltaY;
+        const mousePos = this.controller.getMousePos(e);
+
         const delta = deltaY > 0 ? 0.9 : 1.1;
         const nextZoom = this.state.zoomScale * delta;
 
         if (nextZoom >= this.state.minZoom && nextZoom <= this.state.maxZoom) {
             // Zoom towards mouse position
-            const worldPos = this.screenToWorld(mousePos);
+            // Use local screenToWorld since we have the state here
+            const worldPos = CoordinateUtils.screenToWorld(mousePos, this.state);
+
             this.state.zoomScale = nextZoom;
 
-            // Adjust pan to keep mouse position fixed in world space
-            const newScreenPos = this.worldToScreen(worldPos);
+            // Adjust pan
+            const newScreenPos = CoordinateUtils.worldToScreen(worldPos, this.state);
             this.state.panOffset.x += mousePos.x - newScreenPos.x;
             this.state.panOffset.y += mousePos.y - newScreenPos.y;
 
             if (onUpdate) onUpdate();
         }
-    },
+    }
 
-    /**
-     * Convert screen coordinates to world coordinates
-     */
-    screenToWorld(screenPos) {
-        return CanvasUtils.screenToWorld(screenPos, this.state);
-    },
+    centerOnNode(node, canvasSize, drawerWidth = 0) {
+        const targetX = (canvasSize.width - drawerWidth) / 2;
+        const targetY = canvasSize.height / 2;
 
-    /**
-     * Convert world coordinates to screen coordinates
-     */
-    worldToScreen(worldPos) {
-        return CanvasUtils.worldToScreen(worldPos, this.state);
-    },
+        const targetPanX = targetX - (node.x * this.state.zoomScale);
+        const targetPanY = targetY - (node.y * this.state.zoomScale);
 
-    /**
-     * Animate pan to target position
-     */
+        this.animatePan(targetPanX, targetPanY, () => {
+            if (this.controller.onUpdate) this.controller.onUpdate();
+        });
+    }
+
     animatePan(targetX, targetY, onUpdate) {
         const startX = this.state.panOffset.x;
         const startY = this.state.panOffset.y;
@@ -121,32 +130,5 @@ export const PanZoomHandler = {
                 }
             }
         });
-    },
-
-    /**
-     * Center on a specific node
-     */
-    centerOnNode(node, canvasSize, drawerWidth = 0) {
-        const targetX = (canvasSize.width - drawerWidth) / 2;
-        const targetY = canvasSize.height / 2;
-
-        const targetPanX = targetX - (node.x * this.state.zoomScale);
-        const targetPanY = targetY - (node.y * this.state.zoomScale);
-
-        this.animatePan(targetPanX, targetPanY);
-    },
-
-    /**
-     * Get current navigation state
-     */
-    getState() {
-        return { ...this.state };
-    },
-
-    /**
-     * Set navigation state
-     */
-    setState(newState) {
-        Object.assign(this.state, newState);
     }
-};
+}
