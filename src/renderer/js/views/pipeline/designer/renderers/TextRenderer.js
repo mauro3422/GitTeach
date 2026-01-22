@@ -38,7 +38,13 @@ export const TextRenderer = {
         ctx.save();
 
         // Aplicar configuración de fuente y color
-        ctx.font = `${lineHeight}px ${font}`;
+        // Aplicar configuración de fuente y color
+        // FIX: Support full font strings (containing 'px') to allow decoupling fontSize from lineHeight
+        if (typeof font === 'string' && font.includes('px')) {
+            ctx.font = font;
+        } else {
+            ctx.font = `${lineHeight}px ${font}`; // Legacy behavior: lineHeight ~= fontSize
+        }
         ctx.fillStyle = color;
         ctx.textAlign = align;
         ctx.textBaseline = 'top';

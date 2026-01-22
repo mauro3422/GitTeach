@@ -63,6 +63,9 @@ export const DesignerInteraction = {
 
         this.panZoomHandler.init({ panOffset: { x: 0, y: 0 }, zoomScale: 1.5 });
 
+        // EXPOSE GLOBAL for InlineEditor compatibility
+        window.DesignerInteraction = this;
+
         this._setupInput();
         this._setupShortcuts();
     },

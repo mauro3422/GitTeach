@@ -16,8 +16,10 @@ export class ResizeHandler extends InteractionHandler {
             resizeCorner: corner,
             resizeStartMouse: { ...initialPos },
             resizeStartSize: {
-                w: node.dimensions.w,
-                h: node.dimensions.h
+                // FIX: Start resizing from the VISUAL size (which might be inflated)
+                // Otherwise user drags but sees no change until they cross the inflation threshold
+                w: node.dimensions.renderW || node.dimensions.w,
+                h: node.dimensions.renderH || node.dimensions.h
             },
             resizeChildPositions: this.captureChildPositions(node, nodes)
         });
@@ -49,9 +51,18 @@ export class ResizeHandler extends InteractionHandler {
         }
 
         const minW = node.isStickyNote ? 180 : 140;
-        const minH = node.isStickyNote ? 100 : 100;
+        let minH = node.isStickyNote ? 100 : 100;
+        let actualMinW = minW;
 
-        newW = Math.max(minW, newW);
+        // DYNAMICS: If content requires more space, enforce it as the minimum limit
+        // Applies to both Sticky Notes AND Repo Containers (Group Nodes)
+        // This prevents shrinking the container past its children (avoiding overlap/crushing)
+        if ((node.isStickyNote || node.isRepoContainer) && node.dimensions) {
+            if (node.dimensions.contentMinH) minH = Math.max(minH, node.dimensions.contentMinH);
+            if (node.dimensions.contentMinW) actualMinW = Math.max(minW, node.dimensions.contentMinW);
+        }
+
+        newW = Math.max(actualMinW, newW);
         newH = Math.max(minH, newH);
 
         node.dimensions.w = newW;
@@ -130,8 +141,11 @@ export class ResizeHandler extends InteractionHandler {
                     centerY: node.y
                 };
 
-            const w = bounds.w;
-            const h = bounds.h;
+            // FIX: Use RENDER dimensions for hit testing handles. 
+            // If the box is visually inflated, we must interact with the visible handles.
+            const w = node.dimensions?.renderW || bounds.w;
+            const h = node.dimensions?.renderH || bounds.h;
+
             const centerX = bounds.centerX || node.x;
             const centerY = bounds.centerY || node.y;
 

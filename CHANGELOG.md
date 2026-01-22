@@ -10,6 +10,24 @@ All notable changes to the GitTeach project will be documented in this file.
 
 ---
 
+## [2.77.0] - Designer UX Polish: Sticky Notes & Containers - 2026-01-22
+### 🎨 Enhancements: Sticky Notes Experience
+- **Dynamic Visual Inflation**: Implemented advanced rendering logic that "inflates" sticky notes visually during Zoom Out to strictly maintain text readability (12px) without breaking layout dimensions.
+- **Smart Resize Constraints**:
+  - Enforced minimum width based on the longest word ("Content-Aware Width").
+  - Enforced minimum height based on total text lines.
+  - **Inline Editor Sync**: Editor now perfectly matches the visually inflated bounding box.
+- **Visual Polish**:
+  - Balanced font size to **12px** for better proportions.
+  - Added `word-break: break-word` to prevent horizontal overflow during editing.
+
+### 📦 Enhancements: Container Groups ("Add Box")
+- **Standardized Container Logic**: Ported the "Smart Resize" protection to Group Containers.
+- **Auto-Grow**: Containers now automatically expand to fit their children, even in Manual Mode.
+- **Collision Protection**: `ResizeHandler` prevents shrinking containers past the bounding box of their children, eliminating node superimposition/overlap bugs.
+
+---
+
 ## [2.76.0] - SOLID Architecture & Performance Optimization - 2026-01-22
 ### 🏛️ SOLID Refactoring: Enterprise-Grade Architecture
 - **ModalManager Decomposition**: Split monolithic `ModalManager.js` (183 lines) into focused, single-responsibility modules:

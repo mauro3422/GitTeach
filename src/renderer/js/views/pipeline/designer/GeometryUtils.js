@@ -41,24 +41,40 @@ export const GeometryUtils = {
         }
         const dims = node.dimensions;
 
-        // MANUAL MODE: Use user-provided dimensions
-        if (dims.isManual) {
-            return {
-                w: dims.w * scaleFactor,
-                h: dims.h * scaleFactor,
-                centerX: node.x,
-                centerY: node.y
-            };
-        }
-
         const children = Object.values(nodes).filter(n => n.parentId === containerId);
 
-        // Calculate TARGET dimensions using LayoutUtils
+        // Calculate TARGET dimensions using LayoutUtils (Content Awareness)
+        // We need this even in Manual Mode to determine the floor (minimum size)
         const target = LayoutUtils.calculateContainerTargetSize(node, children, {
             padding: 60,
             minWidth: 140,
             minHeight: 100
         });
+
+        // Save constraints for ResizeHandler
+        if (!node.dimensions) node.dimensions = {};
+        node.dimensions.contentMinW = target.targetW;
+        node.dimensions.contentMinH = target.targetH;
+
+        // MANUAL MODE: Use user-provided dimensions, BUT clamp to content size (Auto-Grow)
+        if (dims.isManual) {
+            // "Elastic" behavior: If manual size is smaller than content, expand to fit content
+            const effectiveW = Math.max(dims.w, target.targetW);
+            const effectiveH = Math.max(dims.h, target.targetH);
+
+            // Optional: Update dimensions to persist this growth?
+            // If we don't update dims.w/h, it behaves like "Visual Inflation" (snap back on delete).
+            // User asked: "se hace mas grande suavemente".
+            // If we want smooth, we should use animW. 
+            // For now, let's just make it robust (snap to fit).
+
+            return {
+                w: effectiveW * scaleFactor,
+                h: effectiveH * scaleFactor,
+                centerX: node.x,
+                centerY: node.y
+            };
+        }
 
         // ELASTIC TRANSITION LOGIC (moved to LayoutUtils compatible format)
         if (dims._lastChildCount !== undefined && children.length > dims._lastChildCount) {

@@ -4,6 +4,7 @@
  */
 
 import { GeometryUtils } from '../GeometryUtils.js';
+import { LayoutUtils } from '../utils/LayoutUtils.js';
 import { CanvasPrimitives } from '../../../../core/CanvasPrimitives.js';
 import { ThemeManager } from '../../../../core/ThemeManager.js';
 import ContainerBoxManager from '../../../../utils/ContainerBoxManager.js';
@@ -92,6 +93,7 @@ export const ContainerRenderer = {
         });
 
         // Phase 2: Sticky Notes
+        // Phase 2: Sticky Notes
         Object.values(nodes).forEach(node => {
             if (!node.isStickyNote) return;
 
@@ -102,10 +104,71 @@ export const ContainerRenderer = {
             const isResizing = id === resizingNodeId;
             const isHovered = id === hoveredNodeId;
 
+            // --- 1. CALCULATE CONTENT REQUIREMENTS (Dynamic Inflation) ---
+            let padding = 15;
+            let renderW = w;
+            let renderH = h;
+            let worldFontSize = 0;
+            let worldLineHeight = 0;
+
+            if (node.text) {
+                // ZOOM COMPENSATION: Text size in World Space increases as Zoom decreases
+                // to maintain constant Screen Space readability (12px standard).
+                const baseFontSize = 12;
+                worldFontSize = baseFontSize / zoomScale;
+                worldLineHeight = (baseFontSize + 4) / zoomScale;
+
+                // A. Measure Width Requirement
+                const words = node.text.split(/[\s\n]+/);
+                let maxWordWidth = 0;
+                ctx.save();
+                ctx.font = `${worldFontSize}px "Fira Code", monospace`;
+                words.forEach(wd => {
+                    const width = ctx.measureText(wd).width;
+                    if (width > maxWordWidth) maxWordWidth = width;
+                });
+
+                // B. Measure Height Requirement (using available width)
+                // Use the INFLATED width if text demands it, otherwise use configured width
+                const effectiveMaxWidth = Math.max(w - padding * 2, maxWordWidth);
+                const lines = TextRenderer.calculateLines(ctx, node.text, effectiveMaxWidth, `${worldFontSize}px "Fira Code", monospace`);
+                ctx.restore();
+
+                const contentHeight = lines.length * worldLineHeight;
+                const requiredHeight = contentHeight + padding * 2;
+                const requiredWidth = maxWordWidth + padding * 2 + 10; // +10 buffer
+
+                // C. Determine Final Render Size (Visual Inflation)
+                // Visually expand box if text needs more space due to Zoom or content
+                renderW = Math.max(w, requiredWidth);
+                renderH = Math.max(h, requiredHeight);
+
+                // D. Update Dimensions Metadata (For Interactability)
+                if (!node.dimensions) node.dimensions = {};
+                node.dimensions.renderW = renderW;
+                node.dimensions.renderH = renderH;
+                node.dimensions.contentMinW = requiredWidth;
+                node.dimensions.contentMinH = requiredHeight;
+
+                // E. Layout Stability (Magnetic Sizing for Layout)
+                // Update persistent height ONLY if automatic sizing is active or strictly needed
+                if (!dimensions.isManual && Math.abs(dimensions.h - renderH) > 1) {
+                    // Auto-grow/shrink logic for automatic nodes
+                    // But try to avoid "fluttering" if it's just zoom noise
+                    // For now, we update it to keep layout consistent
+                    dimensions.h = renderH;
+                    DesignerEvents.requestRender();
+                } else if (dimensions.isManual && dimensions.h < requiredHeight) {
+                    // Manual nodes ONLY grow if strictly necessary to avoid overflow
+                    // But we rely on visual inflation (renderH) primarily
+                }
+            }
+
+            // --- 2. DRAW VISUALS (Using Inflated Sizes) ---
             ctx.save();
 
-            // Sticky note with enhanced glow
-            VisualEffects.drawGlassPanel(ctx, x - w / 2, y - h / 2, w, h, 8, {
+            // Sticky note body
+            VisualEffects.drawGlassPanel(ctx, x - renderW / 2, y - renderH / 2, renderW, renderH, 8, {
                 shadowColor: neonColor,
                 shadowBlur: isResizing ? 25 : (isHovered ? 18 : 12),
                 borderColor: neonColor,
@@ -114,51 +177,32 @@ export const ContainerRenderer = {
                 isHovered: isHovered
             });
 
-            // Text content (Multiline, World-space)
+            // Make sure InlineEditor uses these render dimensions?
+            // InlineEditor reads dimensions.w/h. We should probably update w/h if we want editor to match?
+            // Actually, InlineEditor logic fixed in previous step uses node.dimensions.w/h.
+            // If we only update renderW/H, editor might mismatch unless we update it too.
+
+            // Render Text
             if (node.text && InlineEditor.activeRef?.note.id !== node.id) {
-                const padding = 15;
-                const textX = x - w / 2 + padding;
-                const textY = y - h / 2 + padding;
-                const maxWidth = w - padding * 2;
+                const textX = x - renderW / 2 + padding;
+                const textY = y - renderH / 2 + padding;
 
-                // Calcular líneas para determinar altura necesaria
-                const lines = TextRenderer.calculateLines(ctx, node.text, maxWidth, '16px "Fira Code", monospace');
-                const lineHeight = 16 + 5; // fontSize + spacing
-                const contentHeight = lines.length * lineHeight;
-                const requiredHeight = contentHeight + padding * 2;
-
-                // MAGNETIC SIZING: If not manually resized, adjust height to fit content
-                if (!dimensions.isManual) {
-                    const minH = 100;
-                    const targetH = Math.max(minH, requiredHeight);
-
-                    if (Math.abs(dimensions.h - targetH) > 1) {
-                        dimensions.h = targetH;
-                        dimensions.targetH = targetH;
-                        // Trigger re-render to animate transition
-                        DesignerEvents.requestRender();
-                    }
-                }
-
-                // Renderizar texto usando TextRenderer
                 TextRenderer.drawMultilineText(ctx, node.text, textX, textY, {
-                    maxWidth: maxWidth,
-                    lineHeight: lineHeight,
-                    font: '16px "Fira Code", monospace',
+                    maxWidth: renderW - padding * 2,
+                    lineHeight: worldLineHeight,
+                    font: `${worldFontSize}px "Fira Code", monospace`,
                     color: ThemeManager.colors.text,
                     align: 'left'
                 });
             }
 
-            // 🔍 DEBUG: Visualizar Hit-Box Real (Solo si DEBUG_STICKY es true)
+            // 🔍 DEBUG: Hit-Box
             if (window.DEBUG_STICKY) {
                 ctx.save();
                 ctx.strokeStyle = ThemeManager.colors.debug;
-                ctx.lineWidth = 2;
-                ctx.setLineDash([5, 5]);
-                // El interaction usa animW/animH + margen de 20
-                const hitW = (node.dimensions?.animW || node.dimensions?.w || 180) + 40;
-                const hitH = (node.dimensions?.animH || node.dimensions?.h || 100) + 40;
+                ctx.lineWidth = 1;
+                const hitW = renderW + 40;
+                const hitH = renderH + 40;
                 ctx.strokeRect(node.x - hitW / 2, node.y - hitH / 2, hitW, hitH);
                 ctx.restore();
             }

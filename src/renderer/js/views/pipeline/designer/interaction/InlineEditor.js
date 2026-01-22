@@ -32,10 +32,12 @@ export const InlineEditor = {
             color: #ffffff;
             font-family: "Fira Code", monospace;
             padding: 15px;
+            box-sizing: border-box; /* CRITICAL: Include padding in width/height */
             resize: none;
             outline: none;
             overflow: hidden;
             text-align: left;
+            word-break: break-word; /* Handle long words */
             caret-color: #3fb950;
             pointer-events: all;
             z-index: 2000; /* ABOVE EVERYTHING */
@@ -105,19 +107,21 @@ export const InlineEditor = {
         const screenPos = interaction.worldToScreen({ x: note.x, y: note.y });
 
         const zoom = interaction.state.zoomScale;
-        const baseW = note.dimensions?.w || 180;
-        const baseH = note.dimensions?.h || 100;
+        // FIX: Use RENDER dimensions if available (dynamic inflation), fallback to saved dimensions
+        const rawW = note.dimensions?.renderW || note.dimensions?.w || 180;
+        const rawH = note.dimensions?.renderH || note.dimensions?.h || 100;
 
-        const w = (note.dimensions?.animW || baseW) * zoom;
-        const h = (note.dimensions?.animH || baseH) * zoom;
+        const w = rawW * zoom;
+        const h = rawH * zoom;
 
         // CRITICAL SYNC: Ensure HTML coordinates don't drift from Canvas pixels
         textarea.style.left = `${screenPos.x - w / 2}px`;
         textarea.style.top = `${screenPos.y - h / 2}px`;
         textarea.style.width = `${w}px`;
         textarea.style.height = `${h}px`;
-        textarea.style.fontSize = `${16 * zoom}px`;
-        textarea.style.lineHeight = `1.2`;
+        // FIXED 12px font in screen-space - compact and readable
+        textarea.style.fontSize = `12px`;
+        textarea.style.lineHeight = `1.3`; // ~15.6px
     },
 
     /**
