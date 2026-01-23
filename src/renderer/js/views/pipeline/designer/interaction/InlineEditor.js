@@ -4,7 +4,7 @@ import { GeometryUtils } from '../GeometryUtils.js';
 import { CoordinateUtils } from '../CoordinateUtils.js';
 
 export const InlineEditor = {
-    activeRef: null, // { textarea, note, onSave } - for compatibility with ContainerRenderer
+    activeRef: null, // { textarea, note, onSave, handlers } - includes event handlers for cleanup
 
     /**
      * Open inline editor for sticky notes
@@ -17,7 +17,9 @@ export const InlineEditor = {
         const container = document.getElementById('designer-container');
         const textarea = document.createElement('textarea');
         textarea.id = 'inline-note-editor';
-        this.activeRef = { textarea, note, onSave }; // Store ref for syncing
+
+        // Store ref for syncing - handlers will be added after definition
+        this.activeRef = { textarea, note, onSave, handlers: {} };
 
         textarea.value = note.text;
 
@@ -61,33 +63,45 @@ export const InlineEditor = {
         textarea.selectionStart = textarea.value.length;
         textarea.selectionEnd = textarea.value.length;
 
-        // REAL-TIME SYNC: Update canvas as you type
-        textarea.addEventListener('input', () => {
-            note.text = textarea.value;
-            DesignerEvents.requestRender();
-        });
-
-        // Save on blur or Escape
-        const saveAndClose = () => {
-            if (this.activeRef) {
-                if (onSave) onSave(note, textarea.value);
-                textarea.remove();
-                this.activeRef = null;
+        // Define handlers with references for proper cleanup
+        const handlers = {
+            input: () => {
+                note.text = textarea.value;
                 DesignerEvents.requestRender();
+            },
+            blur: () => {
+                this.saveAndClose();
+            },
+            keydown: (e) => {
+                if (e.key === 'Escape') {
+                    this.close(); // Close without saving
+                    DesignerEvents.requestRender();
+                }
+                if (e.key === 'Enter' && e.ctrlKey) {
+                    this.saveAndClose();
+                }
             }
         };
 
-        textarea.addEventListener('blur', saveAndClose);
-        textarea.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                textarea.remove();
-                this.activeRef = null;
-                DesignerEvents.requestRender();
-            }
-            if (e.key === 'Enter' && e.ctrlKey) {
-                saveAndClose();
-            }
-        });
+        // Store handlers for cleanup
+        this.activeRef.handlers = handlers;
+
+        // REAL-TIME SYNC: Update canvas as you type
+        textarea.addEventListener('input', handlers.input);
+        textarea.addEventListener('blur', handlers.blur);
+        textarea.addEventListener('keydown', handlers.keydown);
+    },
+
+    /**
+     * Save content and close editor
+     */
+    saveAndClose() {
+        if (this.activeRef) {
+            const { note, textarea, onSave } = this.activeRef;
+            if (onSave) onSave(note, textarea.value);
+            this.close();
+            DesignerEvents.requestRender();
+        }
     },
 
     /**
@@ -139,10 +153,19 @@ export const InlineEditor = {
 
     /**
      * Close and cleanup inline editor
+     * Properly removes event listeners to prevent memory leaks
      */
     close() {
         if (this.activeRef) {
-            const { textarea } = this.activeRef;
+            const { textarea, handlers } = this.activeRef;
+
+            // CRITICAL: Remove event listeners before removing element
+            if (textarea && handlers) {
+                textarea.removeEventListener('input', handlers.input);
+                textarea.removeEventListener('blur', handlers.blur);
+                textarea.removeEventListener('keydown', handlers.keydown);
+            }
+
             if (textarea && textarea.parentNode) {
                 textarea.parentNode.removeChild(textarea);
             }

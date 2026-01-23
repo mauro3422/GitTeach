@@ -11,18 +11,12 @@ class DesignerStoreClass extends Store {
         super({
             nodes: {},
             connections: [],
-            // DEPRECATED: Navigation state lives in PanZoomHandler (via DesignerInteraction.state)
-            // This is kept for backward compatibility but NOT used. Real zoom/pan is in PanZoomHandler.
-            navigation: {
-                panOffset: { x: 0, y: 0 },
-                zoomScale: 1.0 // Default - real value comes from PanZoomHandler
-            },
+            // NOTE: Navigation state (zoom/pan) lives in PanZoomHandler, accessed via DesignerInteraction.state
+            // NOTE: Dragging/Resizing state lives in DragStrategy/ResizeHandler respectively
             interaction: {
                 hoveredNodeId: null,
                 selectedNodeId: null,
-                selectedConnectionId: null,
-                draggingNodeId: null,
-                resizingNodeId: null
+                selectedConnectionId: null
             }
         });
     }
@@ -194,9 +188,6 @@ class DesignerStoreClass extends Store {
 
     setInteractionState(partial) { this.setState({ interaction: { ...this.state.interaction, ...partial } }, 'INTERACTION_UPDATE'); }
 
-    /** @deprecated Use PanZoomHandler via DesignerInteraction instead */
-    setNavigationState(partial) { this.setState({ navigation: { ...this.state.navigation, ...partial } }, 'NAVIGATION_UPDATE'); }
-
     /**
      * Set selected node
      */
@@ -351,7 +342,7 @@ class DesignerStoreClass extends Store {
         const nextState = { ...this.state };
         let changed = false;
 
-        ['nodes', 'connections', 'navigation', 'interaction'].forEach(key => {
+        ['nodes', 'connections', 'interaction'].forEach(key => {
             if (updates[key]) {
                 nextState[key] = key === 'nodes' ? { ...updates[key] } : (Array.isArray(updates[key]) ? [...updates[key]] : { ...nextState[key], ...updates[key] });
                 changed = true;
@@ -360,7 +351,7 @@ class DesignerStoreClass extends Store {
 
         // Allow unknown keys
         Object.keys(updates).forEach(k => {
-            if (!['nodes', 'connections', 'navigation', 'interaction'].includes(k)) {
+            if (!['nodes', 'connections', 'interaction'].includes(k)) {
                 nextState[k] = updates[k];
                 changed = true;
             }
