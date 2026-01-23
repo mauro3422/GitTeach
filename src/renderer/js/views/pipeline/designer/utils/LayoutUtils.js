@@ -34,13 +34,15 @@ export const LayoutUtils = {
             };
         }
 
-        // Import dynamic to avoid top-level cycle if needed, but ScalingCalculator is safe
+        // Initialize min/max with starting values to avoid ReferenceError
+        let minX = containerNode.x, maxX = containerNode.x;
+        let minY = containerNode.y, maxY = containerNode.y;
+
         const vScale = ScalingCalculator.getVisualScale(zoomScale);
 
         childrenNodes.forEach(child => {
-            const radius = GeometryUtils.getNodeRadius(child, zoomScale); // Usar inflación real
+            const radius = GeometryUtils.getNodeRadius(child, zoomScale);
             const labelStr = child.label || "";
-            // Los labels también crecen en importancia visual
             const estimatedPixelWidth = (labelStr.length * layout.labelCharWidth) * vScale;
             const effectiveHalfWidth = Math.max(radius, estimatedPixelWidth / 2 + (layout.labelPadding * vScale));
 
@@ -50,14 +52,22 @@ export const LayoutUtils = {
             maxY = Math.max(maxY, child.y + radius);
         });
 
-        // El padding base también debe inflarse para evitar que los nodos toquen los bordes
         const basePadding = (padding + Math.min(childrenNodes.length * layout.growthPerChild, layout.maxGrowth)) * vScale;
-        const hPadding = basePadding;
 
-        const targetW = Math.max(minWidth * vScale, (maxX - minX) + basePadding);
-        const targetH = Math.max(minHeight * vScale, (maxY - minY) + hPadding + (layout.extraHeight * vScale));
-        const centerX = (minX + maxX) / 2;
-        const centerY = (minY + maxY) / 2;
+        // SYMMETRIC GROWTH LOGIC:
+        // To keep the center at node.x, node.y, the width must be twice the maximum distance from the center to any edge.
+        const maxDistX = Math.max(Math.abs(maxX - containerNode.x), Math.abs(minX - containerNode.x));
+        const maxDistY = Math.max(Math.abs(maxY - containerNode.y), Math.abs(minY - containerNode.y));
+
+        const requiredW = (maxDistX * 2) + basePadding;
+        const requiredH = (maxDistY * 2) + basePadding + (layout.extraHeight * vScale);
+
+        const targetW = Math.max(minWidth * vScale, requiredW);
+        const targetH = Math.max(minHeight * vScale, requiredH);
+
+        // ALWAYS use node.x and node.y as center to avoid handle desync
+        const centerX = containerNode.x;
+        const centerY = containerNode.y;
 
         return { targetW, targetH, centerX, centerY };
     },
@@ -164,53 +174,16 @@ export const LayoutUtils = {
     },
 
     /**
-     * Algoritmos de layout automático predefinidos
+     * Calcula el ancho mínimo requerido para el título de un container
+     * Evita que el texto del título desborde al hacer resize
      */
-    LAYOUTS: {
-        GRID: 'grid',
-        FORCE_DIRECTED: 'force',
-        CIRCULAR: 'circular'
-    },
-
-    /**
-     * Aplica layout automático en grid
-     * @param {Array} nodes - Nodos a organizar
-     * @param {Object} bounds - {x, y, width, height} área disponible
-     * @param {Object} options - {cols, spacing}
-     */
-    applyGridLayout(nodes, bounds, options = {}) {
-        const { cols = 3, spacing = ThemeManager.geometry.grid.spacing } = options;
-        const rows = Math.ceil(nodes.length / cols);
-
-        nodes.forEach((node, index) => {
-            const row = Math.floor(index / cols);
-            const col = index % cols;
-
-            node.x = bounds.x + (col - (cols - 1) / 2) * spacing;
-            node.y = bounds.y + (row - (rows - 1) / 2) * spacing;
-        });
-    },
-
-    /**
-     * Calcula el centro de masa de un grupo de nodos
-     * @param {Array} nodes - Nodos para calcular centro
-     * @returns {Object} {x, y} centro de masa
-     */
-    calculateCenterOfMass(nodes) {
-        if (nodes.length === 0) return { x: 0, y: 0 };
-
-        let totalX = 0;
-        let totalY = 0;
-
-        nodes.forEach(node => {
-            totalX += node.x;
-            totalY += node.y;
-        });
-
-        return {
-            x: totalX / nodes.length,
-            y: totalY / nodes.length
-        };
+    calculateTitleMinWidth(label) {
+        if (!label) return 140;
+        const text = label.toUpperCase();
+        // Estimación: ~14px por carácter en font bold 24px + padding lateral
+        const charWidth = 14;
+        const padding = 40; // margen izquierdo + derecho
+        return Math.max(140, text.length * charWidth + padding);
     },
 
     /**
@@ -231,16 +204,29 @@ export const LayoutUtils = {
             padding: 60, minWidth: 140, minHeight: 100
         });
 
-        node.dimensions.contentMinW = target.targetW;
-        node.dimensions.contentMinH = target.targetH;
+        const vScale = ScalingCalculator.getVisualScale(zoomScale);
+
+        // Calculate minimum width based on title text
+        const titleMinW = this.calculateTitleMinWidth(node.label);
+
+        // NORMALIZE: contentMinW/H should be in LOGICAL units to be consistent with dims.w/h
+        // Use the maximum between children-based min and title-based min
+        node.dimensions.contentMinW = Math.max(target.targetW / vScale, titleMinW);
+        node.dimensions.contentMinH = target.targetH / vScale;
 
         if (dims.isManual) {
-            const effectiveW = Math.max(dims.w, target.targetW);
-            const effectiveH = Math.max(dims.h, target.targetH);
+            // Priority 1: User's manual width/height
+            const baseW = Math.max(dims.w, 140);
+            const baseH = Math.max(dims.h, 100);
+
+            // We inflate it for the visual representation
+            const renderW = baseW * vScale;
+            const renderH = baseH * vScale;
+
             return {
-                w: dims.w, h: dims.h,
-                renderW: effectiveW * scaleFactor,
-                renderH: effectiveH * scaleFactor,
+                w: baseW, h: baseH,
+                renderW: renderW * scaleFactor,
+                renderH: renderH * scaleFactor,
                 centerX: node.x, centerY: node.y
             };
         }
@@ -262,8 +248,13 @@ export const LayoutUtils = {
             h: target.targetH,
             renderW: dims.animW * scaleFactor,
             renderH: dims.animH * scaleFactor,
-            centerX: target.centerX,
-            centerY: target.centerY
+            centerX: node.x, // Enforce logical center
+            centerY: node.y  // Enforce logical center
         };
     }
 };
+
+// Export to window for GeometryUtils fallback access (avoids circular import)
+if (typeof window !== 'undefined') {
+    window.LayoutUtils = LayoutUtils;
+}

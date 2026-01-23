@@ -1,6 +1,7 @@
 import { DesignerEvents } from '../core/DesignerEvents.js';
 import { ThemeManager } from '../../../../core/ThemeManager.js';
 import { GeometryUtils } from '../GeometryUtils.js';
+import { CoordinateUtils } from '../CoordinateUtils.js';
 
 export const InlineEditor = {
     activeRef: null, // { textarea, note, onSave } - for compatibility with ContainerRenderer
@@ -92,10 +93,10 @@ export const InlineEditor = {
     /**
      * Sync inline editor position with camera changes
      * @param {Object} viewportState - { zoomScale, panOffset }
-     * @param {Function} worldToScreen - (pos) => screenPos
+     * @param {Function} [worldToScreen] - Optional: (pos) => screenPos. Uses CoordinateUtils if not provided.
      */
-    syncPosition(viewportState, worldToScreen) {
-        if (!this.activeRef || !viewportState || !worldToScreen) return;
+    syncPosition(viewportState, worldToScreen = null) {
+        if (!this.activeRef || !viewportState) return;
         const { textarea, note } = this.activeRef;
         const container = document.getElementById('designer-container');
         if (!container) return;
@@ -114,8 +115,10 @@ export const InlineEditor = {
         const w = renderW * zoom;
         const h = renderH * zoom;
 
-        // Use the INJECTED COORDINATE TRANSFORMATION
-        const screenPos = worldToScreen({ x: note.x, y: note.y });
+        // Use centralized coordinate transformation (or injected for backward compatibility)
+        const screenPos = worldToScreen
+            ? worldToScreen({ x: note.x, y: note.y })
+            : CoordinateUtils.worldToScreen({ x: note.x, y: note.y }, viewportState);
 
         // CRITICAL SYNC: Ensure HTML coordinates don't drift from Canvas pixels
         textarea.style.left = `${screenPos.x - w / 2}px`;

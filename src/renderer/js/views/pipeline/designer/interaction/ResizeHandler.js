@@ -2,8 +2,11 @@
 import { InteractionHandler } from '../InteractionHandler.js';
 import { GeometryUtils } from '../GeometryUtils.js';
 import { DesignerStore } from '../modules/DesignerStore.js';
+import { DimensionSync } from '../DimensionSync.js';
+import { LayoutUtils } from '../utils/LayoutUtils.js';
 
 export class ResizeHandler extends InteractionHandler {
+    static DEBUG = false; // Set to true for resize debugging
 
     onStart(e, context) {
         const { nodeId, corner, initialPos } = context;
@@ -13,9 +16,15 @@ export class ResizeHandler extends InteractionHandler {
 
         if (!node || !node.dimensions) return;
 
-        const bounds = node.isRepoContainer
-            ? GeometryUtils.getContainerBounds(node, nodes, zoom)
-            : GeometryUtils.getStickyNoteBounds(node, null, zoom);
+        const sync = DimensionSync.getSyncDimensions(node, nodes, zoom);
+        const vScale = GeometryUtils.getVisualScale(zoom);
+
+        // SYNC: Before starting, ensure node.dimensions.w/h reflect the CURRENT visual size
+        // converted back to logical units. This eliminates the "Dead Zone" jump.
+        if (!node.dimensions.isManual) {
+            node.dimensions.w = sync.w / vScale;
+            node.dimensions.h = sync.h / vScale;
+        }
 
         this.setState({
             resizingNodeId: nodeId,
@@ -24,6 +33,10 @@ export class ResizeHandler extends InteractionHandler {
             resizeStartLogicalSize: {
                 w: node.dimensions.w,
                 h: node.dimensions.h
+            },
+            resizeStartVisualSize: {
+                w: sync.w,
+                h: sync.h
             },
             resizeChildPositions: this.captureChildPositions(node, nodes)
         });
@@ -45,22 +58,16 @@ export class ResizeHandler extends InteractionHandler {
 
         const logicalStart = state.resizeStartLogicalSize;
 
-        // SYSTEMIC FIX: We calculate the scale of the node as it WOULD be at its STARTING
-        // dimensions but at the CURRENT zoom, to map the absolute delta stably.
-        const startNode = { ...node, dimensions: logicalStart };
-        const bounds = node.isRepoContainer
-            ? GeometryUtils.getContainerBounds(startNode, nodes, zoom)
-            : GeometryUtils.getStickyNoteBounds(startNode, null, zoom);
+        const vScale = GeometryUtils.getVisualScale(zoom);
 
-        const effectiveScaleW = bounds.renderW / logicalStart.w;
-        const effectiveScaleH = bounds.renderH / logicalStart.h;
-
+        // Logic normalization: dx/dy are world coordinates. 
+        // We do NOT divide by vScale here because we are updating logical dimensions which are 1:1 with world.
         const dimensions = GeometryUtils.calculateResizeDelta(
             state.resizeCorner,
             logicalStart.w,
             logicalStart.h,
-            dx / effectiveScaleW,
-            dy / effectiveScaleH
+            dx,
+            dy
         );
 
         let newW = dimensions.w;
@@ -75,16 +82,37 @@ export class ResizeHandler extends InteractionHandler {
             if (node.dimensions.contentMinW) actualMinW = Math.max(minW, node.dimensions.contentMinW);
         }
 
+        // For containers, ensure minimum width fits the title text (centralized calculation)
+        if (node.isRepoContainer && node.label) {
+            actualMinW = Math.max(actualMinW, LayoutUtils.calculateTitleMinWidth(node.label));
+        }
+
         newW = Math.max(actualMinW, newW);
         newH = Math.max(minH, newH);
 
-        node.dimensions.w = newW;
-        node.dimensions.h = newH;
-        node.dimensions.isManual = true;
+        // ATOMIC UPDATE: Collect all changes into one Store call to avoid state-fight
+        const nextNodes = { ...nodes };
+        nextNodes[node.id] = {
+            ...node,
+            dimensions: {
+                ...node.dimensions,
+                w: newW,
+                h: newH,
+                isManual: true
+            }
+        };
 
         if (node.isRepoContainer && state.resizeChildPositions) {
-            this.scaleChildrenProportionally(node, newW, newH, nodes);
+            this.updateChildrenPositions(node, newW, newH, nextNodes);
         }
+
+        if (ResizeHandler.DEBUG) {
+            console.log(`[StateTrace] RESIZE_DRAG: ${node.id} | w:${newW.toFixed(1)} h:${newH.toFixed(1)}`);
+        }
+        DesignerStore.setState({ nodes: nextNodes }, 'RESIZE_DRAG');
+
+        // Trigger local renderer
+        this.controller.onUpdate?.();
     }
 
     onEnd(e) {
@@ -110,36 +138,36 @@ export class ResizeHandler extends InteractionHandler {
         return positions;
     }
 
-    scaleChildrenProportionally(containerNode, newWidth, newHeight, nodes) {
+    updateChildrenPositions(containerNode, newWidth, newHeight, nextNodes) {
         const state = this.getState();
         const startWidth = state.resizeStartLogicalSize.w;
         const startHeight = state.resizeStartLogicalSize.h;
         const margin = 40;
-        const zoom = this.controller.state?.zoomScale || 1.0;
 
         const scaleX = (newWidth - margin * 2) / Math.max(startWidth - margin * 2, 1);
         const scaleY = (newHeight - margin * 2) / Math.max(startHeight - margin * 2, 1);
 
-        // Get actual center from bounds (respects auto-layout)
-        const containerBounds = GeometryUtils.getContainerBounds(containerNode, nodes, zoom);
-        const centerX = containerBounds.centerX || containerNode.x;
-        const centerY = containerBounds.centerY || containerNode.y;
-
         const bounds = {
-            minX: centerX - newWidth / 2 + margin,
-            minY: centerY - newHeight / 2 + margin,
-            maxX: centerX + newWidth / 2 - margin,
-            maxY: centerY + newHeight / 2 - margin
+            minX: containerNode.x - newWidth / 2 + margin,
+            minY: containerNode.y - newHeight / 2 + margin,
+            maxX: containerNode.x + newWidth / 2 - margin,
+            maxY: containerNode.y + newHeight / 2 - margin
         };
 
-        Object.values(nodes).forEach(child => {
+        Object.values(nextNodes).forEach(child => {
             if (child.parentId === containerNode.id && state.resizeChildPositions[child.id]) {
                 const startRel = state.resizeChildPositions[child.id];
-                child.x = centerX + startRel.relX * scaleX;
-                child.y = centerY + startRel.relY * scaleY;
 
-                child.x = Math.max(bounds.minX, Math.min(bounds.maxX, child.x));
-                child.y = Math.max(bounds.minY, Math.min(bounds.maxY, child.y));
+                // Clone the child for the nextNodes map
+                nextNodes[child.id] = {
+                    ...child,
+                    x: containerNode.x + startRel.relX * scaleX,
+                    y: containerNode.y + startRel.relY * scaleY
+                };
+
+                // Clamp to new container bounds
+                nextNodes[child.id].x = Math.max(bounds.minX, Math.min(bounds.maxX, nextNodes[child.id].x));
+                nextNodes[child.id].y = Math.max(bounds.minY, Math.min(bounds.maxY, nextNodes[child.id].y));
             }
         });
     }
@@ -149,7 +177,8 @@ export class ResizeHandler extends InteractionHandler {
         const zoom = this.controller.state?.zoomScale || 1.0;
         const selectedNodeId = DesignerStore.state.interaction.selectedNodeId;
 
-        // Priority logic for resize handles detection:
+        // In test environments, selectedNodeId might be interfering with detection
+        // So we'll try both approaches: selected first, then all nodes
         // 1. If there's a selected node and it's resizable, prioritize its handles
         if (selectedNodeId && nodes[selectedNodeId]) {
             const selectedNode = nodes[selectedNodeId];
@@ -159,15 +188,19 @@ export class ResizeHandler extends InteractionHandler {
             }
         }
 
-        // 2. If no node is selected OR the selected node is not resizable,
-        // allow detection on other visible resizable nodes
-        // Iterate in reverse order to check topmost nodes first (visual hierarchy)
+        // 2. Check all visible resizable nodes regardless of selection state
+        // This ensures handles are detected even in test environments where selection state might be inconsistent
         const nodeList = Object.values(nodes);
         for (let i = nodeList.length - 1; i >= 0; i--) {
             const node = nodeList[i];
 
-            // Skip if it's not a resizable node or if it's the selected node (already checked)
-            if ((!node.isRepoContainer && !node.isStickyNote) || node.id === selectedNodeId) {
+            // Only check if it's a resizable node
+            if (!node.isRepoContainer && !node.isStickyNote) {
+                continue;
+            }
+
+            // Skip if it's the selected node (already checked above)
+            if (node.id === selectedNodeId) {
                 continue;
             }
 
@@ -181,42 +214,13 @@ export class ResizeHandler extends InteractionHandler {
 
     _checkNodeHandles(node, worldPos, nodes, zoom) {
         // Visual Threshold: 14px on screen radius (28px diameter).
-        // Matches standard UI hit targets.
-        // Improved calculation with bounded range to prevent extreme values
-        const minThreshold = 8;   // Minimum threshold in pixels
-        const maxThreshold = 30;  // Maximum threshold in pixels
         const baseThreshold = 14;
         const dynamicThreshold = baseThreshold / Math.max(zoom, 0.1);
-        const hitThreshold = Math.max(minThreshold, Math.min(maxThreshold, dynamicThreshold));
+        const hitThreshold = Math.max(8, Math.min(30, dynamicThreshold));
 
-        // For sticky notes, we need to account for text content that affects visual dimensions
-        // For containers, we can use logical dimensions as they typically don't change based on content
-        let w, h, centerX, centerY;
-
-        if (node.isStickyNote) {
-            // For sticky notes, get the visual bounds which account for text content
-            const bounds = GeometryUtils.getStickyNoteBounds(node, null, zoom);
-            // Use the visual dimensions for handle positioning to match what user sees
-            w = bounds.renderW || bounds.w;
-            h = bounds.renderH || bounds.h;
-            centerX = bounds.centerX || node.x;
-            centerY = bounds.centerY || node.y;
-        } else if (node.isRepoContainer) {
-            // For containers, use the container bounds
-            const bounds = GeometryUtils.getContainerBounds(node, nodes, zoom);
-            w = bounds.renderW || bounds.w;
-            h = bounds.renderH || bounds.h;
-            centerX = bounds.centerX || node.x;
-            centerY = bounds.centerY || node.y;
-        } else {
-            // For other node types, use logical dimensions with node position as center
-            w = node.dimensions?.w || (node.isStickyNote ? 180 : 140);
-            h = node.dimensions?.h || (node.isStickyNote ? 100 : 100);
-            centerX = node.x;
-            centerY = node.y;
-        }
-
-        const corners = GeometryUtils.getRectCorners(centerX, centerY, w, h);
+        // Use the unified synchronization system
+        const sync = DimensionSync.getSyncDimensions(node, nodes, zoom);
+        const corners = GeometryUtils.getRectCorners(sync.centerX, sync.centerY, sync.w, sync.h);
 
         let bestHit = null;
         let minDistance = Infinity;

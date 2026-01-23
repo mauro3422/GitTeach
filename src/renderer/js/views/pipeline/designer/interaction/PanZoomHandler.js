@@ -119,12 +119,20 @@ export class PanZoomHandler extends InteractionHandler {
         this.setZoom(nextZoom, mousePos, onUpdate);
     }
 
+    /**
+     * Center camera on a specific node
+     * Uses inverse of worldToScreen formula: panOffset = screenPos - worldPos * zoom
+     */
     centerOnNode(node, canvasSize, drawerWidth = 0) {
-        const targetX = (canvasSize.width - drawerWidth) / 2;
-        const targetY = canvasSize.height / 2;
+        // Target screen position (center of visible canvas)
+        const targetScreenX = (canvasSize.width - drawerWidth) / 2;
+        const targetScreenY = canvasSize.height / 2;
 
-        const targetPanX = targetX - (node.x * this.state.zoomScale);
-        const targetPanY = targetY - (node.y * this.state.zoomScale);
+        // Calculate panOffset needed to place node.x,y at target screen position
+        // From: screenPos = worldPos * zoom + panOffset
+        // Solve: panOffset = screenPos - worldPos * zoom
+        const targetPanX = targetScreenX - (node.x * this.state.zoomScale);
+        const targetPanY = targetScreenY - (node.y * this.state.zoomScale);
 
         this.animatePan(targetPanX, targetPanY, () => {
             if (this.controller.onUpdate) this.controller.onUpdate();

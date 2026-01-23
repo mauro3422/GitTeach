@@ -6,6 +6,8 @@ import { UIRenderer } from './renderers/UIRenderer.js';
 import { CanvasCamera } from '../../../core/CanvasCamera.js';
 import { ThemeManager } from '../../../core/ThemeManager.js';
 import { GeometryUtils } from './GeometryUtils.js';
+// Import LayoutUtils to ensure it's loaded and exported to window (for GeometryUtils fallback)
+import { LayoutUtils } from './utils/LayoutUtils.js';
 
 export const DesignerCanvas = {
     ctx: null,

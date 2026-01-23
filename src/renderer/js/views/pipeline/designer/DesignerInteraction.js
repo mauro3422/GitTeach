@@ -209,8 +209,19 @@ export const DesignerInteraction = {
     handleMouseUp(e) {
         if (this.panZoomHandler.isActive()) this.panZoomHandler.end(e);
         if (this.resizeHandler.isActive()) {
+            const state = this.resizeHandler.getState();
+            const nodeId = state.resizingNodeId;
+
             this.resizeHandler.end(e);
             this.canvas.style.cursor = 'default';
+
+            // CRITICAL: Commit the final manual size to the Store
+            if (nodeId && this.nodes[nodeId]) {
+                const node = this.nodes[nodeId];
+                DesignerStore.updateNode(nodeId, {
+                    dimensions: { ...node.dimensions }
+                });
+            }
         }
 
         this.strategyManager.handleMouseUp(e);

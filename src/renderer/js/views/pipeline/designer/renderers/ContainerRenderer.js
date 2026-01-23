@@ -1,8 +1,3 @@
-/**
- * ContainerRenderer.js
- * Responsabilidad: Contenedores y Sticky Notes en Espacio de Mundo
- */
-
 import { GeometryUtils } from '../GeometryUtils.js';
 import { CanvasPrimitives } from '../../../../core/CanvasPrimitives.js';
 import { ThemeManager } from '../../../../core/ThemeManager.js';
@@ -10,6 +5,7 @@ import { InlineEditor } from '../interaction/InlineEditor.js';
 import { TextRenderer } from './TextRenderer.js';
 import { VisualEffects } from '../utils/VisualEffects.js';
 import { LabelRenderer } from '../../LabelRenderer.js';
+import { DimensionSync } from '../DimensionSync.js';
 
 export const ContainerRenderer = {
     getNodeColor(node) {
@@ -30,10 +26,10 @@ export const ContainerRenderer = {
             const isHovered = node.id === hoveredNodeId;
             const isSelected = node.id === selectedNodeId;
 
-            const bounds = GeometryUtils.getContainerBounds(node, nodes, zoom, dropTargetId);
-            const { w, h, centerX, centerY } = bounds;
-            const x = centerX || node.x;
-            const y = centerY || node.y;
+            const sync = DimensionSync.getSyncDimensions(node, nodes, zoom);
+            const { w, h, centerX, centerY } = sync;
+            const x = centerX;
+            const y = centerY;
 
             VisualEffects.drawGlassPanel(ctx, x - w / 2, y - h / 2, w, h, 12, {
                 shadowColor: isSelected ? ThemeManager.colors.primary : neonColor,
@@ -73,8 +69,8 @@ export const ContainerRenderer = {
             const isHovered = node.id === hoveredNodeId;
             const isSelected = node.id === selectedNodeId;
 
-            const bounds = GeometryUtils.getStickyNoteBounds(node, ctx, zoom);
-            const { renderW, renderH } = bounds;
+            const sync = DimensionSync.getSyncDimensions(node, null, zoom);
+            const { w: renderW, h: renderH } = sync;
             const padding = ThemeManager.geometry.sticky.padding;
 
             ctx.save();

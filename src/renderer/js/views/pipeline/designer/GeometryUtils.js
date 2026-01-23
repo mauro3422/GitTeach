@@ -120,25 +120,30 @@ export const GeometryUtils = {
 
     /**
      * Delegado para obtener límites de contenedor.
-     * Si necesitas lógica de auto-layout elástico, usa LayoutUtils directamente.
+     * IMPORTANTE: LayoutUtils es la fuente canónica de esta lógica.
+     * @returns {{ w: number, h: number, renderW: number, renderH: number, centerX: number, centerY: number }}
      */
     getContainerBounds(node, nodes, zoomScale = 1.0, dropTargetId = null) {
-        // En un sistema real, LayoutUtils se inyecta o se accede globalmente para evitar el ciclo.
-        // Aquí usamos la referencia global si existe (en el navegador) o fallamos amablemente.
-        const layout = (typeof window !== 'undefined' && window.LayoutUtils) || (typeof global !== 'undefined' && global.LayoutUtils);
+        // LayoutUtils se exporta a window en DesignerCanvas.js al importarlo
+        const layout = (typeof window !== 'undefined' && window.LayoutUtils) ||
+                       (typeof global !== 'undefined' && global.LayoutUtils);
 
         if (layout) {
             return layout.getContainerBounds(node, nodes, zoomScale, dropTargetId);
         }
 
-        // Fallback básico si LayoutUtils no está cargado aún (útil durante bootstrap inicial)
-        const w = node.dimensions?.w || 180;
-        const h = node.dimensions?.h || 100;
+        // Fallback de emergencia - solo durante bootstrap antes de que LayoutUtils se cargue
+        console.warn('[GeometryUtils] LayoutUtils not loaded yet, using emergency fallback');
+        const dims = node.dimensions;
+        const w = dims?.w || 180;
+        const h = dims?.h || 100;
         const bScale = this.getVisualScale(zoomScale);
+        const useManual = dims?.isManual === true;
+
         return {
             w, h,
-            renderW: (node.dimensions?.animW || w) * bScale,
-            renderH: (node.dimensions?.animH || h) * bScale,
+            renderW: useManual ? (w * bScale) : ((dims?.animW || w) * bScale),
+            renderH: useManual ? (h * bScale) : ((dims?.animH || h) * bScale),
             centerX: node.x,
             centerY: node.y
         };

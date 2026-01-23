@@ -11,9 +11,11 @@ class DesignerStoreClass extends Store {
         super({
             nodes: {},
             connections: [],
+            // DEPRECATED: Navigation state lives in PanZoomHandler (via DesignerInteraction.state)
+            // This is kept for backward compatibility but NOT used. Real zoom/pan is in PanZoomHandler.
             navigation: {
                 panOffset: { x: 0, y: 0 },
-                zoomScale: 1.5
+                zoomScale: 1.0 // Default - real value comes from PanZoomHandler
             },
             interaction: {
                 hoveredNodeId: null,
@@ -191,6 +193,8 @@ class DesignerStoreClass extends Store {
     // --- State Accessors ---
 
     setInteractionState(partial) { this.setState({ interaction: { ...this.state.interaction, ...partial } }, 'INTERACTION_UPDATE'); }
+
+    /** @deprecated Use PanZoomHandler via DesignerInteraction instead */
     setNavigationState(partial) { this.setState({ navigation: { ...this.state.navigation, ...partial } }, 'NAVIGATION_UPDATE'); }
 
     /**
@@ -244,16 +248,17 @@ class DesignerStoreClass extends Store {
             if (excludeId && node.id === excludeId) continue;
             if (!node.isStickyNote) continue;
 
-            // Usar límites inflados (con un canvas dummy si es necesario para medir)
+            // Usar límites visuales para detección precisa (con un canvas dummy si es necesario para medir)
             const bounds = GeometryUtils.getStickyNoteBounds(node, null, zoomScale);
             const m = ThemeManager.geometry.thresholds.nodeHitBuffer;
-            const rect = {
-                x: node.x,
-                y: node.y,
+            // Corregir coordenadas para que coincidan con el sistema de detección de rectángulos
+            // bounds.centerX y bounds.centerY son las coordenadas del centro
+            if (GeometryUtils.isPointInRectangle(worldPos, {
+                x: bounds.centerX - (bounds.renderW + m * 2) / 2,
+                y: bounds.centerY - (bounds.renderH + m * 2) / 2,
                 w: bounds.renderW + m * 2,
                 h: bounds.renderH + m * 2
-            };
-            if (GeometryUtils.isPointInRectangle(worldPos, rect)) return node;
+            })) return node;
         }
 
         // 2. Regular Nodes
@@ -268,8 +273,13 @@ class DesignerStoreClass extends Store {
             const node = nodeList[i];
             if (excludeId && node.id === excludeId || !node.isRepoContainer) continue;
             const bounds = GeometryUtils.getContainerBounds(node, this.state.nodes, zoomScale);
+            // Usar el mismo sistema de detección que sticky notes para consistencia
+            const m = ThemeManager.geometry.thresholds.nodeHitBuffer;
             if (GeometryUtils.isPointInRectangle(worldPos, {
-                x: bounds.centerX, y: bounds.centerY, w: bounds.renderW || bounds.w, h: bounds.renderH || bounds.h
+                x: bounds.centerX - (bounds.renderW + m * 2) / 2,
+                y: bounds.centerY - (bounds.renderH + m * 2) / 2,
+                w: bounds.renderW + m * 2,
+                h: bounds.renderH + m * 2
             })) return node;
         }
 
