@@ -56,9 +56,38 @@ export const DESIGNER_CONSTANTS = {
     TYPOGRAPHY: {
         BASE_FONT_SIZE: 18,
         TITLE_FONT_SIZE: 24,
+        CONTAINER_FONT_SIZE: 24,
+        CONTAINER_SUB_FONT_SIZE: 20,
+        STICKY_FONT_SIZE: 18,
         LINE_HEIGHT_OFFSET: 6
     },
     VISUAL: {
+        GLOW: {
+            NORMAL: 1.0,
+            HOVER: 1.2,
+            ACTIVE: 1.8,
+            SELECTED: 2.0,
+            MIN_BLUR: 12,
+            MAX_BLUR: 60,
+            BASE_BLUR: 25,
+            BASE_ALPHA: 0.7
+        },
+        PANEL_RADIUS: {
+            CONTAINER: 12,
+            STICKY: 8,
+            TOOLTIP: 10
+        },
+        BADGE: {
+            SIZE: 12,
+            OFFSET: 15,
+            LABEL_OFFSET_Y: 25
+        },
+        TOOLTIP: {
+            MAX_WIDTH: 220,
+            PADDING: 10,
+            OFFSET: 20,
+            FONT_SIZE: 15
+        },
         OPACITY: {
             DEFAULT: 1.0,
             DRAGGING: 0.9,

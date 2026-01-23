@@ -95,14 +95,15 @@ export const TextRenderer = {
      * @param {Object} style - Configuración visual
      */
     drawTooltip(ctx, text, x, y, style = {}) {
+        const { TOOLTIP } = DESIGNER_CONSTANTS.VISUAL;
         const {
             bgColor = ThemeManager.colors.tooltipBg,
             borderColor = ThemeManager.colors.tooltipBorder,
             textColor = ThemeManager.colors.text,
-            maxWidth = 220,
-            padding = 10,
-            borderRadius = 10,
-            fontSize = 15
+            maxWidth = TOOLTIP.MAX_WIDTH,
+            padding = TOOLTIP.PADDING,
+            borderRadius = DESIGNER_CONSTANTS.VISUAL.PANEL_RADIUS.TOOLTIP,
+            fontSize = TOOLTIP.FONT_SIZE
         } = style;
 
         // Calcular dimensiones del tooltip
@@ -111,16 +112,17 @@ export const TextRenderer = {
 
         const lines = this.calculateLines(ctx, text, maxWidth - padding * 2);
         const tooltipWidth = maxWidth;
-        const tooltipHeight = lines.length * (fontSize + 6) + padding * 2;
+        const tooltipHeight = lines.length * (fontSize + DESIGNER_CONSTANTS.TYPOGRAPHY.LINE_HEIGHT_OFFSET) + padding * 2;
 
         // Posicionar tooltip para que quepa en pantalla (simple por ahora)
-        let tooltipX = x + 20; // Offset del puntero
+        const { OFFSET } = DESIGNER_CONSTANTS.VISUAL.TOOLTIP;
+        let tooltipX = x + OFFSET; // Offset del puntero
         let tooltipY = y - tooltipHeight / 2;
 
         // Ajustar si sale de pantalla (básico)
         const canvas = ctx.canvas;
         if (tooltipX + tooltipWidth > canvas.width) {
-            tooltipX = x - tooltipWidth - 20;
+            tooltipX = x - tooltipWidth - DESIGNER_CONSTANTS.VISUAL.TOOLTIP.OFFSET;
         }
         if (tooltipY < 0) tooltipY = 0;
         if (tooltipY + tooltipHeight > canvas.height) {
@@ -150,7 +152,7 @@ export const TextRenderer = {
 
         // Renderizar líneas de texto
         lines.forEach((line, index) => {
-            const lineY = tooltipY + padding + index * (fontSize + 6);
+            const lineY = tooltipY + padding + index * (fontSize + DESIGNER_CONSTANTS.TYPOGRAPHY.LINE_HEIGHT_OFFSET);
             ctx.fillText(line, tooltipX + padding, lineY);
         });
 

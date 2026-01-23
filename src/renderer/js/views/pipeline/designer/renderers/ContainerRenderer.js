@@ -1,4 +1,5 @@
 import { GeometryUtils } from '../GeometryUtils.js';
+import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 import { CanvasPrimitives } from '../../../../core/CanvasPrimitives.js';
 import { ThemeManager } from '../../../../core/ThemeManager.js';
 import { InlineEditor } from '../interaction/InlineEditor.js';
@@ -31,17 +32,20 @@ export const ContainerRenderer = {
             const x = centerX;
             const y = centerY;
 
-            VisualEffects.drawGlassPanel(ctx, x - w / 2, y - h / 2, w, h, 12, {
+            const { VISUAL } = DESIGNER_CONSTANTS;
+            VisualEffects.drawGlassPanel(ctx, x - w / 2, y - h / 2, w, h, VISUAL.PANEL_RADIUS.CONTAINER, {
                 shadowColor: isSelected ? ThemeManager.colors.primary : neonColor,
                 shadowBlur: isSelected ? 30 : 20,
                 borderColor: isSelected ? ThemeManager.colors.primary : neonColor,
-                borderWidth: isSelected ? 4 : (isHovered ? 3 : 2),
+                borderWidth: isSelected ? VISUAL.BORDER.RESIZING : (isHovered ? VISUAL.BORDER.SELECTED : VISUAL.BORDER.HOVERED),
                 isHovered: isHovered || isSelected
             });
 
             // Label (World Space)
-            const labelY = y - h / 2 + 25 / zoom;
-            const baseFontSize = node.isRepoContainer ? 24 : 20;
+            const { BADGE, PANEL_RADIUS } = DESIGNER_CONSTANTS.VISUAL;
+            const { TYPOGRAPHY } = DESIGNER_CONSTANTS;
+            const labelY = y - h / 2 + BADGE.LABEL_OFFSET_Y / zoom;
+            const baseFontSize = node.isRepoContainer ? TYPOGRAPHY.CONTAINER_FONT_SIZE : TYPOGRAPHY.CONTAINER_SUB_FONT_SIZE;
             const fScale = GeometryUtils.getFontScale(zoom, baseFontSize);
 
             LabelRenderer.drawStandardText(ctx, node.label?.toUpperCase() || 'BOX', x, labelY, {
@@ -54,9 +58,9 @@ export const ContainerRenderer = {
 
             // Message Badge (Pencil)
             if (node.message) {
-                const badgeX = x + w / 2 - 15 / zoom;
-                const badgeY = y - h / 2 + 15 / zoom;
-                CanvasPrimitives.drawBadge(ctx, '✎', badgeX, badgeY, ThemeManager.colors.textDim, 12 / zoom);
+                const badgeX = x + w / 2 - BADGE.OFFSET / zoom;
+                const badgeY = y - h / 2 + BADGE.OFFSET / zoom;
+                CanvasPrimitives.drawBadge(ctx, '✎', badgeX, badgeY, ThemeManager.colors.textDim, BADGE.SIZE / zoom);
             }
         });
 
@@ -73,22 +77,23 @@ export const ContainerRenderer = {
             const { w: renderW, h: renderH } = sync;
             const padding = ThemeManager.geometry.sticky.padding;
 
+            const { VISUAL } = DESIGNER_CONSTANTS;
             ctx.save();
-            VisualEffects.drawGlassPanel(ctx, x - renderW / 2, y - renderH / 2, renderW, renderH, 8, {
+            VisualEffects.drawGlassPanel(ctx, x - renderW / 2, y - renderH / 2, renderW, renderH, VISUAL.PANEL_RADIUS.STICKY, {
                 shadowColor: isSelected ? ThemeManager.colors.primary : neonColor,
                 shadowBlur: isSelected ? 30 : 20,
                 borderColor: isSelected ? ThemeManager.colors.primary : neonColor,
-                borderWidth: isSelected ? 4 : (isHovered ? 3 : 2.5),
+                borderWidth: isSelected ? VISUAL.BORDER.RESIZING : (isHovered ? VISUAL.BORDER.SELECTED : VISUAL.BORDER.HOVERED + 0.5),
                 isHovered: isHovered || isSelected
             });
 
             // Text (World Space) - PAPER SCALING
             if (node.text && (!InlineEditor.activeRef || InlineEditor.activeRef.note.id !== node.id)) {
-                const baseFontSize = 18;
+                const baseFontSize = DESIGNER_CONSTANTS.TYPOGRAPHY.STICKY_FONT_SIZE;
                 const fScale = GeometryUtils.getFontScale(zoom, baseFontSize);
 
                 const worldFontSize = baseFontSize * fScale;
-                const worldLineHeight = worldFontSize + 6;
+                const worldLineHeight = worldFontSize + DESIGNER_CONSTANTS.TYPOGRAPHY.LINE_HEIGHT_OFFSET;
 
                 TextRenderer.drawMultilineText(ctx, node.text, x - renderW / 2 + padding, y - renderH / 2 + padding, {
                     maxWidth: renderW - padding * 2,

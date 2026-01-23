@@ -6,14 +6,15 @@
 
 import { CanvasPrimitives } from '../../../../core/CanvasPrimitives.js';
 import { ThemeManager } from '../../../../core/ThemeManager.js';
+import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 
 export const VisualEffects = {
     /**
      * Efectos predefinidos para consistencia
      */
     EFFECTS: {
-        HOVER_GLOW: { intensity: 1.2 },
-        ACTIVE_GLOW: { intensity: 1.8 },
+        HOVER_GLOW: { intensity: DESIGNER_CONSTANTS.VISUAL.GLOW.HOVER },
+        ACTIVE_GLOW: { intensity: DESIGNER_CONSTANTS.VISUAL.GLOW.ACTIVE },
         SUBTLE_SHADOW: ThemeManager.effects.shadow.subtle,
         STRONG_SHADOW: ThemeManager.effects.shadow.strong
     },
@@ -30,8 +31,9 @@ export const VisualEffects = {
         if (!rgb) return;
 
         // Calcular intensidad de glow
-        const blur = Math.max(12, Math.min(60, 25 * intensity)); // Increased from (8, 40, 15)
-        const alpha = Math.max(0.4, Math.min(1.0, 0.7 * intensity)); // Increased from (0.3, 1.0, 0.6)
+        const { GLOW } = DESIGNER_CONSTANTS.VISUAL;
+        const blur = Math.max(GLOW.MIN_BLUR, Math.min(GLOW.MAX_BLUR, GLOW.BASE_BLUR * intensity));
+        const alpha = Math.max(0.4, Math.min(1.0, GLOW.BASE_ALPHA * intensity));
 
         // Aplicar glow
         ctx.shadowBlur = blur;
@@ -65,7 +67,7 @@ export const VisualEffects = {
     drawResizeHandles(ctx, corners, zoomScale, style = {}) {
         const {
             color = ThemeManager.colors.primary,
-            handleSize = 12,
+            handleSize = DESIGNER_CONSTANTS.BADGE?.SIZE || 12,
             activeCorner = null
         } = style;
 
@@ -78,13 +80,14 @@ export const VisualEffects = {
             const size = (isActive ? handleSize * 1.2 : handleSize) / zoomScale;
 
             // Glow para handles
-            ctx.shadowBlur = isActive ? 15 : 8;
+            const { GLOW } = DESIGNER_CONSTANTS.VISUAL;
+            ctx.shadowBlur = isActive ? GLOW.BASE_BLUR : GLOW.MIN_BLUR;
             ctx.shadowColor = color;
 
-            // Handle cuadrado
+            const { VISUAL } = DESIGNER_CONSTANTS;
             ctx.fillStyle = isActive ? color : ThemeManager.colors.text;
             ctx.strokeStyle = color;
-            ctx.lineWidth = isActive ? 2 : 1.5;
+            ctx.lineWidth = isActive ? VISUAL.BORDER.HOVERED : 1.5;
 
             const halfSize = size / 2;
             ctx.fillRect(corner.x - halfSize, corner.y - halfSize, size, size);
@@ -92,8 +95,9 @@ export const VisualEffects = {
 
             // Glow adicional para active
             if (isActive) {
-                ctx.shadowBlur = 25;
-                ctx.lineWidth = 3;
+                const { GLOW, BORDER } = DESIGNER_CONSTANTS.VISUAL;
+                ctx.shadowBlur = GLOW.BASE_BLUR;
+                ctx.lineWidth = BORDER.SELECTED;
                 ctx.strokeRect(corner.x - halfSize, corner.y - halfSize, size, size);
             }
         });

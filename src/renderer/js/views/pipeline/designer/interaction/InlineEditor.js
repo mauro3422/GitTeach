@@ -2,6 +2,7 @@ import { DesignerEvents } from '../core/DesignerEvents.js';
 import { ThemeManager } from '../../../../core/ThemeManager.js';
 import { GeometryUtils } from '../GeometryUtils.js';
 import { CoordinateUtils } from '../CoordinateUtils.js';
+import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 
 export const InlineEditor = {
     activeRef: null, // { textarea, note, onSave, handlers } - includes event handlers for cleanup
@@ -141,13 +142,14 @@ export const InlineEditor = {
         textarea.style.height = `${h}px`;
 
         // FIXED: Sync font size with inflation logic
-        const baseFontSize = 18;
+        const { TYPOGRAPHY, DIMENSIONS } = DESIGNER_CONSTANTS;
+        const baseFontSize = TYPOGRAPHY.STICKY_FONT_SIZE;
         const fScale = GeometryUtils.getFontScale(zoom, baseFontSize);
         const physicalFontSize = baseFontSize * fScale * zoom;
 
         textarea.style.fontSize = `${physicalFontSize}px`;
-        textarea.style.lineHeight = `${(baseFontSize + 6) * fScale * zoom}px`;
-        textarea.style.padding = `${15 * fScale * zoom}px`;
+        textarea.style.lineHeight = `${(baseFontSize + TYPOGRAPHY.LINE_HEIGHT_OFFSET) * fScale * zoom}px`;
+        textarea.style.padding = `${DIMENSIONS.STICKY_NOTE.PADDING * fScale * zoom}px`;
 
     },
 

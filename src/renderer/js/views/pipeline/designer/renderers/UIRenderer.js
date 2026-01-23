@@ -5,6 +5,7 @@
 
 import { GeometryUtils } from '../GeometryUtils.js';
 import { ThemeManager } from '../../../../core/ThemeManager.js';
+import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 import { TextRenderer } from './TextRenderer.js';
 
 export const UIRenderer = {
@@ -22,12 +23,13 @@ export const UIRenderer = {
             // Adjust radius for tooltip offset based on inflation
             const radius = GeometryUtils.getNodeRadius(node, zoom) * zoom;
 
+            const { TOOLTIP } = DESIGNER_CONSTANTS.VISUAL;
             TextRenderer.drawTooltip(ctx, node.description, screenPos.x + radius, screenPos.y - radius, {
                 bgColor: ThemeManager.colors.tooltipBg,
                 borderColor: node.color || ThemeManager.colors.tooltipBorder,
                 textColor: ThemeManager.colors.text,
-                maxWidth: 220,
-                fontSize: 15
+                maxWidth: TOOLTIP.MAX_WIDTH,
+                fontSize: TOOLTIP.FONT_SIZE
             });
         });
     }
