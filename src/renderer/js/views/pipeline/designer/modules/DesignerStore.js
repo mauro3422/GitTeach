@@ -291,7 +291,7 @@ class DesignerStoreClass extends Store {
         return null;
     }
 
-    findDropTarget(draggingNodeId) {
+    findDropTarget(draggingNodeId, zoomScale = 1.0) {
         const draggingNode = this.state.nodes[draggingNodeId];
         if (!draggingNode) return null;
 
@@ -300,10 +300,10 @@ class DesignerStoreClass extends Store {
         for (let i = nodeList.length - 1; i >= 0; i--) {
             const container = nodeList[i];
             if (!container.isRepoContainer || container.id === draggingNodeId) continue;
-            const bounds = GeometryUtils.getContainerBounds(container, this.state.nodes, 1.0);
+            const bounds = GeometryUtils.getContainerBounds(container, this.state.nodes, zoomScale);
             if (GeometryUtils.isPointInRectangle(
                 { x: draggingNode.x, y: draggingNode.y },
-                { x: bounds.centerX, y: bounds.centerY, w: bounds.w, h: bounds.h }
+                { x: bounds.centerX, y: bounds.centerY, w: bounds.renderW || bounds.w, h: bounds.renderH || bounds.h }
             )) {
                 return container.id;
             }

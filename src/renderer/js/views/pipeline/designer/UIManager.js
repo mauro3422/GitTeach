@@ -41,9 +41,11 @@ export const UIManager = {
         if (resetBtn) {
             resetBtn.onclick = () => {
                 DesignerStore.loadInitialNodes();
+                // Use centralized setZoom method instead of direct mutation
+                DesignerInteraction.panZoomHandler.setZoom(1.0, null, () => {
+                    this.designerContext.render();
+                });
                 DesignerInteraction.state.panOffset = { x: 0, y: 0 };
-                DesignerInteraction.state.zoomScale = 1.0;
-                this.designerContext.render();
             };
         }
 

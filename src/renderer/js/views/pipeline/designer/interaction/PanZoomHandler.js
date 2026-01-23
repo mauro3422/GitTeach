@@ -73,6 +73,34 @@ export class PanZoomHandler extends InteractionHandler {
 
     // --- Specialized Methods ---
 
+    /**
+     * Centralized zoom setter - always use this to change zoom
+     * @param {number} newZoom - Target zoom level
+     * @param {Object} mousePos - Optional mouse position for zoom-to-point
+     * @param {Function} onUpdate - Optional callback after zoom change
+     * @returns {number} The clamped zoom value
+     */
+    setZoom(newZoom, mousePos = null, onUpdate = null) {
+        const clamped = Math.max(this.state.minZoom, Math.min(this.state.maxZoom, newZoom));
+
+        if (mousePos) {
+            // Zoom towards mouse position
+            const worldPos = CoordinateUtils.screenToWorld(mousePos, this.state);
+            this.state.zoomScale = clamped;
+
+            // Adjust pan to keep mouse position steady
+            const newScreenPos = CoordinateUtils.worldToScreen(worldPos, this.state);
+            this.state.panOffset.x += mousePos.x - newScreenPos.x;
+            this.state.panOffset.y += mousePos.y - newScreenPos.y;
+        } else {
+            // Simple zoom without panning
+            this.state.zoomScale = clamped;
+        }
+
+        if (onUpdate) onUpdate();
+        return clamped;
+    }
+
     handleWheel(e, onUpdate) {
         // PERF: Throttle wheel events to prevent render spam
         const now = performance.now();
@@ -87,20 +115,8 @@ export class PanZoomHandler extends InteractionHandler {
         const delta = deltaY > 0 ? 0.9 : 1.1;
         const nextZoom = this.state.zoomScale * delta;
 
-        if (nextZoom >= this.state.minZoom && nextZoom <= this.state.maxZoom) {
-            // Zoom towards mouse position
-            // Use local screenToWorld since we have the state here
-            const worldPos = CoordinateUtils.screenToWorld(mousePos, this.state);
-
-            this.state.zoomScale = nextZoom;
-
-            // Adjust pan
-            const newScreenPos = CoordinateUtils.worldToScreen(worldPos, this.state);
-            this.state.panOffset.x += mousePos.x - newScreenPos.x;
-            this.state.panOffset.y += mousePos.y - newScreenPos.y;
-
-            if (onUpdate) onUpdate();
-        }
+        // Use centralized setZoom method
+        this.setZoom(nextZoom, mousePos, onUpdate);
     }
 
     centerOnNode(node, canvasSize, drawerWidth = 0) {

@@ -267,7 +267,5 @@ export const DesignerInteraction = {
         const navState = this.state || { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 };
         return CoordinateUtils.screenToWorld(pos, navState);
     },
-    worldToScreen(pos) { return CoordinateUtils.worldToScreen(pos, this.state); },
-
     worldToScreen(pos) { return CoordinateUtils.worldToScreen(pos, this.state); }
 };

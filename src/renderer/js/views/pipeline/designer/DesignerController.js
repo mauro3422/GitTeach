@@ -281,7 +281,7 @@ class DesignerControllerClass extends BaseController {
 
         const interactionState = DesignerInteraction.getInteractionState();
         const dropTargetId = interactionState?.draggingId
-            ? DesignerStore.findDropTarget(interactionState.draggingId)
+            ? DesignerStore.findDropTarget(interactionState.draggingId, navState.zoomScale)
             : null;
 
         const resizingNodeId = (DesignerInteraction.resizeHandler && typeof DesignerInteraction.resizeHandler.getState === 'function')

@@ -115,22 +115,28 @@ export class ResizeHandler extends InteractionHandler {
         const startWidth = state.resizeStartLogicalSize.w;
         const startHeight = state.resizeStartLogicalSize.h;
         const margin = 40;
+        const zoom = this.controller.state?.zoomScale || 1.0;
 
         const scaleX = (newWidth - margin * 2) / Math.max(startWidth - margin * 2, 1);
         const scaleY = (newHeight - margin * 2) / Math.max(startHeight - margin * 2, 1);
 
+        // Get actual center from bounds (respects auto-layout)
+        const containerBounds = GeometryUtils.getContainerBounds(containerNode, nodes, zoom);
+        const centerX = containerBounds.centerX || containerNode.x;
+        const centerY = containerBounds.centerY || containerNode.y;
+
         const bounds = {
-            minX: containerNode.x - newWidth / 2 + margin,
-            minY: containerNode.y - newHeight / 2 + margin,
-            maxX: containerNode.x + newWidth / 2 - margin,
-            maxY: containerNode.y + newHeight / 2 - margin
+            minX: centerX - newWidth / 2 + margin,
+            minY: centerY - newHeight / 2 + margin,
+            maxX: centerX + newWidth / 2 - margin,
+            maxY: centerY + newHeight / 2 - margin
         };
 
         Object.values(nodes).forEach(child => {
             if (child.parentId === containerNode.id && state.resizeChildPositions[child.id]) {
                 const startRel = state.resizeChildPositions[child.id];
-                child.x = containerNode.x + startRel.relX * scaleX;
-                child.y = containerNode.y + startRel.relY * scaleY;
+                child.x = centerX + startRel.relX * scaleX;
+                child.y = centerY + startRel.relY * scaleY;
 
                 child.x = Math.max(bounds.minX, Math.min(bounds.maxX, child.x));
                 child.y = Math.max(bounds.minY, Math.min(bounds.maxY, child.y));
