@@ -10,7 +10,25 @@ All notable changes to the GitTeach project will be documented in this file.
 
 ---
 
+## [v2.80.0] - 2026-01-23
+
+### Added
+- [DesignerStore.js](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/src/renderer/js/views/pipeline/designer/modules/DesignerStore.js): Centralized interaction and camera state management.
+- [BoundsCalculator.js](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/src/renderer/js/views/pipeline/designer/utils/BoundsCalculator.js): Unified logic for world-space dimension calculations.
+
+### Changed
+- **Interaction Single Source of Truth**: Refactored `PanZoomHandler`, `ResizeHandler`, `DragStrategy`, and `DrawStrategy` to synchronize with `DesignerStore`.
+- **Simplified Facades**: Trimmed `DesignerInteraction.js` to act as a pure proxy for the global state.
+- **Visual Feedback**: Updated `VisualStateManager` to consume unified interaction state for glow, dimming, and highlight effects.
+
+### Fixed
+- **State Merging Bug**: Resolved issue where `setState` in `DesignerStore` was overwriting the entire node collection.
+- **Singleton Bifurcation**: Standardized module imports across 15+ test files to prevent multiple store instances.
+
+---
+
 ## [v2.79.0] - 2026-01-23
+
 
 ### Added
 - [DesignerConstants.js](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/src/renderer/js/views/pipeline/designer/DesignerConstants.js): Centralized source of truth for all designer parameters (dimensions, interactions, visual effects).

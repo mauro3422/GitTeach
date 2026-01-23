@@ -1,7 +1,7 @@
 // tests/sticky_note_visual_resize.test.js
 // Test para verificar que la solución de usar dimensiones visuales para handles funciona
 
-import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore';
+import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore.js';
 import { DesignerInteraction } from '../src/renderer/js/views/pipeline/designer/DesignerInteraction';
 import { ResizeHandler } from '../src/renderer/js/views/pipeline/designer/interaction/ResizeHandler';
 import { GeometryUtils } from '../src/renderer/js/views/pipeline/designer/GeometryUtils';
@@ -21,13 +21,13 @@ describe('Sticky Note Visual Resize Solution Verification', () => {
         container.id = 'designer-container';
         document.body.appendChild(container);
 
-        DesignerStore.setState({ 
-            nodes: {}, 
+        DesignerStore.setState({
+            nodes: {},
             connections: [],
             navigation: { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 },
             interaction: { hoveredNodeId: null, selectedNodeId: null, selectedConnectionId: null, draggingNodeId: null, resizingNodeId: null }
         });
-        
+
         DesignerInteraction.init(canvas, () => DesignerStore.state.nodes, () => { });
         resizeHandler = new ResizeHandler(DesignerInteraction);
     });
@@ -45,22 +45,22 @@ describe('Sticky Note Visual Resize Solution Verification', () => {
 
         // Get visual bounds as calculated by GeometryUtils
         const bounds = GeometryUtils.getStickyNoteBounds(node, null, 1.0);
-        
+
         // The visual dimensions may differ from logical dimensions due to text content
         const visualW = bounds.renderW || bounds.w;
         const visualH = bounds.renderH || bounds.h;
         const logicalW = node.dimensions.w;
         const logicalH = node.dimensions.h;
-        
+
         // For nodes with substantial text, visual and logical dimensions may differ
         // Our solution should use visual dimensions for handle placement
-        
+
         // Calculate corner based on visual center and visual dimensions
         const visualCenterX = bounds.centerX || node.x;
         const visualCenterY = bounds.centerY || node.y;
         const cornerX = visualCenterX + visualW / 2;
         const cornerY = visualCenterY + visualH / 2;
-        
+
         // The handle should be detected at the visual corner
         const worldPos = { x: cornerX, y: cornerY };
         const hit = resizeHandler.findResizeHandle(worldPos);
@@ -79,7 +79,7 @@ describe('Sticky Note Visual Resize Solution Verification', () => {
             isRepoContainer: true,
             dimensions: { w: 200, h: 150, isManual: true }
         };
-        
+
         const stickyNote = {
             id: 'test-sticky-consistency',
             x: 100,
@@ -88,7 +88,7 @@ describe('Sticky Note Visual Resize Solution Verification', () => {
             text: 'Test text',
             dimensions: { w: 180, h: 100, isManual: true }
         };
-        
+
         DesignerStore.state.nodes = { [container.id]: container, [stickyNote.id]: stickyNote };
 
         // Both should have handles detected at their visual boundaries

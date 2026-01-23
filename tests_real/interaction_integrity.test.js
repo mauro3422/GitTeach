@@ -81,14 +81,14 @@ describe('Interaction & Overlay Integrity', () => {
             // First update handles the initial jump
             DesignerInteraction.resizeHandler.update({});
 
-            let prevW = node.dimensions.w;
+            let prevW = DesignerStore.state.nodes[node.id].dimensions.w;
             let growthRate = 0;
 
             // Subsequent updates should be perfectly stable (0 growth)
             for (let i = 0; i < iterations; i++) {
                 DesignerInteraction.resizeHandler.update({});
 
-                const currentW = node.dimensions.w;
+                const currentW = DesignerStore.state.nodes[node.id].dimensions.w;
                 growthRate = (currentW - prevW) / Math.max(1, prevW);
 
                 // Stability check: should not grow further if mouse is stationary
@@ -104,14 +104,15 @@ describe('Interaction & Overlay Integrity', () => {
 
             // Expected logical width = original + (worldDelta / actualScale)
             // If scale is correct, moving the mouse to the visual corner should stay glued.
-            const newW = node.dimensions.w;
+            const updatedNode = DesignerStore.state.nodes[node.id];
+            const newW = updatedNode.dimensions.w;
 
             console.log(`[Test] New Logical Width: ${newW}`);
 
             // If it "Jumped", newW will be huge.
             // A perfect sync means: node.x + (newW * scale / 2) == targetWorldX
-            const finalBounds = GeometryUtils.getStickyNoteBounds(node, null, zoom);
-            const visualCornerX = node.x + finalBounds.renderW / 2;
+            const finalBounds = GeometryUtils.getStickyNoteBounds(updatedNode, null, zoom);
+            const visualCornerX = updatedNode.x + finalBounds.renderW / 2;
 
             expect(visualCornerX).toBeCloseTo(targetWorldX, 1);
         });
@@ -149,12 +150,14 @@ describe('Interaction & Overlay Integrity', () => {
 
             DesignerInteraction.resizeHandler.update({});
 
+            const updatedContainer = DesignerStore.state.nodes[container.id];
+            const updatedChild = DesignerStore.state.nodes[child.id];
+
             // Container size should have grown
-            expect(container.dimensions.w).toBeGreaterThan(500);
+            expect(updatedContainer.dimensions.w).toBeGreaterThan(500);
 
             // Child position should have shifted proportionally
-            // RelX was 100. If we doubled size (ignoring margins for simplicity in this mental check), it should stay proportionate.
-            expect(child.x).toBeGreaterThan(100);
+            expect(updatedChild.x).toBeGreaterThan(100);
         });
     });
 

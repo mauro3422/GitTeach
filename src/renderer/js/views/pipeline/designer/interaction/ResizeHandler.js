@@ -41,6 +41,8 @@ export class ResizeHandler extends InteractionHandler {
             },
             resizeChildPositions: this.captureChildPositions(node, nodes)
         });
+
+        DesignerStore.setResizing(nodeId);
     }
 
     onUpdate(e) {
@@ -62,13 +64,14 @@ export class ResizeHandler extends InteractionHandler {
         const vScale = GeometryUtils.getVisualScale(zoom);
 
         // Logic normalization: dx/dy are world coordinates. 
-        // We do NOT divide by vScale here because we are updating logical dimensions which are 1:1 with world.
+        // CRITICAL SYNC: Since the visual box is inflated by vScale, a 1-unit movement of the mouse
+        // corresponds to a 1/vScale movement in logical dimensions to keep the handle under the cursor.
         const dimensions = GeometryUtils.calculateResizeDelta(
             state.resizeCorner,
             logicalStart.w,
             logicalStart.h,
-            dx,
-            dy
+            dx / vScale,
+            dy / vScale
         );
 
         let newW = dimensions.w;
@@ -86,7 +89,7 @@ export class ResizeHandler extends InteractionHandler {
 
         // For containers, ensure minimum width fits the title text (centralized calculation)
         if (node.isRepoContainer && node.label) {
-            actualMinW = Math.max(actualMinW, LayoutUtils.calculateTitleMinWidth(node.label));
+            actualMinW = Math.max(actualMinW, BoundsCalculator.calculateTitleMinWidth(node.label));
         }
 
         newW = Math.max(actualMinW, newW);
@@ -113,15 +116,18 @@ export class ResizeHandler extends InteractionHandler {
         }
         DesignerStore.setState({ nodes: nextNodes }, 'RESIZE_DRAG');
 
+
         // Trigger local renderer
         this.controller.onUpdate?.();
     }
 
     onEnd(e) {
+        DesignerStore.setResizing(null);
         this.clearState();
     }
 
     onCancel() {
+        DesignerStore.setResizing(null);
         this.clearState();
     }
 
@@ -207,7 +213,19 @@ export class ResizeHandler extends InteractionHandler {
             }
 
             const hit = this._checkNodeHandles(node, worldPos, nodes, zoom);
+            if (hit && (process.env.NODE_ENV === 'test')) {
+                console.log(`[ResizeHit] Found handle for ${node.id} at ${hit.corner}`);
+            }
             if (hit) return hit;
+        }
+
+        if (process.env.NODE_ENV === 'test') {
+            const nodeList = Object.values(nodes);
+            console.log(`[ResizeHit] NOT FOUND. Nodes checked: ${nodeList.length}. targetWorldPos: ${worldPos.x},${worldPos.y}`);
+            if (nodeList.length > 0) {
+                const sync = DimensionSync.getSyncDimensions(nodeList[0], nodes, zoom);
+                console.log(`[ResizeHit] Node[0] (${nodeList[0].id}) sync bounds: w=${sync.w}, h=${sync.h}, cx=${sync.centerX}, cy=${sync.centerY}`);
+            }
         }
 
         // If no handles are found, return null
@@ -225,6 +243,9 @@ export class ResizeHandler extends InteractionHandler {
 
         // Use the unified synchronization system
         const sync = DimensionSync.getSyncDimensions(node, nodes, zoom);
+        if (node.id.includes('user') || process.env.NODE_ENV === 'test') {
+            console.log(`[ResizeDebug] Node:${node.id} Sync:${JSON.stringify(sync)} Zoom:${zoom}`);
+        }
         const corners = GeometryUtils.getRectCorners(sync.centerX, sync.centerY, sync.w, sync.h);
 
         let bestHit = null;

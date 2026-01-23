@@ -25,22 +25,15 @@ export const DesignerInteraction = {
     get dragStrategy() { return this.strategyManager.dragStrategy; },
     get drawStrategy() { return this.strategyManager.drawStrategy; },
     get activeStrategy() { return this.strategyManager.activeStrategy; },
-    get hoveredNodeId() { return this.hoverManager.getHoveredNodeId(); },
-    get state() { return this.panZoomHandler ? this.panZoomHandler.getState() : { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 }; },
+    get hoveredNodeId() { return DesignerStore.state.interaction.hoveredNodeId; },
+    get state() { return DesignerStore.state.camera; },
     get activeConnection() { return this.strategyManager.getConnectionState(); },
 
     /**
      * Get visual state for a node (facade for VisualStateManager)
      */
     getInteractionState() {
-        return {
-            hoveredId: this.hoveredNodeId,
-            selectedId: DesignerStore.state.interaction.selectedNodeId,
-            selectedConnectionId: DesignerStore.state.interaction.selectedConnectionId,
-            draggingId: this.strategyManager.getDragState()?.draggingNodeId,
-            activeConnectionId: this.strategyManager.getConnectionState()?.fromNode?.id,
-            resizingId: this.resizeHandler?.isActive() ? this.resizeHandler.getState().resizingNodeId : null
-        };
+        return DesignerStore.state.interaction;
     },
 
     getVisualState(node) {

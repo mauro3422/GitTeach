@@ -22,12 +22,14 @@ export const VisualStateManager = {
      */
     getVisualState(node, interactionState = {}) {
         const {
-            hoveredId,
-            selectedId,
-            draggingId,
-            activeConnectionId,
-            resizingId
+            hoveredNodeId: hoveredId,
+            selectedNodeId: selectedId,
+            draggingNodeId: draggingId,
+            activeMode,
+            resizingNodeId: resizingId
         } = interactionState;
+
+        const isDrawing = activeMode === 'DRAW';
 
         const nodeId = node.id;
         let state = this.STATES.NORMAL;
@@ -52,9 +54,9 @@ export const VisualStateManager = {
             glowIntensity = glow.medium;
             opacity = DESIGNER_CONSTANTS.VISUAL.OPACITY.DRAGGING;
             zIndex = layers.dragging;
-        } else if (activeConnectionId === nodeId) {
+        } else if (isDrawing && selectedId === nodeId) { // The node starting the connection
             state = this.STATES.CONNECTING;
-            glowIntensity = glow.high; // Up from 2.0
+            glowIntensity = glow.high;
             borderWidth = DESIGNER_CONSTANTS.VISUAL.BORDER.CONNECTING;
             zIndex = layers.connecting;
         } else if (selectedId === nodeId) {
@@ -75,7 +77,7 @@ export const VisualStateManager = {
             opacity *= DESIGNER_CONSTANTS.VISUAL.OPACITY.DIMMED_DRAG_GLOBAL;
         }
 
-        if (activeConnectionId && activeConnectionId !== nodeId) {
+        if (isDrawing && selectedId !== nodeId) {
             // Durante conexión, otros nodos se atenúan ligeramente
             opacity *= DESIGNER_CONSTANTS.VISUAL.OPACITY.DIMMED_CONN_GLOBAL;
         }
@@ -109,7 +111,9 @@ export const VisualStateManager = {
      * @returns {number} Opacidad 0.0-1.0
      */
     getDimmedOpacity(node, interactionState = {}) {
-        const { draggingId, activeConnectionId } = interactionState;
+        const { draggingNodeId: draggingId, activeMode } = interactionState;
+        const isDrawing = activeMode === 'DRAW';
+        const selectedId = interactionState.selectedNodeId;
 
         if (!draggingId && !activeConnectionId) return DESIGNER_CONSTANTS.VISUAL.OPACITY.DEFAULT;
 
@@ -124,7 +128,7 @@ export const VisualStateManager = {
         }
 
         // Durante conexión, reducción ligera
-        if (activeConnectionId) {
+        if (isDrawing) {
             return DESIGNER_CONSTANTS.VISUAL.OPACITY.DIMMED_CONN_GLOBAL;
         }
 
@@ -149,8 +153,8 @@ export const VisualStateManager = {
      * @returns {boolean}
      */
     shouldHighlight(node, interactionState = {}) {
-        const { hoveredId, selectedId, activeConnectionId } = interactionState;
-        return [hoveredId, selectedId, activeConnectionId].includes(node.id);
+        const { hoveredNodeId, selectedNodeId, activeMode } = interactionState;
+        return [hoveredNodeId, selectedNodeId].includes(node.id) || (activeMode === 'DRAW' && selectedNodeId === node.id);
     },
 
     /**

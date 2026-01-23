@@ -1,7 +1,7 @@
 // tests/real_world_resize_test.test.js
 // Test para verificar el comportamiento real del sistema de redimensionamiento
 
-import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore';
+import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore.js';
 import { DesignerInteraction } from '../src/renderer/js/views/pipeline/designer/DesignerInteraction';
 import { ResizeHandler } from '../src/renderer/js/views/pipeline/designer/interaction/ResizeHandler';
 import { GeometryUtils } from '../src/renderer/js/views/pipeline/designer/GeometryUtils';
@@ -21,14 +21,15 @@ describe('Real World Resize System Test', () => {
         container.id = 'designer-container';
         document.body.appendChild(container);
 
-        DesignerStore.setState({ 
-            nodes: {}, 
+        DesignerStore.setState({
+            nodes: {},
             connections: [],
-            navigation: { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 },
+            camera: { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 },
             interaction: { hoveredNodeId: null, selectedNodeId: null, selectedConnectionId: null, draggingNodeId: null, resizingNodeId: null }
         });
-        
+
         DesignerInteraction.init(canvas, () => DesignerStore.state.nodes, () => { });
+        DesignerInteraction.panZoomHandler.setState({ panOffset: { x: 0, y: 0 }, zoomScale: 1.0 });
         resizeHandler = new ResizeHandler(DesignerInteraction);
     });
 
@@ -42,21 +43,21 @@ describe('Real World Resize System Test', () => {
             text: 'Important note with some content',
             dimensions: { w: 200, h: 120, isManual: true }
         };
-        
-        DesignerStore.state.nodes[stickyNote.id] = stickyNote;
+
+        DesignerStore.setState({ nodes: { [stickyNote.id]: stickyNote } });
 
         // Simular el proceso real: usuario mueve el mouse cerca del borde derecho inferior
         // Calcular la posición de la esquina SE usando el sistema de bounds visuales
         const bounds = GeometryUtils.getStickyNoteBounds(stickyNote, null, 1.0);
         const cornerX = bounds.centerX + bounds.renderW / 2;
         const cornerY = bounds.centerY + bounds.renderH / 2;
-        
+
         // Este es el punto donde el usuario haría clic para redimensionar
         const mouseWorldPos = { x: cornerX, y: cornerY };
-        
+
         // Verificar que el sistema detecte el handle de redimensionamiento
         const handleHit = resizeHandler.findResizeHandle(mouseWorldPos);
-        
+
         expect(handleHit).not.toBeNull();
         expect(handleHit.nodeId).toBe(stickyNote.id);
         expect(handleHit.corner).toBe('se'); // southeast corner
@@ -71,20 +72,20 @@ describe('Real World Resize System Test', () => {
             isRepoContainer: true,
             dimensions: { w: 250, h: 180, isManual: true }
         };
-        
-        DesignerStore.state.nodes[container.id] = container;
+
+        DesignerStore.setState({ nodes: { [container.id]: container } });
 
         // Calcular la posición de la esquina SE usando el sistema de bounds visuales
         const bounds = GeometryUtils.getContainerBounds(container, DesignerStore.state.nodes, 1.0);
         const cornerX = bounds.centerX + bounds.renderW / 2;
         const cornerY = bounds.centerY + bounds.renderH / 2;
-        
+
         // Este es el punto donde el usuario haría clic para redimensionar
         const mouseWorldPos = { x: cornerX, y: cornerY };
-        
+
         // Verificar que el sistema detecte el handle de redimensionamiento
         const handleHit = resizeHandler.findResizeHandle(mouseWorldPos);
-        
+
         expect(handleHit).not.toBeNull();
         expect(handleHit.nodeId).toBe(container.id);
         expect(handleHit.corner).toBe('se'); // southeast corner
@@ -99,8 +100,8 @@ describe('Real World Resize System Test', () => {
             text: 'Zoom test',
             dimensions: { w: 180, h: 100, isManual: true }
         };
-        
-        DesignerStore.state.nodes[stickyNote.id] = stickyNote;
+
+        DesignerStore.setState({ nodes: { [stickyNote.id]: stickyNote } });
 
         // Probar en zoom normal (1.0x)
         DesignerInteraction.panZoomHandler.setState({ panOffset: { x: 0, y: 0 }, zoomScale: 1.0 });
@@ -108,7 +109,7 @@ describe('Real World Resize System Test', () => {
         const cornerXNormal = boundsNormal.centerX + boundsNormal.renderW / 2;
         const cornerYNormal = boundsNormal.centerY + boundsNormal.renderH / 2;
         const hitNormal = resizeHandler.findResizeHandle({ x: cornerXNormal, y: cornerYNormal });
-        
+
         expect(hitNormal).not.toBeNull();
         expect(hitNormal.nodeId).toBe(stickyNote.id);
 
@@ -118,7 +119,7 @@ describe('Real World Resize System Test', () => {
         const cornerXLow = boundsLow.centerX + boundsLow.renderW / 2;
         const cornerYLow = boundsLow.centerY + boundsLow.renderH / 2;
         const hitLow = resizeHandler.findResizeHandle({ x: cornerXLow, y: cornerYLow });
-        
+
         expect(hitLow).not.toBeNull();
         expect(hitLow.nodeId).toBe(stickyNote.id);
 
@@ -128,7 +129,7 @@ describe('Real World Resize System Test', () => {
         const cornerXHigh = boundsHigh.centerX + boundsHigh.renderW / 2;
         const cornerYHigh = boundsHigh.centerY + boundsHigh.renderH / 2;
         const hitHigh = resizeHandler.findResizeHandle({ x: cornerXHigh, y: cornerYHigh });
-        
+
         expect(hitHigh).not.toBeNull();
         expect(hitHigh.nodeId).toBe(stickyNote.id);
     });
@@ -142,7 +143,7 @@ describe('Real World Resize System Test', () => {
             text: 'Short',
             dimensions: { w: 180, h: 100, isManual: true }
         };
-        
+
         const longTextSticky = {
             id: 'long-text',
             x: 100,
@@ -152,10 +153,12 @@ describe('Real World Resize System Test', () => {
             dimensions: { w: 180, h: 100, isManual: true }
         };
 
-        DesignerStore.state.nodes = { 
-            [shortTextSticky.id]: shortTextSticky, 
-            [longTextSticky.id]: longTextSticky 
-        };
+        DesignerStore.setState({
+            nodes: {
+                [shortTextSticky.id]: shortTextSticky,
+                [longTextSticky.id]: longTextSticky
+            }
+        });
 
         // Obtener los bounds visuales para ambos sticky notes
         const shortBounds = GeometryUtils.getStickyNoteBounds(shortTextSticky, null, 1.0);

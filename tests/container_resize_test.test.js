@@ -2,7 +2,7 @@
 // Test específico para verificar que el sistema de redimensionamiento funcione para containers
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore';
+import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore.js';
 import { ResizeHandler } from '../src/renderer/js/views/pipeline/designer/interaction/ResizeHandler';
 import { GeometryUtils } from '../src/renderer/js/views/pipeline/designer/GeometryUtils';
 
@@ -21,21 +21,21 @@ describe('Container Resize Functionality Test', () => {
         container.id = 'designer-container';
         document.body.appendChild(container);
 
-        DesignerStore.setState({ 
-            nodes: {}, 
+        DesignerStore.setState({
+            nodes: {},
             connections: [],
-            navigation: { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 },
+            camera: { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 },
             interaction: { hoveredNodeId: null, selectedNodeId: null, selectedConnectionId: null, draggingNodeId: null, resizingNodeId: null }
         });
-        
+
         // Crear un controlador simulado para el resize handler
         const mockController = {
-            nodes: DesignerStore.state.nodes,
+            get nodes() { return DesignerStore.state.nodes; },
             state: { zoomScale: 1.0 },
             screenToWorld: (pos) => pos,
             getMousePos: (e) => ({ x: e.clientX, y: e.clientY })
         };
-        
+
         resizeHandler = new ResizeHandler(mockController);
     });
 
@@ -47,7 +47,7 @@ describe('Container Resize Functionality Test', () => {
             isRepoContainer: true,  // Este es un container, no un sticky note
             dimensions: { w: 250, h: 200, isManual: true }
         };
-        
+
         DesignerStore.state.nodes[container.id] = container;
 
         // Calcular la posición de la esquina SE usando la lógica de dimensiones
@@ -57,7 +57,7 @@ describe('Container Resize Functionality Test', () => {
         const centerY = bounds.centerY || container.y;
         const w = (bounds.renderW || bounds.w || container.dimensions.w);
         const h = (bounds.renderH || bounds.h || container.dimensions.h);
-        
+
         // Calcular la esquina SE
         const cornerX = centerX + w / 2;
         const cornerY = centerY + h / 2;
@@ -79,7 +79,7 @@ describe('Container Resize Functionality Test', () => {
             isRepoContainer: true,
             dimensions: { w: 200, h: 150, isManual: true }
         };
-        
+
         const stickyNote = {
             id: 'simultaneous-sticky',
             x: 100,

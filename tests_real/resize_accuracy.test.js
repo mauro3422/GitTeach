@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore';
+import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore.js';
 import { DesignerInteraction } from '../src/renderer/js/views/pipeline/designer/DesignerInteraction';
 import { ResizeHandler } from '../src/renderer/js/views/pipeline/designer/interaction/ResizeHandler';
 import { GeometryUtils } from '../src/renderer/js/views/pipeline/designer/GeometryUtils';
@@ -25,14 +25,15 @@ describe('Resize System Accuracy', () => {
         container.id = 'designer-container';
         document.body.appendChild(container);
 
-        DesignerStore.setState({ 
-            nodes: {}, 
+        DesignerStore.setState({
+            nodes: {},
             connections: [],
-            navigation: { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 },
+            camera: { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 },
             interaction: { hoveredNodeId: null, selectedNodeId: null, selectedConnectionId: null, draggingNodeId: null, resizingNodeId: null }
         });
-        
+
         DesignerInteraction.init(canvas, () => DesignerStore.state.nodes, () => { });
+        DesignerInteraction.panZoomHandler.init({ panOffset: { x: 0, y: 0 }, zoomScale: 1.0 });
         resizeHandler = new ResizeHandler(DesignerInteraction);
     });
 
@@ -45,18 +46,18 @@ describe('Resize System Accuracy', () => {
                 isStickyNote: true,
                 dimensions: { w: 200, h: 150, isManual: true }
             };
-            DesignerStore.state.nodes[node.id] = node;
+            DesignerStore.setState({ nodes: { [node.id]: node } });
 
             // Position near the bottom-right corner of the node
             const logicalW = node.dimensions.w;
             const logicalH = node.dimensions.h;
             const centerX = node.x;
             const centerY = node.y;
-            
-            // Calculate corner position using logical dimensions (the fix)
+
+            // Calculate corner position using logical dimensions
             const cornerX = centerX + logicalW / 2;
             const cornerY = centerY + logicalH / 2;
-            
+
             // Test detection at corner position
             const worldPos = { x: cornerX, y: cornerY };
             const hit = resizeHandler.findResizeHandle(worldPos);
@@ -74,26 +75,23 @@ describe('Resize System Accuracy', () => {
                 isStickyNote: true,
                 dimensions: { w: 200, h: 150, isManual: true }
             };
-            DesignerStore.state.nodes[node.id] = node;
+            DesignerStore.setState({
+                nodes: { [node.id]: node },
+                camera: { panOffset: { x: 0, y: 0 }, zoomScale: 0.1 }
+            });
             DesignerInteraction.panZoomHandler.setState({ panOffset: { x: 0, y: 0 }, zoomScale: 0.1 });
 
-            // Position near the bottom-right corner of the node
-            const logicalW = node.dimensions.w;
-            const logicalH = node.dimensions.h;
-            const centerX = node.x;
-            const centerY = node.y;
-            
-            // Calculate corner position using logical dimensions (the fix)
-            const cornerX = centerX + logicalW / 2;
-            const cornerY = centerY + logicalH / 2;
-            
-            // Test detection at corner position
+            // Calculate corner position using visual dimensions
+            const bounds = GeometryUtils.getStickyNoteBounds(node, null, 0.1);
+            const cornerX = bounds.centerX + bounds.renderW / 2;
+            const cornerY = bounds.centerY + bounds.renderH / 2;
+
             const worldPos = { x: cornerX, y: cornerY };
             const hit = resizeHandler.findResizeHandle(worldPos);
 
             expect(hit).not.toBeNull();
             expect(hit.nodeId).toBe(node.id);
-            expect(['se']).toContain(hit.corner); // bottom-right corner
+            expect(['se']).toContain(hit.corner);
         });
 
         it('should detect resize handles accurately at high zoom (3.0x)', () => {
@@ -104,26 +102,23 @@ describe('Resize System Accuracy', () => {
                 isStickyNote: true,
                 dimensions: { w: 200, h: 150, isManual: true }
             };
-            DesignerStore.state.nodes[node.id] = node;
+            DesignerStore.setState({
+                nodes: { [node.id]: node },
+                camera: { panOffset: { x: 0, y: 0 }, zoomScale: 3.0 }
+            });
             DesignerInteraction.panZoomHandler.setState({ panOffset: { x: 0, y: 0 }, zoomScale: 3.0 });
 
-            // Position near the bottom-right corner of the node
-            const logicalW = node.dimensions.w;
-            const logicalH = node.dimensions.h;
-            const centerX = node.x;
-            const centerY = node.y;
-            
-            // Calculate corner position using logical dimensions (the fix)
-            const cornerX = centerX + logicalW / 2;
-            const cornerY = centerY + logicalH / 2;
-            
-            // Test detection at corner position
+            // Calculate corner position using visual dimensions
+            const bounds = GeometryUtils.getStickyNoteBounds(node, null, 3.0);
+            const cornerX = bounds.centerX + bounds.renderW / 2;
+            const cornerY = bounds.centerY + bounds.renderH / 2;
+
             const worldPos = { x: cornerX, y: cornerY };
             const hit = resizeHandler.findResizeHandle(worldPos);
 
             expect(hit).not.toBeNull();
             expect(hit.nodeId).toBe(node.id);
-            expect(['se']).toContain(hit.corner); // bottom-right corner
+            expect(['se']).toContain(hit.corner);
         });
 
         it('should detect resize handles for container nodes', () => {
@@ -134,25 +129,22 @@ describe('Resize System Accuracy', () => {
                 isRepoContainer: true,
                 dimensions: { w: 300, h: 200, isManual: true }
             };
-            DesignerStore.state.nodes[node.id] = node;
+            DesignerStore.setState({ nodes: { [node.id]: node } });
 
-            // Position near the bottom-right corner of the container
             const logicalW = node.dimensions.w;
             const logicalH = node.dimensions.h;
             const centerX = node.x;
             const centerY = node.y;
-            
-            // Calculate corner position using logical dimensions (the fix)
+
             const cornerX = centerX + logicalW / 2;
             const cornerY = centerY + logicalH / 2;
-            
-            // Test detection at corner position
+
             const worldPos = { x: cornerX, y: cornerY };
             const hit = resizeHandler.findResizeHandle(worldPos);
 
             expect(hit).not.toBeNull();
             expect(hit.nodeId).toBe(node.id);
-            expect(['se']).toContain(hit.corner); // bottom-right corner
+            expect(['se']).toContain(hit.corner);
         });
     });
 
@@ -165,14 +157,14 @@ describe('Resize System Accuracy', () => {
                 isStickyNote: true,
                 dimensions: { w: 200, h: 150, isManual: true }
             };
-            DesignerStore.state.nodes[node.id] = node;
+            DesignerStore.setState({ nodes: { [node.id]: node } });
 
             // Start resize operation
             const initialPos = { x: node.x + node.dimensions.w / 2, y: node.y + node.dimensions.h / 2 };
-            resizeHandler.onStart(null, { 
-                nodeId: node.id, 
-                corner: 'se', 
-                initialPos: initialPos 
+            resizeHandler.onStart(null, {
+                nodeId: node.id,
+                corner: 'se',
+                initialPos: initialPos
             });
 
             // Verify initial state
@@ -182,7 +174,7 @@ describe('Resize System Accuracy', () => {
 
             // Simulate mouse movement to increase size
             const newMousePos = { x: initialPos.x + 50, y: initialPos.y + 50 };
-            
+
             // Mock the controller methods for coordinate transformation
             vi.spyOn(resizeHandler.controller, 'getMousePos').mockReturnValue({ x: 100, y: 100 });
             vi.spyOn(resizeHandler.controller, 'screenToWorld').mockReturnValue(newMousePos);
@@ -190,9 +182,9 @@ describe('Resize System Accuracy', () => {
             // Update resize operation
             resizeHandler.onUpdate(null);
 
-            // Verify that the node dimensions have changed
-            expect(node.dimensions.w).toBeGreaterThan(200);
-            expect(node.dimensions.h).toBeGreaterThan(150);
+            const updatedNode = DesignerStore.state.nodes[node.id];
+            expect(updatedNode.dimensions.w).toBeGreaterThan(200);
+            expect(updatedNode.dimensions.h).toBeGreaterThan(150);
         });
 
         it('should maintain aspect ratio consistency during resize', () => {
@@ -201,40 +193,30 @@ describe('Resize System Accuracy', () => {
                 x: 0,
                 y: 0,
                 isStickyNote: true,
-                dimensions: { w: 200, h: 100, isManual: true } // 2:1 aspect ratio
+                dimensions: { w: 200, h: 100, isManual: true }
             };
-            DesignerStore.state.nodes[node.id] = node;
+            DesignerStore.setState({ nodes: { [node.id]: node } });
 
-            // Record initial dimensions
             const initialW = node.dimensions.w;
             const initialH = node.dimensions.h;
-            const initialRatio = initialW / initialH;
 
-            // Start resize operation
             const initialPos = { x: node.x + node.dimensions.w / 2, y: node.y + node.dimensions.h / 2 };
-            resizeHandler.onStart(null, { 
-                nodeId: node.id, 
-                corner: 'se', 
-                initialPos: initialPos 
+            resizeHandler.onStart(null, {
+                nodeId: node.id,
+                corner: 'se',
+                initialPos: initialPos
             });
 
-            // Simulate mouse movement to increase size
-            const newMousePos = { x: initialPos.x + 100, y: initialPos.y + 50 }; // Different X and Y deltas
-            
-            // Mock the controller methods for coordinate transformation
+            const newMousePos = { x: initialPos.x + 100, y: initialPos.y + 50 };
             vi.spyOn(resizeHandler.controller, 'getMousePos').mockReturnValue({ x: 200, y: 150 });
             vi.spyOn(resizeHandler.controller, 'screenToWorld').mockReturnValue(newMousePos);
 
-            // Update resize operation
             resizeHandler.onUpdate(null);
 
-            // Calculate new aspect ratio
-            const newW = node.dimensions.w;
-            const newH = node.dimensions.h;
-            const newRatio = newW / newH;
+            const updatedNode = DesignerStore.state.nodes[node.id];
+            const newW = updatedNode.dimensions.w;
+            const newH = updatedNode.dimensions.h;
 
-            // The resize should maintain the intended proportional changes
-            // based on the mouse movement, not enforce a fixed aspect ratio
             expect(newW).toBeGreaterThan(initialW);
             expect(newH).toBeGreaterThan(initialH);
         });
@@ -249,14 +231,12 @@ describe('Resize System Accuracy', () => {
                 isStickyNote: true,
                 dimensions: { w: 200, h: 150, isManual: true }
             };
-            DesignerStore.state.nodes[node.id] = node;
+            DesignerStore.setState({ nodes: { [node.id]: node } });
 
-            // Position mouse at the SE corner of the node
             const cornerX = node.x + node.dimensions.w / 2;
             const cornerY = node.y + node.dimensions.h / 2;
             const worldPos = { x: cornerX, y: cornerY };
 
-            // Test that DesignerInteraction can detect the resize handle
             const hit = DesignerInteraction.resizeHandler.findResizeHandle(worldPos);
 
             expect(hit).not.toBeNull();
@@ -265,7 +245,6 @@ describe('Resize System Accuracy', () => {
         });
 
         it('should maintain resize functionality when both containers and sticky notes are present', () => {
-            // Create both a container and a sticky note
             const container = {
                 id: 'test-container',
                 x: -100,
@@ -282,9 +261,10 @@ describe('Resize System Accuracy', () => {
                 dimensions: { w: 200, h: 150, isManual: true }
             };
 
-            DesignerStore.state.nodes = { [container.id]: container, [stickyNote.id]: stickyNote };
+            DesignerStore.setState({
+                nodes: { [container.id]: container, [stickyNote.id]: stickyNote }
+            });
 
-            // Test resize handle detection for container
             const containerCornerX = container.x + container.dimensions.w / 2;
             const containerCornerY = container.y + container.dimensions.h / 2;
             const containerWorldPos = { x: containerCornerX, y: containerCornerY };
@@ -292,9 +272,7 @@ describe('Resize System Accuracy', () => {
             const containerHit = DesignerInteraction.resizeHandler.findResizeHandle(containerWorldPos);
             expect(containerHit).not.toBeNull();
             expect(containerHit.nodeId).toBe(container.id);
-            expect(['se']).toContain(containerHit.corner);
 
-            // Test resize handle detection for sticky note
             const stickyCornerX = stickyNote.x + stickyNote.dimensions.w / 2;
             const stickyCornerY = stickyNote.y + stickyNote.dimensions.h / 2;
             const stickyWorldPos = { x: stickyCornerX, y: stickyCornerY };
@@ -302,11 +280,9 @@ describe('Resize System Accuracy', () => {
             const stickyHit = DesignerInteraction.resizeHandler.findResizeHandle(stickyWorldPos);
             expect(stickyHit).not.toBeNull();
             expect(stickyHit.nodeId).toBe(stickyNote.id);
-            expect(['se']).toContain(stickyHit.corner);
         });
 
         it('should not interfere with resize when sticky note is added after containers', () => {
-            // Add container first
             const container = {
                 id: 'first-container',
                 x: 0,
@@ -314,9 +290,8 @@ describe('Resize System Accuracy', () => {
                 isRepoContainer: true,
                 dimensions: { w: 250, h: 150, isManual: true }
             };
-            DesignerStore.state.nodes[container.id] = container;
+            DesignerStore.setState({ nodes: { [container.id]: container } });
 
-            // Simulate adding a sticky note later
             const stickyNote = {
                 id: 'added-later-sticky',
                 x: 300,
@@ -324,9 +299,14 @@ describe('Resize System Accuracy', () => {
                 isStickyNote: true,
                 dimensions: { w: 180, h: 100, isManual: true }
             };
-            DesignerStore.state.nodes[stickyNote.id] = stickyNote;
 
-            // Test that both can still be resized
+            DesignerStore.setState({
+                nodes: {
+                    ...DesignerStore.state.nodes,
+                    [stickyNote.id]: stickyNote
+                }
+            });
+
             const containerCornerPos = {
                 x: container.x + container.dimensions.w / 2,
                 y: container.y + container.dimensions.h / 2

@@ -1,7 +1,7 @@
 // tests/simple_resize_test.test.js
 // Test simple para verificar que la funcionalidad básica de resize funciona
 
-import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore';
+import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore.js';
 import { DesignerInteraction } from '../src/renderer/js/views/pipeline/designer/DesignerInteraction';
 import { ResizeHandler } from '../src/renderer/js/views/pipeline/designer/interaction/ResizeHandler';
 import { GeometryUtils } from '../src/renderer/js/views/pipeline/designer/GeometryUtils';
@@ -21,13 +21,13 @@ describe('Simple Resize Functionality Test', () => {
         container.id = 'designer-container';
         document.body.appendChild(container);
 
-        DesignerStore.setState({ 
-            nodes: {}, 
+        DesignerStore.setState({
+            nodes: {},
             connections: [],
             navigation: { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 },
             interaction: { hoveredNodeId: null, selectedNodeId: null, selectedConnectionId: null, draggingNodeId: null, resizingNodeId: null }
         });
-        
+
         DesignerInteraction.init(canvas, () => DesignerStore.state.nodes, () => { });
         resizeHandler = new ResizeHandler(DesignerInteraction);
     });
@@ -41,14 +41,14 @@ describe('Simple Resize Functionality Test', () => {
             text: 'Simple test',
             dimensions: { w: 180, h: 100, isManual: true }
         };
-        
+
         DesignerStore.state.nodes[node.id] = node;
 
         // Calcular la posición de la esquina SE usando dimensiones lógicas
         const cornerX = node.x + node.dimensions.w / 2;
         const cornerY = node.y + node.dimensions.h / 2;
         const worldPos = { x: cornerX, y: cornerY };
-        
+
         const hit = resizeHandler.findResizeHandle(worldPos);
 
         expect(hit).not.toBeNull();
@@ -64,14 +64,14 @@ describe('Simple Resize Functionality Test', () => {
             isRepoContainer: true,
             dimensions: { w: 200, h: 150, isManual: true }
         };
-        
+
         DesignerStore.state.nodes[node.id] = node;
 
         // Calcular la posición de la esquina SE usando dimensiones lógicas
         const cornerX = node.x + node.dimensions.w / 2;
         const cornerY = node.y + node.dimensions.h / 2;
         const worldPos = { x: cornerX, y: cornerY };
-        
+
         const hit = resizeHandler.findResizeHandle(worldPos);
 
         expect(hit).not.toBeNull();
@@ -87,7 +87,7 @@ describe('Simple Resize Functionality Test', () => {
             isRepoContainer: true,
             dimensions: { w: 200, h: 150, isManual: true }
         };
-        
+
         const sticky = {
             id: 'test-sticky',
             x: 100,
@@ -103,7 +103,7 @@ describe('Simple Resize Functionality Test', () => {
         const containerCornerX = container.x + container.dimensions.w / 2;
         const containerCornerY = container.y + container.dimensions.h / 2;
         const containerHit = resizeHandler.findResizeHandle({ x: containerCornerX, y: containerCornerY });
-        
+
         expect(containerHit).not.toBeNull();
         expect(containerHit.nodeId).toBe(container.id);
 
@@ -111,7 +111,7 @@ describe('Simple Resize Functionality Test', () => {
         const stickyCornerX = sticky.x + sticky.dimensions.w / 2;
         const stickyCornerY = sticky.y + sticky.dimensions.h / 2;
         const stickyHit = resizeHandler.findResizeHandle({ x: stickyCornerX, y: stickyCornerY });
-        
+
         expect(stickyHit).not.toBeNull();
         expect(stickyHit.nodeId).toBe(sticky.id);
     });

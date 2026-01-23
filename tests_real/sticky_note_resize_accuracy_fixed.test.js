@@ -2,7 +2,7 @@
 // Tests para verificar la precisión de redimensionamiento de sticky notes
 // con contenido de texto que afecta las dimensiones visuales
 
-import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore';
+import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore.js';
 import { DesignerInteraction } from '../src/renderer/js/views/pipeline/designer/DesignerInteraction';
 import { ResizeHandler } from '../src/renderer/js/views/pipeline/designer/interaction/ResizeHandler';
 import { GeometryUtils } from '../src/renderer/js/views/pipeline/designer/GeometryUtils';
@@ -28,13 +28,13 @@ describe('Sticky Note Resize Accuracy', () => {
         container.id = 'designer-container';
         document.body.appendChild(container);
 
-        DesignerStore.setState({ 
-            nodes: {}, 
+        DesignerStore.setState({
+            nodes: {},
             connections: [],
             navigation: { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 },
             interaction: { hoveredNodeId: null, selectedNodeId: null, selectedConnectionId: null, draggingNodeId: null, resizingNodeId: null }
         });
-        
+
         DesignerInteraction.init(canvas, () => DesignerStore.state.nodes, () => { });
         resizeHandler = new ResizeHandler(DesignerInteraction);
     });
@@ -60,7 +60,7 @@ describe('Sticky Note Resize Accuracy', () => {
         // Calculate corner position based on visual dimensions
         const cornerX = visualCenterX + visualW / 2;
         const cornerY = visualCenterY + visualH / 2;
-        
+
         // Test detection at corner position
         const worldPos = { x: cornerX, y: cornerY };
         const hit = resizeHandler.findResizeHandle(worldPos);
@@ -91,7 +91,7 @@ describe('Sticky Note Resize Accuracy', () => {
         // Calculate corner position based on visual dimensions
         const cornerX = visualCenterX + visualW / 2;
         const cornerY = visualCenterY + visualH / 2;
-        
+
         // Test detection at corner position
         const worldPos = { x: cornerX, y: cornerY };
         const hit = resizeHandler.findResizeHandle(worldPos);
@@ -122,7 +122,7 @@ describe('Sticky Note Resize Accuracy', () => {
         // Calculate corner position based on visual dimensions
         const cornerX = visualCenterX + visualW / 2;
         const cornerY = visualCenterY + visualH / 2;
-        
+
         // Test detection at corner position
         const worldPos = { x: cornerX, y: cornerY };
         const hit = resizeHandler.findResizeHandle(worldPos);
@@ -145,7 +145,7 @@ describe('Sticky Note Resize Accuracy', () => {
 
         // Test at low zoom
         DesignerInteraction.panZoomHandler.setState({ panOffset: { x: 0, y: 0 }, zoomScale: 0.5 });
-        
+
         const bounds = GeometryUtils.getStickyNoteBounds(node, null, 0.5);
         const visualCenterX = bounds.centerX || node.x;
         const visualCenterY = bounds.centerY || node.y;
@@ -155,7 +155,7 @@ describe('Sticky Note Resize Accuracy', () => {
         // Calculate corner position based on visual dimensions at this zoom level
         const cornerX = visualCenterX + visualW / 2;
         const cornerY = visualCenterY + visualH / 2;
-        
+
         // Test detection at corner position
         const worldPos = { x: cornerX, y: cornerY };
         const hit = resizeHandler.findResizeHandle(worldPos);
@@ -174,7 +174,7 @@ describe('Sticky Note Resize Accuracy', () => {
             isRepoContainer: true,
             dimensions: { w: 200, h: 150, isManual: true }
         };
-        
+
         const stickyNote = {
             id: 'test-sticky',
             x: 100,
@@ -183,7 +183,7 @@ describe('Sticky Note Resize Accuracy', () => {
             text: 'Sticky note text',
             dimensions: { w: 180, h: 100, isManual: true }
         };
-        
+
         DesignerStore.state.nodes = { [container.id]: container, [stickyNote.id]: stickyNote };
 
         // Get visual bounds for both nodes

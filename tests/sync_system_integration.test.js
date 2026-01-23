@@ -2,7 +2,7 @@
 // Test para verificar la integración del sistema de sincronización lógica-visual
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore';
+import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore.js';
 import { ResizeHandler } from '../src/renderer/js/views/pipeline/designer/interaction/ResizeHandler';
 import { SyncManager } from '../src/renderer/js/views/pipeline/designer/system/SyncSystem';
 
@@ -21,13 +21,13 @@ describe('LV-Sync System Integration Test', () => {
         container.id = 'designer-container';
         document.body.appendChild(container);
 
-        DesignerStore.setState({ 
-            nodes: {}, 
+        DesignerStore.setState({
+            nodes: {},
             connections: [],
             navigation: { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 },
             interaction: { hoveredNodeId: null, selectedNodeId: null, selectedConnectionId: null, draggingNodeId: null, resizingNodeId: null }
         });
-        
+
         // Inicializar el resize handler con un controlador simulado
         const mockController = {
             nodes: DesignerStore.state.nodes,
@@ -35,7 +35,7 @@ describe('LV-Sync System Integration Test', () => {
             screenToWorld: (pos) => pos,
             getMousePos: (e) => ({ x: e.clientX, y: e.clientY })
         };
-        
+
         resizeHandler = new ResizeHandler(mockController);
     });
 
@@ -48,7 +48,7 @@ describe('LV-Sync System Integration Test', () => {
             text: 'Test text for synchronization',
             dimensions: { w: 200, h: 150, isManual: true }
         };
-        
+
         DesignerStore.state.nodes[node.id] = node;
 
         // Obtener dimensiones sincronizadas
@@ -73,7 +73,7 @@ describe('LV-Sync System Integration Test', () => {
             isRepoContainer: true,
             dimensions: { w: 300, h: 200, isManual: true }
         };
-        
+
         DesignerStore.state.nodes[node.id] = node;
 
         // Obtener dimensiones sincronizadas
@@ -99,7 +99,7 @@ describe('LV-Sync System Integration Test', () => {
             text: 'Synchronization test',
             dimensions: { w: 180, h: 100, isManual: true }
         };
-        
+
         DesignerStore.state.nodes[node.id] = node;
 
         // Obtener dimensiones sincronizadas para calcular la posición de la esquina
@@ -125,15 +125,15 @@ describe('LV-Sync System Integration Test', () => {
             text: 'Zoom test',
             dimensions: { w: 180, h: 100, isManual: true }
         };
-        
+
         DesignerStore.state.nodes[node.id] = node;
 
         // Probar en diferentes niveles de zoom
         const zoomLevels = [0.5, 1.0, 2.0, 3.0];
-        
+
         for (const zoom of zoomLevels) {
             const dims = SyncManager.getSyncedDimensions(node, zoom, DesignerStore.state.nodes);
-            
+
             // Verificar que las dimensiones sean consistentes en todos los niveles de zoom
             expect(dims.centerX).toBeCloseTo(node.x);
             expect(dims.centerY).toBeCloseTo(node.y);
@@ -153,7 +153,7 @@ describe('LV-Sync System Integration Test', () => {
             text: 'Short',
             dimensions: { w: 180, h: 100, isManual: true }
         };
-        
+
         const longNode = {
             id: 'long-text-sync',
             x: 100,
@@ -171,7 +171,7 @@ describe('LV-Sync System Integration Test', () => {
 
         // El nodo con texto largo debería tener dimensiones visuales más anchas
         expect(longDims.visualW).toBeGreaterThanOrEqual(shortDims.visualW);
-        
+
         // Ambos deberían tener la misma posición central
         expect(shortDims.centerX).toBeCloseTo(shortNode.x);
         expect(shortDims.centerY).toBeCloseTo(shortNode.y);
@@ -187,7 +187,7 @@ describe('LV-Sync System Integration Test', () => {
             isRepoContainer: true,
             dimensions: { w: 250, h: 150, isManual: true }
         };
-        
+
         const stickyNote = {
             id: 'sync-sticky',
             x: 100,

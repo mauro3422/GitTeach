@@ -6,8 +6,7 @@
 
 import { ScalingCalculator } from './utils/ScalingCalculator.js';
 import { DESIGNER_CONSTANTS } from './DesignerConstants.js';
-// We do NOT import LayoutUtils here to avoid circularity.
-// Methods that need LayoutUtils will assume it's available or be moved to LayoutUtils.
+import { BoundsCalculator } from './utils/BoundsCalculator.js';
 
 export const GeometryUtils = {
     _dummyCtx: null,
@@ -108,19 +107,6 @@ export const GeometryUtils = {
         };
     },
 
-    /**
-     * Proporciona una medición de texto robusta con fallback heurístico 
-     * para entornos sin fuentes completas (JSDOM/Vitest).
-     */
-    _getTextWidth(ctx, text, fontSize) {
-        const measured = ctx.measureText(text).width;
-        // Si el resultado es 0 o constante baja (síntoma de JSDOM), usamos heurística
-        if (measured <= 0 || (text.length > 5 && measured < 5)) {
-            return text.length * fontSize * 0.6;
-        }
-        return measured;
-    },
-
     calculateResizeDelta(corner, startW, startH, dx, dy) {
         let w = startW, h = startH;
         switch (corner) {
@@ -134,94 +120,14 @@ export const GeometryUtils = {
 
     /**
      * Delegado para obtener límites de contenedor.
-     * IMPORTANTE: LayoutUtils es la fuente canónica de esta lógica.
      * @returns {{ w: number, h: number, renderW: number, renderH: number, centerX: number, centerY: number }}
      */
     getContainerBounds(node, nodes, zoomScale = 1.0, dropTargetId = null) {
-        // LayoutUtils se exporta a window en DesignerCanvas.js al importarlo
-        const layout = (typeof window !== 'undefined' && window.LayoutUtils) ||
-            (typeof global !== 'undefined' && global.LayoutUtils);
-
-        if (layout) {
-            return layout.getContainerBounds(node, nodes, zoomScale, dropTargetId);
-        }
-
-        // Fallback de emergencia - solo durante bootstrap antes de que LayoutUtils se cargue
-        console.warn('[GeometryUtils] LayoutUtils not loaded yet, using emergency fallback');
-        const dims = node.dimensions;
-        const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
-        const w = dims?.w || (node.isStickyNote ? STICKY_NOTE.MIN_W : CONTAINER.DEFAULT_W);
-        const h = dims?.h || (node.isStickyNote ? STICKY_NOTE.MIN_H : CONTAINER.DEFAULT_H);
-        const bScale = this.getVisualScale(zoomScale);
-        const useManual = dims?.isManual === true;
-
-        return {
-            w: w * bScale, h: h * bScale,
-            renderW: useManual ? (w * bScale) : ((dims?.animW || w) * bScale),
-            renderH: useManual ? (h * bScale) : ((dims?.animH || h) * bScale),
-            centerX: node.x,
-            centerY: node.y
-        };
+        return BoundsCalculator.getContainerBounds(node, nodes, zoomScale, dropTargetId);
     },
 
     getStickyNoteBounds(node, ctx, zoomScale = 1.0) {
-        const { MIN_W, MIN_H, PADDING } = DESIGNER_CONSTANTS.DIMENSIONS.STICKY_NOTE;
-        const w = node.dimensions?.w || MIN_W;
-        const h = node.dimensions?.h || MIN_H;
-        const padding = PADDING;
-        const bScale = this.getVisualScale(zoomScale);
-        const baseInflatedW = w * bScale;
-        const baseInflatedH = h * bScale;
-
-        if (!node.text) {
-            return { w, h, renderW: baseInflatedW, renderH: baseInflatedH, centerX: node.x, centerY: node.y };
-        }
-
-        const fScale = this.getFontScale(zoomScale);
-        const { BASE_FONT_SIZE, LINE_HEIGHT_OFFSET } = DESIGNER_CONSTANTS.TYPOGRAPHY;
-        const worldFontSize = BASE_FONT_SIZE * fScale;
-        const worldLineHeight = worldFontSize + LINE_HEIGHT_OFFSET;
-
-        if (!this._dummyCtx && typeof document !== 'undefined') {
-            try { this._dummyCtx = document.createElement('canvas').getContext('2d'); } catch (e) { }
-        }
-        const activeCtx = ctx || this._dummyCtx;
-
-        if (!activeCtx) {
-            return { w, h, renderW: Math.max(baseInflatedW, w + padding * 2), renderH: Math.max(baseInflatedH, h + padding * 2), centerX: node.x, centerY: node.y };
-        }
-
-        activeCtx.save();
-        activeCtx.font = `${worldFontSize}px ${typeof window !== 'undefined' && window.ThemeManager ? window.ThemeManager.colors.fontMono : 'monospace'}`;
-        const words = node.text.split(/[\s\n]+/);
-        let maxWordWidth = 0;
-        words.forEach(wd => {
-            const width = this._getTextWidth(activeCtx, wd, worldFontSize);
-            if (width > maxWordWidth) maxWordWidth = width;
-        });
-
-        const effectiveMaxWidth = Math.max(baseInflatedW - padding * 2, maxWordWidth);
-        const wordsForLines = node.text.split(' ');
-        let currentLine = '', linesCount = 0;
-        wordsForLines.forEach(word => {
-            const testLine = currentLine + word + ' ';
-            if (this._getTextWidth(activeCtx, testLine, worldFontSize) > effectiveMaxWidth && currentLine.length > 0) {
-                linesCount++;
-                currentLine = word + ' ';
-            } else {
-                currentLine = testLine;
-            }
-        });
-        if (currentLine.trim()) linesCount++;
-        activeCtx.restore();
-
-        return {
-            w, h,
-            renderW: Math.max(baseInflatedW, maxWordWidth + padding * 2 + 10),
-            renderH: Math.max(baseInflatedH, (linesCount * worldLineHeight) + padding * 2),
-            centerX: node.x,
-            centerY: node.y
-        };
+        return BoundsCalculator.getStickyNoteBounds(node, ctx, zoomScale);
     },
 
     isPointInNode(point, node, zoomScale = 1) {

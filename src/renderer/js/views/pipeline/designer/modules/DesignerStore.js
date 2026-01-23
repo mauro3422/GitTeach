@@ -12,12 +12,18 @@ class DesignerStoreClass extends Store {
         super({
             nodes: {},
             connections: [],
-            // NOTE: Navigation state (zoom/pan) lives in PanZoomHandler, accessed via DesignerInteraction.state
-            // NOTE: Dragging/Resizing state lives in DragStrategy/ResizeHandler respectively
             interaction: {
                 hoveredNodeId: null,
                 selectedNodeId: null,
-                selectedConnectionId: null
+                selectedConnectionId: null,
+                draggingNodeId: null,
+                resizingNodeId: null,
+                activeMode: 'IDLE' // IDLE, DRAG, RESIZE, DRAW, PAN
+            },
+            camera: {
+                panOffset: { x: 0, y: 0 },
+                zoomScale: 1.0,
+                isPanning: false
             }
         });
     }
@@ -196,6 +202,37 @@ class DesignerStoreClass extends Store {
 
     setInteractionState(partial) { this.setState({ interaction: { ...this.state.interaction, ...partial } }, 'INTERACTION_UPDATE'); }
 
+    setHover(nodeId) {
+        if (this.state.interaction.hoveredNodeId === nodeId) return;
+        this.setInteractionState({ hoveredNodeId: nodeId });
+    }
+
+    setDragging(nodeId) {
+        this.setInteractionState({
+            draggingNodeId: nodeId,
+            activeMode: nodeId ? 'DRAG' : 'IDLE'
+        });
+    }
+
+    setResizing(nodeId) {
+        this.setInteractionState({
+            resizingNodeId: nodeId,
+            activeMode: nodeId ? 'RESIZE' : 'IDLE'
+        });
+    }
+
+    setDrawing(sourceNodeId) {
+        this.setInteractionState({
+            activeMode: sourceNodeId ? 'DRAW' : 'IDLE'
+        });
+    }
+
+    setCamera(updates) {
+        this.setState({
+            camera: { ...this.state.camera, ...updates }
+        }, 'CAMERA_UPDATE');
+    }
+
     /**
      * Set selected node
      */
@@ -362,16 +399,24 @@ class DesignerStoreClass extends Store {
         const nextState = { ...this.state };
         let changed = false;
 
-        ['nodes', 'connections', 'interaction'].forEach(key => {
+        ['nodes', 'connections', 'interaction', 'camera'].forEach(key => {
             if (updates[key]) {
-                nextState[key] = key === 'nodes' ? { ...updates[key] } : (Array.isArray(updates[key]) ? [...updates[key]] : { ...nextState[key], ...updates[key] });
+                // Determine if we should replace or merge
+                const shouldReplace = key === 'connections'; // Connections are arrays, usually replaced
+
+                if (shouldReplace || Array.isArray(updates[key])) {
+                    nextState[key] = Array.isArray(updates[key]) ? [...updates[key]] : updates[key];
+                } else {
+                    // Merge objects (nodes, interaction, camera)
+                    nextState[key] = { ...nextState[key], ...updates[key] };
+                }
                 changed = true;
             }
         });
 
         // Allow unknown keys
         Object.keys(updates).forEach(k => {
-            if (!['nodes', 'connections', 'interaction'].includes(k)) {
+            if (!['nodes', 'connections', 'interaction', 'camera'].includes(k)) {
                 nextState[k] = updates[k];
                 changed = true;
             }

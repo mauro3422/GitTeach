@@ -43,8 +43,8 @@ export const DESIGNER_CONSTANTS = {
     },
     LAYOUT: {
         CONTAINER_PADDING: 60,
-        TITLE_CHAR_WIDTH: 14,
-        TITLE_PADDING: 40,
+        TITLE_CHAR_WIDTH: 13,
+        TITLE_PADDING: 10,
         CHILD_OFFSET_TOP: 100,
         AUTO_GROW_PADDING: 50,
         EXTRA_HEIGHT: 40

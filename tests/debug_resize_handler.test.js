@@ -2,7 +2,7 @@
 // Test de depuración para verificar el funcionamiento del sistema de redimensionamiento
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore';
+import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore.js';
 import { ResizeHandler } from '../src/renderer/js/views/pipeline/designer/interaction/ResizeHandler';
 import { DimensionSync } from '../src/renderer/js/views/pipeline/designer/DimensionSync';
 
@@ -16,13 +16,13 @@ describe('Debug Resize Handler', () => {
         canvas.height = 1080;
         document.body.appendChild(canvas);
 
-        DesignerStore.setState({ 
-            nodes: {}, 
+        DesignerStore.setState({
+            nodes: {},
             connections: [],
             navigation: { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 },
             interaction: { hoveredNodeId: null, selectedNodeId: null, selectedConnectionId: null, draggingNodeId: null, resizingNodeId: null }
         });
-        
+
         // Crear un controlador simulado
         const mockController = {
             nodes: DesignerStore.state.nodes,
@@ -30,7 +30,7 @@ describe('Debug Resize Handler', () => {
             screenToWorld: (pos) => pos,
             getMousePos: (e) => ({ x: e.clientX, y: e.clientY })
         };
-        
+
         resizeHandler = new ResizeHandler(mockController);
     });
 
@@ -50,9 +50,9 @@ describe('Debug Resize Handler', () => {
         };
 
         const dims = DimensionSync.getVisualDimensions(node, 1.0, {});
-        
+
         console.log('DEBUG: Dimensions result:', dims);
-        
+
         expect(dims).toBeDefined();
         expect(dims.centerX).toBeCloseTo(node.x);
         expect(dims.centerY).toBeCloseTo(node.y);
@@ -69,7 +69,7 @@ describe('Debug Resize Handler', () => {
             text: 'Debug resize',
             dimensions: { w: 180, h: 100, isManual: true }
         };
-        
+
         DesignerStore.state.nodes[node.id] = node;
 
         // Calcular la posición de la esquina SE usando DimensionSync
@@ -82,7 +82,7 @@ describe('Debug Resize Handler', () => {
         console.log('DEBUG: Node dimensions:', dims);
 
         const hit = resizeHandler.findResizeHandle(worldPos);
-        
+
         console.log('DEBUG: Resize handle hit result:', hit);
 
         // Este test debería pasar si el sistema está funcionando

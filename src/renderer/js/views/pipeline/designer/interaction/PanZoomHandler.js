@@ -1,8 +1,8 @@
-
 import { InteractionHandler } from '../InteractionHandler.js';
 import { CoordinateUtils } from '../CoordinateUtils.js';
 import { AnimationManager } from '../AnimationManager.js';
 import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
+import { DesignerStore } from '../modules/DesignerStore.js';
 
 export class PanZoomHandler extends InteractionHandler {
 
@@ -26,6 +26,22 @@ export class PanZoomHandler extends InteractionHandler {
             if (config.panOffset) this.state.panOffset = config.panOffset;
             if (config.zoomScale) this.state.zoomScale = config.zoomScale;
         }
+        // Initialize store with whatever we have
+        DesignerStore.setCamera({
+            panOffset: { ...this.state.panOffset },
+            zoomScale: this.state.zoomScale,
+            isPanning: false
+        });
+    }
+
+    setState(updates) {
+        super.setState(updates);
+        // Important: sync to store when manually setting state (common in tests)
+        DesignerStore.setCamera({
+            panOffset: { ...this.state.panOffset },
+            zoomScale: this.state.zoomScale,
+            isPanning: this.state.isPanning
+        });
     }
 
     // --- InteractionHandler Implementation ---
@@ -38,6 +54,8 @@ export class PanZoomHandler extends InteractionHandler {
             isPanning: true,
             panStart: { ...rawPos }
         });
+
+        DesignerStore.setCamera({ isPanning: true });
 
         // Use setCursor if available on controller, or set directly
         if (this.controller.canvas) {
@@ -56,6 +74,11 @@ export class PanZoomHandler extends InteractionHandler {
         this.state.panOffset.x += dx;
         this.state.panOffset.y += dy;
         this.state.panStart = { ...rawPos };
+
+        // Sync to store for reactive components
+        DesignerStore.setCamera({
+            panOffset: { ...this.state.panOffset }
+        });
     }
 
     onEnd(e) {
@@ -63,6 +86,9 @@ export class PanZoomHandler extends InteractionHandler {
             isPanning: false,
             panStart: null
         });
+
+        DesignerStore.setCamera({ isPanning: false });
+
         if (this.controller.canvas) {
             this.controller.canvas.style.cursor = 'default'; // Or restore previous
         }
@@ -97,6 +123,12 @@ export class PanZoomHandler extends InteractionHandler {
             // Simple zoom without panning
             this.state.zoomScale = clamped;
         }
+
+        // Sync to store
+        DesignerStore.setCamera({
+            zoomScale: this.state.zoomScale,
+            panOffset: { ...this.state.panOffset }
+        });
 
         if (onUpdate) onUpdate();
         return clamped;
@@ -157,6 +189,11 @@ export class PanZoomHandler extends InteractionHandler {
 
                 this.state.panOffset.x = startX + (targetX - startX) * ease;
                 this.state.panOffset.y = startY + (targetY - startY) * ease;
+
+                // Sync to store
+                DesignerStore.setCamera({
+                    panOffset: { ...this.state.panOffset }
+                });
 
                 if (onUpdate) onUpdate();
 

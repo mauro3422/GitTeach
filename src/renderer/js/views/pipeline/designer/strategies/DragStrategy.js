@@ -123,6 +123,7 @@ export class DragStrategy extends InteractionStrategy {
         this.dragState.dropTargetId = null;
 
         node.isDragging = true;
+        DesignerStore.setDragging(node.id);
 
         console.log(`[DragStrategy] Started dragging: ${node.id}`);
     }
@@ -170,6 +171,7 @@ export class DragStrategy extends InteractionStrategy {
             }
         }
 
+        DesignerStore.setDragging(null);
         this.cleanupDragState(nodes);
     }
 
@@ -279,5 +281,7 @@ export class DragStrategy extends InteractionStrategy {
         this.dragState.dragStart = null;
         this.dragState.dragOffset = { x: 0, y: 0 };
         this.dragState.dropTargetId = null;
+
+        DesignerStore.setDragging(null);
     }
 }

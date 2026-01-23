@@ -5,9 +5,10 @@ GitTeach is a high-performance desktop platform (Electron) engineered for deep t
 
 ---
 
-## 🍱 **The Master UI (v2.79.0)**
-The latest evolution introduces **Parametric Precision** and **Centralized Control**:
-- **Designer Constants Pivot**: Unified `DesignerConstants.js` as the single source of truth for all interaction thresholds, dimensions, and visual tokens.
+## 🍱 **The Master UI (v2.80.0)**
+The latest evolution introduces **Interaction Centralization** and **Architectural Purity**:
+- **Interaction Single Source of Truth**: Centralized all camera (pan/zoom) and tool states (hover, drag, resize, draw) within `DesignerStore`, eliminating handler-level redundancy.
+- **Parametric Precision**: Unified `DesignerConstants.js` as the source of truth for all interaction thresholds and visual tokens.
 - **Extreme Zoom Support**: Hit-testing compensation allows 1:1 precision even at 0.1x zoom, maintaining a consistent 14px on-screen target.
 - **Double Label Fix**: Centralized container identities in the screen-space UI layer, eliminating redundant legacy labels.
 - **Magnetic Sticky Notes**: Automatic height adjustment to fit text content, combined with strict minimum size constraints.

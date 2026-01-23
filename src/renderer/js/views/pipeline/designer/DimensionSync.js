@@ -5,8 +5,9 @@
  */
 
 import { GeometryUtils } from './GeometryUtils.js';
-import { SyncGuard } from './utils/SyncGuard.js';
 import { DESIGNER_CONSTANTS } from './DesignerConstants.js';
+import { BoundsCalculator } from './utils/BoundsCalculator.js';
+import { ScalingCalculator } from './utils/ScalingCalculator.js';
 
 export const DimensionSync = {
     /**
@@ -16,33 +17,25 @@ export const DimensionSync = {
      * @returns {Object} { w, h, centerX, centerY, isVisual }
      */
     getSyncDimensions(node, nodes = {}, zoom = 1.0) {
-        const isSafe = SyncGuard.isVisualSafe();
+        // Use BoundsCalculator as the single source of truth (it handles JSDOM fallbacks internally)
+        const bounds = node.isRepoContainer
+            ? BoundsCalculator.getContainerBounds(node, nodes, zoom)
+            : node.isStickyNote
+                ? BoundsCalculator.getStickyNoteBounds(node, null, zoom)
+                : null;
 
-        // 1. Intentar obtener dimensiones visuales si es seguro
-        if (isSafe) {
-            try {
-                const bounds = node.isRepoContainer
-                    ? GeometryUtils.getContainerBounds(node, nodes, zoom)
-                    : node.isStickyNote
-                        ? GeometryUtils.getStickyNoteBounds(node, null, zoom)
-                        : null;
-
-                if (bounds && SyncGuard.isValidBounds(bounds)) {
-                    return {
-                        w: bounds.renderW || bounds.w,
-                        h: bounds.renderH || bounds.h,
-                        centerX: bounds.centerX !== undefined ? bounds.centerX : node.x,
-                        centerY: bounds.centerY !== undefined ? bounds.centerY : node.y,
-                        isVisual: true
-                    };
-                }
-            } catch (e) {
-                console.warn(`[DimensionSync] Fallback a lógica para nodo ${node.id}:`, e);
-            }
+        if (bounds) {
+            return {
+                w: bounds.renderW || bounds.w,
+                h: bounds.renderH || bounds.h,
+                centerX: bounds.centerX !== undefined ? bounds.centerX : node.x,
+                centerY: bounds.centerY !== undefined ? bounds.centerY : node.y,
+                isVisual: true
+            };
         }
 
-        // 2. Fallback a dimensiones lógicas puras
-        const vScale = GeometryUtils.getVisualScale(zoom);
+        // Final fallback for plain nodes (circles)
+        const vScale = ScalingCalculator.getVisualScale(zoom);
         const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
         const logicalW = node.dimensions?.w || (node.isStickyNote ? STICKY_NOTE.MIN_W : CONTAINER.DEFAULT_W);
         const logicalH = node.dimensions?.h || (node.isStickyNote ? STICKY_NOTE.MIN_H : CONTAINER.DEFAULT_H);

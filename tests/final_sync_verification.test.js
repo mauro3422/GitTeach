@@ -2,7 +2,7 @@
 // Test final para verificar que el sistema de sincronización funcione correctamente
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore';
+import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore.js';
 import { ResizeHandler } from '../src/renderer/js/views/pipeline/designer/interaction/ResizeHandler';
 import { DimensionSync } from '../src/renderer/js/views/pipeline/designer/DimensionSync';
 
@@ -21,13 +21,13 @@ describe('Final Synchronization Verification', () => {
         container.id = 'designer-container';
         document.body.appendChild(container);
 
-        DesignerStore.setState({ 
-            nodes: {}, 
+        DesignerStore.setState({
+            nodes: {},
             connections: [],
             navigation: { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 },
             interaction: { hoveredNodeId: null, selectedNodeId: null, selectedConnectionId: null, draggingNodeId: null, resizingNodeId: null }
         });
-        
+
         // Crear un controlador simulado para el resize handler
         const mockController = {
             nodes: DesignerStore.state.nodes,
@@ -35,7 +35,7 @@ describe('Final Synchronization Verification', () => {
             screenToWorld: (pos) => pos,
             getMousePos: (e) => ({ x: e.clientX, y: e.clientY })
         };
-        
+
         resizeHandler = new ResizeHandler(mockController);
     });
 
@@ -70,12 +70,12 @@ describe('Final Synchronization Verification', () => {
             text: 'Handle position test',
             dimensions: { w: 180, h: 100, isManual: true }
         };
-        
+
         DesignerStore.state.nodes[node.id] = node;
 
         // Usar DimensionSync para calcular la posición del handle
         const handlePos = DimensionSync.getVisualHandlePosition(node, 'se', 1.0, DesignerStore.state.nodes);
-        
+
         // Verificar que la posición del handle tenga valores válidos
         expect(handlePos.x).toBeGreaterThan(node.x - 200); // Debe estar cerca del nodo
         expect(handlePos.x).toBeLessThan(node.x + 200);

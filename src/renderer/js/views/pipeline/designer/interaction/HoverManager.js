@@ -4,7 +4,6 @@ import { CoordinateUtils } from '../CoordinateUtils.js';
 export class HoverManager {
     constructor(interactionContext) {
         this.context = interactionContext;
-        this.hoveredNodeId = null;
         this.DEBUG_HIT_TEST = false;
     }
 
@@ -16,11 +15,11 @@ export class HoverManager {
         const overNode = this.findNodeAt(worldPos);
         const newHoverId = overNode ? overNode.id : null;
 
-        if (this.hoveredNodeId !== newHoverId) {
-            this.hoveredNodeId = newHoverId;
-            // Notify context of update if state changed
-            if (this.context.onUpdate) this.context.onUpdate();
-        }
+        // Delegate to Store
+        DesignerStore.setHover(newHoverId);
+
+        // Notification for local renderer (might eventually be removed if using Store subscription)
+        if (this.context.onUpdate) this.context.onUpdate();
     }
 
     /**
@@ -48,6 +47,6 @@ export class HoverManager {
     }
 
     getHoveredNodeId() {
-        return this.hoveredNodeId;
+        return DesignerStore.state.interaction.hoveredNodeId;
     }
 }

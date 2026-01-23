@@ -2,7 +2,7 @@
 // Test para reproducir el problema de redimensionamiento con múltiples nodos
 
 // Importar solo módulos del proyecto, no funciones de Vitest
-import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore';
+import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore.js';
 import { DesignerInteraction } from '../src/renderer/js/views/pipeline/designer/DesignerInteraction';
 import { ResizeHandler } from '../src/renderer/js/views/pipeline/designer/interaction/ResizeHandler';
 import { GeometryUtils } from '../src/renderer/js/views/pipeline/designer/GeometryUtils';
@@ -22,14 +22,15 @@ describe('Multi-Node Resize Behavior Test', () => {
         container.id = 'designer-container';
         document.body.appendChild(container);
 
-        DesignerStore.setState({ 
-            nodes: {}, 
+        DesignerStore.setState({
+            nodes: {},
             connections: [],
-            navigation: { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 },
+            camera: { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 },
             interaction: { hoveredNodeId: null, selectedNodeId: null, selectedConnectionId: null, draggingNodeId: null, resizingNodeId: null }
         });
-        
+
         DesignerInteraction.init(canvas, () => DesignerStore.state.nodes, () => { });
+        DesignerInteraction.panZoomHandler.setState({ panOffset: { x: 0, y: 0 }, zoomScale: 1.0 });
         resizeHandler = new ResizeHandler(DesignerInteraction);
     });
 
@@ -43,7 +44,7 @@ describe('Multi-Node Resize Behavior Test', () => {
             text: 'Sticky 1',
             dimensions: { w: 180, h: 100, isManual: true }
         };
-        
+
         const sticky2 = {
             id: 'sticky-2',
             x: 300,
@@ -52,7 +53,7 @@ describe('Multi-Node Resize Behavior Test', () => {
             text: 'Another sticky note with more text',
             dimensions: { w: 180, h: 100, isManual: true }
         };
-        
+
         const sticky3 = {
             id: 'sticky-3',
             x: 600,
@@ -62,10 +63,10 @@ describe('Multi-Node Resize Behavior Test', () => {
             dimensions: { w: 180, h: 100, isManual: true }
         };
 
-        DesignerStore.state.nodes = { 
-            [sticky1.id]: sticky1, 
-            [sticky2.id]: sticky2, 
-            [sticky3.id]: sticky3 
+        DesignerStore.state.nodes = {
+            [sticky1.id]: sticky1,
+            [sticky2.id]: sticky2,
+            [sticky3.id]: sticky3
         };
 
         // Probar detección de handles para cada sticky note
@@ -103,7 +104,7 @@ describe('Multi-Node Resize Behavior Test', () => {
             isRepoContainer: true,
             dimensions: { w: 200, h: 150, isManual: true }
         };
-        
+
         const sticky1 = {
             id: 'mixed-sticky-1',
             x: 0,
@@ -112,7 +113,7 @@ describe('Multi-Node Resize Behavior Test', () => {
             text: 'Mixed sticky 1',
             dimensions: { w: 180, h: 100, isManual: true }
         };
-        
+
         const sticky2 = {
             id: 'mixed-sticky-2',
             x: 300,
@@ -122,10 +123,10 @@ describe('Multi-Node Resize Behavior Test', () => {
             dimensions: { w: 180, h: 100, isManual: true }
         };
 
-        DesignerStore.state.nodes = { 
-            [container.id]: container, 
-            [sticky1.id]: sticky1, 
-            [sticky2.id]: sticky2 
+        DesignerStore.state.nodes = {
+            [container.id]: container,
+            [sticky1.id]: sticky1,
+            [sticky2.id]: sticky2
         };
 
         // Probar detección de handles para el contenedor
@@ -212,7 +213,7 @@ describe('Multi-Node Resize Behavior Test', () => {
             text: 'Operation test 1',
             dimensions: { w: 180, h: 100, isManual: true }
         };
-        
+
         const sticky2 = {
             id: 'operation-sticky-2',
             x: 300,
@@ -228,15 +229,15 @@ describe('Multi-Node Resize Behavior Test', () => {
         const bounds1 = GeometryUtils.getStickyNoteBounds(sticky1, null, 1.0);
         const cornerX1 = bounds1.centerX + bounds1.renderW / 2;
         const cornerY1 = bounds1.centerY + bounds1.renderH / 2;
-        
+
         const hit1 = resizeHandler.findResizeHandle({ x: cornerX1, y: cornerY1 });
         expect(hit1).not.toBeNull();
-        
+
         // Iniciar operación de resize
-        resizeHandler.onStart(null, { 
-            nodeId: hit1.nodeId, 
-            corner: hit1.corner, 
-            initialPos: { x: cornerX1, y: cornerY1 } 
+        resizeHandler.onStart(null, {
+            nodeId: hit1.nodeId,
+            corner: hit1.corner,
+            initialPos: { x: cornerX1, y: cornerY1 }
         });
 
         // Verificar que el estado de resize está activo
@@ -246,16 +247,17 @@ describe('Multi-Node Resize Behavior Test', () => {
         // Simular actualización de resize
         const newPos = { x: cornerX1 + 20, y: cornerY1 + 20 };
         const mockEvent = { clientX: newPos.x, clientY: newPos.y };
-        
+
         // Mock para las funciones de coordenadas
         vi.spyOn(DesignerInteraction, 'getMousePos').mockReturnValue(newPos);
         vi.spyOn(DesignerInteraction, 'screenToWorld').mockReturnValue(newPos);
-        
+
         resizeHandler.onUpdate(mockEvent);
 
+        const updatedSticky1 = DesignerStore.state.nodes[sticky1.id];
         // Verificar que las dimensiones han cambiado
-        expect(sticky1.dimensions.w).toBeGreaterThan(180);
-        expect(sticky1.dimensions.h).toBeGreaterThan(100);
+        expect(updatedSticky1.dimensions.w).toBeGreaterThan(180);
+        expect(updatedSticky1.dimensions.h).toBeGreaterThan(100);
 
         // Terminar la operación
         resizeHandler.onEnd(null);
