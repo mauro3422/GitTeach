@@ -27,15 +27,10 @@ export class DragStrategy extends InteractionStrategy {
     handleMouseDown(e, context = {}) {
         const worldPos = this.controller.getWorldPosFromEvent(e);
 
-        // PANNING priority (right/middle mouse)
-        if (e.button === 1 || e.button === 2) {
-            this.controller.panZoomHandler.start(e, { rawPos: this.controller.getMousePos(e) });
-            return;
-        }
-
-        // LEFT CLICK for dragging
+        // ONLY concern: Start dragging the clicked node
         if (e.button === 0) {
-            const clickedNode = this.controller.findNodeAt(worldPos);
+            const clickedNodeId = this.controller.hoveredNodeId;
+            const clickedNode = clickedNodeId ? this.controller.nodes[clickedNodeId] : null;
 
             if (clickedNode) {
                 this.startDrag(clickedNode, worldPos);
@@ -49,30 +44,11 @@ export class DragStrategy extends InteractionStrategy {
      * @param {MouseEvent} e - Mouse event
      */
     handleMouseMove(e) {
+        if (!this.isActive()) return;
+
         const worldPos = this.controller.getWorldPosFromEvent(e);
-
-        // Handle panning if active
-        if (this.controller.panZoomHandler.isActive()) {
-            this.controller.panZoomHandler.update(e);
-            this.controller.onUpdate?.();
-            return;
-        }
-
-        // Handle dragging if active
-        if (this.isActive()) {
-            this.updateDrag(worldPos);
-            this.controller.onUpdate?.();
-        }
-
-        // Update cursor for resize handles
-        const resizeHit = this.controller.resizeHandler.findResizeHandle(worldPos);
-        if (resizeHit && this.controller.resizeHandler.isActive()) {
-            this.controller.canvas.style.cursor = this.controller.resizeHandler.getResizeCursor(resizeHit.corner);
-        } else if (!this.controller.resizeHandler.isActive()) {
-            this.controller.canvas.style.cursor = this.getCursor();
-        }
-
-
+        this.updateDrag(worldPos);
+        this.controller.onUpdate?.();
     }
 
     /**
@@ -80,25 +56,10 @@ export class DragStrategy extends InteractionStrategy {
      * @param {MouseEvent} e - Mouse event
      */
     handleMouseUp(e) {
-        // End panning if active
-        if (this.controller.panZoomHandler.isActive()) {
-            this.controller.panZoomHandler.end(e);
-        }
-
-        // End dragging if active
         if (this.isActive()) {
             this.endDrag();
+            this.controller.onUpdate?.();
         }
-
-        // End resizing if active
-        if (this.controller.resizeHandler.isActive()) {
-            this.controller.resizeHandler.end(e);
-            this.controller.canvas.style.cursor = 'default';
-        }
-
-        // Cleanup temporary state
-        DesignerStore.validateAndCleanup();
-        this.controller.onUpdate?.();
 
         if (this.controller.onInteractionEnd) {
             this.controller.onInteractionEnd();

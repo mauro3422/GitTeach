@@ -26,7 +26,7 @@ export const DesignerCanvas = {
     /**
      * Main render method using composite renderer pattern
      */
-    render(width, height, nodes, navState, connections, activeConnectionId, activeConnection = null, hoveredNodeId = null, dropTargetId = null, resizingNodeId = null) {
+    render(width, height, nodes, navState, connections, activeConnectionId, activeConnection = null, hoveredNodeId = null, dropTargetId = null, resizingNodeId = null, selectedNodeId = null, selectedConnectionId = null) {
         // Sincronizar camera con navState (temporal para compatibilidad)
         this.camera.pan = navState.panOffset;
         this.camera.zoom = navState.zoomScale;
@@ -37,10 +37,10 @@ export const DesignerCanvas = {
         // 2. World Space Renderers (Apply camera transform once)
         this.camera.apply(this.ctx);
 
-        ContainerRenderer.render(this.ctx, nodes, this.camera, hoveredNodeId, dropTargetId, resizingNodeId);
-        NodeRenderer.render(this.ctx, nodes, this.camera, activeConnectionId, hoveredNodeId);
+        ContainerRenderer.render(this.ctx, nodes, this.camera, hoveredNodeId, dropTargetId, resizingNodeId, selectedNodeId);
+        NodeRenderer.render(this.ctx, nodes, this.camera, activeConnectionId, hoveredNodeId, selectedNodeId);
         // ConnectionRenderer now handles both persistent and active connections
-        ConnectionRenderer.render(this.ctx, nodes, this.camera, connections, activeConnection);
+        ConnectionRenderer.render(this.ctx, nodes, this.camera, connections, activeConnection, selectedConnectionId);
 
         this.camera.restore(this.ctx);
 
@@ -48,7 +48,7 @@ export const DesignerCanvas = {
         this.ctx.globalAlpha = 1.0;
         this.ctx.shadowBlur = 0;
 
-        UIRenderer.render(this.ctx, nodes, this.camera, hoveredNodeId, dropTargetId);
+        UIRenderer.render(this.ctx, nodes, this.camera, hoveredNodeId, dropTargetId, selectedNodeId);
     },
 
 

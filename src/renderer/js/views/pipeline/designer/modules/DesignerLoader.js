@@ -1,5 +1,6 @@
 import { BlueprintManager } from '../BlueprintManager.js';
 import { DesignerStore } from './DesignerStore.js';
+import { ThemeManager } from '../../../../core/ThemeManager.js';
 import ContainerBoxManager from '../../../../utils/ContainerBoxManager.js';
 
 export const DesignerLoader = {
@@ -40,7 +41,7 @@ export const DesignerLoader = {
                 message: data.message,
                 parentId: data.parentId,
                 icon: data.isStickyNote ? '📝' : (data.isRepoContainer ? '📦' : '🧩'),
-                color: data.color || '#30363d',
+                color: data.color || ThemeManager.colors.drawerBorder,
                 isRepoContainer: data.isRepoContainer,
                 isStickyNote: data.isStickyNote || id.startsWith('sticky_'),
                 text: data.text || (id.startsWith('sticky_') ? "Contenido recuperado..." : ""),

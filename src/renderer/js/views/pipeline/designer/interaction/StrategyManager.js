@@ -13,21 +13,6 @@ export class StrategyManager {
         this.activeStrategy = this.dragStrategy;
     }
 
-    /**
-     * Switch between Drag and Draw modes
-     * @returns {boolean} true if Draw mode is now active
-     */
-    toggleMode() {
-        // Cancel current before switching
-        this.cancel();
-
-        this.activeStrategy = this.activeStrategy === this.dragStrategy
-            ? this.drawStrategy
-            : this.dragStrategy;
-
-        return this.activeStrategy === this.drawStrategy;
-    }
-
     setDrawMode() {
         if (this.activeStrategy !== this.drawStrategy) {
             this.cancel();

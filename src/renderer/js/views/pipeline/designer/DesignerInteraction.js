@@ -6,6 +6,7 @@ import { InputManager } from './modules/InputManager.js';
 import { DesignerStore } from './modules/DesignerStore.js';
 import { StrategyManager } from './interaction/StrategyManager.js';
 import { HoverManager } from './interaction/HoverManager.js';
+import { ThemeManager } from '../../../core/ThemeManager.js';
 
 export const DesignerInteraction = {
     canvas: null,
@@ -34,7 +35,8 @@ export const DesignerInteraction = {
     getInteractionState() {
         return {
             hoveredId: this.hoveredNodeId,
-            selectedId: null, // TODO: Implement selection
+            selectedId: DesignerStore.state.interaction.selectedNodeId,
+            selectedConnectionId: DesignerStore.state.interaction.selectedConnectionId,
             draggingId: this.strategyManager.getDragState()?.draggingNodeId,
             activeConnectionId: this.strategyManager.getConnectionState()?.fromNode?.id,
             resizingId: this.resizeHandler?.isActive() ? this.resizeHandler.getState().resizingNodeId : null
@@ -45,7 +47,7 @@ export const DesignerInteraction = {
         return VisualStateManager.getVisualState(node, this.getInteractionState());
     },
 
-    init(canvas, nodeProvider, onUpdate, onConnection, onNodeDoubleClick, onNodeDrop, onStickyNoteEdit, onInteractionEnd) {
+    init(canvas, nodeProvider, onUpdate, onConnection, onNodeDoubleClick, onNodeDrop, onStickyNoteEdit, onInteractionEnd, onDeleteNode) {
         this.canvas = canvas;
         this.nodeProvider = typeof nodeProvider === 'function' ? nodeProvider : () => nodeProvider;
         this.onUpdate = onUpdate;
@@ -54,6 +56,7 @@ export const DesignerInteraction = {
         this.onNodeDrop = onNodeDrop;
         this.onStickyNoteEdit = onStickyNoteEdit;
         this.onInteractionEnd = onInteractionEnd;
+        this.onDeleteNode = onDeleteNode;
 
         // Initialize Managers
         this.hoverManager = new HoverManager(this);
@@ -61,10 +64,7 @@ export const DesignerInteraction = {
         this.resizeHandler = new ResizeHandler(this);
         this.panZoomHandler = new PanZoomHandler(this);
 
-        this.panZoomHandler.init({ panOffset: { x: 0, y: 0 }, zoomScale: 1.5 });
-
-        // EXPOSE GLOBAL for InlineEditor compatibility
-        window.DesignerInteraction = this;
+        this.panZoomHandler.init({ panOffset: { x: 0, y: 0 }, zoomScale: ThemeManager.instance.navigation.defaultZoom });
 
         this._setupInput();
         this._setupShortcuts();
@@ -104,6 +104,14 @@ export const DesignerInteraction = {
                 console.log('[Interaction] ⏩ Redo executed (Store)');
             }
         });
+
+        InputManager.registerShortcut('delete', 'DeleteNode', () => {
+            if (this.onDeleteNode) this.onDeleteNode();
+        });
+
+        InputManager.registerShortcut('backspace', 'DeleteNode', () => {
+            if (this.onDeleteNode) this.onDeleteNode();
+        });
     },
 
     _handleKeyUp(e) {
@@ -125,14 +133,45 @@ export const DesignerInteraction = {
 
         if (e.button === 0) {
             const worldPos = this.getWorldPosFromEvent(e);
+
+            // 1. Check for Resize Handles
             const resizeHit = this.resizeHandler.findResizeHandle(worldPos);
             if (resizeHit) {
                 this.resizeHandler.start(e, { nodeId: resizeHit.nodeId, corner: resizeHit.corner, initialPos: worldPos });
-                return;
+                DesignerStore.selectNode(resizeHit.nodeId); // Selection follows interaction
+                return; // Exit here to prevent other interactions
+            }
+
+            // 2. Check for Panning (if Ctrl or Shift is pressed)
+            if (e.ctrlKey || e.shiftKey) {
+                this.panZoomHandler.start(e, { rawPos: this.getMousePos(e) });
+                return; // Exit to prevent other interactions
+            }
+
+            // 3. Check for Node Selection/Drag
+            const clickedNode = this.hoverManager.findNodeAt(worldPos);
+            if (clickedNode) {
+                // Only select if different from current selection
+                if (DesignerStore.state.interaction.selectedNodeId !== clickedNode.id) {
+                    DesignerStore.selectNode(clickedNode.id);
+                }
+
+                // For node clicks, don't immediately start drag strategy
+                // Let handleMouseMove determine if drag should start based on movement threshold
+                return; // Exit to prevent immediate drag start
+            } else {
+                // 4. Check for Connection Selection
+                const clickedConn = DesignerStore.findConnectionAt(worldPos);
+                if (clickedConn) {
+                    DesignerStore.selectConnection(clickedConn);
+                } else {
+                    DesignerStore.clearSelection();
+                }
+
+                // For empty space clicks, allow strategy manager to handle it (panning, etc.)
+                this.strategyManager.handleMouseDown(e);
             }
         }
-
-        this.strategyManager.handleMouseDown(e);
     },
 
     handleMouseMove(e) {
@@ -224,10 +263,11 @@ export const DesignerInteraction = {
 
     getMousePos(e) { return CoordinateUtils.getMouseScreenPos(e, this.canvas); },
     getWorldPosFromEvent(e) { return this.screenToWorld(this.getMousePos(e)); },
-    screenToWorld(pos) { return CoordinateUtils.screenToWorld(pos, this.state); },
+    screenToWorld(pos) {
+        const navState = this.state || { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 };
+        return CoordinateUtils.screenToWorld(pos, navState);
+    },
     worldToScreen(pos) { return CoordinateUtils.worldToScreen(pos, this.state); },
 
-    // Legacy support proxy (deprecated but kept for safety)
-    findNodeAt(worldPos, excludeId) { return this.hoverManager.findNodeAt(worldPos, excludeId); },
-    toggleMode() { return this.strategyManager.toggleMode(); }
+    worldToScreen(pos) { return CoordinateUtils.worldToScreen(pos, this.state); }
 };

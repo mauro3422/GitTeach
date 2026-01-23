@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Font CSS Variable Test</title>
+    <style>
+        :root {
+            --my-font-size: 20px;
+            --my-font-family: Arial, sans-serif;
+        }
+        
+        body {
+            font-family: Verdana, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <h1>Canvas Font CSS Variable Test</h1>
+    <canvas id="myCanvas" width="500" height="300"></canvas>
+    
+    <script>
+        const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Test 1: Valid font string
+        ctx.font = '20px Arial';
+        ctx.fillStyle = 'blue';
+        ctx.fillText('Valid font: 20px Arial', 10, 30);
+        
+        // Test 2: Font string with CSS variable (this should fail)
+        ctx.font = 'var(--my-font-size) var(--my-font-family)';
+        ctx.fillStyle = 'red';
+        ctx.fillText('Invalid font with CSS var: var(--my-font-size) var(--my-font-family)', 10, 70);
+        
+        // Test 3: Partially invalid font string with CSS variable
+        ctx.font = 'bold var(--invalid-size) Arial';
+        ctx.fillStyle = 'green';
+        ctx.fillText('Partially invalid: bold var(--invalid-size) Arial', 10, 110);
+        
+        // Test 4: Show what the computed values should be
+        const computedSize = getComputedStyle(document.documentElement).getPropertyValue('--my-font-size');
+        const computedFamily = getComputedStyle(document.documentElement).getPropertyValue('--my-font-family');
+        
+        ctx.font = `${computedSize} ${computedFamily}`;
+        ctx.fillStyle = 'purple';
+        ctx.fillText(`Using computed values: ${computedSize} ${computedFamily}`, 10, 150);
+        
+        // Draw a reference text using CSS-styled element
+        const referenceDiv = document.createElement('div');
+        referenceDiv.style.position = 'absolute';
+        referenceDiv.style.left = '10px';
+        referenceDiv.style.top = '180px';
+        referenceDiv.style.font = 'var(--my-font-size) var(--my-font-family)';
+        referenceDiv.textContent = 'Reference text with CSS variable (should appear below)';
+        document.body.appendChild(referenceDiv);
+        
+        console.log('Computed font size:', computedSize);
+        console.log('Computed font family:', computedFamily);
+    </script>
+</body>
+</html>

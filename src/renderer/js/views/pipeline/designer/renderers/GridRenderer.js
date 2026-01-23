@@ -1,7 +1,4 @@
-/**
- * GridRenderer.js
- * Responsabilidad: Renderizado de la cuadrícula de fondo
- */
+import { ThemeManager } from '../../../../core/ThemeManager.js';
 
 export const GridRenderer = {
     /**
@@ -10,13 +7,14 @@ export const GridRenderer = {
     render(ctx, width, height, camera) {
         // PERF: clearRect removed - already done in DesignerController
         camera.apply(ctx);
-        ctx.strokeStyle = 'rgba(48, 54, 61, 0.4)';
+        ctx.strokeStyle = ThemeManager.colors.gridLine;
         ctx.lineWidth = 1 / camera.zoomScale;
-        const size = 100;
-        const startX = -Math.floor(camera.panOffset.x / camera.zoomScale / size) * size - size * 10;
-        const endX = startX + (width / camera.zoomScale) + size * 20;
-        const startY = -Math.floor(camera.panOffset.y / camera.zoomScale / size) * size - size * 10;
-        const endY = startY + (height / camera.zoomScale) + size * 20;
+        const gridGeom = ThemeManager.geometry.grid;
+        const size = gridGeom.size;
+        const startX = -Math.floor(camera.panOffset.x / camera.zoomScale / size) * size - size * gridGeom.buffer;
+        const endX = startX + (width / camera.zoomScale) + size * (gridGeom.buffer * 2);
+        const startY = -Math.floor(camera.panOffset.y / camera.zoomScale / size) * size - size * gridGeom.buffer;
+        const endY = startY + (height / camera.zoomScale) + size * (gridGeom.buffer * 2);
         for (let x = startX; x <= endX; x += size) {
             ctx.beginPath(); ctx.moveTo(x, startY); ctx.lineTo(x, endY); ctx.stroke();
         }

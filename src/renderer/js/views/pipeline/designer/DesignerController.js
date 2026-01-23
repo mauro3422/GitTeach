@@ -18,7 +18,8 @@ import {
     UpdateLabelCommand,
     CreateConnectionCommand,
     MoveNodeCommand,
-    DropNodeCommand
+    DropNodeCommand,
+    DeleteConnectionCommand
 } from './commands/DesignerCommands.js';
 // Removed direct DragHandler import, accessed via DesignerInteraction
 import { DesignerEvents } from './core/DesignerEvents.js';
@@ -109,7 +110,8 @@ class DesignerControllerClass extends BaseController {
             (node) => this.openMessageModal(node),
             (nodeId, containerId) => this.handleNodeDrop(nodeId, containerId),
             (note) => this.openInlineEditor(note),
-            () => BlueprintManager.autoSave(DesignerStore.state.nodes, DesignerStore.state.connections)
+            () => BlueprintManager.autoSave(DesignerStore.state.nodes, DesignerStore.state.connections),
+            () => this.deleteSelectedNode()
         );
         BlueprintManager.init(DesignerStore.state.nodes);
     }
@@ -178,6 +180,27 @@ class DesignerControllerClass extends BaseController {
             note.text = newText || 'Nota vacía';
             this.render();
         });
+    }
+
+    deleteSelectedNode() {
+        const selectedId = DesignerStore.state.interaction.selectedNodeId;
+        const selectedConnId = DesignerStore.state.interaction.selectedConnectionId;
+
+        if (selectedId) {
+            console.log(`[DesignerController] Deleting selected node: ${selectedId}`);
+            const command = new DeleteNodeCommand(selectedId);
+            commandManager.execute(command);
+            DesignerStore.clearSelection();
+            this.render();
+            BlueprintManager.autoSave(DesignerStore.state.nodes, DesignerStore.state.connections);
+        } else if (selectedConnId) {
+            console.log(`[DesignerController] Deleting selected connection: ${selectedConnId}`);
+            const command = new DeleteConnectionCommand(selectedConnId);
+            commandManager.execute(command);
+            DesignerStore.clearSelection();
+            this.render();
+            BlueprintManager.autoSave(DesignerStore.state.nodes, DesignerStore.state.connections);
+        }
     }
 
     handleNodeDrop(nodeId, containerId) {
@@ -275,11 +298,13 @@ class DesignerControllerClass extends BaseController {
             activeConn,
             DesignerInteraction.hoveredNodeId,
             dropTargetId,
-            resizingNodeId
+            resizingNodeId,
+            DesignerStore.state.interaction.selectedNodeId,
+            interactionState.selectedConnectionId
         );
 
-        // Sync inline editor if active
-        InlineEditor.syncPosition();
+        // Sync inline editor if active (Passing explicit viewport state and coordinate transform)
+        InlineEditor.syncPosition(navState, (pos) => DesignerInteraction.worldToScreen(pos));
 
         // Check for container animations
         this.checkAnimations();

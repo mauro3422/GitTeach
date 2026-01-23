@@ -15,6 +15,7 @@ export { UpdateLabelCommand } from './UpdateLabelCommand.js';
 export { CreateConnectionCommand } from './CreateConnectionCommand.js';
 export { MoveNodeCommand } from './MoveNodeCommand.js';
 export { DropNodeCommand } from './DropNodeCommand.js';
+export { DeleteConnectionCommand } from './DeleteConnectionCommand.js';
 export { CompositeCommand } from './CompositeCommand.js';
 
 // Export singleton instance for global history management

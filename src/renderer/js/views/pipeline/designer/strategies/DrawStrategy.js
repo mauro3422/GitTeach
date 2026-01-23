@@ -25,7 +25,8 @@ export class DrawStrategy extends InteractionStrategy {
 
         // Only handle left clicks
         if (e.button === 0) {
-            const clickedNode = this.controller.findNodeAt(worldPos);
+            const clickedNodeId = this.controller.hoveredNodeId;
+            const clickedNode = clickedNodeId ? this.controller.nodes[clickedNodeId] : null;
 
             if (clickedNode && !clickedNode.isRepoContainer && !clickedNode.isStickyNote) {
                 this.handleConnectionClick(clickedNode, worldPos);
@@ -39,18 +40,12 @@ export class DrawStrategy extends InteractionStrategy {
      * @param {MouseEvent} e - Mouse event
      */
     handleMouseMove(e) {
-        const worldPos = this.controller.getWorldPosFromEvent(e);
-
-        // Update connection preview if active
+        // Only update preview if active
         if (this.isActive()) {
+            const worldPos = this.controller.getWorldPosFromEvent(e);
             this.connectionState.currentPos = { ...worldPos };
             this.controller.onUpdate?.();
         }
-
-        // Update cursor
-        this.controller.canvas.style.cursor = this.getCursor();
-
-
     }
 
     /**

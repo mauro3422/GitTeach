@@ -4,21 +4,25 @@
  * Centraliza cálculos de dimensiones dinámicas y animaciones elásticas
  */
 
+import { ThemeManager } from '../../../../core/ThemeManager.js';
+import { ScalingCalculator } from './ScalingCalculator.js';
 import { GeometryUtils } from '../GeometryUtils.js';
 
 export const LayoutUtils = {
     /**
-     * Calcula el tamaño objetivo de un contenedor basado en sus hijos
+     * Calcula el tamaño objetivo de un contenedor basado en sus hijos y el zoom
      * @param {Object} containerNode - Nodo contenedor
      * @param {Array} childrenNodes - Array de nodos hijos
+     * @param {number} zoomScale - Zoom actual para inflación visual
      * @param {Object} options - Opciones de cálculo
-     * @returns {Object} {targetW, targetH, centerX, centerY}
      */
-    calculateContainerTargetSize(containerNode, childrenNodes, options = {}) {
+    calculateContainerTargetSize(containerNode, childrenNodes, zoomScale = 1.0, options = {}) {
+        // We defer GeometryUtils calls inside methods, but we can use ScalingCalculator directly for constants
+        const layout = ThemeManager.geometry.layout.container;
         const {
-            padding = 60,
-            minWidth = 140,
-            minHeight = 100
+            padding = layout.padding,
+            minWidth = layout.minWidth,
+            minHeight = layout.minHeight
         } = options;
 
         if (!childrenNodes || childrenNodes.length === 0) {
@@ -30,14 +34,15 @@ export const LayoutUtils = {
             };
         }
 
-        // Calcular bounds de todos los hijos
-        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        // Import dynamic to avoid top-level cycle if needed, but ScalingCalculator is safe
+        const vScale = ScalingCalculator.getVisualScale(zoomScale);
 
         childrenNodes.forEach(child => {
-            const radius = GeometryUtils.getNodeRadius(child, 1); // Usar zoomScale = 1 para cálculo base
+            const radius = GeometryUtils.getNodeRadius(child, zoomScale); // Usar inflación real
             const labelStr = child.label || "";
-            const estimatedPixelWidth = labelStr.length * 13;
-            const effectiveHalfWidth = Math.max(radius, estimatedPixelWidth / 2 + 10);
+            // Los labels también crecen en importancia visual
+            const estimatedPixelWidth = (labelStr.length * layout.labelCharWidth) * vScale;
+            const effectiveHalfWidth = Math.max(radius, estimatedPixelWidth / 2 + (layout.labelPadding * vScale));
 
             minX = Math.min(minX, child.x - effectiveHalfWidth);
             maxX = Math.max(maxX, child.x + effectiveHalfWidth);
@@ -45,12 +50,12 @@ export const LayoutUtils = {
             maxY = Math.max(maxY, child.y + radius);
         });
 
-        // Base padding aumenta con más hijos para "breathing room"
-        const basePadding = padding + Math.min(childrenNodes.length * 5, 40);
+        // El padding base también debe inflarse para evitar que los nodos toquen los bordes
+        const basePadding = (padding + Math.min(childrenNodes.length * layout.growthPerChild, layout.maxGrowth)) * vScale;
         const hPadding = basePadding;
 
-        const targetW = Math.max(minWidth, (maxX - minX) + basePadding);
-        const targetH = Math.max(minHeight, (maxY - minY) + hPadding + 40); // +40 para espacio extra inferior
+        const targetW = Math.max(minWidth * vScale, (maxX - minX) + basePadding);
+        const targetH = Math.max(minHeight * vScale, (maxY - minY) + hPadding + (layout.extraHeight * vScale));
         const centerX = (minX + maxX) / 2;
         const centerY = (minY + maxY) / 2;
 
@@ -65,7 +70,7 @@ export const LayoutUtils = {
      * @param {number} epsilon - Umbral de convergencia
      * @returns {boolean} true si hubo cambios
      */
-    updateElasticDimensions(node, damping = 0.15, epsilon = 0.5) {
+    updateElasticDimensions(node, damping = ThemeManager.geometry.layout.physics.damping, epsilon = ThemeManager.geometry.layout.physics.epsilon) {
         if (!node.dimensions) return false;
 
         const dims = node.dimensions;
@@ -100,7 +105,7 @@ export const LayoutUtils = {
      * @param {number} minDistance - Distancia mínima requerida
      * @returns {Array} Array de nodos colisionando
      */
-    detectCollisions(node, otherNodes, minDistance = 20) {
+    detectCollisions(node, otherNodes, minDistance = ThemeManager.geometry.layout.physics.collisionBuffer) {
         const collisions = [];
         const nodeRadius = GeometryUtils.getNodeRadius(node, 1);
 
@@ -131,7 +136,7 @@ export const LayoutUtils = {
      * @param {Array} collisions - Resultado de detectCollisions
      * @param {number} strength - Fuerza de separación (0.0-1.0)
      */
-    resolveCollisions(node, collisions, strength = 0.5) {
+    resolveCollisions(node, collisions, strength = ThemeManager.geometry.layout.physics.strength) {
         if (collisions.length === 0) return;
 
         let totalForceX = 0;
@@ -174,7 +179,7 @@ export const LayoutUtils = {
      * @param {Object} options - {cols, spacing}
      */
     applyGridLayout(nodes, bounds, options = {}) {
-        const { cols = 3, spacing = 120 } = options;
+        const { cols = 3, spacing = ThemeManager.geometry.grid.spacing } = options;
         const rows = Math.ceil(nodes.length / cols);
 
         nodes.forEach((node, index) => {
@@ -205,6 +210,60 @@ export const LayoutUtils = {
         return {
             x: totalX / nodes.length,
             y: totalY / nodes.length
+        };
+    },
+
+    /**
+     * Lógica de límites de contenedor movida aquí para romper el ciclo con GeometryUtils
+     */
+    getContainerBounds(node, nodes, zoomScale = 1.0, dropTargetId = null) {
+        const containerId = node.id;
+        const isScaleUp = node.id === dropTargetId;
+        const scaleFactor = isScaleUp ? 1.10 : 1.0;
+
+        if (!node.dimensions) {
+            node.dimensions = { w: 180, h: 100, animW: 180, animH: 100, targetW: 180, targetH: 100, isManual: false };
+        }
+        const dims = node.dimensions;
+        const children = Object.values(nodes).filter(n => n.parentId === containerId);
+
+        const target = this.calculateContainerTargetSize(node, children, zoomScale, {
+            padding: 60, minWidth: 140, minHeight: 100
+        });
+
+        node.dimensions.contentMinW = target.targetW;
+        node.dimensions.contentMinH = target.targetH;
+
+        if (dims.isManual) {
+            const effectiveW = Math.max(dims.w, target.targetW);
+            const effectiveH = Math.max(dims.h, target.targetH);
+            return {
+                w: dims.w, h: dims.h,
+                renderW: effectiveW * scaleFactor,
+                renderH: effectiveH * scaleFactor,
+                centerX: node.x, centerY: node.y
+            };
+        }
+
+        if (dims._lastChildCount !== undefined && children.length > dims._lastChildCount) {
+            dims.transitionPadding = 50;
+        }
+        dims._lastChildCount = children.length;
+        dims.transitionPadding = dims.transitionPadding || 0;
+        dims.targetW = target.targetW + dims.transitionPadding;
+        dims.targetH = target.targetH + dims.transitionPadding;
+
+        this.updateElasticDimensions(node, 0.15, 0.5);
+        dims.transitionPadding *= 0.85;
+        if (dims.transitionPadding < 0.1) dims.transitionPadding = 0;
+
+        return {
+            w: target.targetW,
+            h: target.targetH,
+            renderW: dims.animW * scaleFactor,
+            renderH: dims.animH * scaleFactor,
+            centerX: target.centerX,
+            centerY: target.centerY
         };
     }
 };

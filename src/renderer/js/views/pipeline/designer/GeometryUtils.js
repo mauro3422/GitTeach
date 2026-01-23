@@ -1,221 +1,241 @@
 /**
  * GeometryUtils.js
- * Responsabilidad: Cálculos geométricos puros y hit-testing
- * Animaciones y layout dinámico movidos a LayoutUtils
+ * Responsabilidad: Hit-testing y fachada de geometría.
+ * La lógica de layout elástico reside en LayoutUtils.
  */
 
-import { LayoutUtils } from './utils/LayoutUtils.js';
+import { ScalingCalculator } from './utils/ScalingCalculator.js';
+// We do NOT import LayoutUtils here to avoid circularity.
+// Methods that need LayoutUtils will assume it's available or be moved to LayoutUtils.
 
 export const GeometryUtils = {
-    /**
-     * Calcula el radio dinámico de un nodo basado en zoom
-     * @param {Object} node - El nodo
-     * @param {number} zoomScale - Escala de zoom actual
-     * @returns {number} Radio del nodo
-     */
-    getNodeRadius(node, zoomScale = 1) {
-        const baseRadius = node.isSatellite ? 25 : 35;
-        // Compensate partially for zoom: radius grows in world space as zoom decreases
-        const comp = Math.pow(1 / zoomScale, 0.4);
-        return baseRadius * Math.min(2.5, comp);
-    },
+    _dummyCtx: null,
+
+    getVisualScale(zoomScale) { return ScalingCalculator.getVisualScale(zoomScale); },
+    getFontScale(zoomScale, baseFontSize = 18) { return ScalingCalculator.getFontScale(zoomScale, baseFontSize); },
+    getDistance(p1, p2) { return ScalingCalculator.getDistance(p1, p2); },
+    getNodeRadius(node, zoomScale = 1) { return ScalingCalculator.getNodeRadius(node, zoomScale); },
 
     /**
-     * Calcula los límites de un contenedor basados en sus hijos
-     * @param {Object} node - Nodo contenedor
-     * @param {Object} nodes - Todos los nodos
-     * @param {number} zoomScale - Escala de zoom
-     * @param {string|null} dropTargetId - ID del target de drop para highlighting
-     * @returns {Object} Límites del contenedor {w, h, centerX, centerY}
+     * Calcula la posición de un nodo en órbita
+     * Requerido por DesignerHydrator para satélites y por ConnectionRenderer
      */
-    getContainerBounds(node, nodes, zoomScale = 1.0, dropTargetId = null) {
-        const containerId = node.id;
-        const isScaleUp = node.id === dropTargetId;
-        const scaleFactor = isScaleUp ? 1.10 : 1.0;
-
-        // Initialize dimensions if missing (legacy recovery)
-        if (!node.dimensions) {
-            node.dimensions = {
-                w: 180, h: 100, animW: 180, animH: 100, targetW: 180, targetH: 100, isManual: false
-            };
-        }
-        const dims = node.dimensions;
-
-        const children = Object.values(nodes).filter(n => n.parentId === containerId);
-
-        // Calculate TARGET dimensions using LayoutUtils (Content Awareness)
-        // We need this even in Manual Mode to determine the floor (minimum size)
-        const target = LayoutUtils.calculateContainerTargetSize(node, children, {
-            padding: 60,
-            minWidth: 140,
-            minHeight: 100
-        });
-
-        // Save constraints for ResizeHandler
-        if (!node.dimensions) node.dimensions = {};
-        node.dimensions.contentMinW = target.targetW;
-        node.dimensions.contentMinH = target.targetH;
-
-        // MANUAL MODE: Use user-provided dimensions, BUT clamp to content size (Auto-Grow)
-        if (dims.isManual) {
-            // "Elastic" behavior: If manual size is smaller than content, expand to fit content
-            const effectiveW = Math.max(dims.w, target.targetW);
-            const effectiveH = Math.max(dims.h, target.targetH);
-
-            // Optional: Update dimensions to persist this growth?
-            // If we don't update dims.w/h, it behaves like "Visual Inflation" (snap back on delete).
-            // User asked: "se hace mas grande suavemente".
-            // If we want smooth, we should use animW. 
-            // For now, let's just make it robust (snap to fit).
-
-            return {
-                w: effectiveW * scaleFactor,
-                h: effectiveH * scaleFactor,
-                centerX: node.x,
-                centerY: node.y
-            };
-        }
-
-        // ELASTIC TRANSITION LOGIC (moved to LayoutUtils compatible format)
-        if (dims._lastChildCount !== undefined && children.length > dims._lastChildCount) {
-            dims.transitionPadding = 50; // Extra temporary padding to "pop" open
-        }
-        dims._lastChildCount = children.length;
-        dims.transitionPadding = dims.transitionPadding || 0;
-
-        // Apply transition padding to target (elastic effect)
-        dims.targetW = target.targetW + dims.transitionPadding;
-        dims.targetH = target.targetH + dims.transitionPadding;
-
-        // Update elastic animation using LayoutUtils
-        LayoutUtils.updateElasticDimensions(node, 0.15, 0.5);
-
-        // Fade transition padding
-        dims.transitionPadding *= 0.85;
-        if (dims.transitionPadding < 0.1) dims.transitionPadding = 0;
-
+    calculateOrbitPosition(center, radius, angleDeg) {
+        if (!center) return { x: 0, y: 0 };
+        const angleRad = angleDeg * (Math.PI / 180);
         return {
-            w: dims.animW * scaleFactor,
-            h: dims.animH * scaleFactor,
-            centerX: target.centerX,
-            centerY: target.centerY
+            x: (center.x || 0) + radius * Math.cos(angleRad),
+            y: (center.y || 0) + radius * Math.sin(angleRad)
         };
     },
 
     /**
-     * Verifica si un punto está dentro de un nodo
-     * @param {Object} point - {x, y}
-     * @param {Object} node - Nodo a verificar
-     * @param {number} zoomScale - Escala de zoom
-     * @returns {boolean}
+     * Calcula el ángulo entre dos puntos en radianes
      */
-    isPointInNode(point, node, zoomScale = 1) {
-        const radius = this.getNodeRadius(node, zoomScale);
-        const dist = Math.sqrt((node.x - point.x) ** 2 + (node.y - point.y) ** 2);
-        return dist < radius;
-    },
-
-    /**
-     * Verifica si un punto está dentro de un contenedor
-     * @param {Object} point - {x, y}
-     * @param {Object} container - Nodo contenedor
-     * @param {Object} nodes - Todos los nodos
-     * @param {number} zoomScale - Escala de zoom
-     * @returns {boolean}
-     */
-    isPointInContainer(point, container, nodes, zoomScale = 1) {
-        if (!container.isRepoContainer) return false;
-        const bounds = this.getContainerBounds(container, nodes, zoomScale);
-        const w = bounds.w + 10;
-        const h = bounds.h + 10;
-        return point.x >= bounds.centerX - w / 2 && point.x <= bounds.centerX + w / 2 &&
-            point.y >= bounds.centerY - h / 2 && point.y <= bounds.centerY + h / 2;
-    },
-
-    /**
-     * Calcula la distancia entre dos puntos
-     * @param {Object} p1 - Punto 1 {x, y}
-     * @param {Object} p2 - Punto 2 {x, y}
-     * @returns {number}
-     */
-    getDistance(p1, p2) {
-        return Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
+    calculateAngle(p1, p2) {
+        if (!p1 || !p2) return 0;
+        return Math.atan2(p2.y - p1.y, p2.x - p1.x);
     },
 
     /**
      * Verifica si un punto está dentro de un rectángulo
      * @param {Object} point - {x, y}
-     * @param {Object} rect - {x, y, w, h} o {minX, maxX, minY, maxY}
-     * @returns {boolean}
+     * @param {Object} rect - {centerX, centerY, w, h}
      */
     isPointInRectangle(point, rect) {
-        if (rect.w !== undefined) {
-            // Format: {x, y, w, h}
-            return point.x >= rect.x - rect.w / 2 && point.x <= rect.x + rect.w / 2 &&
-                point.y >= rect.y - rect.h / 2 && point.y <= rect.y + rect.h / 2;
-        } else {
-            // Format: {minX, maxX, minY, maxY}
-            return point.x >= rect.minX && point.x <= rect.maxX &&
-                point.y >= rect.minY && point.y <= rect.maxY;
-        }
+        if (!point || !rect) return false;
+        const centerX = rect.centerX !== undefined ? rect.centerX : rect.x;
+        const centerY = rect.centerY !== undefined ? rect.centerY : rect.y;
+        const w = rect.w;
+        const h = rect.h;
+        return point.x >= centerX - w / 2 && point.x <= centerX + w / 2 &&
+            point.y >= centerY - h / 2 && point.y <= centerY + h / 2;
     },
 
     /**
-     * Calcula el punto de borde de un nodo hacia un target
-     * @param {Object} node - Nodo fuente
-     * @param {number} targetX - X del target
-     * @param {number} targetY - Y del target
-     * @param {Object} nodes - Todos los nodos
-     * @param {Object} camera - Estado de la cámara
-     * @returns {Object} Punto de borde {x, y}
+     * Encuentra el punto en el borde del nodo más cercano a un objetivo
+     * Soporta Círculos (nodos) y Cajas (contenedores/sticky)
      */
     getEdgePoint(node, targetX, targetY, nodes, camera) {
-        const angle = Math.atan2(targetY - node.y, targetX - node.x);
-        const isRectangular = node.isRepoContainer || node.isStickyNote;
+        const zoom = camera?.zoomScale || 1.0;
 
-        if (isRectangular) {
-            // For rectangles, calculate intersection with border
+        if (node.isRepoContainer || node.isStickyNote) {
             const bounds = node.isRepoContainer
-                ? this.getContainerBounds(node, nodes, camera.zoomScale)
-                : {
-                    w: node.dimensions?.animW || node.dimensions?.w || 180,
-                    h: node.dimensions?.animH || node.dimensions?.h || 100
-                };
+                ? this.getContainerBounds(node, nodes, zoom)
+                : this.getStickyNoteBounds(node, null, zoom);
 
-            const w = bounds.w / 2;
-            const h = bounds.h / 2;
-            const centerX = bounds.centerX || node.x;
-            const centerY = bounds.centerY || node.y;
+            const w = bounds.renderW || bounds.w || 180;
+            const h = bounds.renderH || bounds.h || 100;
+            const cx = bounds.centerX || node.x;
+            const cy = bounds.centerY || node.y;
 
-            // Calculate intersection with rectangle edges
-            const tanAngle = Math.tan(angle);
-            let edgeX, edgeY;
+            const dx = targetX - cx;
+            const dy = targetY - cy;
+            const absDx = Math.abs(dx);
+            const absDy = Math.abs(dy);
 
-            // Check intersection with vertical edges (left/right)
-            if (Math.abs(Math.cos(angle)) > 0.001) {
-                const xSign = Math.cos(angle) > 0 ? 1 : -1;
-                edgeX = centerX + w * xSign;
-                edgeY = centerY + w * xSign * tanAngle;
+            if (dx === 0 && dy === 0) return { x: cx, y: cy };
 
-                // Check if this point is within the horizontal bounds
-                if (Math.abs(edgeY - centerY) <= h) {
-                    return { x: edgeX, y: edgeY };
-                }
-            }
-
-            // Otherwise intersect with horizontal edges (top/bottom)
-            const ySign = Math.sin(angle) > 0 ? 1 : -1;
-            edgeY = centerY + h * ySign;
-            edgeX = centerX + h * ySign / tanAngle;
-            return { x: edgeX, y: edgeY };
-        } else {
-            // For circles, use dynamic radius
-            const zoomScale = camera.zoomScale;
-            const radius = this.getNodeRadius(node, zoomScale);
+            // Intersección AABB-Ray
+            const scale = Math.min(w / (2 * absDx || 1), h / (2 * absDy || 1));
             return {
-                x: node.x + radius * Math.cos(angle),
-                y: node.y + radius * Math.sin(angle)
+                x: cx + dx * scale,
+                y: cy + dy * scale
+            };
+        } else {
+            // Intersección Círculo
+            const radius = this.getNodeRadius(node, zoom);
+            const dx = targetX - node.x;
+            const dy = targetY - node.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist === 0) return { x: node.x, y: node.y };
+
+            return {
+                x: node.x + (dx / dist) * radius,
+                y: node.y + (dy / dist) * radius
             };
         }
+    },
+
+    getRectCorners(centerX, centerY, w, h) {
+        return {
+            'nw': { x: centerX - w / 2, y: centerY - h / 2 },
+            'ne': { x: centerX + w / 2, y: centerY - h / 2 },
+            'sw': { x: centerX - w / 2, y: centerY + h / 2 },
+            'se': { x: centerX + w / 2, y: centerY + h / 2 }
+        };
+    },
+
+    calculateResizeDelta(corner, startW, startH, dx, dy) {
+        let w = startW, h = startH;
+        switch (corner) {
+            case 'se': w += dx * 2; h += dy * 2; break;
+            case 'sw': w -= dx * 2; h += dy * 2; break;
+            case 'ne': w += dx * 2; h -= dy * 2; break;
+            case 'nw': w -= dx * 2; h -= dy * 2; break;
+        }
+        return { w, h };
+    },
+
+    /**
+     * Delegado para obtener límites de contenedor.
+     * Si necesitas lógica de auto-layout elástico, usa LayoutUtils directamente.
+     */
+    getContainerBounds(node, nodes, zoomScale = 1.0, dropTargetId = null) {
+        // En un sistema real, LayoutUtils se inyecta o se accede globalmente para evitar el ciclo.
+        // Aquí usamos la referencia global si existe (en el navegador) o fallamos amablemente.
+        const layout = (typeof window !== 'undefined' && window.LayoutUtils) || (typeof global !== 'undefined' && global.LayoutUtils);
+
+        if (layout) {
+            return layout.getContainerBounds(node, nodes, zoomScale, dropTargetId);
+        }
+
+        // Fallback básico si LayoutUtils no está cargado aún (útil durante bootstrap inicial)
+        const w = node.dimensions?.w || 180;
+        const h = node.dimensions?.h || 100;
+        const bScale = this.getVisualScale(zoomScale);
+        return {
+            w, h,
+            renderW: (node.dimensions?.animW || w) * bScale,
+            renderH: (node.dimensions?.animH || h) * bScale,
+            centerX: node.x,
+            centerY: node.y
+        };
+    },
+
+    getStickyNoteBounds(node, ctx, zoomScale = 1.0) {
+        const w = node.dimensions?.w || 180;
+        const h = node.dimensions?.h || 100;
+        const padding = 15;
+        const bScale = this.getVisualScale(zoomScale);
+        const baseInflatedW = w * bScale;
+        const baseInflatedH = h * bScale;
+
+        if (!node.text) {
+            return { w, h, renderW: baseInflatedW, renderH: baseInflatedH, centerX: node.x, centerY: node.y };
+        }
+
+        const fScale = this.getFontScale(zoomScale);
+        const baseFontSize = 18;
+        const worldFontSize = baseFontSize * fScale;
+        const worldLineHeight = worldFontSize + 6;
+
+        if (!this._dummyCtx && typeof document !== 'undefined') {
+            try { this._dummyCtx = document.createElement('canvas').getContext('2d'); } catch (e) { }
+        }
+        const activeCtx = ctx || this._dummyCtx;
+
+        if (!activeCtx) {
+            return { w, h, renderW: Math.max(baseInflatedW, w + padding * 2), renderH: Math.max(baseInflatedH, h + padding * 2), centerX: node.x, centerY: node.y };
+        }
+
+        activeCtx.save();
+        activeCtx.font = `${worldFontSize}px ${typeof window !== 'undefined' && window.ThemeManager ? window.ThemeManager.colors.fontMono : 'monospace'}`;
+        const words = node.text.split(/[\s\n]+/);
+        let maxWordWidth = 0;
+        words.forEach(wd => {
+            const width = activeCtx.measureText(wd).width;
+            if (width > maxWordWidth) maxWordWidth = width;
+        });
+
+        const effectiveMaxWidth = Math.max(baseInflatedW - padding * 2, maxWordWidth);
+        const wordsForLines = node.text.split(' ');
+        let currentLine = '', linesCount = 0;
+        wordsForLines.forEach(word => {
+            const testLine = currentLine + word + ' ';
+            if (activeCtx.measureText(testLine).width > effectiveMaxWidth && currentLine.length > 0) {
+                linesCount++;
+                currentLine = word + ' ';
+            } else {
+                currentLine = testLine;
+            }
+        });
+        if (currentLine.trim()) linesCount++;
+        activeCtx.restore();
+
+        return {
+            w, h,
+            renderW: Math.max(baseInflatedW, maxWordWidth + padding * 2 + 10),
+            renderH: Math.max(baseInflatedH, (linesCount * worldLineHeight) + padding * 2),
+            centerX: node.x,
+            centerY: node.y
+        };
+    },
+
+    isPointInNode(point, node, zoomScale = 1) {
+        const radius = this.getNodeRadius(node, zoomScale);
+        const dist = this.getDistance(point, node);
+        return dist < radius;
+    },
+
+    calculateArrowPoints(endPoint, angle, headlen = 10, headAngle = Math.PI / 6) {
+        return [
+            { x: endPoint.x - headlen * Math.cos(angle - headAngle), y: endPoint.y - headlen * Math.sin(angle - headAngle) },
+            { x: endPoint.x - headlen * Math.cos(angle + headAngle), y: endPoint.y - headlen * Math.sin(angle + headAngle) }
+        ];
+    },
+
+    isPointInContainer(point, container, nodes, zoomScale = 1) {
+        if (!container.isRepoContainer && !container.isStickyNote) return false;
+        const bounds = container.isRepoContainer ? this.getContainerBounds(container, nodes, zoomScale) : this.getStickyNoteBounds(container, null, zoomScale);
+        const w = (bounds.renderW || bounds.w) + 10;
+        const h = (bounds.renderH || bounds.h) + 10;
+        const centerX = bounds.centerX || container.x;
+        const centerY = bounds.centerY || container.y;
+        return point.x >= centerX - w / 2 && point.x <= centerX + w / 2 && point.y >= centerY - h / 2 && point.y <= centerY + h / 2;
+    },
+
+    isPointNearLine(point, p1, p2, threshold = 10) {
+        const dist = this.getPointToSegmentDistance(point, p1, p2);
+        return dist < threshold;
+    },
+
+    getPointToSegmentDistance(p, v, w) {
+        const l2 = this.getDistance(v, w) ** 2;
+        if (l2 === 0) return this.getDistance(p, v);
+        let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+        t = Math.max(0, Math.min(1, t));
+        return this.getDistance(p, { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) });
     }
 };

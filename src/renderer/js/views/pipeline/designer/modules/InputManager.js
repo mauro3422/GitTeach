@@ -12,9 +12,7 @@ export const InputManager = {
         mousePos: { x: 0, y: 0 },
         wheelDelta: 0,
         isPointerDown: false,
-        activeModifiers: new Set(),
-        keySequence: [],
-        lastKeyTime: 0
+        activeModifiers: new Set()
     },
 
     _shortcuts: new Map(),
@@ -94,6 +92,11 @@ export const InputManager = {
     },
 
     _handleKeyDown(e) {
+        // Skip global shortcuts if user is typing in an input or textarea
+        if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+            return;
+        }
+
         this._state.keysPressed.add(e.code);
         this._updateModifiers(e);
 

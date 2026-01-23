@@ -10,6 +10,24 @@ All notable changes to the GitTeach project will be documented in this file.
 
 ---
 
+## [2.78.0] - Designer Interaction & Stability Fixes - 2026-01-22
+### 🛡️ Interaction Integrity
+- **Anti-Hijacking Protocol**: Refactored `ResizeHandler.js` to strictly prioritize the selected node for resize operations.
+  - Eliminated "Interaction Hijacking" where unselected nodes could intercept clicks meant for the active node.
+  - Implemented strict selection requirement: Users must select a node before resizing it, aligning with standard UX patterns.
+- **Container Dead-Click Fix**: Updated `DesignerStore.findNodeAt` to use `renderW/renderH` (Visual Bounds) instead of logical width/height for hit-testing.
+  - Resolved issue where containers were unclickable at low zoom levels due to logical vs. visual size discrepancies.
+- **Hit-Test Precision**: Dynamic `hitThreshold` calculation in `ResizeHandler` now scales with zoom, ensuring handles are always 14px (screen space) regardless of the view scale.
+
+### 🧪 High-Fidelity Testing Infrastructure
+- **Real-World Test Suite (`tests_real/`)**: Established a new standard for testing using `jsdom` without logic mocks.
+- **Validation Scenarios**:
+  - `interaction_hijack.test.js`: Verifies finding handles only on selected nodes.
+  - `container_hit_test.test.js`: Verifies interaction with visual bounds of containers.
+  - `interaction_integrity.test.js`: Updated to enforce the "Select-then-Resize" contract.
+
+---
+
 ## [2.77.0] - Designer UX Polish: Sticky Notes & Containers - 2026-01-22
 ### 🎨 Enhancements: Sticky Notes Experience
 - **Dynamic Visual Inflation**: Implemented advanced rendering logic that "inflates" sticky notes visually during Zoom Out to strictly maintain text readability (12px) without breaking layout dimensions.

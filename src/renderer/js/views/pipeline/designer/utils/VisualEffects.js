@@ -14,8 +14,8 @@ export const VisualEffects = {
     EFFECTS: {
         HOVER_GLOW: { intensity: 1.2 },
         ACTIVE_GLOW: { intensity: 1.8 },
-        SUBTLE_SHADOW: { blur: 8, color: 'rgba(0,0,0,0.3)' },
-        STRONG_SHADOW: { blur: 20, color: 'rgba(0,0,0,0.5)' }
+        SUBTLE_SHADOW: ThemeManager.effects.shadow.subtle,
+        STRONG_SHADOW: ThemeManager.effects.shadow.strong
     },
 
     /**
@@ -30,8 +30,8 @@ export const VisualEffects = {
         if (!rgb) return;
 
         // Calcular intensidad de glow
-        const blur = Math.max(8, Math.min(40, 15 * intensity));
-        const alpha = Math.max(0.3, Math.min(1.0, 0.6 * intensity));
+        const blur = Math.max(12, Math.min(60, 25 * intensity)); // Increased from (8, 40, 15)
+        const alpha = Math.max(0.4, Math.min(1.0, 0.7 * intensity)); // Increased from (0.3, 1.0, 0.6)
 
         // Aplicar glow
         ctx.shadowBlur = blur;
@@ -82,7 +82,7 @@ export const VisualEffects = {
             ctx.shadowColor = color;
 
             // Handle cuadrado
-            ctx.fillStyle = isActive ? color : 'rgba(255, 255, 255, 0.9)';
+            ctx.fillStyle = isActive ? color : ThemeManager.colors.text;
             ctx.strokeStyle = color;
             ctx.lineWidth = isActive ? 2 : 1.5;
 
@@ -115,7 +115,7 @@ export const VisualEffects = {
 
         if (shadow) {
             ctx.shadowBlur = shadow.blur || 8;
-            ctx.shadowColor = shadow.color || 'rgba(0,0,0,0.3)';
+            ctx.shadowColor = shadow.color || ThemeManager.effects.shadow.sm.color;
         }
     },
 

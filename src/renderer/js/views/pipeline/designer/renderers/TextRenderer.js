@@ -11,8 +11,8 @@ export const TextRenderer = {
      * Configuraciones de fuente predefinidas
      */
     FONTS: {
-        MONO: '"Fira Code", monospace',
-        UI: 'var(--font-mono), monospace',
+        MONO: ThemeManager.colors.fontMono,
+        UI: ThemeManager.colors.fontMono,
         SANS: 'Arial, sans-serif'
     },
 
@@ -96,8 +96,8 @@ export const TextRenderer = {
      */
     drawTooltip(ctx, text, x, y, style = {}) {
         const {
-            bgColor = 'rgba(13, 17, 23, 0.98)',
-            borderColor = ThemeManager.colors.border,
+            bgColor = ThemeManager.colors.tooltipBg,
+            borderColor = ThemeManager.colors.tooltipBorder,
             textColor = ThemeManager.colors.text,
             maxWidth = 220,
             padding = 10,
@@ -129,7 +129,7 @@ export const TextRenderer = {
 
         // Dibujar fondo con sombra
         ctx.shadowBlur = 15;
-        ctx.shadowColor = 'rgba(0,0,0,0.4)';
+        ctx.shadowColor = ThemeManager.effects.shadow.md.color;
         ctx.fillStyle = bgColor;
         ctx.strokeStyle = borderColor;
         ctx.lineWidth = 2;

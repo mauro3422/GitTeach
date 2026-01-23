@@ -44,10 +44,10 @@ export const CanvasPrimitives = {
         // Layer 1: Wide diffuse glow (outermost)
         ctx.save();
         ctx.beginPath();
-        ctx.shadowBlur = isResizing ? baseIntensity * 5 : (isHovered ? baseIntensity * 3.5 : baseIntensity * 1.5);
+        ctx.shadowBlur = isResizing ? baseIntensity * 8 : (isHovered ? baseIntensity * 5.5 : baseIntensity * 2.5); // Up from 5, 3.5, 1.5
         ctx.shadowColor = neonColor;
-        ctx.lineWidth = isResizing ? 4 : (isHovered ? 3 : 2);
-        ctx.strokeStyle = neonColor + '30'; // 19% opacity
+        ctx.lineWidth = isResizing ? 5 : (isHovered ? 4 : 3); // Up from 4, 3, 2
+        ctx.strokeStyle = neonColor + '40'; // 25% opacity
         this.roundRect(ctx, x - w / 2, y - h / 2, w, h, radius);
         ctx.stroke();
         ctx.restore();
@@ -55,10 +55,10 @@ export const CanvasPrimitives = {
         // Layer 2: Medium glow
         ctx.save();
         ctx.beginPath();
-        ctx.shadowBlur = isResizing ? baseIntensity * 3 : (isHovered ? baseIntensity * 2 : baseIntensity * 1);
+        ctx.shadowBlur = isResizing ? baseIntensity * 4.5 : (isHovered ? baseIntensity * 3 : baseIntensity * 2); // Up from 3, 2, 1
         ctx.shadowColor = neonColor;
-        ctx.lineWidth = isResizing ? 3 : (isHovered ? 2.5 : 1.5);
-        ctx.strokeStyle = neonColor + '60'; // 37% opacity
+        ctx.lineWidth = isResizing ? 4 : (isHovered ? 3.5 : 2.5); // Up from 3, 2.5, 1.5
+        ctx.strokeStyle = neonColor + '80'; // 50% opacity
         this.roundRect(ctx, x - w / 2, y - h / 2, w, h, radius);
         ctx.stroke();
         ctx.restore();
@@ -66,9 +66,9 @@ export const CanvasPrimitives = {
         // Layer 3: Crisp inner border (Full neon color)
         ctx.save();
         ctx.beginPath();
-        ctx.shadowBlur = isResizing ? 40 : (isHovered ? 20 : 10);
+        ctx.shadowBlur = isResizing ? 60 : (isHovered ? 40 : 20); // Up from 40, 20, 10
         ctx.shadowColor = neonColor;
-        ctx.lineWidth = isResizing ? 3.5 : (isHovered ? 2.5 : 1.5);
+        ctx.lineWidth = isResizing ? 4.5 : (isHovered ? 3.5 : 2.5); // Up from 3.5, 2.5, 1.5
         ctx.strokeStyle = neonColor; // Full opacity neon color
         this.roundRect(ctx, x - w / 2, y - h / 2, w, h, radius);
         ctx.stroke();
@@ -128,18 +128,18 @@ export const CanvasPrimitives = {
         if (isHovered) {
             // Neon Glow Layer
             ctx.save();
-            ctx.strokeStyle = color;
-            ctx.shadowBlur = 20;
-            ctx.shadowColor = color;
-            ctx.lineWidth = 3.5;
+            ctx.strokeStyle = color || ThemeManager.colors.primary;
+            ctx.shadowBlur = 40; // Up from 20
+            ctx.shadowColor = color || ThemeManager.colors.primary;
+            ctx.lineWidth = 4.5; // Up from 3.5
             ctx.stroke();
             ctx.restore();
 
             // Bright Core Layer
             ctx.beginPath();
-            ctx.lineWidth = 1;
-            ctx.strokeStyle = '#ffffffaa';
-            ctx.shadowBlur = 8;
+            ctx.lineWidth = 1.5; // Up from 1
+            ctx.strokeStyle = '#ffffffcc'; // More opaque white
+            ctx.shadowBlur = 12; // Up from 8
             ctx.shadowColor = '#ffffff';
             ctx.arc(x, y, radius, 0, Math.PI * 2);
             ctx.stroke();

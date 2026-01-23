@@ -36,32 +36,36 @@ export const VisualStateManager = {
         let borderWidth = 1.0;
         let zIndex = 0;
 
+        const glow = ThemeManager.effects.glow;
+
+        const layers = ThemeManager.layers;
+
         // Determinar estado primario
         if (resizingId === nodeId) {
             state = this.STATES.RESIZING;
-            glowIntensity = 1.8;
-            borderWidth = 3.0;
-            zIndex = 50;
+            glowIntensity = glow.high;
+            borderWidth = 4.0;
+            zIndex = layers.resizing;
         } else if (draggingId === nodeId) {
             state = this.STATES.DRAGGING;
-            glowIntensity = 1.2;
-            opacity = 0.8;
-            zIndex = 40;
+            glowIntensity = glow.medium;
+            opacity = 0.9;
+            zIndex = layers.dragging;
         } else if (activeConnectionId === nodeId) {
             state = this.STATES.CONNECTING;
-            glowIntensity = 1.5;
-            borderWidth = 2.5;
-            zIndex = 30;
+            glowIntensity = glow.high; // Up from 2.0
+            borderWidth = 3.5;
+            zIndex = layers.connecting;
         } else if (selectedId === nodeId) {
             state = this.STATES.SELECTED;
-            glowIntensity = 1.0;
-            borderWidth = 2.0;
-            zIndex = 20;
+            glowIntensity = glow.medium;
+            borderWidth = 3.0;
+            zIndex = layers.select;
         } else if (hoveredId === nodeId) {
             state = this.STATES.HOVERED;
-            glowIntensity = 0.8;
-            borderWidth = 1.5;
-            zIndex = 10;
+            glowIntensity = glow.low;
+            borderWidth = 2.0;
+            zIndex = layers.hover;
         }
 
         // Aplicar efectos de contexto (dimming cuando otros elementos están activos)

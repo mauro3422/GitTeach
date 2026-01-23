@@ -1,4 +1,5 @@
 import { INTERNAL_COMPONENT_DESCRIPTIONS } from '../PipelineConstants.js';
+import { ThemeManager } from '../../../core/ThemeManager.js';
 
 export const UIDrawerRenderer = {
     /**
@@ -37,8 +38,8 @@ export const UIDrawerRenderer = {
         // Description Section
         const descriptionHtml = node.description
             ? `
-                <div class="drawer-section node-description" style="margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">
-                    <p style="font-size: 13px; color: #8b949e; line-height: 1.5; font-style: italic; margin: 0;">
+                <div class="drawer-section node-description" style="margin-bottom: 20px; border-bottom: 1px solid ${ThemeManager.colors.glassBorderSubtle}; padding-bottom: 15px;">
+                    <p style="font-size: 13px; color: ${ThemeManager.colors.drawerTextDim}; line-height: 1.5; font-style: italic; margin: 0;">
                         ${node.description}
                     </p>
                 </div>
@@ -54,7 +55,7 @@ export const UIDrawerRenderer = {
             parentingHtml = `
                 <div class="drawer-section node-parenting" style="margin-bottom: 20px;">
                     <h4>📦 BOX PARENT</h4>
-                    <select id="node-parent-select" style="width: 100%; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 10px; color: #e6edf3; font-family: var(--font-mono), monospace; outline: none;">
+                    <select id="node-parent-select" style="width: 100%; background: ${ThemeManager.colors.drawerBg}; border: 1px solid ${ThemeManager.colors.drawerBorder}; border-radius: 6px; padding: 10px; color: ${ThemeManager.colors.text}; font-family: var(--font-mono), monospace; outline: none;">
                         <option value="">(None - Independent)</option>
                         ${containers.map(c => `<option value="${c.id}" ${node.parentId === c.id ? 'selected' : ''}>${c.label}</option>`).join('')}
                     </select>
@@ -65,7 +66,7 @@ export const UIDrawerRenderer = {
         // Content HTML
         const contentHtml = `
             <div class="drawer-content">
-                ${node.isStickyNote ? '<div style="background: #f85149; color: white; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-weight: bold;">⚠️ ERROR: INLINE EDITOR FAILED. Using fallback drawer.</div>' : ''}
+                ${node.isStickyNote ? `<div style="background: ${ThemeManager.colors.error}; color: white; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-weight: bold;">⚠️ ERROR: INLINE EDITOR FAILED. Using fallback drawer.</div>` : ''}
                 ${descriptionHtml}
                 ${parentingHtml}
                 ${componentsHtml}
@@ -78,9 +79,9 @@ export const UIDrawerRenderer = {
 
         // Footer HTML
         const footerHtml = `
-            <div class="drawer-footer" style="padding: 20px; border-top: 1px solid rgba(255, 255, 255, 0.05); display: flex; justify-content: flex-end; gap: 12px;">
-                <button id="modal-cancel" style="background: #30363d; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Discard</button>
-                <button id="modal-save" style="background: #238636; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Save Message</button>
+            <div class="drawer-footer" style="padding: 20px; border-top: 1px solid ${ThemeManager.colors.glassBorderSubtle}; display: flex; justify-content: flex-end; gap: 12px;">
+                <button id="modal-cancel" style="background: ${ThemeManager.colors.drawerBorder}; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Discard</button>
+                <button id="modal-save" style="background: ${ThemeManager.colors.success}; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Save Message</button>
             </div>
         `;
 
@@ -110,9 +111,9 @@ export const UIDrawerRenderer = {
                 input.value = currentLabel;
                 input.className = 'drawer-title-input';
                 input.style.cssText = `
-                    background: #0d1117;
-                    border: 1px solid #2f81f7;
-                    color: #fff;
+                    background: ${ThemeManager.colors.drawerBg};
+                    border: 1px solid ${ThemeManager.colors.primary};
+                    color: ${ThemeManager.colors.textBright};
                     font-size: 18px;
                     font-weight: 600;
                     padding: 2px 4px;

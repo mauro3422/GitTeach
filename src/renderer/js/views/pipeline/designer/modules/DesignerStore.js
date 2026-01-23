@@ -3,6 +3,7 @@ import { HistoryManager } from './HistoryManager.js';
 import { GeometryUtils } from '../GeometryUtils.js';
 import { DesignerHydrator } from './DesignerHydrator.js';
 import { DesignerLogic } from './DesignerLogic.js';
+import { ThemeManager } from '../../../../core/ThemeManager.js';
 import ContainerBoxManager from '../../../../utils/ContainerBoxManager.js';
 
 class DesignerStoreClass extends Store {
@@ -17,6 +18,7 @@ class DesignerStoreClass extends Store {
             interaction: {
                 hoveredNodeId: null,
                 selectedNodeId: null,
+                selectedConnectionId: null,
                 draggingNodeId: null,
                 resizingNodeId: null
             }
@@ -136,35 +138,49 @@ class DesignerStoreClass extends Store {
      * Handle node drop (parenting/repelling) using Logic helper
      */
     dropNode(nodeId, containerId) {
-        const node = { ...this.state.nodes[nodeId] };
-        if (!node) return;
+        const originalNode = this.state.nodes[nodeId];
+        if (!originalNode) return;
 
-        node.parentId = containerId;
-
-        // Delegate repulsion physics to Logic module
+        // Delegate repulsion physics to Logic module (passing a clone)
         const siblings = this.getChildren(containerId).filter(n => n.id !== nodeId);
-        const { x, y } = DesignerLogic.calculateRepulsion(node, siblings);
+        const { x, y } = DesignerLogic.calculateRepulsion({ ...originalNode }, siblings);
 
-        node.x = x;
-        node.y = y;
-
-        this.updateNode(nodeId, node);
+        this.updateNode(nodeId, {
+            parentId: containerId,
+            x: x,
+            y: y
+        });
     }
 
     /**
      * Add/Remove connections
      */
-    addConnection(fromId, toId) {
+    addConnection(fromId, toId, id = null) {
         if (this.state.connections.some(c => c.from === fromId && c.to === toId)) return false;
-        const nextConnections = [...this.state.connections, { from: fromId, to: toId }];
+        const connId = id || `${fromId}-${toId}`;
+        const nextConnections = [...this.state.connections, { id: connId, from: fromId, to: toId }];
         this.setState({ connections: nextConnections }, 'ADD_CONNECTION');
         return true;
     }
 
     removeConnection(fromId, toId) {
-        const nextConnections = this.state.connections.filter(c => !(c.from === fromId && c.to === toId));
+        const targetId = `${fromId}-${toId}`;
+        const nextConnections = this.state.connections.filter(c => {
+            const id = c.id || `${c.from}-${c.to}`;
+            return id !== targetId;
+        });
         if (nextConnections.length === this.state.connections.length) return false;
         this.setState({ connections: nextConnections }, 'REMOVE_CONNECTION');
+        return true;
+    }
+
+    deleteConnection(connectionId) {
+        const nextConnections = this.state.connections.filter(c => {
+            const id = c.id || `${c.from}-${c.to}`;
+            return id !== connectionId;
+        });
+        if (nextConnections.length === this.state.connections.length) return false;
+        this.setState({ connections: nextConnections }, 'DELETE_CONNECTION');
         return true;
     }
 
@@ -177,6 +193,45 @@ class DesignerStoreClass extends Store {
     setInteractionState(partial) { this.setState({ interaction: { ...this.state.interaction, ...partial } }, 'INTERACTION_UPDATE'); }
     setNavigationState(partial) { this.setState({ navigation: { ...this.state.navigation, ...partial } }, 'NAVIGATION_UPDATE'); }
 
+    /**
+     * Set selected node
+     */
+    selectNode(nodeId) {
+        if (this.state.interaction.selectedNodeId === nodeId) return;
+        this.setState({
+            interaction: {
+                ...this.state.interaction,
+                selectedNodeId: nodeId,
+                selectedConnectionId: null
+            }
+        }, 'SELECT_NODE');
+    }
+
+    selectConnection(connectionId) {
+        if (this.state.interaction.selectedConnectionId === connectionId) return;
+        this.setState({
+            interaction: {
+                ...this.state.interaction,
+                selectedNodeId: null,
+                selectedConnectionId: connectionId
+            }
+        }, 'SELECT_CONNECTION');
+    }
+
+    /**
+     * Clear current selection
+     */
+    clearSelection() {
+        if (this.state.interaction.selectedNodeId === null && this.state.interaction.selectedConnectionId === null) return;
+        this.setState({
+            interaction: {
+                ...this.state.interaction,
+                selectedNodeId: null,
+                selectedConnectionId: null
+            }
+        }, 'CLEAR_SELECTION');
+    }
+
     // --- Hit Detection ---
 
     findNodeAt(worldPos, excludeId = null, zoomScale = 1.0) {
@@ -188,9 +243,16 @@ class DesignerStoreClass extends Store {
             const node = nodeList[i];
             if (excludeId && node.id === excludeId) continue;
             if (!node.isStickyNote) continue;
-            const m = 20;
-            const d = node.dimensions || { w: 180, h: 100 };
-            const rect = { x: node.x, y: node.y, w: (d.animW || d.w) + m * 2, h: (d.animH || d.h) + m * 2 };
+
+            // Usar límites inflados (con un canvas dummy si es necesario para medir)
+            const bounds = GeometryUtils.getStickyNoteBounds(node, null, zoomScale);
+            const m = ThemeManager.geometry.thresholds.nodeHitBuffer;
+            const rect = {
+                x: node.x,
+                y: node.y,
+                w: bounds.renderW + m * 2,
+                h: bounds.renderH + m * 2
+            };
             if (GeometryUtils.isPointInRectangle(worldPos, rect)) return node;
         }
 
@@ -207,10 +269,25 @@ class DesignerStoreClass extends Store {
             if (excludeId && node.id === excludeId || !node.isRepoContainer) continue;
             const bounds = GeometryUtils.getContainerBounds(node, this.state.nodes, zoomScale);
             if (GeometryUtils.isPointInRectangle(worldPos, {
-                x: bounds.centerX, y: bounds.centerY, w: bounds.w, h: bounds.h
+                x: bounds.centerX, y: bounds.centerY, w: bounds.renderW || bounds.w, h: bounds.renderH || bounds.h
             })) return node;
         }
 
+        return null;
+    }
+
+    findConnectionAt(worldPos) {
+        const nodes = this.state.nodes;
+        for (const conn of this.state.connections) {
+            const fromNode = nodes[conn.from];
+            const toNode = nodes[conn.to];
+            if (!fromNode || !toNode) continue;
+
+            // Simple hit test between nodes
+            if (GeometryUtils.isPointNearLine(worldPos, fromNode, toNode, ThemeManager.geometry.thresholds.connectionHitBuffer)) {
+                return conn.id || `${conn.from}-${conn.to}`;
+            }
+        }
         return null;
     }
 
