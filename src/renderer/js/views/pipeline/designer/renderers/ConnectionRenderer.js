@@ -79,10 +79,11 @@ export const ConnectionRenderer = {
         const startX = pos.x;
         const startY = pos.y;
 
+        const { CONNECTION } = DESIGNER_CONSTANTS.VISUAL;
         ctx.beginPath();
         ctx.strokeStyle = ThemeManager.colors.primary;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
+        ctx.lineWidth = CONNECTION.ACTIVE_WIDTH;
+        ctx.setLineDash(CONNECTION.DASH_PATTERN);
         ctx.globalAlpha = DESIGNER_CONSTANTS.VISUAL.OPACITY.ACTIVE_LINE;
 
         ctx.moveTo(startX, startY);

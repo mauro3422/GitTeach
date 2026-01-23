@@ -29,6 +29,10 @@ export const DESIGNER_CONSTANTS = {
         RESIZE_MARGIN: 40,
         CONNECTION_HIT_BUFFER: 10,
         NODE_HIT_BUFFER: 5,
+        DRAG: {
+            THRESHOLD: 3,
+            UNPARENT_MARGIN: 20
+        },
         ZOOM: {
             MIN: 0.3,
             MAX: 4.0,
@@ -62,6 +66,12 @@ export const DESIGNER_CONSTANTS = {
         LINE_HEIGHT_OFFSET: 6
     },
     VISUAL: {
+        CONNECTION: {
+            DASH_PATTERN: [5, 5],
+            ACTIVE_WIDTH: 2,
+            ARROW_HEAD_LEN: 10,
+            RING_OFFSET: 4
+        },
         GLOW: {
             NORMAL: 1.0,
             HOVER: 1.2,
@@ -80,7 +90,8 @@ export const DESIGNER_CONSTANTS = {
         BADGE: {
             SIZE: 12,
             OFFSET: 15,
-            LABEL_OFFSET_Y: 25
+            LABEL_OFFSET_Y: 25,
+            NODE_BADGE_RATIO: 0.7
         },
         TOOLTIP: {
             MAX_WIDTH: 220,

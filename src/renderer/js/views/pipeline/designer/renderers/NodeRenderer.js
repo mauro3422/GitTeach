@@ -30,7 +30,8 @@ export const NodeRenderer = {
             ctx.globalAlpha = visual.opacity;
 
             if (visual.glowIntensity > 0) {
-                ctx.shadowBlur = 25 * visual.glowIntensity;
+                const { GLOW } = DESIGNER_CONSTANTS.VISUAL;
+                ctx.shadowBlur = GLOW.BASE_BLUR * visual.glowIntensity;
                 ctx.shadowColor = visual.state === VisualStateManager.STATES.SELECTED
                     ? ThemeManager.colors.primary
                     : (color || ThemeManager.colors.accent);
@@ -52,14 +53,15 @@ export const NodeRenderer = {
                 ctx.strokeStyle = ThemeManager.colors.primary;
                 ctx.lineWidth = visual.borderWidth / zoom; // Adjust line width for zoom
                 ctx.beginPath();
-                ctx.arc(x, y, radius + 4 / zoom, 0, Math.PI * 2);
+                ctx.arc(x, y, radius + DESIGNER_CONSTANTS.VISUAL.CONNECTION.RING_OFFSET / zoom, 0, Math.PI * 2);
                 ctx.stroke();
             }
 
             // Message Badge (Pencil) - Moved to World Space for nodes too
             if (node.message) {
-                const badgeOffset = radius * 0.7;
-                CanvasPrimitives.drawBadge(ctx, '✎', x + badgeOffset, y - badgeOffset, ThemeManager.colors.textDim, 12 / zoom);
+                const { BADGE } = DESIGNER_CONSTANTS.VISUAL;
+                const badgeOffset = radius * BADGE.NODE_BADGE_RATIO;
+                CanvasPrimitives.drawBadge(ctx, '✎', x + badgeOffset, y - badgeOffset, ThemeManager.colors.textDim, BADGE.SIZE / zoom);
             }
 
             ctx.restore();

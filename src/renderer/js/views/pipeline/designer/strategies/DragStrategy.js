@@ -7,6 +7,7 @@
 import { InteractionStrategy } from './InteractionStrategy.js';
 import { GeometryUtils } from '../GeometryUtils.js';
 import { DesignerStore } from '../modules/DesignerStore.js';
+import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 
 export class DragStrategy extends InteractionStrategy {
     constructor(controller) {
@@ -250,7 +251,7 @@ export class DragStrategy extends InteractionStrategy {
         if (!parent) return;
 
         const bounds = GeometryUtils.getContainerBounds(parent, nodes);
-        const margin = 20;
+        const margin = DESIGNER_CONSTANTS.INTERACTION.DRAG.UNPARENT_MARGIN;
 
         const isInside = node.x >= bounds.centerX - bounds.w / 2 - margin &&
             node.x <= bounds.centerX + bounds.w / 2 + margin &&
