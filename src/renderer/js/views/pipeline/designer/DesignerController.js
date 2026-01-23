@@ -10,6 +10,7 @@ import { UIManager } from './UIManager.js';
 import { CoordinateUtils } from './CoordinateUtils.js';
 import { AnimationManager } from './AnimationManager.js';
 import { DesignerStore } from './modules/DesignerStore.js';
+import { DESIGNER_CONSTANTS } from './DesignerConstants.js';
 import {
     commandManager,
     AddNodeCommand,
@@ -314,8 +315,8 @@ class DesignerControllerClass extends BaseController {
         const hasAnimating = Object.values(DesignerStore.state.nodes).some(node => {
             if (!node.isRepoContainer || !node.dimensions || node.dimensions.isManual) return false;
             const d = node.dimensions;
-            const isSizing = Math.abs(d.animW - d.targetW) > 1 || Math.abs(d.animH - d.targetH) > 1;
-            const isPulsing = d.transitionPadding > 0.5;
+            const isSizing = Math.abs(d.animW - d.targetW) > DESIGNER_CONSTANTS.ANIMATION.EPSILON_PX || Math.abs(d.animH - d.targetH) > DESIGNER_CONSTANTS.ANIMATION.EPSILON_PX;
+            const isPulsing = d.transitionPadding > DESIGNER_CONSTANTS.ANIMATION.PULSE_EPSILON;
             return isSizing || isPulsing;
         });
 

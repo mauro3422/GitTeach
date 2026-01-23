@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { ResizeHandler } from '../src/renderer/js/views/pipeline/designer/interaction/ResizeHandler.js';
 import { GeometryUtils } from '../src/renderer/js/views/pipeline/designer/GeometryUtils.js';
+import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore.js';
 
 describe('Systemic Resize Verification 2.0', () => {
 
@@ -17,7 +18,7 @@ describe('Systemic Resize Verification 2.0', () => {
                     dimensions: { w: 200, h: 100 }
                 }
             },
-            camera: { zoomScale: zoom },
+            state: { zoomScale: zoom, panOffset: { x: 0, y: 0 } },
             getMousePos: (e) => e,
             screenToWorld: (p) => p
         };
@@ -55,8 +56,7 @@ describe('Systemic Resize Verification 2.0', () => {
             dimensions: { w: 200, h: 100 }
         };
         const mockController = {
-            nodes: { 'sticky_1': node },
-            camera: { zoomScale: zoom },
+            state: { zoomScale: zoom, panOffset: { x: 0, y: 0 } },
             getMousePos: (e) => e,
             screenToWorld: (p) => p
         };
@@ -76,10 +76,11 @@ describe('Systemic Resize Verification 2.0', () => {
         const logicalDelta = movement / bScale;
         const expectedLogicalW = 200 + (logicalDelta * 2);
 
+        const updatedNode = DesignerStore.state.nodes['sticky_1'];
         console.log(`\n--- V2 PERSISTENCE TEST ---`);
-        console.log(`Actual Logical Width: ${node.dimensions.w.toFixed(2)}`);
+        console.log(`Actual Logical Width: ${updatedNode.dimensions.w.toFixed(2)}`);
         console.log(`Expected: ${expectedLogicalW.toFixed(2)}`);
 
-        expect(node.dimensions.w).toBeCloseTo(expectedLogicalW, 1);
+        expect(updatedNode.dimensions.w).toBeCloseTo(expectedLogicalW, 1);
     });
 });

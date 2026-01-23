@@ -6,6 +6,7 @@
 
 import { GeometryUtils } from './GeometryUtils.js';
 import { SyncGuard } from './utils/SyncGuard.js';
+import { DESIGNER_CONSTANTS } from './DesignerConstants.js';
 
 export const DimensionSync = {
     /**
@@ -41,12 +42,14 @@ export const DimensionSync = {
         }
 
         // 2. Fallback a dimensiones lógicas puras
-        const logicalW = node.dimensions?.w || (node.isStickyNote ? 180 : 140);
-        const logicalH = node.dimensions?.h || (node.isStickyNote ? 100 : 100);
+        const vScale = GeometryUtils.getVisualScale(zoom);
+        const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
+        const logicalW = node.dimensions?.w || (node.isStickyNote ? STICKY_NOTE.MIN_W : CONTAINER.DEFAULT_W);
+        const logicalH = node.dimensions?.h || (node.isStickyNote ? STICKY_NOTE.MIN_H : CONTAINER.DEFAULT_H);
 
         return {
-            w: logicalW,
-            h: logicalH,
+            w: logicalW * vScale,
+            h: logicalH * vScale,
             centerX: node.x,
             centerY: node.y,
             isVisual: false
@@ -66,9 +69,10 @@ export const DimensionSync = {
      */
     getVisualDimensions(node, zoom, nodes = {}) {
         const sync = this.getSyncDimensions(node, nodes, zoom);
+        const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
         return {
-            logicalW: node.dimensions?.w || (node.isStickyNote ? 180 : 140),
-            logicalH: node.dimensions?.h || (node.isStickyNote ? 100 : 100),
+            logicalW: node.dimensions?.w || (node.isStickyNote ? STICKY_NOTE.MIN_W : CONTAINER.DEFAULT_W),
+            logicalH: node.dimensions?.h || (node.isStickyNote ? STICKY_NOTE.MIN_H : CONTAINER.DEFAULT_H),
             visualW: sync.w,
             visualH: sync.h,
             centerX: sync.centerX,

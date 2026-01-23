@@ -45,7 +45,8 @@ export const UIManager = {
                 DesignerInteraction.panZoomHandler.setZoom(1.0, null, () => {
                     this.designerContext.render();
                 });
-                DesignerInteraction.state.panOffset = { x: 0, y: 0 };
+                // Reset pan using centralized state (not direct mutation)
+                DesignerInteraction.panZoomHandler.state.panOffset = { x: 0, y: 0 };
             };
         }
 

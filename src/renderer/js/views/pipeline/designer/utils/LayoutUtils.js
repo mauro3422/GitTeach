@@ -7,6 +7,7 @@
 import { ThemeManager } from '../../../../core/ThemeManager.js';
 import { ScalingCalculator } from './ScalingCalculator.js';
 import { GeometryUtils } from '../GeometryUtils.js';
+import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 
 export const LayoutUtils = {
     /**
@@ -43,7 +44,7 @@ export const LayoutUtils = {
         childrenNodes.forEach(child => {
             const radius = GeometryUtils.getNodeRadius(child, zoomScale);
             const labelStr = child.label || "";
-            const estimatedPixelWidth = (labelStr.length * layout.labelCharWidth) * vScale;
+            const estimatedPixelWidth = (labelStr.length * DESIGNER_CONSTANTS.LAYOUT.TITLE_CHAR_WIDTH) * vScale;
             const effectiveHalfWidth = Math.max(radius, estimatedPixelWidth / 2 + (layout.labelPadding * vScale));
 
             minX = Math.min(minX, child.x - effectiveHalfWidth);
@@ -60,7 +61,7 @@ export const LayoutUtils = {
         const maxDistY = Math.max(Math.abs(maxY - containerNode.y), Math.abs(minY - containerNode.y));
 
         const requiredW = (maxDistX * 2) + basePadding;
-        const requiredH = (maxDistY * 2) + basePadding + (layout.extraHeight * vScale);
+        const requiredH = (maxDistY * 2) + basePadding + (DESIGNER_CONSTANTS.LAYOUT.EXTRA_HEIGHT * vScale);
 
         const targetW = Math.max(minWidth * vScale, requiredW);
         const targetH = Math.max(minHeight * vScale, requiredH);
@@ -80,7 +81,7 @@ export const LayoutUtils = {
      * @param {number} epsilon - Umbral de convergencia
      * @returns {boolean} true si hubo cambios
      */
-    updateElasticDimensions(node, damping = ThemeManager.geometry.layout.physics.damping, epsilon = ThemeManager.geometry.layout.physics.epsilon) {
+    updateElasticDimensions(node, damping = DESIGNER_CONSTANTS.ANIMATION.ELASTIC_DAMPING, epsilon = DESIGNER_CONSTANTS.ANIMATION.ELASTIC_EPSILON) {
         if (!node.dimensions) return false;
 
         const dims = node.dimensions;
@@ -178,12 +179,11 @@ export const LayoutUtils = {
      * Evita que el texto del título desborde al hacer resize
      */
     calculateTitleMinWidth(label) {
-        if (!label) return 140;
+        if (!label) return DESIGNER_CONSTANTS.DIMENSIONS.CONTAINER.MIN_W;
         const text = label.toUpperCase();
-        // Estimación: ~14px por carácter en font bold 24px + padding lateral
-        const charWidth = 14;
-        const padding = 40; // margen izquierdo + derecho
-        return Math.max(140, text.length * charWidth + padding);
+        const charWidth = DESIGNER_CONSTANTS.LAYOUT.TITLE_CHAR_WIDTH;
+        const padding = DESIGNER_CONSTANTS.LAYOUT.TITLE_PADDING;
+        return Math.max(DESIGNER_CONSTANTS.DIMENSIONS.CONTAINER.MIN_W, text.length * charWidth + padding);
     },
 
     /**
@@ -192,16 +192,27 @@ export const LayoutUtils = {
     getContainerBounds(node, nodes, zoomScale = 1.0, dropTargetId = null) {
         const containerId = node.id;
         const isScaleUp = node.id === dropTargetId;
-        const scaleFactor = isScaleUp ? 1.10 : 1.0;
+        const scaleFactor = isScaleUp ? DESIGNER_CONSTANTS.INTERACTION.DROP_TARGET_SCALE : 1.0;
 
         if (!node.dimensions) {
-            node.dimensions = { w: 180, h: 100, animW: 180, animH: 100, targetW: 180, targetH: 100, isManual: false };
+            const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
+            node.dimensions = {
+                w: CONTAINER.DEFAULT_W,
+                h: CONTAINER.DEFAULT_H,
+                animW: CONTAINER.DEFAULT_W,
+                animH: CONTAINER.DEFAULT_H,
+                targetW: CONTAINER.DEFAULT_W,
+                targetH: CONTAINER.DEFAULT_H,
+                isManual: false
+            };
         }
         const dims = node.dimensions;
         const children = Object.values(nodes).filter(n => n.parentId === containerId);
 
         const target = this.calculateContainerTargetSize(node, children, zoomScale, {
-            padding: 60, minWidth: 140, minHeight: 100
+            padding: DESIGNER_CONSTANTS.LAYOUT.CONTAINER_PADDING,
+            minWidth: DESIGNER_CONSTANTS.DIMENSIONS.CONTAINER.MIN_W,
+            minHeight: DESIGNER_CONSTANTS.DIMENSIONS.CONTAINER.MIN_H
         });
 
         const vScale = ScalingCalculator.getVisualScale(zoomScale);
@@ -216,8 +227,8 @@ export const LayoutUtils = {
 
         if (dims.isManual) {
             // Priority 1: User's manual width/height
-            const baseW = Math.max(dims.w, 140);
-            const baseH = Math.max(dims.h, 100);
+            const baseW = Math.max(dims.w, DESIGNER_CONSTANTS.DIMENSIONS.CONTAINER.MIN_W);
+            const baseH = Math.max(dims.h, DESIGNER_CONSTANTS.DIMENSIONS.CONTAINER.MIN_H);
 
             // We inflate it for the visual representation
             const renderW = baseW * vScale;
@@ -232,15 +243,15 @@ export const LayoutUtils = {
         }
 
         if (dims._lastChildCount !== undefined && children.length > dims._lastChildCount) {
-            dims.transitionPadding = 50;
+            dims.transitionPadding = DESIGNER_CONSTANTS.LAYOUT.AUTO_GROW_PADDING;
         }
         dims._lastChildCount = children.length;
         dims.transitionPadding = dims.transitionPadding || 0;
         dims.targetW = target.targetW + dims.transitionPadding;
         dims.targetH = target.targetH + dims.transitionPadding;
 
-        this.updateElasticDimensions(node, 0.15, 0.5);
-        dims.transitionPadding *= 0.85;
+        this.updateElasticDimensions(node, DESIGNER_CONSTANTS.ANIMATION.ELASTIC_DAMPING, DESIGNER_CONSTANTS.ANIMATION.ELASTIC_EPSILON);
+        dims.transitionPadding *= DESIGNER_CONSTANTS.ANIMATION.TRANSITION_DAMPING;
         if (dims.transitionPadding < 0.1) dims.transitionPadding = 0;
 
         return {

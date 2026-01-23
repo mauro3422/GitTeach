@@ -1,6 +1,7 @@
 import { DesignerCanvas } from '../DesignerCanvas.js';
 import { ThemeManager } from '../../../../core/ThemeManager.js';
 import { GeometryUtils } from '../GeometryUtils.js';
+import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 
 export const ConnectionRenderer = {
     /**
@@ -39,8 +40,8 @@ export const ConnectionRenderer = {
 
         ctx.beginPath();
         ctx.strokeStyle = isSelected ? ThemeManager.colors.connectionActive : ThemeManager.colors.connection;
-        ctx.lineWidth = isSelected ? 4.0 : 2.5;
-        ctx.globalAlpha = isSelected ? 1.0 : 0.9;
+        ctx.lineWidth = isSelected ? DESIGNER_CONSTANTS.VISUAL.BORDER.CONNECTION_SELECTED : DESIGNER_CONSTANTS.VISUAL.BORDER.CONNECTION_DEFAULT;
+        ctx.globalAlpha = isSelected ? DESIGNER_CONSTANTS.VISUAL.OPACITY.DEFAULT : DESIGNER_CONSTANTS.VISUAL.OPACITY.CONNECTION_DEFAULT;
 
         // Neon Glow for connections
         ctx.shadowBlur = isSelected ? ThemeManager.effects.shadow.glow.blur * 1.5 : ThemeManager.effects.shadow.glow.blur;
@@ -82,7 +83,7 @@ export const ConnectionRenderer = {
         ctx.strokeStyle = ThemeManager.colors.primary;
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]);
-        ctx.globalAlpha = 0.7;
+        ctx.globalAlpha = DESIGNER_CONSTANTS.VISUAL.OPACITY.ACTIVE_LINE;
 
         ctx.moveTo(startX, startY);
         ctx.lineTo(mouseWorldPos.x, mouseWorldPos.y);

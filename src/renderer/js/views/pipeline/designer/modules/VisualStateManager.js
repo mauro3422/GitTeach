@@ -1,4 +1,5 @@
 import { ThemeManager } from '../../../../core/ThemeManager.js';
+import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 
 export const VisualStateManager = {
     /**
@@ -30,7 +31,7 @@ export const VisualStateManager = {
 
         const nodeId = node.id;
         let state = this.STATES.NORMAL;
-        let opacity = 1.0;
+        let opacity = DESIGNER_CONSTANTS.VISUAL.OPACITY.DEFAULT;
         let scale = 1.0;
         let glowIntensity = 0.0;
         let borderWidth = 1.0;
@@ -44,51 +45,51 @@ export const VisualStateManager = {
         if (resizingId === nodeId) {
             state = this.STATES.RESIZING;
             glowIntensity = glow.high;
-            borderWidth = 4.0;
+            borderWidth = DESIGNER_CONSTANTS.VISUAL.BORDER.RESIZING;
             zIndex = layers.resizing;
         } else if (draggingId === nodeId) {
             state = this.STATES.DRAGGING;
             glowIntensity = glow.medium;
-            opacity = 0.9;
+            opacity = DESIGNER_CONSTANTS.VISUAL.OPACITY.DRAGGING;
             zIndex = layers.dragging;
         } else if (activeConnectionId === nodeId) {
             state = this.STATES.CONNECTING;
             glowIntensity = glow.high; // Up from 2.0
-            borderWidth = 3.5;
+            borderWidth = DESIGNER_CONSTANTS.VISUAL.BORDER.CONNECTING;
             zIndex = layers.connecting;
         } else if (selectedId === nodeId) {
             state = this.STATES.SELECTED;
             glowIntensity = glow.medium;
-            borderWidth = 3.0;
+            borderWidth = DESIGNER_CONSTANTS.VISUAL.BORDER.SELECTED;
             zIndex = layers.select;
         } else if (hoveredId === nodeId) {
             state = this.STATES.HOVERED;
             glowIntensity = glow.low;
-            borderWidth = 2.0;
+            borderWidth = DESIGNER_CONSTANTS.VISUAL.BORDER.HOVERED;
             zIndex = layers.hover;
         }
 
         // Aplicar efectos de contexto (dimming cuando otros elementos están activos)
         if (draggingId && draggingId !== nodeId) {
             // Durante drag, otros nodos se atenúan
-            opacity *= 0.6;
+            opacity *= DESIGNER_CONSTANTS.VISUAL.OPACITY.DIMMED_DRAG_GLOBAL;
         }
 
         if (activeConnectionId && activeConnectionId !== nodeId) {
             // Durante conexión, otros nodos se atenúan ligeramente
-            opacity *= 0.8;
+            opacity *= DESIGNER_CONSTANTS.VISUAL.OPACITY.DIMMED_CONN_GLOBAL;
         }
 
         // Ajustes específicos por tipo de nodo
         if (node.isSatellite) {
             // Satellites son más sutiles
-            glowIntensity *= 0.7;
+            glowIntensity *= DESIGNER_CONSTANTS.VISUAL.OPACITY.SATELLITE_GLOW;
             scale *= 0.95;
         }
 
         if (node.isStickyNote) {
             // Sticky notes tienen glow más suave
-            glowIntensity *= 0.8;
+            glowIntensity *= DESIGNER_CONSTANTS.VISUAL.OPACITY.STICKY_GLOW;
         }
 
         return {
@@ -110,7 +111,7 @@ export const VisualStateManager = {
     getDimmedOpacity(node, interactionState = {}) {
         const { draggingId, activeConnectionId } = interactionState;
 
-        if (!draggingId && !activeConnectionId) return 1.0;
+        if (!draggingId && !activeConnectionId) return DESIGNER_CONSTANTS.VISUAL.OPACITY.DEFAULT;
 
         // Si este nodo está siendo interactuado, mantener opacidad total
         if (draggingId === node.id || activeConnectionId === node.id) {
@@ -119,12 +120,12 @@ export const VisualStateManager = {
 
         // Durante drag, reducir opacidad de otros nodos
         if (draggingId) {
-            return node.isRepoContainer ? 0.7 : 0.5; // Containers menos afectados
+            return node.isRepoContainer ? DESIGNER_CONSTANTS.VISUAL.OPACITY.DIMMED_DRAG_CONTAINER : DESIGNER_CONSTANTS.VISUAL.OPACITY.DIMMED_DRAG_NODE;
         }
 
         // Durante conexión, reducción ligera
         if (activeConnectionId) {
-            return 0.8;
+            return DESIGNER_CONSTANTS.VISUAL.OPACITY.DIMMED_CONN_GLOBAL;
         }
 
         return 1.0;
@@ -182,14 +183,14 @@ export const VisualStateManager = {
     getTransitionConfig(state, previousState) {
         // Transiciones más rápidas para estados interactivos
         if ([this.STATES.HOVERED, this.STATES.CONNECTING].includes(state)) {
-            return { duration: 150, easing: 'ease-out' };
+            return { duration: DESIGNER_CONSTANTS.VISUAL.TRANSITION.INTERACTIVE, easing: 'ease-out' };
         }
 
         // Transiciones más suaves para cambios de estado importantes
         if ([this.STATES.DRAGGING, this.STATES.RESIZING].includes(state)) {
-            return { duration: 100, easing: 'ease-in-out' };
+            return { duration: DESIGNER_CONSTANTS.VISUAL.TRANSITION.MOVEMENT, easing: 'ease-in-out' };
         }
 
-        return { duration: 200, easing: 'ease-in-out' };
+        return { duration: DESIGNER_CONSTANTS.VISUAL.TRANSITION.DEFAULT, easing: 'ease-in-out' };
     }
 };

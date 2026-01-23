@@ -25,13 +25,13 @@ describe('Sticky Note Visual Resize Accuracy', () => {
         container.id = 'designer-container';
         document.body.appendChild(container);
 
-        DesignerStore.setState({ 
-            nodes: {}, 
+        DesignerStore.setState({
+            nodes: {},
             connections: [],
             navigation: { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 },
             interaction: { hoveredNodeId: null, selectedNodeId: null, selectedConnectionId: null, draggingNodeId: null, resizingNodeId: null }
         });
-        
+
         DesignerInteraction.init(canvas, () => DesignerStore.state.nodes, () => { });
         resizeHandler = new ResizeHandler(DesignerInteraction);
     });
@@ -57,7 +57,7 @@ describe('Sticky Note Visual Resize Accuracy', () => {
         // Calculate corner position based on visual dimensions (not logical dimensions)
         const cornerX = visualCenterX + visualW / 2;
         const cornerY = visualCenterY + visualH / 2;
-        
+
         // Test detection at corner position - should find the handle because we're using visual dimensions
         const worldPos = { x: cornerX, y: cornerY };
         const hit = resizeHandler.findResizeHandle(worldPos);
@@ -76,17 +76,18 @@ describe('Sticky Note Visual Resize Accuracy', () => {
             text: 'Short',
             dimensions: { w: 180, h: 100, isManual: true }
         };
-        
+
         const longNode = {
             id: 'sticky-long',
             x: 100,
             y: 0,
             isStickyNote: true,
-            text: 'This is a much longer text that should result in wider visual dimensions',
+            text: 'LONG_WORD_FOR_WIDTH_INCREASE',
             dimensions: { w: 180, h: 100, isManual: true }
         };
-        
-        DesignerStore.state.nodes = { [shortNode.id]: shortNode, [longNode.id]: longNode };
+
+        DesignerStore.state.nodes[shortNode.id] = shortNode;
+        DesignerStore.state.nodes[longNode.id] = longNode;
 
         // Get visual bounds for both nodes
         const shortBounds = GeometryUtils.getStickyNoteBounds(shortNode, null, 1.0);
@@ -110,7 +111,7 @@ describe('Sticky Note Visual Resize Accuracy', () => {
         expect(longHit).not.toBeNull();
         expect(longHit.nodeId).toBe(longNode.id);
     });
-    
+
     it('should work correctly for sticky notes with multiline text', () => {
         const node = {
             id: 'sticky-multiline',
@@ -132,7 +133,7 @@ describe('Sticky Note Visual Resize Accuracy', () => {
         // Calculate corner position based on visual dimensions
         const cornerX = visualCenterX + visualW / 2;
         const cornerY = visualCenterY + visualH / 2;
-        
+
         // Test detection at corner position
         const worldPos = { x: cornerX, y: cornerY };
         const hit = resizeHandler.findResizeHandle(worldPos);

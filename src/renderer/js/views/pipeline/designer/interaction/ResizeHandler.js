@@ -4,6 +4,7 @@ import { GeometryUtils } from '../GeometryUtils.js';
 import { DesignerStore } from '../modules/DesignerStore.js';
 import { DimensionSync } from '../DimensionSync.js';
 import { LayoutUtils } from '../utils/LayoutUtils.js';
+import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 
 export class ResizeHandler extends InteractionHandler {
     static DEBUG = false; // Set to true for resize debugging
@@ -73,8 +74,9 @@ export class ResizeHandler extends InteractionHandler {
         let newW = dimensions.w;
         let newH = dimensions.h;
 
-        const minW = node.isStickyNote ? 180 : 140;
-        let minH = node.isStickyNote ? 100 : 100;
+        const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
+        const minW = node.isStickyNote ? STICKY_NOTE.MIN_W : CONTAINER.MIN_W;
+        let minH = node.isStickyNote ? STICKY_NOTE.MIN_H : CONTAINER.MIN_H;
         let actualMinW = minW;
 
         if ((node.isStickyNote || node.isRepoContainer) && node.dimensions) {
@@ -142,7 +144,7 @@ export class ResizeHandler extends InteractionHandler {
         const state = this.getState();
         const startWidth = state.resizeStartLogicalSize.w;
         const startHeight = state.resizeStartLogicalSize.h;
-        const margin = 40;
+        const margin = DESIGNER_CONSTANTS.INTERACTION.RESIZE_MARGIN;
 
         const scaleX = (newWidth - margin * 2) / Math.max(startWidth - margin * 2, 1);
         const scaleY = (newHeight - margin * 2) / Math.max(startHeight - margin * 2, 1);
@@ -214,9 +216,12 @@ export class ResizeHandler extends InteractionHandler {
 
     _checkNodeHandles(node, worldPos, nodes, zoom) {
         // Visual Threshold: 14px on screen radius (28px diameter).
-        const baseThreshold = 14;
+        const baseThreshold = DESIGNER_CONSTANTS.INTERACTION.HIT_THRESHOLD;
         const dynamicThreshold = baseThreshold / Math.max(zoom, 0.1);
-        const hitThreshold = Math.max(8, Math.min(30, dynamicThreshold));
+        const hitThreshold = Math.max(
+            DESIGNER_CONSTANTS.INTERACTION.HIT_MIN,
+            Math.min(DESIGNER_CONSTANTS.INTERACTION.HIT_MAX, dynamicThreshold)
+        );
 
         // Use the unified synchronization system
         const sync = DimensionSync.getSyncDimensions(node, nodes, zoom);

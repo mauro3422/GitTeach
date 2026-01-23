@@ -5,6 +5,7 @@
  */
 
 import { ScalingCalculator } from './utils/ScalingCalculator.js';
+import { DESIGNER_CONSTANTS } from './DesignerConstants.js';
 // We do NOT import LayoutUtils here to avoid circularity.
 // Methods that need LayoutUtils will assume it's available or be moved to LayoutUtils.
 
@@ -64,8 +65,8 @@ export const GeometryUtils = {
                 ? this.getContainerBounds(node, nodes, zoom)
                 : this.getStickyNoteBounds(node, null, zoom);
 
-            const w = bounds.renderW || bounds.w || 180;
-            const h = bounds.renderH || bounds.h || 100;
+            const w = bounds.renderW || bounds.w || DESIGNER_CONSTANTS.DIMENSIONS.CONTAINER.DEFAULT_W;
+            const h = bounds.renderH || bounds.h || DESIGNER_CONSTANTS.DIMENSIONS.CONTAINER.DEFAULT_H;
             const cx = bounds.centerX || node.x;
             const cy = bounds.centerY || node.y;
 
@@ -107,6 +108,19 @@ export const GeometryUtils = {
         };
     },
 
+    /**
+     * Proporciona una medición de texto robusta con fallback heurístico 
+     * para entornos sin fuentes completas (JSDOM/Vitest).
+     */
+    _getTextWidth(ctx, text, fontSize) {
+        const measured = ctx.measureText(text).width;
+        // Si el resultado es 0 o constante baja (síntoma de JSDOM), usamos heurística
+        if (measured <= 0 || (text.length > 5 && measured < 5)) {
+            return text.length * fontSize * 0.6;
+        }
+        return measured;
+    },
+
     calculateResizeDelta(corner, startW, startH, dx, dy) {
         let w = startW, h = startH;
         switch (corner) {
@@ -126,7 +140,7 @@ export const GeometryUtils = {
     getContainerBounds(node, nodes, zoomScale = 1.0, dropTargetId = null) {
         // LayoutUtils se exporta a window en DesignerCanvas.js al importarlo
         const layout = (typeof window !== 'undefined' && window.LayoutUtils) ||
-                       (typeof global !== 'undefined' && global.LayoutUtils);
+            (typeof global !== 'undefined' && global.LayoutUtils);
 
         if (layout) {
             return layout.getContainerBounds(node, nodes, zoomScale, dropTargetId);
@@ -135,13 +149,14 @@ export const GeometryUtils = {
         // Fallback de emergencia - solo durante bootstrap antes de que LayoutUtils se cargue
         console.warn('[GeometryUtils] LayoutUtils not loaded yet, using emergency fallback');
         const dims = node.dimensions;
-        const w = dims?.w || 180;
-        const h = dims?.h || 100;
+        const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
+        const w = dims?.w || (node.isStickyNote ? STICKY_NOTE.MIN_W : CONTAINER.DEFAULT_W);
+        const h = dims?.h || (node.isStickyNote ? STICKY_NOTE.MIN_H : CONTAINER.DEFAULT_H);
         const bScale = this.getVisualScale(zoomScale);
         const useManual = dims?.isManual === true;
 
         return {
-            w, h,
+            w: w * bScale, h: h * bScale,
             renderW: useManual ? (w * bScale) : ((dims?.animW || w) * bScale),
             renderH: useManual ? (h * bScale) : ((dims?.animH || h) * bScale),
             centerX: node.x,
@@ -150,9 +165,10 @@ export const GeometryUtils = {
     },
 
     getStickyNoteBounds(node, ctx, zoomScale = 1.0) {
-        const w = node.dimensions?.w || 180;
-        const h = node.dimensions?.h || 100;
-        const padding = 15;
+        const { MIN_W, MIN_H, PADDING } = DESIGNER_CONSTANTS.DIMENSIONS.STICKY_NOTE;
+        const w = node.dimensions?.w || MIN_W;
+        const h = node.dimensions?.h || MIN_H;
+        const padding = PADDING;
         const bScale = this.getVisualScale(zoomScale);
         const baseInflatedW = w * bScale;
         const baseInflatedH = h * bScale;
@@ -162,9 +178,9 @@ export const GeometryUtils = {
         }
 
         const fScale = this.getFontScale(zoomScale);
-        const baseFontSize = 18;
-        const worldFontSize = baseFontSize * fScale;
-        const worldLineHeight = worldFontSize + 6;
+        const { BASE_FONT_SIZE, LINE_HEIGHT_OFFSET } = DESIGNER_CONSTANTS.TYPOGRAPHY;
+        const worldFontSize = BASE_FONT_SIZE * fScale;
+        const worldLineHeight = worldFontSize + LINE_HEIGHT_OFFSET;
 
         if (!this._dummyCtx && typeof document !== 'undefined') {
             try { this._dummyCtx = document.createElement('canvas').getContext('2d'); } catch (e) { }
@@ -180,7 +196,7 @@ export const GeometryUtils = {
         const words = node.text.split(/[\s\n]+/);
         let maxWordWidth = 0;
         words.forEach(wd => {
-            const width = activeCtx.measureText(wd).width;
+            const width = this._getTextWidth(activeCtx, wd, worldFontSize);
             if (width > maxWordWidth) maxWordWidth = width;
         });
 
@@ -189,7 +205,7 @@ export const GeometryUtils = {
         let currentLine = '', linesCount = 0;
         wordsForLines.forEach(word => {
             const testLine = currentLine + word + ' ';
-            if (activeCtx.measureText(testLine).width > effectiveMaxWidth && currentLine.length > 0) {
+            if (this._getTextWidth(activeCtx, testLine, worldFontSize) > effectiveMaxWidth && currentLine.length > 0) {
                 linesCount++;
                 currentLine = word + ' ';
             } else {
@@ -225,7 +241,7 @@ export const GeometryUtils = {
         if (!container.isRepoContainer && !container.isStickyNote) return false;
         const bounds = container.isRepoContainer ? this.getContainerBounds(container, nodes, zoomScale) : this.getStickyNoteBounds(container, null, zoomScale);
         const w = (bounds.renderW || bounds.w) + 10;
-        const h = (bounds.renderH || bounds.h) + 10;
+        const h = (bounds.renderH || bounds.h) + DESIGNER_CONSTANTS.INTERACTION.CONNECTION_HIT_BUFFER;
         const centerX = bounds.centerX || container.x;
         const centerY = bounds.centerY || container.y;
         return point.x >= centerX - w / 2 && point.x <= centerX + w / 2 && point.y >= centerY - h / 2 && point.y <= centerY + h / 2;

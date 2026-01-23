@@ -1,5 +1,6 @@
 import { INTERNAL_COMPONENT_DESCRIPTIONS } from '../PipelineConstants.js';
 import { ThemeManager } from '../../../core/ThemeManager.js';
+import { DESIGNER_CONSTANTS } from './DesignerConstants.js';
 
 export const UIDrawerRenderer = {
     /**
@@ -114,7 +115,7 @@ export const UIDrawerRenderer = {
                     background: ${ThemeManager.colors.drawerBg};
                     border: 1px solid ${ThemeManager.colors.primary};
                     color: ${ThemeManager.colors.textBright};
-                    font-size: 18px;
+                    font-size: ${DESIGNER_CONSTANTS.TYPOGRAPHY.BASE_FONT_SIZE}px;
                     font-weight: 600;
                     padding: 2px 4px;
                     border-radius: 4px;

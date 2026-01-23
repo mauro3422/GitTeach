@@ -5,6 +5,7 @@ import { DesignerHydrator } from './DesignerHydrator.js';
 import { DesignerLogic } from './DesignerLogic.js';
 import { ThemeManager } from '../../../../core/ThemeManager.js';
 import ContainerBoxManager from '../../../../utils/ContainerBoxManager.js';
+import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 
 class DesignerStoreClass extends Store {
     constructor() {
@@ -88,7 +89,14 @@ class DesignerStoreClass extends Store {
             label: options.label || 'Nota',
             text: options.text || 'Doble click para editar...',
             isStickyNote: true,
-            dimensions: { w: 180, h: 100, animW: 180, animH: 100, targetW: 180, targetH: 100 }
+            dimensions: {
+                w: DESIGNER_CONSTANTS.DIMENSIONS.STICKY_NOTE.MIN_W,
+                h: DESIGNER_CONSTANTS.DIMENSIONS.STICKY_NOTE.MIN_H,
+                animW: DESIGNER_CONSTANTS.DIMENSIONS.STICKY_NOTE.MIN_W,
+                animH: DESIGNER_CONSTANTS.DIMENSIONS.STICKY_NOTE.MIN_H,
+                targetW: DESIGNER_CONSTANTS.DIMENSIONS.STICKY_NOTE.MIN_W,
+                targetH: DESIGNER_CONSTANTS.DIMENSIONS.STICKY_NOTE.MIN_H
+            }
         };
 
         const nextNodes = { ...this.state.nodes, [id]: newNode };
@@ -241,7 +249,7 @@ class DesignerStoreClass extends Store {
 
             // Usar límites visuales para detección precisa (con un canvas dummy si es necesario para medir)
             const bounds = GeometryUtils.getStickyNoteBounds(node, null, zoomScale);
-            const m = ThemeManager.geometry.thresholds.nodeHitBuffer;
+            const m = DESIGNER_CONSTANTS.INTERACTION.NODE_HIT_BUFFER;
             // Corregir coordenadas para que coincidan con el sistema de detección de rectángulos
             // bounds.centerX y bounds.centerY son las coordenadas del centro
             if (GeometryUtils.isPointInRectangle(worldPos, {

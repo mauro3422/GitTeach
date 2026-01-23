@@ -1,6 +1,7 @@
 import { PIPELINE_NODES } from '../../PipelineConstants.js';
 import { GeometryUtils } from '../GeometryUtils.js';
 import { ThemeManager } from '../../../../core/ThemeManager.js';
+import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 
 /**
  * DesignerHydrator.js
@@ -11,7 +12,7 @@ export const DesignerHydrator = {
      * Load initial pipeline nodes from constants
      * @returns {Object} Initial nodes object
      */
-    generateInitialNodes(scale = ThemeManager.geometry.hydration.defaultScale) {
+    generateInitialNodes(scale = DESIGNER_CONSTANTS.DIMENSIONS.DEFAULT_HYDRATION_SCALE) {
         const newNodes = {};
         const orbitScale = ThemeManager.geometry.orbit.defaultScale;
         const hydration = ThemeManager.geometry.hydration;
@@ -67,7 +68,7 @@ export const DesignerHydrator = {
                         id: childId,
                         parentId: parentId,
                         x: parent.x + (col - (cols - 1) / 2) * gapX,
-                        y: parent.y + (row * gapY) + hydration.childOffsetTop,
+                        y: parent.y + (row * gapY) + DESIGNER_CONSTANTS.LAYOUT.CHILD_OFFSET_TOP,
                         label: className,
                         icon: '📁',
                         color: parent.color,

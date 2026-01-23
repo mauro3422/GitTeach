@@ -2,6 +2,7 @@ import { BlueprintManager } from '../BlueprintManager.js';
 import { DesignerStore } from './DesignerStore.js';
 import { ThemeManager } from '../../../../core/ThemeManager.js';
 import ContainerBoxManager from '../../../../utils/ContainerBoxManager.js';
+import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 
 export const DesignerLoader = {
     /**
@@ -14,7 +15,7 @@ export const DesignerLoader = {
         // MERGE with File System / LocalStorage if exists
         const savedState = await BlueprintManager.loadFromLocalStorage();
         if (savedState && savedState.layout) {
-            const scale = 1200;
+            const scale = DESIGNER_CONSTANTS.DIMENSIONS.DEFAULT_HYDRATION_SCALE;
             Object.entries(savedState.layout).forEach(([id, data]) => {
                 this.hydrateNode(id, data, scale);
             });
@@ -75,13 +76,17 @@ export const DesignerLoader = {
             };
         } else if (!node.dimensions) {
             // Fallback for missing dimensions in saved data
+            const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
+            const defW = data.isStickyNote ? STICKY_NOTE.MIN_W : CONTAINER.DEFAULT_W;
+            const defH = data.isStickyNote ? STICKY_NOTE.MIN_H : CONTAINER.DEFAULT_H;
+
             node.dimensions = {
-                w: data.manualWidth || data.width || 180,
-                h: data.manualHeight || data.height || 100,
-                targetW: data.manualWidth || data.width || 180,
-                targetH: data.manualHeight || data.height || 100,
-                animW: data.manualWidth || data.width || 180,
-                animH: data.manualHeight || data.height || 100,
+                w: data.manualWidth || data.width || defW,
+                h: data.manualHeight || data.height || defH,
+                targetW: data.manualWidth || data.width || defW,
+                targetH: data.manualHeight || data.height || defH,
+                animW: data.manualWidth || data.width || defW,
+                animH: data.manualHeight || data.height || defH,
                 isManual: !!(data.manualWidth || data.manualHeight)
             };
         }
@@ -97,7 +102,7 @@ export const DesignerLoader = {
             };
 
             if (typeof ContainerBoxManager?.createUserBox === 'function') {
-                ContainerBoxManager.createUserBox(id, bounds, 40);
+                ContainerBoxManager.createUserBox(id, bounds, DESIGNER_CONSTANTS.INTERACTION.RESIZE_MARGIN);
             }
         }
     }

@@ -21,13 +21,13 @@ describe('Visual Resize Handle Detection Test', () => {
         container.id = 'designer-container';
         document.body.appendChild(container);
 
-        DesignerStore.setState({ 
-            nodes: {}, 
+        DesignerStore.setState({
+            nodes: {},
             connections: [],
             navigation: { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 },
             interaction: { hoveredNodeId: null, selectedNodeId: null, selectedConnectionId: null, draggingNodeId: null, resizingNodeId: null }
         });
-        
+
         DesignerInteraction.init(canvas, () => DesignerStore.state.nodes, () => { });
         resizeHandler = new ResizeHandler(DesignerInteraction);
     });
@@ -38,26 +38,26 @@ describe('Visual Resize Handle Detection Test', () => {
             x: 0,
             y: 0,
             isStickyNote: true,
-            text: 'This is a very long text that should affect the visual dimensions of the sticky note significantly',
+            text: 'EXTREMELY_LONG_WORD_TO_FORCE_WIDTH_INCREASE',
             dimensions: { w: 180, h: 100, isManual: true }
         };
-        
+
         DesignerStore.state.nodes[node.id] = node;
 
         // Obtener los bounds visuales para este sticky note
         const bounds = GeometryUtils.getStickyNoteBounds(node, null, 1.0);
-        
+
         // Las dimensiones visuales pueden ser diferentes a las lógicas debido al texto
         const visualW = bounds.renderW || bounds.w;
         const visualH = bounds.renderH || bounds.h;
         const visualCenterX = bounds.centerX || node.x;
         const visualCenterY = bounds.centerY || node.y;
-        
+
         // Calcular la esquina SE basada en dimensiones visuales
         const cornerX = visualCenterX + visualW / 2;
         const cornerY = visualCenterY + visualH / 2;
         const worldPos = { x: cornerX, y: cornerY };
-        
+
         const hit = resizeHandler.findResizeHandle(worldPos);
 
         expect(hit).not.toBeNull();
@@ -74,23 +74,23 @@ describe('Visual Resize Handle Detection Test', () => {
             text: 'Line 1\nLine 2\nLine 3\nThis is a longer line that might wrap',
             dimensions: { w: 180, h: 100, isManual: true }
         };
-        
+
         DesignerStore.state.nodes[node.id] = node;
 
         // Obtener los bounds visuales para este sticky note multilinea
         const bounds = GeometryUtils.getStickyNoteBounds(node, null, 1.0);
-        
+
         // Este sticky note debería ser más alto debido a las múltiples líneas
         const visualW = bounds.renderW || bounds.w;
         const visualH = bounds.renderH || bounds.h;
         const visualCenterX = bounds.centerX || node.x;
         const visualCenterY = bounds.centerY || node.y;
-        
+
         // Calcular la esquina SE basada en dimensiones visuales
         const cornerX = visualCenterX + visualW / 2;
         const cornerY = visualCenterY + visualH / 2;
         const worldPos = { x: cornerX, y: cornerY };
-        
+
         const hit = resizeHandler.findResizeHandle(worldPos);
 
         expect(hit).not.toBeNull();
@@ -106,7 +106,7 @@ describe('Visual Resize Handle Detection Test', () => {
             isRepoContainer: true,
             dimensions: { w: 200, h: 150, isManual: true }
         };
-        
+
         DesignerStore.state.nodes[node.id] = node;
 
         // Para contenedores, usar los bounds del contenedor
@@ -115,12 +115,12 @@ describe('Visual Resize Handle Detection Test', () => {
         const visualH = bounds.renderH || bounds.h;
         const visualCenterX = bounds.centerX || node.x;
         const visualCenterY = bounds.centerY || node.y;
-        
+
         // Calcular la esquina SE basada en dimensiones visuales
         const cornerX = visualCenterX + visualW / 2;
         const cornerY = visualCenterY + visualH / 2;
         const worldPos = { x: cornerX, y: cornerY };
-        
+
         const hit = resizeHandler.findResizeHandle(worldPos);
 
         expect(hit).not.toBeNull();
@@ -137,17 +137,18 @@ describe('Visual Resize Handle Detection Test', () => {
             text: 'Short',
             dimensions: { w: 180, h: 100, isManual: true }
         };
-        
+
         const longSticky = {
             id: 'long-sticky',
             x: 150,
             y: 0,
             isStickyNote: true,
-            text: 'This is a much longer text that should result in wider visual dimensions for this sticky note',
+            text: 'LONG_WORD_FOR_WIDTH_INCREASE',
             dimensions: { w: 180, h: 100, isManual: true }
         };
 
-        DesignerStore.state.nodes = { [shortSticky.id]: shortSticky, [longSticky.id]: longSticky };
+        DesignerStore.state.nodes[shortSticky.id] = shortSticky;
+        DesignerStore.state.nodes[longSticky.id] = longSticky;
 
         // Obtener los bounds visuales para ambos sticky notes
         const shortBounds = GeometryUtils.getStickyNoteBounds(shortSticky, null, 1.0);

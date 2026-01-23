@@ -2,6 +2,7 @@
 import { InteractionHandler } from '../InteractionHandler.js';
 import { CoordinateUtils } from '../CoordinateUtils.js';
 import { AnimationManager } from '../AnimationManager.js';
+import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 
 export class PanZoomHandler extends InteractionHandler {
 
@@ -12,12 +13,12 @@ export class PanZoomHandler extends InteractionHandler {
             zoomScale: 1.0,
             isPanning: false,
             panStart: null,
-            minZoom: 0.3,
-            maxZoom: 4.0
+            minZoom: DESIGNER_CONSTANTS.INTERACTION.ZOOM.MIN,
+            maxZoom: DESIGNER_CONSTANTS.INTERACTION.ZOOM.MAX
         };
         // Throttle state for wheel events
         this.lastWheelTime = 0;
-        this.wheelThrottleMs = 16; // ~60fps max
+        this.wheelThrottleMs = DESIGNER_CONSTANTS.INTERACTION.ZOOM.WHEEL_THROTTLE;
     }
 
     init(config) {
@@ -112,7 +113,7 @@ export class PanZoomHandler extends InteractionHandler {
         const deltaY = e.deltaY;
         const mousePos = this.controller.getMousePos(e);
 
-        const delta = deltaY > 0 ? 0.9 : 1.1;
+        const delta = deltaY > 0 ? DESIGNER_CONSTANTS.INTERACTION.ZOOM.OUT_DELTA : DESIGNER_CONSTANTS.INTERACTION.ZOOM.IN_DELTA;
         const nextZoom = this.state.zoomScale * delta;
 
         // Use centralized setZoom method
@@ -142,7 +143,7 @@ export class PanZoomHandler extends InteractionHandler {
     animatePan(targetX, targetY, onUpdate) {
         const startX = this.state.panOffset.x;
         const startY = this.state.panOffset.y;
-        const duration = 400; // ms
+        const duration = DESIGNER_CONSTANTS.ANIMATION.PAN_DURATION;
         const startTime = performance.now();
 
         AnimationManager.registerTween({

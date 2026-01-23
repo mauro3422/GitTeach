@@ -1,3 +1,5 @@
+import { DESIGNER_CONSTANTS } from './DesignerConstants.js';
+
 export const BlueprintManager = {
     nodes: null,
 
@@ -62,9 +64,10 @@ export const BlueprintManager = {
 
                 // MIGRATION: Convert old size properties to unified dimensions
                 if (!node.dimensions) {
+                    const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
                     node.dimensions = {
-                        w: node.manualWidth || node.width || 180,
-                        h: node.manualHeight || node.height || 100,
+                        w: node.manualWidth || node.width || (node.isStickyNote ? STICKY_NOTE.MIN_W : CONTAINER.DEFAULT_W),
+                        h: node.manualHeight || node.height || (node.isStickyNote ? STICKY_NOTE.MIN_H : CONTAINER.DEFAULT_H),
                         isManual: !!(node.manualWidth || node.manualHeight)
                     };
                     // Ensure animation properties exist for fresh loads
@@ -90,7 +93,7 @@ export const BlueprintManager = {
             connections: manualConnections
         };
 
-        const scale = 1200;
+        const scale = DESIGNER_CONSTANTS.DIMENSIONS.DEFAULT_HYDRATION_SCALE;
         Object.values(nodesToExport).forEach(node => {
             // Clean up temporary props before saving (Issue #5)
             const exportNode = {
@@ -107,8 +110,8 @@ export const BlueprintManager = {
                 orbitParent: node.orbitParent || null,
                 // Only save essential dimensions
                 dimensions: {
-                    w: node.dimensions?.w || 180,
-                    h: node.dimensions?.h || 100,
+                    w: node.dimensions?.w || (node.isStickyNote ? DESIGNER_CONSTANTS.DIMENSIONS.STICKY_NOTE.MIN_W : DESIGNER_CONSTANTS.DIMENSIONS.CONTAINER.DEFAULT_W),
+                    h: node.dimensions?.h || (node.isStickyNote ? DESIGNER_CONSTANTS.DIMENSIONS.STICKY_NOTE.MIN_H : DESIGNER_CONSTANTS.DIMENSIONS.CONTAINER.DEFAULT_H),
                     isManual: node.dimensions?.isManual || false
                 }
             };
