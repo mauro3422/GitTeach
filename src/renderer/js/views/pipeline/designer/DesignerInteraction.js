@@ -137,6 +137,8 @@ export const DesignerInteraction = {
             // 1. Check for Resize Handles
             const resizeHit = this.resizeHandler.findResizeHandle(worldPos);
             if (resizeHit) {
+                // UNIFIED HISTORY: Create savepoint BEFORE resize starts (makes it undoable)
+                DesignerStore.savepoint('NODE_RESIZE', { nodeId: resizeHit.nodeId });
                 this.resizeHandler.start(e, { nodeId: resizeHit.nodeId, corner: resizeHit.corner, initialPos: worldPos });
                 DesignerStore.selectNode(resizeHit.nodeId); // Selection follows interaction
                 return; // Exit here to prevent other interactions

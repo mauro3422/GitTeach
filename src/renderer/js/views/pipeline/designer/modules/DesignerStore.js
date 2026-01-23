@@ -312,7 +312,7 @@ class DesignerStoreClass extends Store {
         return null;
     }
 
-    // --- History & Undo/Redo ---
+    // --- History & Undo/Redo (Unified via HistoryManager) ---
 
     savepoint(actionType, metadata = {}) {
         HistoryManager.saveToHistory(this.state.nodes, this.state.connections, actionType, metadata);
@@ -334,6 +334,18 @@ class DesignerStoreClass extends Store {
         this.setState({ nodes: next.nodes, connections: next.connections }, 'REDO');
         HistoryManager.setRecording(true);
         return true;
+    }
+
+    canUndo() {
+        return HistoryManager.canUndo();
+    }
+
+    canRedo() {
+        return HistoryManager.canRedo();
+    }
+
+    clearHistory() {
+        HistoryManager.clear();
     }
 
     // --- Override & Validation ---

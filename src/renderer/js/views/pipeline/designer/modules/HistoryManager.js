@@ -1,18 +1,19 @@
 /**
  * HistoryManager.js
- * Responsabilidad: Gestión del historial de undo/redo con acciones granulares
+ * UNIFIED Undo/Redo System for Designer Canvas
  *
- * ARCHITECTURE NOTE (2026-01):
- * This is the PRIMARY undo/redo system for the Designer Canvas.
- * It uses full state snapshots (JSON serialization) for simplicity and reliability.
+ * ARCHITECTURE (2026-01 CONSOLIDATED):
+ * This is the SINGLE source of truth for undo/redo.
+ * All operations (Commands, Drag, Resize) save state here via DesignerStore.savepoint().
  *
  * Flow:
- * - DesignerStore.savepoint() → saves current state here before changes
- * - Ctrl+Z → DesignerStore.undo() → restores previous snapshot from here
- * - Ctrl+Y → DesignerStore.redo() → restores next snapshot from here
+ * - CommandManager.execute(cmd) → DesignerStore.savepoint() → saves here
+ * - DragStrategy.startDrag() → DesignerStore.savepoint() → saves here
+ * - ResizeHandler start → DesignerStore.savepoint() → saves here
+ * - Ctrl+Z → DesignerStore.undo() → restores from here
+ * - Ctrl+Y → DesignerStore.redo() → restores from here
  *
- * Note: CommandManager also exists but its undo/redo methods are NOT wired to keyboard shortcuts.
- * This system is the de-facto implementation for user-facing undo/redo.
+ * This ensures ALL operations are undoable via one unified system.
  */
 
 export const HistoryManager = {

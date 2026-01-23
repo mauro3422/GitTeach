@@ -110,6 +110,9 @@ export class DragStrategy extends InteractionStrategy {
      * @param {Object} worldPos - World position where drag started
      */
     startDrag(node, worldPos) {
+        // UNIFIED HISTORY: Create savepoint BEFORE drag starts (makes it undoable)
+        DesignerStore.savepoint('NODE_MOVE', { nodeId: node.id });
+
         this.dragState.draggingNodeId = node.id;
         this.dragState.dragStart = { ...worldPos };
         this.dragState.dragOffset = {
