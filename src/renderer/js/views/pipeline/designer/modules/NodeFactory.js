@@ -156,6 +156,7 @@ export const NodeFactory = {
 
     /**
      * PRIVATE: Valida que nodo tenga todas propiedades requeridas
+     * SOFT validation - logs warnings but auto-fixes instead of throwing
      */
     _validateNode(node) {
         // REQUIRED fields for ALL nodes
@@ -163,31 +164,43 @@ export const NodeFactory = {
         const missing = required.filter(key => !(key in node));
 
         if (missing.length > 0) {
-            throw new Error(`[NodeFactory] Node ${node.id} missing required fields: ${missing.join(', ')}`);
+            console.warn(`[NodeFactory] Node ${node.id} missing required fields: ${missing.join(', ')}, auto-fixing...`);
+            // Auto-fix missing required fields
+            if (!node.id) node.id = `node_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+            if (typeof node.x !== 'number') node.x = 0;
+            if (typeof node.y !== 'number') node.y = 0;
+            if (!node.label) node.label = 'Node';
+            if (!node.icon) node.icon = '🧩';
+            if (!node.color) node.color = ThemeManager.colors.accent;
         }
 
-        // Type validation
+        // Type validation - FIX instead of THROW
         if (typeof node.id !== 'string' || !node.id) {
-            throw new Error(`[NodeFactory] Node ID must be non-empty string, got: ${typeof node.id}`);
+            console.warn(`[NodeFactory] Node ID invalid, auto-fixing...`);
+            node.id = `node_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
         }
         if (typeof node.x !== 'number' || typeof node.y !== 'number') {
-            throw new Error(`[NodeFactory] Node coordinates must be numbers, got x=${typeof node.x} y=${typeof node.y}`);
+            console.warn(`[NodeFactory] Node coordinates invalid, auto-fixing to 0,0...`);
+            node.x = typeof node.x === 'number' ? node.x : 0;
+            node.y = typeof node.y === 'number' ? node.y : 0;
         }
 
-        // Type-specific validation
+        // Type-specific validation - FIX instead of THROW
         if (node.isStickyNote) {
             if (typeof node.text !== 'string') {
-                throw new Error(`[NodeFactory] Sticky note ${node.id} must have text string`);
+                console.warn(`[NodeFactory] Sticky note ${node.id} text invalid, auto-fixing...`);
+                node.text = '';
             }
         }
 
         if (node.isRepoContainer) {
             if (typeof node.label !== 'string' || !node.label) {
-                throw new Error(`[NodeFactory] Container ${node.id} must have non-empty label`);
+                console.warn(`[NodeFactory] Container ${node.id} label invalid, auto-fixing...`);
+                node.label = 'Container';
             }
         }
 
-        // Dimensions validation
+        // Dimensions validation - AUTO-CREATE if missing
         if (!node.dimensions || typeof node.dimensions !== 'object') {
             console.warn(`[NodeFactory] Auto-creating missing dimensions for node ${node.id}`);
             const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
@@ -202,9 +215,13 @@ export const NodeFactory = {
                 isManual: false
             };
         } else {
-            // Validate dimension structure
+            // Validate dimension structure - FIX instead of THROW
             if (!('w' in node.dimensions) || !('h' in node.dimensions)) {
-                throw new Error(`[NodeFactory] Node ${node.id} dimensions missing w/h`);
+                console.warn(`[NodeFactory] Node ${node.id} dimensions missing w/h, auto-fixing...`);
+                const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
+                const isSticky = node.isStickyNote;
+                node.dimensions.w = node.dimensions.w || (isSticky ? STICKY_NOTE.DEFAULT_W : CONTAINER.DEFAULT_W);
+                node.dimensions.h = node.dimensions.h || (isSticky ? STICKY_NOTE.DEFAULT_H : CONTAINER.DEFAULT_H);
             }
         }
 
