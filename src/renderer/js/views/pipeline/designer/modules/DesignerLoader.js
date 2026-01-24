@@ -42,51 +42,40 @@ export const DesignerLoader = {
                 return;
             }
 
-            let node = DesignerStore.getNode(id);
+            // IMPORTANT: ALL nodes must go through NodeFactory for guaranteed properties
+            // Determine node type
+            const isStickyNote = data.isStickyNote || id.startsWith('sticky_');
+            const isContainer = data.isRepoContainer;
+            const isSatellite = data.isSatellite;
 
-            if (!node) {
-                // Create custom/lost nodes using NodeFactory to guarantee properties
-                const isStickyNote = data.isStickyNote || id.startsWith('sticky_');
-                const isContainer = data.isRepoContainer;
-                const isSatellite = data.isSatellite;
+            const nodeData = {
+                id,
+                x: data.x * scale,
+                y: data.y * scale,
+                label: data.label,
+                message: data.message,
+                parentId: data.parentId,
+                icon: isStickyNote ? '📝' : (isContainer ? '📦' : '🧩'),
+                color: data.color || ThemeManager.colors.drawerBorder,
+                text: isStickyNote ? (data.text || "Contenido recuperado...") : "",
+                orbitParent: data.orbitParent,
+                description: data.description,
+                internalClasses: data.internalClasses
+            };
 
-                const nodeData = {
-                    id,
-                    x: data.x * scale,
-                    y: data.y * scale,
-                    label: data.label,
-                    message: data.message,
-                    parentId: data.parentId,
-                    icon: isStickyNote ? '📝' : (isContainer ? '📦' : '🧩'),
-                    color: data.color || ThemeManager.colors.drawerBorder,
-                    text: isStickyNote ? (data.text || "Contenido recuperado...") : "",
-                    orbitParent: data.orbitParent
-                };
-
-                // Use NodeFactory based on type
-                if (isStickyNote) {
-                    node = NodeFactory.createStickyNote(nodeData);
-                } else if (isContainer) {
-                    node = NodeFactory.createContainerNode(nodeData);
-                } else if (isSatellite) {
-                    node = NodeFactory.createSatelliteNode(nodeData);
-                } else {
-                    node = NodeFactory.createRegularNode(nodeData);
-                }
-
-                DesignerStore.state.nodes[id] = node;
+            // Create or recreate node using NodeFactory - this guarantees all properties
+            let node;
+            if (isStickyNote) {
+                node = NodeFactory.createStickyNote(nodeData);
+            } else if (isContainer) {
+                node = NodeFactory.createContainerNode(nodeData);
+            } else if (isSatellite) {
+                node = NodeFactory.createSatelliteNode(nodeData);
             } else {
-                // Update existing nodes with hydration data
-                node.x = data.x * scale;
-                node.y = data.y * scale;
-                node.label = data.label;
-                node.message = data.message;
-                node.parentId = data.parentId;
-                if (data.isStickyNote || id.startsWith('sticky_')) {
-                    node.isStickyNote = true;
-                    node.text = data.text || node.text;
-                }
+                node = NodeFactory.createRegularNode(nodeData);
             }
+
+            DesignerStore.state.nodes[id] = node;
 
             // Hydrate Dimensions (Issue #6)
             if (data.dimensions) {
