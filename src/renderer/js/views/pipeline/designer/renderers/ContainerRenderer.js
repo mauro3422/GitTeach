@@ -10,8 +10,6 @@ import { DimensionSync } from '../DimensionSync.js';
 import { TextScalingManager } from '../utils/TextScalingManager.js';
 
 export const ContainerRenderer = {
-    _logged: false,
-
     getNodeColor(node) {
         if (node.isRepoContainer || node.isStickyNote) {
             return ThemeManager.getNeonColorForId(node.id);
@@ -21,19 +19,6 @@ export const ContainerRenderer = {
 
     render(ctx, nodes, camera, hoveredNodeId = null, dropTargetId = null, resizingNodeId = null, selectedNodeId = null) {
         const zoom = camera.zoomScale;
-
-        // ONE-TIME DEBUG: Log node types (only once per session)
-        if (!this._logged) {
-            const summary = {
-                total: Object.keys(nodes).length,
-                containers: Object.values(nodes).filter(n => n.isRepoContainer).length,
-                sticky: Object.values(nodes).filter(n => n.isStickyNote).length,
-                regular: Object.values(nodes).filter(n => !n.isRepoContainer && !n.isStickyNote).length,
-                sample: Object.values(nodes).slice(0, 3).map(n => ({ id: n.id, isRepoContainer: n.isRepoContainer, isStickyNote: n.isStickyNote }))
-            };
-            console.log('[ContainerRenderer] Node structure:', summary);
-            this._logged = true;
-        }
 
         // Phase 1: Containers
         Object.values(nodes).forEach(node => {
@@ -48,10 +33,6 @@ export const ContainerRenderer = {
             const { w, h, centerX, centerY } = sync;
             const x = centerX;
             const y = centerY;
-
-            if (node.id === 'cache') {
-                console.log('[ContainerRenderer.cache] Sync dimensions:', { w, h, centerX, centerY, zoom, nodeX: node.x, nodeY: node.y });
-            }
 
             const { VISUAL } = DESIGNER_CONSTANTS;
             // ROBUST PATTERN: Selection only brightens the border, doesn't change color

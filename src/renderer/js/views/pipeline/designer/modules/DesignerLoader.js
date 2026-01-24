@@ -17,16 +17,6 @@ export const DesignerLoader = {
         const savedState = await BlueprintManager.loadFromLocalStorage();
         if (savedState && savedState.layout) {
             const scale = DESIGNER_CONSTANTS.DIMENSIONS.DEFAULT_HYDRATION_SCALE;
-
-            // DEBUG: Check cache data in blueprint
-            if (savedState.layout.cache) {
-                console.log('[DesignerLoader] Blueprint cache data:', {
-                    isRepoContainer: savedState.layout.cache.isRepoContainer,
-                    isStickyNote: savedState.layout.cache.isStickyNote,
-                    label: savedState.layout.cache.label
-                });
-            }
-
             Object.entries(savedState.layout).forEach(([id, data]) => {
                 this.hydrateNode(id, data, scale);
             });
@@ -79,7 +69,6 @@ export const DesignerLoader = {
                 node = NodeFactory.createStickyNote(nodeData);
             } else if (isContainer) {
                 node = NodeFactory.createContainerNode(nodeData);
-                if (id === 'cache') console.log('[DesignerLoader] Cache store created as CONTAINER via NodeFactory');
             } else if (isSatellite) {
                 node = NodeFactory.createSatelliteNode(nodeData);
             } else {
@@ -99,10 +88,6 @@ export const DesignerLoader = {
                 node.dimensions.animW = data.dimensions.w;
                 node.dimensions.animH = data.dimensions.h;
                 node.dimensions.isManual = data.dimensions.isManual;
-
-                if (id === 'cache') {
-                    console.log('[DesignerLoader] Hydrated cache dimensions:', node.dimensions);
-                }
             } else if (!node.dimensions) {
                 // Emergency fallback - should not happen since NodeFactory creates dimensions
                 const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;

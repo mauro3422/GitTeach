@@ -80,53 +80,16 @@ export const BoundsCalculator = {
             };
         }
 
-        // DEBUG: Cache store bounds
-        if (node.id === 'cache') {
-            console.log('[BoundsCalculator.cache] Initial dims:', {
-                w: node.dimensions.w,
-                h: node.dimensions.h,
-                animW: node.dimensions.animW,
-                animH: node.dimensions.animH,
-                isManual: node.dimensions.isManual
-            });
-        }
-
         const dims = node.dimensions;
         const children = Object.values(nodes).filter(n => n.parentId === containerId);
         const vScale = ScalingCalculator.getVisualScale(zoomScale);
 
-        if (node.id === 'cache') {
-            console.log('[BoundsCalculator.cache] Before _calculateTargetSize, dims:', {
-                targetW: dims.targetW,
-                targetH: dims.targetH,
-                animW: dims.animW,
-                animH: dims.animH,
-                children: children.length,
-                vScale
-            });
-        }
-
         // 2. Calcular Target Size (Lógica de Auto-Layout)
         const target = this._calculateTargetSize(node, children, zoomScale);
-
-        if (node.id === 'cache') {
-            console.log('[BoundsCalculator.cache] After _calculateTargetSize, target:', target);
-        }
 
         // 3. Establecer mínimos de contenido (para no dejar que el resize manual colapse demasiado)
         // ROBUST FIX: Pasar zoomScale para calcular el ancho correcto del título
         const titleMinW = this.calculateTitleMinWidth(node.label, zoomScale);
-
-        if (node.id === 'cache') {
-            console.log('[BoundsCalculator.cache] titleMinW calculation:', {
-                'node.label': node.label,
-                titleMinW,
-                'target.targetW': target.targetW,
-                vScale,
-                contentMinW: Math.max(target.targetW / vScale, titleMinW / vScale)
-            });
-        }
-
         node.dimensions.contentMinW = Math.max(target.targetW / vScale, titleMinW / vScale);
         node.dimensions.contentMinH = target.targetH / vScale;
 
@@ -135,26 +98,12 @@ export const BoundsCalculator = {
             const baseW = Math.max(dims.w, DESIGNER_CONSTANTS.DIMENSIONS.CONTAINER.MIN_W);
             const baseH = Math.max(dims.h, DESIGNER_CONSTANTS.DIMENSIONS.CONTAINER.MIN_H);
 
-            const result = {
+            return {
                 w: baseW, h: baseH,
                 renderW: baseW * vScale * scaleFactor,
                 renderH: baseH * vScale * scaleFactor,
                 centerX: node.x, centerY: node.y
             };
-
-            if (node.id === 'cache') {
-                console.log('[BoundsCalculator.cache] MANUAL mode:', {
-                    w: dims.w,
-                    h: dims.h,
-                    baseW,
-                    baseH,
-                    vScale,
-                    renderW: result.renderW,
-                    renderH: result.renderH
-                });
-            }
-
-            return result;
         }
 
         // 5. Modo AUTOMÁTICO (Layout Elástico)
@@ -168,32 +117,14 @@ export const BoundsCalculator = {
         dims.targetW = target.targetW + dims.transitionPadding;
         dims.targetH = target.targetH + dims.transitionPadding;
 
-        if (node.id === 'cache') {
-            console.log('[BoundsCalculator.cache] After assigning targetW/H:', {
-                targetW: dims.targetW,
-                targetH: dims.targetH,
-                'target.targetW': target.targetW,
-                'dims.transitionPadding': dims.transitionPadding
-            });
-        }
-
         // Aplicar paso de animación elástica
         this._updateElasticStep(node);
-
-        if (node.id === 'cache') {
-            console.log('[BoundsCalculator.cache] After _updateElasticStep:', {
-                animW: dims.animW,
-                animH: dims.animH,
-                targetW: dims.targetW,
-                targetH: dims.targetH
-            });
-        }
 
         // Amortiguar el padding de transición
         dims.transitionPadding *= DESIGNER_CONSTANTS.ANIMATION.TRANSITION_DAMPING;
         if (dims.transitionPadding < 0.1) dims.transitionPadding = 0;
 
-        const result = {
+        return {
             w: target.targetW / vScale, // Logical width from current state
             h: target.targetH / vScale,
             renderW: dims.animW * scaleFactor,
@@ -201,18 +132,6 @@ export const BoundsCalculator = {
             centerX: node.x,
             centerY: node.y
         };
-
-        if (node.id === 'cache') {
-            console.log('[BoundsCalculator.cache] FINAL return (AUTO mode):', {
-                renderW: result.renderW,
-                renderH: result.renderH,
-                animW: dims.animW,
-                animH: dims.animH,
-                scaleFactor
-            });
-        }
-
-        return result;
     },
 
     /**
@@ -233,21 +152,12 @@ export const BoundsCalculator = {
         let minX = containerNode.x, maxX = containerNode.x;
         let minY = containerNode.y, maxY = containerNode.y;
 
-        const debugCache = containerNode.id === 'cache';
-        if (debugCache) {
-            console.log('[_calculateTargetSize.cache] Processing children:');
-        }
-
-        childrenNodes.forEach((child, idx) => {
+        childrenNodes.forEach(child => {
             const radius = ScalingCalculator.getNodeRadius(child, zoomScale);
             // Heuristic for labels inside containers if they are nodes
             const labelStr = child.label || "";
             const estimatedPixelWidth = (labelStr.length * layout.TITLE_CHAR_WIDTH) * vScale;
             const effectiveHalfWidth = Math.max(radius, estimatedPixelWidth / 2 + (layout.TITLE_PADDING * vScale));
-
-            if (debugCache && (isNaN(radius) || isNaN(effectiveHalfWidth))) {
-                console.log(`  Child ${idx} (${child.id}): radius=${radius}, label="${labelStr}", effectiveHalfWidth=${effectiveHalfWidth}`);
-            }
 
             minX = Math.min(minX, child.x - effectiveHalfWidth);
             maxX = Math.max(maxX, child.x + effectiveHalfWidth);
@@ -263,17 +173,6 @@ export const BoundsCalculator = {
 
         const requiredW = (maxDistX * 2) + basePadding;
         const requiredH = (maxDistY * 2) + basePadding + (layout.EXTRA_HEIGHT * vScale);
-
-        if (debugCache) {
-            console.log('[_calculateTargetSize.cache] Calc:', {
-                minX, maxX, minY, maxY,
-                maxDistX, maxDistY,
-                basePadding,
-                requiredW,
-                requiredH,
-                'dims.MIN_W * vScale': dims.MIN_W * vScale
-            });
-        }
 
         return {
             targetW: Math.max(dims.MIN_W * vScale, requiredW),

@@ -54,11 +54,6 @@ export const VisualEffects = {
         const centerX = x + w / 2;
         const centerY = y + h / 2;
 
-        // DEBUG cache store rendering
-        if (style.borderColor === '#ccff00' || style.shadowColor === '#ccff00') {
-            console.log('[VisualEffects.drawGlassPanel] Rendering cache/container at:', { x, y, w, h, centerX, centerY, radius });
-        }
-
         CanvasPrimitives.drawGlassPanel(ctx, centerX, centerY, w, h, radius, style);
     },
 
