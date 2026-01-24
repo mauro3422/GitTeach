@@ -320,15 +320,17 @@ export class DragStrategy extends InteractionStrategy {
 
     /**
      * Clean up drag state
-     * CRITICAL: Clear _originalPos from Store, clear isDragging flag
+     * CRITICAL FIX: Always clears _originalPos from ALL nodes, clears isDragging flag
+     * This prevents persistent state that hijacks subsequent drags
      * @param {Object} nodes - All nodes
      */
     cleanupDragState(nodes) {
         if (nodes) {
             // Clean up temporary position markers and ensure isDragging is false for all
             const cleanedNodes = { ...nodes };
-            let hasChanges = false;
+            let needsUpdate = false;
 
+            // CRITICAL: Check ALL nodes for cleanup, not just those with _originalPos
             Object.keys(nodes).forEach(nodeId => {
                 const node = nodes[nodeId];
                 // Check if node has _originalPos OR isDragging flag
@@ -336,14 +338,18 @@ export class DragStrategy extends InteractionStrategy {
                     cleanedNodes[nodeId] = { ...node };
                     delete cleanedNodes[nodeId]._originalPos;
                     cleanedNodes[nodeId].isDragging = false;
-                    hasChanges = true;
+                    needsUpdate = true;
                 }
             });
 
-            // Always sync if we found changes
-            if (hasChanges) {
-                DesignerStore.setState({ nodes: cleanedNodes }, 'DRAG_CLEANUP');
-            }
+            // CRITICAL FIX: ALWAYS sync to Store, even if no changes detected
+            // This ensures _originalPos is removed from Store and won't persist
+            // Unconditional update prevents state divergence
+            DesignerStore.setState({ nodes: cleanedNodes }, 'DRAG_CLEANUP');
+
+            // CRITICAL FIX: Invalidate bounds cache after drag
+            // Prevents hit detection from using stale bounds with old _originalPos
+            DesignerStore.clearBoundsCache();
         }
 
         this.dragState.draggingNodeId = null;
@@ -351,6 +357,7 @@ export class DragStrategy extends InteractionStrategy {
         this.dragState.dragOffset = { x: 0, y: 0 };
         this.dragState.dropTargetId = null;
 
+        // This also clears selectedNodeId now (from our DesignerStore fix)
         DesignerStore.setDragging(null);
     }
 }

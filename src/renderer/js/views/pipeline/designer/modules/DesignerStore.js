@@ -252,10 +252,18 @@ class DesignerStoreClass extends Store {
     }
 
     setDragging(nodeId) {
-        this.setInteractionState({
+        const updates = {
             draggingNodeId: nodeId,
             activeMode: nodeId ? 'DRAG' : 'IDLE'
-        });
+        };
+
+        // CRITICAL FIX: Clear selectedNodeId when drag ends (nodeId === null)
+        // This prevents the previous node from staying "selected" and hijacking next drag
+        if (nodeId === null) {
+            updates.selectedNodeId = null;
+        }
+
+        this.setInteractionState(updates);
     }
 
     /**
