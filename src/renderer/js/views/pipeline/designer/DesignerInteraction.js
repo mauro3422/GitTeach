@@ -229,9 +229,12 @@ export const DesignerInteraction = {
             // CRITICAL: Commit the final manual size to the Store
             if (nodeId && this.nodes[nodeId]) {
                 const node = this.nodes[nodeId];
-                DesignerStore.updateNode(nodeId, {
+                const success = DesignerStore.updateNode(nodeId, {
                     dimensions: { ...node.dimensions }
                 });
+                if (!success) {
+                    console.warn('[Interaction] Failed to update node dimensions after resize:', nodeId);
+                }
             }
         }
 

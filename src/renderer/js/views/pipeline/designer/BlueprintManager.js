@@ -44,17 +44,36 @@ export const BlueprintManager = {
     async loadFromLocalStorage() {
         let rawData = null;
         if (window.designerAPI) {
-            try { rawData = await window.designerAPI.loadBlueprint(); } catch (e) { }
+            try {
+                rawData = await window.designerAPI.loadBlueprint();
+                console.log('[BlueprintManager] Loaded from file system');
+            } catch (e) {
+                console.warn('[BlueprintManager] Failed to load from file system:', e.message);
+            }
         }
         if (!rawData) {
             const data = localStorage.getItem('giteach_designer_blueprint');
-            if (data) try { rawData = JSON.parse(data); } catch (e) { }
+            if (data) {
+                try {
+                    rawData = JSON.parse(data);
+                    console.log('[BlueprintManager] Loaded from localStorage');
+                } catch (e) {
+                    console.error('[BlueprintManager] Failed to parse JSON from localStorage:', e.message);
+                    return null;
+                }
+            }
         }
-        if (!rawData) return null;
+        if (!rawData) {
+            console.warn('[BlueprintManager] No blueprint found in file system or localStorage');
+            return null;
+        }
 
         // Validation & Dimension Migration
         try {
-            if (!rawData.layout || typeof rawData.layout !== 'object') return null;
+            if (!rawData.layout || typeof rawData.layout !== 'object') {
+                console.error('[BlueprintManager] Invalid blueprint: missing or invalid layout property');
+                return null;
+            }
 
             Object.keys(rawData.layout).forEach(id => {
                 const node = rawData.layout[id];
@@ -78,8 +97,10 @@ export const BlueprintManager = {
                 }
             });
 
+            console.log('[BlueprintManager] Successfully loaded and migrated blueprint with', Object.keys(rawData.layout).length, 'nodes');
             return rawData;
         } catch (err) {
+            console.error('[BlueprintManager] Failed to process blueprint:', err.message);
             return null;
         }
     },

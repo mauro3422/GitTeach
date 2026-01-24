@@ -24,6 +24,10 @@ export const DesignerLoader = {
 
             // Final notify after all hydration is done
             DesignerStore.setState({}, 'HYDRATION_COMPLETE');
+
+            // Validate and cleanup orphaned connections/nodes after hydration
+            DesignerStore.validateAndCleanup();
+            console.log('[DesignerLoader] Hydration complete with validation');
         }
     },
 

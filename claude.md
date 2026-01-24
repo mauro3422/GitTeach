@@ -125,6 +125,45 @@ setTimeout(() => {
 
 ---
 
+### 6. **Camera State Dualidad** (CRÍTICO - Fase 1)
+**Archivos afectados:**
+- `DesignerStore.js` (state.navigation.{panOffset, zoomScale})
+- `PanZoomHandler.js` (también trackea panOffset y zoomScale)
+- `DesignerController._executeRender()` (sincroniza entre los dos)
+
+**Problema:** Camera state se almacena en DOS lugares:
+- **DesignerStore.state.navigation** - SINGLE SOURCE OF TRUTH
+- **PanZoomHandler** - Local state (debe sincronizarse manualmente)
+
+Cuando PanZoomHandler actualiza la cámara, DEBE llamar a `DesignerStore.setState()` para mantenerla sincronizada. Si uno se desincroniza, la UI y la lógica se desalinean.
+
+**Ubicaciones críticas de sincronización:**
+1. `PanZoomHandler.js:setZoom()` → DEBE actualizar DesignerStore
+2. `PanZoomHandler.js:pan()` → DEBE actualizar DesignerStore
+3. `PanZoomHandler.js:centerOnNode()` → DEBE actualizar DesignerStore
+4. `DesignerController._executeRender()` → Lee desde DesignerStore como SSOT
+5. Todos los cálculos en `GeometryUtils` → Usan zoomScale del Store
+
+**Cómo evitar roturas:**
+- NUNCA mutar PanZoomHandler state sin actualizar DesignerStore
+- SIEMPRE leer camera state desde DesignerStore en renders
+- En PanZoomHandler, usar `DesignerStore.setState({ navigation: { ... } })`
+- Audit: Grep para `this.state.panOffset` y `this.state.zoomScale` en PanZoomHandler
+- Test: Verificar desincronización en tests de zoom/pan
+
+**Verificación:**
+```javascript
+// ❌ INCORRECTO - Desincroniza state
+this.panOffset = { x: 100, y: 200 };  // Solo PanZoomHandler
+
+// ✅ CORRECTO - Sincroniza ambos
+DesignerStore.setState({
+    navigation: { panOffset: { x: 100, y: 200 }, zoomScale: this.zoomScale }
+});
+```
+
+---
+
 ## 🔍 Mapa de Dependencias Críticas
 
 ### Si modificas `GeometryUtils.js`:

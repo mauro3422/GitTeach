@@ -176,6 +176,26 @@ export const NodeFactory = {
             node.color = ThemeManager.colors.accent;
         }
 
+        // FALLBACK: Ensure dimensions always exist (Issue #5)
+        if (!node.dimensions) {
+            const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
+            const isSticky = node.isStickyNote;
+            const isContainer = node.isRepoContainer;
+            const defW = isSticky ? STICKY_NOTE.DEFAULT_W : (isContainer ? CONTAINER.DEFAULT_W : CONTAINER.DEFAULT_W);
+            const defH = isSticky ? STICKY_NOTE.DEFAULT_H : (isContainer ? CONTAINER.DEFAULT_H : CONTAINER.DEFAULT_H);
+
+            node.dimensions = {
+                w: defW,
+                h: defH,
+                animW: defW,
+                animH: defH,
+                targetW: defW,
+                targetH: defH,
+                isManual: false
+            };
+            console.warn('[NodeFactory] Auto-created missing dimensions for node:', node.id);
+        }
+
         return node;
     },
 

@@ -50,14 +50,27 @@ export const AnimationManager = {
     startAnimationLoop() {
         if (this.animationFrameId === null) {
             const animate = () => {
-                // 1. Execute all active tweens
-                this.activeTweens.forEach(tween => {
-                    if (tween.animate) tween.animate();
-                });
+                try {
+                    // 1. Execute all active tweens
+                    this.activeTweens.forEach(tween => {
+                        try {
+                            if (tween.animate) tween.animate();
+                        } catch (e) {
+                            console.error('[AnimationManager] Error in tween animation:', e);
+                            this.unregisterTween(tween.id);
+                        }
+                    });
 
-                // 2. Perform global render
-                if (this.onRender) {
-                    this.onRender();
+                    // 2. Perform global render
+                    if (this.onRender) {
+                        try {
+                            this.onRender();
+                        } catch (e) {
+                            console.error('[AnimationManager] Error in render callback:', e);
+                        }
+                    }
+                } catch (e) {
+                    console.error('[AnimationManager] Unexpected error in animation loop:', e);
                 }
 
                 if (this.activeTweens.size > 0) {

@@ -29,8 +29,12 @@ export class DropNodeCommand extends DesignerCommand {
         const node = DesignerStore.getNode(this.nodeId);
         if (!node) return false;
 
-        DesignerStore.updateNode(this.nodeId, { parentId: this.oldParentId });
-        console.log(`[DropNodeCommand] Restored ${this.nodeId} parent to ${this.oldParentId || 'root'}`);
-        return true;
+        const success = DesignerStore.updateNode(this.nodeId, { parentId: this.oldParentId });
+        if (success) {
+            console.log(`[DropNodeCommand] Restored ${this.nodeId} parent to ${this.oldParentId || 'root'}`);
+        } else {
+            console.warn(`[DropNodeCommand] Failed to restore ${this.nodeId} parent`);
+        }
+        return success;
     }
 }

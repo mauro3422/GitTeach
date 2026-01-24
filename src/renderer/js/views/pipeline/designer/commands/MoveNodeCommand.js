@@ -23,25 +23,33 @@ export class MoveNodeCommand extends DesignerCommand {
             this.oldY = node.y;
         }
 
-        DesignerStore.updateNode(this.nodeId, {
+        const success = DesignerStore.updateNode(this.nodeId, {
             x: this.newX,
             y: this.newY
         });
 
-        console.log(`[MoveNodeCommand] Moved ${this.nodeId} to (${this.newX}, ${this.newY})`);
-        return true;
+        if (success) {
+            console.log(`[MoveNodeCommand] Moved ${this.nodeId} to (${this.newX}, ${this.newY})`);
+        } else {
+            console.warn(`[MoveNodeCommand] Failed to move ${this.nodeId}`);
+        }
+        return success;
     }
 
     undo() {
         const node = DesignerStore.getNode(this.nodeId);
         if (!node) return false;
 
-        DesignerStore.updateNode(this.nodeId, {
+        const success = DesignerStore.updateNode(this.nodeId, {
             x: this.oldX,
             y: this.oldY
         });
 
-        console.log(`[MoveNodeCommand] Moved ${this.nodeId} back to (${this.oldX}, ${this.oldY})`);
-        return true;
+        if (success) {
+            console.log(`[MoveNodeCommand] Moved ${this.nodeId} back to (${this.oldX}, ${this.oldY})`);
+        } else {
+            console.warn(`[MoveNodeCommand] Failed to move ${this.nodeId} back`);
+        }
+        return success;
     }
 }

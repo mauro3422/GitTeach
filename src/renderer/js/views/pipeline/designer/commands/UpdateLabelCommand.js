@@ -20,25 +20,33 @@ export class UpdateLabelCommand extends DesignerCommand {
             this.oldLabel = node.message || node.label || '';
         }
 
-        DesignerStore.updateNode(this.nodeId, {
+        const success = DesignerStore.updateNode(this.nodeId, {
             message: this.newLabel,
             label: this.newLabel
         });
 
-        console.log(`[UpdateLabelCommand] Updated label of ${this.nodeId}`);
-        return true;
+        if (success) {
+            console.log(`[UpdateLabelCommand] Updated label of ${this.nodeId}`);
+        } else {
+            console.warn(`[UpdateLabelCommand] Failed to update label of ${this.nodeId}`);
+        }
+        return success;
     }
 
     undo() {
         const node = DesignerStore.getNode(this.nodeId);
         if (!node) return false;
 
-        DesignerStore.updateNode(this.nodeId, {
+        const success = DesignerStore.updateNode(this.nodeId, {
             message: this.oldLabel,
             label: this.oldLabel
         });
 
-        console.log(`[UpdateLabelCommand] Reverted label of ${this.nodeId}`);
-        return true;
+        if (success) {
+            console.log(`[UpdateLabelCommand] Reverted label of ${this.nodeId}`);
+        } else {
+            console.warn(`[UpdateLabelCommand] Failed to revert label of ${this.nodeId}`);
+        }
+        return success;
     }
 }
