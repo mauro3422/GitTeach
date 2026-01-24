@@ -35,93 +35,105 @@ export const DesignerLoader = {
      * Hidrata un nodo individual desde el estado guardado
      */
     hydrateNode(id, data, scale) {
-        let node = DesignerStore.getNode(id);
+        try {
+            // Validate input data
+            if (!data || typeof data !== 'object') {
+                console.warn(`[DesignerLoader] Invalid node data for ${id}, skipping`);
+                return;
+            }
 
-        if (!node) {
-            // Create custom/lost nodes using NodeFactory to guarantee properties
-            const isStickyNote = data.isStickyNote || id.startsWith('sticky_');
-            const isContainer = data.isRepoContainer;
-            const isSatellite = data.isSatellite;
+            let node = DesignerStore.getNode(id);
 
-            const nodeData = {
-                id,
-                x: data.x * scale,
-                y: data.y * scale,
-                label: data.label,
-                message: data.message,
-                parentId: data.parentId,
-                icon: isStickyNote ? '📝' : (isContainer ? '📦' : '🧩'),
-                color: data.color || ThemeManager.colors.drawerBorder,
-                text: isStickyNote ? (data.text || "Contenido recuperado...") : "",
-                orbitParent: data.orbitParent
-            };
+            if (!node) {
+                // Create custom/lost nodes using NodeFactory to guarantee properties
+                const isStickyNote = data.isStickyNote || id.startsWith('sticky_');
+                const isContainer = data.isRepoContainer;
+                const isSatellite = data.isSatellite;
 
-            // Use NodeFactory based on type
-            if (isStickyNote) {
-                node = NodeFactory.createStickyNote(nodeData);
-            } else if (isContainer) {
-                node = NodeFactory.createContainerNode(nodeData);
-            } else if (isSatellite) {
-                node = NodeFactory.createSatelliteNode(nodeData);
+                const nodeData = {
+                    id,
+                    x: data.x * scale,
+                    y: data.y * scale,
+                    label: data.label,
+                    message: data.message,
+                    parentId: data.parentId,
+                    icon: isStickyNote ? '📝' : (isContainer ? '📦' : '🧩'),
+                    color: data.color || ThemeManager.colors.drawerBorder,
+                    text: isStickyNote ? (data.text || "Contenido recuperado...") : "",
+                    orbitParent: data.orbitParent
+                };
+
+                // Use NodeFactory based on type
+                if (isStickyNote) {
+                    node = NodeFactory.createStickyNote(nodeData);
+                } else if (isContainer) {
+                    node = NodeFactory.createContainerNode(nodeData);
+                } else if (isSatellite) {
+                    node = NodeFactory.createSatelliteNode(nodeData);
+                } else {
+                    node = NodeFactory.createRegularNode(nodeData);
+                }
+
+                DesignerStore.state.nodes[id] = node;
             } else {
-                node = NodeFactory.createRegularNode(nodeData);
+                // Update existing nodes with hydration data
+                node.x = data.x * scale;
+                node.y = data.y * scale;
+                node.label = data.label;
+                node.message = data.message;
+                node.parentId = data.parentId;
+                if (data.isStickyNote || id.startsWith('sticky_')) {
+                    node.isStickyNote = true;
+                    node.text = data.text || node.text;
+                }
             }
 
-            DesignerStore.state.nodes[id] = node;
-        } else {
-            // Update existing nodes with hydration data
-            node.x = data.x * scale;
-            node.y = data.y * scale;
-            node.label = data.label;
-            node.message = data.message;
-            node.parentId = data.parentId;
-            if (data.isStickyNote || id.startsWith('sticky_')) {
-                node.isStickyNote = true;
-                node.text = data.text || node.text;
+            // Hydrate Dimensions (Issue #6)
+            if (data.dimensions) {
+                node.dimensions = {
+                    w: data.dimensions.w,
+                    h: data.dimensions.h,
+                    targetW: data.dimensions.w,
+                    targetH: data.dimensions.h,
+                    animW: data.dimensions.w,
+                    animH: data.dimensions.h,
+                    isManual: data.dimensions.isManual
+                };
+            } else if (!node.dimensions) {
+                // Fallback for missing dimensions in saved data
+                const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
+                const defW = data.isStickyNote ? STICKY_NOTE.MIN_W : CONTAINER.DEFAULT_W;
+                const defH = data.isStickyNote ? STICKY_NOTE.MIN_H : CONTAINER.DEFAULT_H;
+
+                node.dimensions = {
+                    w: data.manualWidth || data.width || defW,
+                    h: data.manualHeight || data.height || defH,
+                    targetW: data.manualWidth || data.width || defW,
+                    targetH: data.manualHeight || data.height || defH,
+                    animW: data.manualWidth || data.width || defW,
+                    animH: data.manualHeight || data.height || defH,
+                    isManual: !!(data.manualWidth || data.manualHeight)
+                };
             }
-        }
 
-        // Hydrate Dimensions (Issue #6)
-        if (data.dimensions) {
-            node.dimensions = {
-                w: data.dimensions.w,
-                h: data.dimensions.h,
-                targetW: data.dimensions.w,
-                targetH: data.dimensions.h,
-                animW: data.dimensions.w,
-                animH: data.dimensions.h,
-                isManual: data.dimensions.isManual
-            };
-        } else if (!node.dimensions) {
-            // Fallback for missing dimensions in saved data
-            const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
-            const defW = data.isStickyNote ? STICKY_NOTE.MIN_W : CONTAINER.DEFAULT_W;
-            const defH = data.isStickyNote ? STICKY_NOTE.MIN_H : CONTAINER.DEFAULT_H;
+            // Re-register dynamic containers
+            if (data.isRepoContainer && id.startsWith('custom_')) {
+                const dims = node.dimensions;
+                const bounds = {
+                    minX: node.x - dims.w / 2,
+                    minY: node.y - dims.h / 2,
+                    maxX: node.x + dims.w / 2,
+                    maxY: node.y + dims.h / 2
+                };
 
-            node.dimensions = {
-                w: data.manualWidth || data.width || defW,
-                h: data.manualHeight || data.height || defH,
-                targetW: data.manualWidth || data.width || defW,
-                targetH: data.manualHeight || data.height || defH,
-                animW: data.manualWidth || data.width || defW,
-                animH: data.manualHeight || data.height || defH,
-                isManual: !!(data.manualWidth || data.manualHeight)
-            };
-        }
-
-        // Re-register dynamic containers
-        if (data.isRepoContainer && id.startsWith('custom_')) {
-            const dims = node.dimensions;
-            const bounds = {
-                minX: node.x - dims.w / 2,
-                minY: node.y - dims.h / 2,
-                maxX: node.x + dims.w / 2,
-                maxY: node.y + dims.h / 2
-            };
-
-            if (typeof ContainerBoxManager?.createUserBox === 'function') {
-                ContainerBoxManager.createUserBox(id, bounds, DESIGNER_CONSTANTS.INTERACTION.RESIZE_MARGIN);
+                if (typeof ContainerBoxManager?.createUserBox === 'function') {
+                    ContainerBoxManager.createUserBox(id, bounds, DESIGNER_CONSTANTS.INTERACTION.RESIZE_MARGIN);
+                }
             }
+        } catch (e) {
+            console.error(`[DesignerLoader] Failed to hydrate node ${id}:`, e.message);
+            console.warn(`[DesignerLoader] Skipping node ${id}`);
+            // Continue loading other nodes
         }
     }
 };
