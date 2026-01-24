@@ -38,6 +38,7 @@ export const InputManager = {
     registerShortcut(keys, actionName, callback) {
         const keyCombo = InputUtils.normalizeKeyCombo(keys);
         this._shortcuts.set(keyCombo, { actionName, callback });
+        console.log(`[InputManager] Registered shortcut: ${actionName} → ${keyCombo}`);
     },
 
     unregisterShortcut(keys) {
@@ -100,16 +101,46 @@ export const InputManager = {
         this._state.keysPressed.add(e.code);
         this._updateModifiers(e);
 
-        const combo = Array.from(this._state.keysPressed).sort().join('+').toLowerCase();
+        // CRITICAL FIX: Normalize the combo using the same function as registration
+        // This fixes mismatch between 'controlkey+keyz' (registered) and 'controlleft+keyz' (detected)
+        const rawCombo = Array.from(this._state.keysPressed).sort().join('+').toLowerCase();
+        const combo = this._normalizeDetectedCombo(rawCombo);
         const shortcut = this._shortcuts.get(combo);
 
         if (shortcut) {
             e.preventDefault();
+            console.log(`[InputManager] Shortcut executed: ${shortcut.actionName} (combo: ${combo})`);
             shortcut.callback(InputUtils.normalizeKeyEvent(e));
             return;
         }
 
         if (this._handlers.onKeyDown) this._handlers.onKeyDown(InputUtils.normalizeKeyEvent(e));
+    },
+
+    /**
+     * Normalize detected combo from e.code values
+     * Converts things like 'controlleft+keyz' to 'control+z' to match registered shortcuts
+     * @private
+     */
+    _normalizeDetectedCombo(rawCombo) {
+        let normalized = rawCombo;
+
+        // Convert key code aliases to simple forms
+        // ControlLeft/ControlRight -> control, ShiftLeft/ShiftRight -> shift, etc.
+        normalized = normalized.replace(/\b(controlleft|controlright)\b/g, 'control');
+        normalized = normalized.replace(/\b(shiftleft|shiftright)\b/g, 'shift');
+        normalized = normalized.replace(/\b(altleft|altright)\b/g, 'alt');
+        normalized = normalized.replace(/\b(metaleft|metaright)\b/g, 'meta');
+
+        // Convert KeyX format to just X
+        // keyz -> z, key1 -> 1, etc.
+        normalized = normalized.replace(/\bkey([a-z0-9])\b/g, '$1');
+
+        // Convert Digit format to just the number
+        // digit1 -> 1, etc.
+        normalized = normalized.replace(/\bdigit([0-9])\b/g, '$1');
+
+        return normalized;
     },
 
     _handleKeyUp(e) {

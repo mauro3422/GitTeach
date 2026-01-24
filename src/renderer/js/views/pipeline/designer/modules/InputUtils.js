@@ -72,10 +72,25 @@ export const InputUtils = {
 
     /**
      * Normalizes key combos for consistent lookup
+     * Handles aliases like 'controlkey' -> 'control' for matching both ControlLeft and ControlRight
      */
     normalizeKeyCombo(keys) {
         if (typeof keys === 'string') {
-            return keys.toLowerCase().replace(/\s+/g, '');
+            let combo = keys.toLowerCase().replace(/\s+/g, '');
+
+            // CRITICAL FIX: Replace key aliases to match actual e.code values
+            // e.code returns things like 'ControlLeft', 'KeyZ', 'ShiftRight', etc.
+            // But shortcuts registered as 'controlkey+keyz' need to match
+            combo = combo.replace(/\bcontrolkey\b/g, 'control');
+            combo = combo.replace(/\bshiftkey\b/g, 'shift');
+            combo = combo.replace(/\baltkey\b/g, 'alt');
+            combo = combo.replace(/\bmetakey\b/g, 'meta');
+
+            // Also normalize the key codes from 'key*' format
+            // e.g., 'keyz' -> 'z', 'key1' -> '1'
+            combo = combo.replace(/\bkey([a-z0-9])\b/g, '$1');
+
+            return combo;
         } else if (Array.isArray(keys)) {
             return keys.map(k => k.toLowerCase()).sort().join('+');
         }
