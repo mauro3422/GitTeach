@@ -135,6 +135,8 @@ export class DragStrategy extends InteractionStrategy {
 
     /**
      * Update drag position
+     * CRITICAL FIX: Now syncs to Store each frame (like ResizeHandler does)
+     * This prevents state divergence and lag
      * @param {Object} worldPos - Current world position
      */
     updateDrag(worldPos) {
@@ -143,20 +145,30 @@ export class DragStrategy extends InteractionStrategy {
 
         if (!node) return;
 
-        // Ensure isDragging is set (in case it got reset somehow)
-        node.isDragging = true;
+        // Calculate new position
+        const newX = worldPos.x - this.dragState.dragOffset.x;
+        const newY = worldPos.y - this.dragState.dragOffset.y;
 
-        // Update node position
-        node.x = worldPos.x - this.dragState.dragOffset.x;
-        node.y = worldPos.y - this.dragState.dragOffset.y;
+        // Build updated nodes object with new position (SSOT pattern)
+        const updatedNodes = { ...nodes };
+        updatedNodes[node.id] = {
+            ...node,
+            x: newX,
+            y: newY,
+            isDragging: true
+        };
 
         // Handle group dragging for containers
         if (node.isRepoContainer) {
-            this.updateChildPositions(node, worldPos);
+            this.updateChildPositionsInObject(updatedNodes, node, worldPos);
         }
 
+        // CRITICAL: Sync to Store every frame (eliminates lag and state divergence)
+        // This matches the pattern used by ResizeHandler for consistency
+        DesignerStore.setState({ nodes: updatedNodes }, 'DRAG_UPDATE');
+
         // Update drop target detection
-        this.updateDropTarget(worldPos, nodes);
+        this.updateDropTarget(worldPos, updatedNodes);
     }
 
     /**
@@ -191,30 +203,48 @@ export class DragStrategy extends InteractionStrategy {
     }
 
     /**
-     * Update positions of child nodes when dragging a container
+     * Update positions of child nodes when dragging a container (DEPRECATED)
+     * Use updateChildPositionsInObject instead for immutable updates
+     * @deprecated
+     */
+    updateChildPositions(containerNode, mousePos) {
+        // This method is now deprecated in favor of immutable updates
+        // Kept for compatibility but not called from updateDrag
+    }
+
+    /**
+     * Update positions of child nodes immutably (new SSOT-compliant version)
+     * @param {Object} updatedNodes - Nodes object being built
      * @param {Object} containerNode - Container being dragged
      * @param {Object} mousePos - Current mouse position
      */
-    updateChildPositions(containerNode, mousePos) {
-        const nodes = this.controller.nodes;
+    updateChildPositionsInObject(updatedNodes, containerNode, mousePos) {
         const dx = mousePos.x - this.dragState.dragStart.x;
         const dy = mousePos.y - this.dragState.dragStart.y;
 
-        Object.values(nodes).forEach(child => {
+        // Find and update all children in the container
+        Object.entries(this.controller.nodes).forEach(([childId, child]) => {
             if (child.parentId === containerNode.id) {
-                if (!child._originalPos) {
-                    child._originalPos = { x: child.x, y: child.y };
-                }
-                child.x = child._originalPos.x + dx;
-                child.y = child._originalPos.y + dy;
+                // Get original position from controller.nodes (source of truth)
+                const originalChild = this.controller.nodes[childId];
+                const originalPos = originalChild._originalPos || { x: originalChild.x, y: originalChild.y };
+
+                // Create new immutable child object
+                updatedNodes[childId] = {
+                    ...child,
+                    x: originalPos.x + dx,
+                    y: originalPos.y + dy,
+                    _originalPos: originalPos
+                };
             }
         });
     }
 
     /**
      * Update drop target detection
+     * Now uses SSOT nodes passed in (prevents stale state)
      * @param {Object} worldPos - Current world position
-     * @param {Object} nodes - All nodes
+     * @param {Object} nodes - All nodes (must be current SSOT)
      */
     updateDropTarget(worldPos, nodes) {
         const draggingNode = nodes[this.dragState.draggingNodeId];
