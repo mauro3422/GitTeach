@@ -12,9 +12,14 @@ export const BlueprintManager = {
 
         // Persistent save to file system (primary) and LocalStorage (backup)
         if (window.designerAPI) {
-            window.designerAPI.saveBlueprint(blueprint).then(result => {
-                console.log(`[BlueprintManager] Saved to: ${result.path}`);
-            });
+            window.designerAPI.saveBlueprint(blueprint)
+                .then(result => {
+                    console.log(`[BlueprintManager] Saved to: ${result.path}`);
+                })
+                .catch(error => {
+                    console.error('[BlueprintManager] Failed to save to file system:', error.message);
+                    // Continue - localStorage save will handle it
+                });
         }
 
         // SAFETY: Save to LocalStorage with quota checking
@@ -101,6 +106,24 @@ export const BlueprintManager = {
             return null;
         }
 
+        // ADD: Validate version BEFORE processing
+        const version = rawData?.version || '1.0.0';
+        if (!DESIGNER_CONSTANTS.BLUEPRINT_VERSIONING.isSupported(version)) {
+            console.error(`[BlueprintManager] Unsupported blueprint version: ${version}`);
+            console.error(`[BlueprintManager] Current version: ${DESIGNER_CONSTANTS.BLUEPRINT_VERSIONING.CURRENT_VERSION}`);
+            return null;  // Cannot load unsupported version
+        }
+
+        // ADD: Log version info
+        console.log(`[BlueprintManager] Loading blueprint version: ${version}`);
+
+        // ADD: Future-proof - apply migrations if needed
+        if (version !== DESIGNER_CONSTANTS.BLUEPRINT_VERSIONING.CURRENT_VERSION) {
+            console.log(`[BlueprintManager] Applying migrations from ${version} to ${DESIGNER_CONSTANTS.BLUEPRINT_VERSIONING.CURRENT_VERSION}`);
+            // When migrations are added, they would be applied here
+            // For now, existing dimension migration (lines 104-131) handles v1.2→v1.3
+        }
+
         // Validation & Dimension Migration
         try {
             if (!rawData.layout || typeof rawData.layout !== 'object') {
@@ -141,7 +164,7 @@ export const BlueprintManager = {
     generateBlueprint(manualConnections, nodesOverride = null) {
         const nodesToExport = nodesOverride || this.nodes;
         const blueprint = {
-            version: "1.3.0 (Unified Dimensions)",
+            version: DESIGNER_CONSTANTS.BLUEPRINT_VERSIONING.CURRENT_VERSION,  // Use constant
             timestamp: new Date().toISOString(),
             layout: {},
             connections: manualConnections

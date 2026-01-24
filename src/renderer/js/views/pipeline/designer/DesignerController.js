@@ -46,7 +46,14 @@ class DesignerControllerClass extends BaseController {
         // Lifecycle: MOUNT (Start listening to events)
         this.mount();
 
-        await DesignerLoader.loadAndHydrate();
+        try {
+            await DesignerLoader.loadAndHydrate();
+        } catch (e) {
+            console.error('[DesignerController] Failed to load blueprint on init:', e);
+            console.warn('[DesignerController] Proceeding with empty canvas');
+            // Fall back to initial nodes (already loaded by DesignerStore.loadInitialNodes)
+            // No throw - continue with empty state
+        }
         UIManager.init(this);
     }
 
