@@ -27,15 +27,13 @@ class DesignerStoreClass extends Store {
                 selectedConnectionId: null,
                 draggingNodeId: null,
                 resizingNodeId: null,
-                activeMode: 'IDLE', // IDLE, DRAG, RESIZE, DRAW, PAN
-
-                // Resize state (Single Source of Truth)
+                activeMode: 'IDLE',
                 resize: {
-                    corner: null,              // nw, ne, sw, se
-                    startMouse: null,          // { x, y } in world coords
-                    startLogicalSize: null,    // { w, h } logical dimensions
-                    startVisualSize: null,     // { w, h } visual dimensions
-                    childPositions: null       // { nodeId: { relX, relY } }
+                    corner: null,
+                    startMouse: null,
+                    startLogicalSize: null,
+                    startVisualSize: null,
+                    childPositions: null
                 }
             },
             camera: {
@@ -46,14 +44,14 @@ class DesignerStoreClass extends Store {
         });
     }
 
-    // --- Queries ---
+    // --- Queries (Delegated to NodeRepository) ---
 
-    getNode(id) { return this.state.nodes[id]; }
-    getAllNodes() { return Object.values(this.state.nodes); }
-    getChildren(parentId) { return this.getAllNodes().filter(n => n.parentId === parentId); }
-    getConnectionsFor(nodeId) { return this.state.connections.filter(c => c.from === nodeId || c.to === nodeId); }
+    getNode(id) { return nodeRepository.getNode(id); }
+    getAllNodes() { return nodeRepository.getAllNodes(); }
+    getChildren(parentId) { return nodeRepository.getChildren(parentId); }
+    getConnectionsFor(nodeId) { return nodeRepository.getConnectionsFor(nodeId); }
 
-    // --- Actions ---
+    // --- Actions (Delegated to NodeRepository) ---
 
     /**
      * Set the entire node set (e.g. from file load)
@@ -61,7 +59,6 @@ class DesignerStoreClass extends Store {
     setNodes(nodes) {
         this.setState({ nodes: { ...nodes } }, 'SET_NODES');
         this.validateAndCleanup();
-        // Issue #13: Clear all cached bounds when loading new nodes
         this.clearBoundsCache();
     }
 
@@ -71,7 +68,6 @@ class DesignerStoreClass extends Store {
     loadInitialNodes() {
         const newNodes = DesignerHydrator.generateInitialNodes(1200);
         this.setState({ nodes: newNodes, connections: [] }, 'LOAD_INITIAL_NODES');
-        // Issue #13: Clear all cached bounds when loading initial nodes
         this.clearBoundsCache();
     }
 
@@ -84,7 +80,6 @@ class DesignerStoreClass extends Store {
         const name = options.label || `${typeLabel} ${count}`;
         const id = options.id || `custom_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
-        // Use NodeFactory to guarantee properties
         const newNode = isContainer
             ? NodeFactory.createContainerNode({
                 id,
@@ -124,7 +119,6 @@ class DesignerStoreClass extends Store {
     addStickyNote(x, y, options = {}) {
         const id = options.id || `sticky_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
-        // Use NodeFactory to guarantee properties
         const newNode = NodeFactory.createStickyNote({
             id,
             x,
@@ -155,7 +149,6 @@ class DesignerStoreClass extends Store {
             connections: nextConnections
         }, 'REMOVE_NODE');
 
-        // Issue #13: Invalidate cache for removed node
         this.invalidateBoundsCache(nodeId);
 
         return true;
@@ -174,7 +167,6 @@ class DesignerStoreClass extends Store {
         };
         this.setState({ nodes: nextNodes }, 'UPDATE_NODE');
 
-        // Issue #13: Invalidate bounds cache for this node (all zoom levels)
         this.invalidateBoundsCache(nodeId);
 
         return true;
@@ -249,75 +241,10 @@ class DesignerStoreClass extends Store {
         }
 
         this.setState({ connections: [...validConnections] }, 'SET_CONNECTIONS');
-
-        // Issue #13: Connections affect container bounds, clear cache
         this.clearBoundsCache();
     }
 
-    // --- State Accessors ---
-
-    setInteractionState(partial) {
-        const newState = { ...this.state.interaction, ...partial };
-
-        // AUTO-VALIDATION: Ensure only one interaction mode is active at a time
-        this._validateInteractionState(newState);
-
-        this.setState({ interaction: newState }, 'INTERACTION_UPDATE');
-    }
-
-    /**
-     * Validates that only one interaction mode is active at a time
-     * Auto-corrects invalid states
-     */
-    _validateInteractionState(state) {
-        const activeModes = [];
-        if (state.draggingNodeId) activeModes.push('DRAG');
-        if (state.resizingNodeId) activeModes.push('RESIZE');
-        if (state.activeMode === 'DRAW') activeModes.push('DRAW');
-        if (this.state.camera.isPanning) activeModes.push('PAN');
-
-        // If multiple modes are active, this is a bug
-        if (activeModes.length > 1) {
-            console.warn(`[InteractionWarning] Multiple active modes detected: ${activeModes.join(', ')}. Auto-correcting...`);
-
-            // Auto-correct: Keep only the activeMode, clear everything else
-            if (state.activeMode !== 'IDLE') {
-                // Clear conflicting states
-                if (state.activeMode !== 'DRAG') state.draggingNodeId = null;
-                if (state.activeMode !== 'RESIZE') {
-                    state.resizingNodeId = null;
-                    state.resize = {
-                        corner: null,
-                        startMouse: null,
-                        startLogicalSize: null,
-                        startVisualSize: null,
-                        childPositions: null
-                    };
-                }
-            } else {
-                // activeMode is IDLE but other states are set - clear them
-                state.draggingNodeId = null;
-                state.resizingNodeId = null;
-                state.resize = {
-                    corner: null,
-                    startMouse: null,
-                    startLogicalSize: null,
-                    startVisualSize: null,
-                    childPositions: null
-                };
-            }
-        }
-
-        // Ensure activeMode matches the actual state
-        if (state.resizingNodeId && state.activeMode !== 'RESIZE') {
-            console.warn('[InteractionWarning] resizingNodeId set but activeMode is not RESIZE. Auto-correcting...');
-            state.activeMode = 'RESIZE';
-        }
-        if (state.draggingNodeId && state.activeMode !== 'DRAG') {
-            console.warn('[InteractionWarning] draggingNodeId set but activeMode is not DRAG. Auto-correcting...');
-            state.activeMode = 'DRAG';
-        }
-    }
+    // --- State Accessors (Interaction & Camera) ---
 
     setHover(nodeId) {
         if (this.state.interaction.hoveredNodeId === nodeId) return;
@@ -332,7 +259,7 @@ class DesignerStoreClass extends Store {
     }
 
     /**
-     * Start resize operation with full state (Single Source of Truth)
+     * Start resize operation with full state
      */
     startResize(nodeId, resizeState) {
         this.setInteractionState({
@@ -349,7 +276,7 @@ class DesignerStoreClass extends Store {
     }
 
     /**
-     * Clear resize state completely (used on resize end/cancel)
+     * Clear resize state completely
      */
     clearResize() {
         this.setInteractionState({
@@ -365,11 +292,60 @@ class DesignerStoreClass extends Store {
         });
     }
 
-
     setDrawing(sourceNodeId) {
         this.setInteractionState({
             activeMode: sourceNodeId ? 'DRAW' : 'IDLE'
         });
+    }
+
+    setInteractionState(partial) {
+        const newState = { ...this.state.interaction, ...partial };
+        this._validateInteractionState(newState);
+        this.setState({ interaction: newState }, 'INTERACTION_UPDATE');
+    }
+
+    _validateInteractionState(state) {
+        const activeModes = [];
+        if (state.draggingNodeId) activeModes.push('DRAG');
+        if (state.resizingNodeId) activeModes.push('RESIZE');
+        if (state.activeMode === 'DRAW') activeModes.push('DRAW');
+        if (this.state.camera.isPanning) activeModes.push('PAN');
+
+        if (activeModes.length > 1) {
+            console.warn(`[InteractionWarning] Multiple active modes detected: ${activeModes.join(', ')}`);
+            if (state.activeMode !== 'IDLE') {
+                if (state.activeMode !== 'DRAG') state.draggingNodeId = null;
+                if (state.activeMode !== 'RESIZE') {
+                    state.resizingNodeId = null;
+                    state.resize = {
+                        corner: null,
+                        startMouse: null,
+                        startLogicalSize: null,
+                        startVisualSize: null,
+                        childPositions: null
+                    };
+                }
+            } else {
+                state.draggingNodeId = null;
+                state.resizingNodeId = null;
+                state.resize = {
+                    corner: null,
+                    startMouse: null,
+                    startLogicalSize: null,
+                    startVisualSize: null,
+                    childPositions: null
+                };
+            }
+        }
+
+        if (state.resizingNodeId && state.activeMode !== 'RESIZE') {
+            console.warn('[InteractionWarning] resizingNodeId set but activeMode is not RESIZE');
+            state.activeMode = 'RESIZE';
+        }
+        if (state.draggingNodeId && state.activeMode !== 'DRAG') {
+            console.warn('[InteractionWarning] draggingNodeId set but activeMode is not DRAG');
+            state.activeMode = 'DRAG';
+        }
     }
 
     setCamera(updates) {
@@ -380,7 +356,6 @@ class DesignerStoreClass extends Store {
 
     /**
      * Cancel ALL active interactions (Emergency reset)
-     * Useful for Escape key, window blur, or error recovery
      */
     cancelAllInteractions() {
         this.setState({
@@ -587,38 +562,6 @@ class DesignerStoreClass extends Store {
 
     clearHistory() {
         HistoryManager.clear();
-    }
-
-    // --- Override & Validation ---
-
-    setState(updates, actionName = 'DESIGNER_UPDATE') {
-        const nextState = { ...this.state };
-        let changed = false;
-
-        ['nodes', 'connections', 'interaction', 'camera'].forEach(key => {
-            if (updates[key]) {
-                // Determine if we should replace or merge
-                const shouldReplace = key === 'connections'; // Connections are arrays, usually replaced
-
-                if (shouldReplace || Array.isArray(updates[key])) {
-                    nextState[key] = Array.isArray(updates[key]) ? [...updates[key]] : updates[key];
-                } else {
-                    // Merge objects (nodes, interaction, camera)
-                    nextState[key] = { ...nextState[key], ...updates[key] };
-                }
-                changed = true;
-            }
-        });
-
-        // Allow unknown keys
-        Object.keys(updates).forEach(k => {
-            if (!['nodes', 'connections', 'interaction', 'camera'].includes(k)) {
-                nextState[k] = updates[k];
-                changed = true;
-            }
-        });
-
-        if (changed) super.setState(nextState, actionName);
     }
 
     validateAndCleanup() {
