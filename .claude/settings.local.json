@@ -10,7 +10,8 @@
       "Bash(git log:*)",
       "Bash(ls -la *.md)",
       "Bash(npm run build:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(1)"
     ]
   }
 }

@@ -4,6 +4,7 @@ import { GeometryUtils } from '../GeometryUtils.js';
 import { CoordinateUtils } from '../CoordinateUtils.js';
 import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 import { TextScalingManager } from '../utils/TextScalingManager.js';
+import { DesignerStore } from '../modules/DesignerStore.js';
 
 export const InlineEditor = {
     activeRef: null, // { textarea, note, onSave, handlers } - includes event handlers for cleanup
@@ -68,8 +69,15 @@ export const InlineEditor = {
         // Define handlers with references for proper cleanup
         const handlers = {
             input: () => {
-                note.text = textarea.value;
-                DesignerEvents.requestRender();
+                // SAFETY: Validate node still exists before updating
+                const stillExists = DesignerStore.getNode(note.id);
+                if (stillExists) {
+                    note.text = textarea.value;
+                    DesignerEvents.requestRender();
+                } else {
+                    console.warn('[InlineEditor] Node was deleted, stopping edit sync:', note.id);
+                    this.close();
+                }
             },
             blur: () => {
                 this.saveAndClose();
@@ -100,6 +108,16 @@ export const InlineEditor = {
     saveAndClose() {
         if (this.activeRef) {
             const { note, textarea, onSave } = this.activeRef;
+
+            // SAFETY: Validate node still exists before saving
+            const stillExists = DesignerStore.getNode(note.id);
+            if (!stillExists) {
+                console.warn('[InlineEditor] Node was deleted, discarding changes:', note.id);
+                this.close();
+                DesignerEvents.requestRender();
+                return;
+            }
+
             if (onSave) onSave(note, textarea.value);
             this.close();
             DesignerEvents.requestRender();
@@ -116,6 +134,14 @@ export const InlineEditor = {
         const { textarea, note } = this.activeRef;
         const container = document.getElementById('designer-container');
         if (!container) return;
+
+        // SAFETY: Validate node still exists before syncing position
+        const stillExists = DesignerStore.getNode(note.id);
+        if (!stillExists) {
+            console.warn('[InlineEditor] Node was deleted during editing, closing editor:', note.id);
+            this.close();
+            return;
+        }
 
         const zoom = viewportState.zoomScale;
 

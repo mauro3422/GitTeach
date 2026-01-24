@@ -169,9 +169,17 @@ class DesignerControllerClass extends BaseController {
         const newNote = commandManager.execute(command);
         this.render();
 
-        // Use safe timeout from BaseController
+        // Use safe timeout with node existence validation
         if (newNote) {
-            this.setTimeout(() => this.openInlineEditor(newNote), 100);
+            const noteId = newNote.id;
+            this.setTimeout(() => {
+                const node = DesignerStore.getNode(noteId);
+                if (node) {
+                    this.openInlineEditor(node);
+                } else {
+                    console.warn('[DesignerController] Sticky note was deleted before inline editor could open:', noteId);
+                }
+            }, 100);
         }
     }
 
