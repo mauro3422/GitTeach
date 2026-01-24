@@ -10,19 +10,29 @@ export const ConnectionRenderer = {
     render(ctx, nodes, camera, connections, activeConnection = null, selectedConnectionId = null) {
         if (!connections || !Array.isArray(connections)) return;
 
+        // LEVEL 3: Per-connection error boundary
         connections.forEach(conn => {
-            const startNode = nodes[conn.from];
-            const endNode = nodes[conn.to];
-            if (startNode && endNode) {
-                const connId = conn.id || `${conn.from}-${conn.to}`;
-                const isSelected = connId === selectedConnectionId;
-                this.drawSimpleLine(ctx, startNode, endNode, camera, nodes, isSelected);
+            try {
+                const startNode = nodes[conn.from];
+                const endNode = nodes[conn.to];
+                if (startNode && endNode) {
+                    const connId = conn.id || `${conn.from}-${conn.to}`;
+                    const isSelected = connId === selectedConnectionId;
+                    this.drawSimpleLine(ctx, startNode, endNode, camera, nodes, isSelected);
+                }
+            } catch (e) {
+                console.warn(`[ConnectionRenderer] Failed to render connection ${conn?.from}→${conn?.to}:`, e.message);
+                // Continue to next connection
             }
         });
 
         // Draw active connection line if present
         if (activeConnection) {
-            this.drawActiveLine(ctx, activeConnection.fromNode, activeConnection.currentPos, camera);
+            try {
+                this.drawActiveLine(ctx, activeConnection.fromNode, activeConnection.currentPos, camera);
+            } catch (e) {
+                console.warn('[ConnectionRenderer] Failed to render active connection:', e.message);
+            }
         }
     },
 
