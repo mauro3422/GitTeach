@@ -125,42 +125,67 @@ setTimeout(() => {
 
 ---
 
-### 6. **Camera State Dualidad** (CRÍTICO - Fase 1)
+### 6. **Camera State Synchronization** (✅ RESOLVED in Phase 1)
 **Archivos afectados:**
-- `DesignerStore.js` (state.navigation.{panOffset, zoomScale})
-- `PanZoomHandler.js` (también trackea panOffset y zoomScale)
-- `DesignerController._executeRender()` (sincroniza entre los dos)
+- `DesignerStore.js` (state.camera.{panOffset, zoomScale})
+- `PanZoomHandler.js` (sincroniza a través de setCamera())
+- `DesignerInteraction.js` (lee desde DesignerStore como SSOT)
 
-**Problema:** Camera state se almacena en DOS lugares:
-- **DesignerStore.state.navigation** - SINGLE SOURCE OF TRUTH
-- **PanZoomHandler** - Local state (debe sincronizarse manualmente)
+**Status:** ✅ ALREADY SYNCHRONIZED
+All mutations in PanZoomHandler call `DesignerStore.setCamera()` immediately after changes.
 
-Cuando PanZoomHandler actualiza la cámara, DEBE llamar a `DesignerStore.setState()` para mantenerla sincronizada. Si uno se desincroniza, la UI y la lógica se desalinean.
-
-**Ubicaciones críticas de sincronización:**
-1. `PanZoomHandler.js:setZoom()` → DEBE actualizar DesignerStore
-2. `PanZoomHandler.js:pan()` → DEBE actualizar DesignerStore
-3. `PanZoomHandler.js:centerOnNode()` → DEBE actualizar DesignerStore
-4. `DesignerController._executeRender()` → Lee desde DesignerStore como SSOT
-5. Todos los cálculos en `GeometryUtils` → Usan zoomScale del Store
-
-**Cómo evitar roturas:**
-- NUNCA mutar PanZoomHandler state sin actualizar DesignerStore
-- SIEMPRE leer camera state desde DesignerStore en renders
-- En PanZoomHandler, usar `DesignerStore.setState({ navigation: { ... } })`
-- Audit: Grep para `this.state.panOffset` y `this.state.zoomScale` en PanZoomHandler
-- Test: Verificar desincronización en tests de zoom/pan
-
-**Verificación:**
-```javascript
-// ❌ INCORRECTO - Desincroniza state
-this.panOffset = { x: 100, y: 200 };  // Solo PanZoomHandler
-
-// ✅ CORRECTO - Sincroniza ambos
-DesignerStore.setState({
-    navigation: { panOffset: { x: 100, y: 200 }, zoomScale: this.zoomScale }
-});
+**Architecture:**
 ```
+PanZoomHandler.state (local)
+  ↓ (mutate)
+DesignerStore.setCamera()
+  ↓ (update)
+DesignerStore.state.camera (SSOT)
+  ↓ (read)
+DesignerInteraction.state (via getter)
+  ↓ (read)
+GeometryUtils, ResizeHandler, etc.
+```
+
+**How It Works:**
+1. PanZoomHandler modifies local state: `this.state.zoomScale = newZoom`
+2. Immediately calls: `DesignerStore.setCamera({ zoomScale: this.state.zoomScale })`
+3. DesignerStore updates: `state.camera.zoomScale`
+4. Subscribers notified, renders trigger
+5. All readers get value from DesignerStore (SSOT)
+
+**Pattern (Correct):**
+```javascript
+// PanZoomHandler.js
+setZoom(newZoom) {
+    this.state.zoomScale = newZoom;
+    // SYNC: Update Store immediately
+    DesignerStore.setCamera({
+        zoomScale: this.state.zoomScale
+    });
+}
+
+// DesignerInteraction.js (getter)
+get state() { return DesignerStore.state.camera; }
+
+// Readers always see consistent state ✅
+```
+
+**Verification:**
+```javascript
+// ✅ CORRECT - Already implemented
+DesignerStore.setCamera({
+    panOffset: { x, y },
+    zoomScale: zoom
+});
+// All readers automatically get updated value
+```
+
+**Why No Bug:**
+- All PanZoomHandler mutations call setCamera()
+- DesignerInteraction.state returns DesignerStore.state.camera
+- No direct assignment without sync
+- Pattern is consistent throughout codebase
 
 ---
 
