@@ -31,6 +31,20 @@ export const NodeFactory = {
         node.isStickyNote = false;
         node.isSatellite = options.isSatellite ?? false;
 
+        // Asegurar dimensiones para nodos regulares
+        if (!node.dimensions) {
+            const { CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
+            node.dimensions = {
+                w: CONTAINER.DEFAULT_W,
+                h: CONTAINER.DEFAULT_H,
+                animW: CONTAINER.DEFAULT_W,
+                animH: CONTAINER.DEFAULT_H,
+                targetW: CONTAINER.DEFAULT_W,
+                targetH: CONTAINER.DEFAULT_H,
+                isManual: false
+            };
+        }
+
         return this._validateNode(node);
     },
 
@@ -43,6 +57,20 @@ export const NodeFactory = {
         node.isSatellite = true;
         node.isRepoContainer = false;
         node.isStickyNote = false;
+
+        // Asegurar dimensiones para nodos satélite
+        if (!node.dimensions) {
+            const { CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
+            node.dimensions = {
+                w: CONTAINER.DEFAULT_W,
+                h: CONTAINER.DEFAULT_H,
+                animW: CONTAINER.DEFAULT_W,
+                animH: CONTAINER.DEFAULT_H,
+                targetW: CONTAINER.DEFAULT_W,
+                targetH: CONTAINER.DEFAULT_H,
+                isManual: false
+            };
+        }
 
         return this._validateNode(node);
     },
