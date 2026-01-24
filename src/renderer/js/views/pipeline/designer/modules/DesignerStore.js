@@ -44,14 +44,14 @@ class DesignerStoreClass extends Store {
         });
     }
 
-    // --- Queries (Delegated to NodeRepository) ---
+    // --- Queries ---
 
-    getNode(id) { return nodeRepository.getNode(id); }
-    getAllNodes() { return nodeRepository.getAllNodes(); }
-    getChildren(parentId) { return nodeRepository.getChildren(parentId); }
-    getConnectionsFor(nodeId) { return nodeRepository.getConnectionsFor(nodeId); }
+    getNode(id) { return this.state.nodes[id]; }
+    getAllNodes() { return Object.values(this.state.nodes); }
+    getChildren(parentId) { return this.getAllNodes().filter(n => n.parentId === parentId); }
+    getConnectionsFor(nodeId) { return this.state.connections.filter(c => c.from === nodeId || c.to === nodeId); }
 
-    // --- Actions (Delegated to NodeRepository) ---
+    // --- Actions ---
 
     /**
      * Set the entire node set (e.g. from file load)
