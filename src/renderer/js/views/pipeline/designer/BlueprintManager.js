@@ -16,7 +16,25 @@ export const BlueprintManager = {
                 console.log(`[BlueprintManager] Saved to: ${result.path}`);
             });
         }
-        localStorage.setItem('giteach_designer_blueprint', JSON.stringify(blueprint));
+
+        // SAFETY: Save to LocalStorage with quota checking
+        try {
+            const blueprintJson = JSON.stringify(blueprint);
+            localStorage.setItem('giteach_designer_blueprint', blueprintJson);
+            console.log('[BlueprintManager] Persisted to localStorage');
+        } catch (e) {
+            if (e.name === 'QuotaExceededError') {
+                console.error('[BlueprintManager] LocalStorage quota exceeded. Clean old data or use file system instead.');
+                // Fallback: Try to store minimal info
+                try {
+                    localStorage.setItem('giteach_designer_blueprint_error', `Quota exceeded at ${new Date().toISOString()}`);
+                } catch (e2) {
+                    console.warn('[BlueprintManager] LocalStorage completely full');
+                }
+            } else {
+                console.error('[BlueprintManager] Failed to save to localStorage:', e.message);
+            }
+        }
 
         // Also download for manual backup
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(blueprint, null, 2));
@@ -35,10 +53,25 @@ export const BlueprintManager = {
 
         // Save to file system (primary) for debugging
         if (window.designerAPI) {
-            await window.designerAPI.saveBlueprint(blueprint);
+            try {
+                await window.designerAPI.saveBlueprint(blueprint);
+            } catch (e) {
+                console.error('[BlueprintManager] Failed to auto-save to file system:', e.message);
+            }
         }
-        // Also save to LocalStorage as backup
-        localStorage.setItem('giteach_designer_blueprint', JSON.stringify(blueprint));
+
+        // SAFETY: Also save to LocalStorage as backup with quota checking
+        try {
+            const blueprintJson = JSON.stringify(blueprint);
+            localStorage.setItem('giteach_designer_blueprint', blueprintJson);
+        } catch (e) {
+            if (e.name === 'QuotaExceededError') {
+                console.error('[BlueprintManager] LocalStorage quota exceeded during autoSave');
+                // Data loss prevented because file system save already attempted
+            } else {
+                console.error('[BlueprintManager] Failed to autoSave to localStorage:', e.message);
+            }
+        }
     },
 
     async loadFromLocalStorage() {
