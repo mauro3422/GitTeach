@@ -30,7 +30,7 @@ export const DesignerInteraction = {
     get activeConnection() { return this.strategyManager.getConnectionState(); },
 
     /**
-     * Get visual state for a node (facade for VisualStateManager)
+     * Get visual state for a node (facade for NodeVisualManager)
      */
     getInteractionState() {
         return DesignerStore.state.interaction;
