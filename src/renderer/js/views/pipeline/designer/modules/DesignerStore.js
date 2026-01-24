@@ -526,7 +526,16 @@ class DesignerStoreClass extends Store {
         } else if (node.isStickyNote) {
             bounds = GeometryUtils.getStickyNoteBounds(node, null, zoomScale);
         } else {
-            bounds = GeometryUtils.getNodeBounds(node, zoomScale);
+            // Regular node: use radius to calculate bounds
+            const radius = GeometryUtils.getNodeRadius(node, zoomScale);
+            bounds = {
+                centerX: node.x,
+                centerY: node.y,
+                w: radius * 2,
+                h: radius * 2,
+                renderW: radius * 2,
+                renderH: radius * 2
+            };
         }
 
         // Store in cache

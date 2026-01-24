@@ -78,7 +78,16 @@ export const DesignerCanvas = {
             } else if (node.isStickyNote) {
                 bounds = GeometryUtils.getStickyNoteBounds(node, null, zoom);
             } else {
-                bounds = GeometryUtils.getNodeBounds(node, zoom);
+                // Regular node: use radius to calculate bounds
+                const radius = GeometryUtils.getNodeRadius(node, zoom);
+                bounds = {
+                    centerX: node.x,
+                    centerY: node.y,
+                    w: radius * 2,
+                    h: radius * 2,
+                    renderW: radius * 2,
+                    renderH: radius * 2
+                };
             }
 
             if (this.boundsIntersectViewport(bounds, viewport)) {

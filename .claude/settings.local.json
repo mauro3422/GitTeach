@@ -13,7 +13,8 @@
       "Bash(npm run:*)",
       "Bash(1)",
       "Bash(ls:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(tail:*)"
     ]
   }
 }
