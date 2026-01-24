@@ -125,6 +125,15 @@ export class ResizeHandler extends InteractionHandler {
     }
 
     onEnd(e) {
+        // ISSUE #8: Validate node still exists before completing resize
+        const resizingNodeId = DesignerStore.state.interaction.resizingNodeId;
+        if (resizingNodeId) {
+            const node = DesignerStore.state.nodes[resizingNodeId];
+            if (!node) {
+                console.warn('[ResizeHandler] Node was deleted mid-resize, cleaning up:', resizingNodeId);
+            }
+        }
+
         // ROBUST PATTERN: Clear resize state from Store
         DesignerStore.clearResize();
         this._active = false;
