@@ -169,6 +169,11 @@ export class DragStrategy extends InteractionStrategy {
             // Handle unparenting
             else if (node.parentId) {
                 this.handleUnparenting(node);
+                // CRITICAL: Sync unparenting change with DesignerStore
+                // handleUnparenting modifies node.parentId, but we need to persist it
+                const updatedNodes = { ...nodes };
+                updatedNodes[node.id] = { ...node };
+                DesignerStore.setState({ nodes: updatedNodes }, 'NODE_UNPARENTED');
             }
         }
 
