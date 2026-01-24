@@ -10,7 +10,7 @@ import { ThemeManager } from '../../../core/ThemeManager.js';
 
 export const DesignerInteraction = {
     canvas: null,
-    DEBUG_INTERACTION: true,
+    DEBUG_INTERACTION: false,
 
     nodeProvider: null,
     get nodes() { return this.nodeProvider ? this.nodeProvider() : {}; },

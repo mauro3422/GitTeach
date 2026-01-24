@@ -365,21 +365,6 @@ class DesignerStoreClass extends Store {
         });
     }
 
-    /**
-     * Legacy support - use startResize() instead
-     * @deprecated
-     */
-    setResizing(nodeId) {
-        if (nodeId === null) {
-            this.clearResize();
-        } else {
-            // Minimal state for legacy code
-            this.setInteractionState({
-                resizingNodeId: nodeId,
-                activeMode: nodeId ? 'RESIZE' : 'IDLE'
-            });
-        }
-    }
 
     setDrawing(sourceNodeId) {
         this.setInteractionState({

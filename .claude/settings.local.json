@@ -14,7 +14,9 @@
       "Bash(1)",
       "Bash(ls:*)",
       "Bash(tree:*)",
-      "Bash(tail:*)"
+      "Bash(tail:*)",
+      "Bash(npm test:*)",
+      "Bash(qwen:*)"
     ]
   }
 }

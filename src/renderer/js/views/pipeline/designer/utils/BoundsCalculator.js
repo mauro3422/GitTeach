@@ -10,13 +10,6 @@ import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 import { TextScalingManager } from './TextScalingManager.js';
 
 export const BoundsCalculator = {
-    /**
-     * DEPRECATED: Use TextScalingManager.measureTextWidth() instead
-     * Kept for backward compatibility
-     */
-    getTextWidth(ctx, text, fontSize) {
-        return TextScalingManager.measureTextWidth(ctx, text, fontSize);
-    },
 
     /**
      * Calcula los límites de una Sticky Note basándose en texto y zoom
