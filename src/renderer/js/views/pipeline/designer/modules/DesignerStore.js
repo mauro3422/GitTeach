@@ -213,7 +213,24 @@ class DesignerStoreClass extends Store {
     }
 
     setConnections(connections) {
-        this.setState({ connections: [...connections] }, 'SET_CONNECTIONS');
+        // SAFETY: Validate connection structure before storing
+        const validConnections = Array.isArray(connections) ? connections.filter(c => {
+            if (!c || typeof c !== 'object') {
+                console.warn('[DesignerStore] Invalid connection structure (not an object):', c);
+                return false;
+            }
+            if (typeof c.from !== 'string' || typeof c.to !== 'string') {
+                console.warn('[DesignerStore] Connection missing from/to:', c);
+                return false;
+            }
+            return true;
+        }) : [];
+
+        if (validConnections.length !== (Array.isArray(connections) ? connections.length : 0)) {
+            console.warn('[DesignerStore] Filtered out invalid connections. Before:', connections?.length || 0, 'After:', validConnections.length);
+        }
+
+        this.setState({ connections: [...validConnections] }, 'SET_CONNECTIONS');
     }
 
     // --- State Accessors ---
