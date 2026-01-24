@@ -124,5 +124,49 @@ export const DESIGNER_CONSTANTS = {
             DEFAULT: 200,
             MOVEMENT: 100
         }
+    },
+
+    /**
+     * Blueprint Version Management
+     * Used for backward compatibility and data migration
+     */
+    BLUEPRINT_VERSIONING: {
+        CURRENT_VERSION: '1.3.0',
+
+        // Supported versions with their migration functions
+        VERSIONS: {
+            '1.0.0': { label: 'Initial Release' },
+            '1.1.0': { label: 'Added Connections' },
+            '1.2.0': { label: 'Added Dimensions' },
+            '1.3.0': { label: 'Unified Dimensions' }
+        },
+
+        // Migration functions (future versions can expand)
+        migrations: {
+            // Already handled by dimension migration logic
+            '1.2.0': {
+                migrate: (blueprint) => {
+                    // Convert old manualWidth/width to unified dimensions
+                    // ALREADY IMPLEMENTED in BlueprintManager lines 104-131
+                    return blueprint;
+                }
+            }
+        },
+
+        /**
+         * Check if version is supported
+         */
+        isSupported: (version) => {
+            return version in DESIGNER_CONSTANTS.BLUEPRINT_VERSIONING.VERSIONS;
+        },
+
+        /**
+         * Get migration path from oldVersion to currentVersion
+         */
+        getMigrationPath: (oldVersion) => {
+            return Object.keys(DESIGNER_CONSTANTS.BLUEPRINT_VERSIONING.VERSIONS)
+                .filter(v => v > oldVersion)
+                .sort((a, b) => a.localeCompare(b));
+        }
     }
 };
