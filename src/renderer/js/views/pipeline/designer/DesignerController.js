@@ -298,27 +298,59 @@ class DesignerControllerClass extends BaseController {
 
         const draggingNodeId = DesignerStore.state.interaction.draggingNodeId;
 
-        DesignerCanvas.render(
-            this.canvas.width,
-            this.canvas.height,
-            DesignerStore.state.nodes,
-            navState,
-            DesignerStore.state.connections,
-            activeConnId,
-            activeConn,
-            DesignerInteraction.hoveredNodeId,
-            dropTargetId,
-            resizingNodeId,
-            DesignerStore.state.interaction.selectedNodeId,
-            interactionState.selectedConnectionId,
-            draggingNodeId
-        );
+        // LEVEL 1: Top-level render error boundary
+        try {
+            DesignerCanvas.render(
+                this.canvas.width,
+                this.canvas.height,
+                DesignerStore.state.nodes,
+                navState,
+                DesignerStore.state.connections,
+                activeConnId,
+                activeConn,
+                DesignerInteraction.hoveredNodeId,
+                dropTargetId,
+                resizingNodeId,
+                DesignerStore.state.interaction.selectedNodeId,
+                interactionState.selectedConnectionId,
+                draggingNodeId
+            );
+        } catch (e) {
+            console.error('[DesignerController] Critical render error:', e);
+            console.error('[DesignerController] Stack:', e.stack);
+            // Fallback: render error message
+            this._renderErrorFallback(e);
+        }
 
         // Sync inline editor if active (Passing explicit viewport state and coordinate transform)
         InlineEditor.syncPosition(navState, (pos) => DesignerInteraction.worldToScreen(pos));
 
         // Check for container animations
         this.checkAnimations();
+    }
+
+    /**
+     * Fallback rendering when main render fails
+     */
+    _renderErrorFallback(error) {
+        try {
+            const ctx = this.canvas.getContext('2d');
+            if (!ctx) return;
+
+            // Dark background
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+            // Error message
+            ctx.fillStyle = '#ff4444';
+            ctx.font = 'bold 16px monospace';
+            ctx.fillText('Render Error - Check Console', 20, 30);
+            ctx.fillStyle = '#ffaa88';
+            ctx.font = '12px monospace';
+            ctx.fillText(error.message.substring(0, 80), 20, 55);
+        } catch (fallbackError) {
+            console.error('[DesignerController] Even fallback rendering failed:', fallbackError);
+        }
     }
 
     checkAnimations() {
