@@ -9,6 +9,13 @@ import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 import { DragSelectionManager } from './DragSelectionManager.js';
 import { NodeFactory } from './NodeFactory.js';
 
+/**
+ * Issue #13: Hit-Testing Memoization
+ * Cache for node bounds calculations to improve hit-testing performance
+ * Key format: "${nodeId}_${zoom}"
+ */
+const boundsCache = {};
+
 class DesignerStoreClass extends Store {
     constructor() {
         super({
@@ -54,6 +61,8 @@ class DesignerStoreClass extends Store {
     setNodes(nodes) {
         this.setState({ nodes: { ...nodes } }, 'SET_NODES');
         this.validateAndCleanup();
+        // Issue #13: Clear all cached bounds when loading new nodes
+        this.clearBoundsCache();
     }
 
     /**
@@ -62,6 +71,8 @@ class DesignerStoreClass extends Store {
     loadInitialNodes() {
         const newNodes = DesignerHydrator.generateInitialNodes(1200);
         this.setState({ nodes: newNodes, connections: [] }, 'LOAD_INITIAL_NODES');
+        // Issue #13: Clear all cached bounds when loading initial nodes
+        this.clearBoundsCache();
     }
 
     /**
@@ -144,6 +155,9 @@ class DesignerStoreClass extends Store {
             connections: nextConnections
         }, 'REMOVE_NODE');
 
+        // Issue #13: Invalidate cache for removed node
+        this.invalidateBoundsCache(nodeId);
+
         return true;
     }
 
@@ -159,6 +173,10 @@ class DesignerStoreClass extends Store {
             [nodeId]: { ...node, ...updates }
         };
         this.setState({ nodes: nextNodes }, 'UPDATE_NODE');
+
+        // Issue #13: Invalidate bounds cache for this node (all zoom levels)
+        this.invalidateBoundsCache(nodeId);
+
         return true;
     }
 
@@ -231,6 +249,9 @@ class DesignerStoreClass extends Store {
         }
 
         this.setState({ connections: [...validConnections] }, 'SET_CONNECTIONS');
+
+        // Issue #13: Connections affect container bounds, clear cache
+        this.clearBoundsCache();
     }
 
     // --- State Accessors ---
@@ -477,6 +498,65 @@ class DesignerStoreClass extends Store {
             }
         }
         return null;
+    }
+
+    // --- Issue #13: Bounds Caching (Hit-Testing Memoization) ---
+
+    /**
+     * Get cached bounds for a node, computing and caching if necessary
+     * @param {string} nodeId - Node ID
+     * @param {number} zoomScale - Camera zoom scale
+     * @returns {Object} Bounds { x, y, w, h, centerX, centerY, ... }
+     */
+    getCachedBounds(nodeId, zoomScale = 1.0) {
+        const node = this.state.nodes[nodeId];
+        if (!node) return null;
+
+        const cacheKey = `${nodeId}_${zoomScale}`;
+
+        // Return cached bounds if available
+        if (boundsCache[cacheKey]) {
+            return boundsCache[cacheKey];
+        }
+
+        // Compute and cache bounds
+        let bounds;
+        if (node.isRepoContainer) {
+            bounds = GeometryUtils.getContainerBounds(node, this.state.nodes, zoomScale);
+        } else if (node.isStickyNote) {
+            bounds = GeometryUtils.getStickyNoteBounds(node, null, zoomScale);
+        } else {
+            bounds = GeometryUtils.getNodeBounds(node, zoomScale);
+        }
+
+        // Store in cache
+        if (bounds) {
+            boundsCache[cacheKey] = bounds;
+        }
+
+        return bounds;
+    }
+
+    /**
+     * Invalidate cached bounds for a specific node (all zoom levels)
+     * Called when node properties change
+     */
+    invalidateBoundsCache(nodeId) {
+        // Remove all cache entries for this node
+        for (const key in boundsCache) {
+            if (key.startsWith(nodeId + '_')) {
+                delete boundsCache[key];
+            }
+        }
+    }
+
+    /**
+     * Clear entire bounds cache (e.g., on major state changes)
+     */
+    clearBoundsCache() {
+        for (const key in boundsCache) {
+            delete boundsCache[key];
+        }
     }
 
     // --- History & Undo/Redo (Unified via HistoryManager) ---

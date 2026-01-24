@@ -102,26 +102,33 @@ export const DragSelectionManager = {
     _hitTestNode(node, worldPos, zoomScale, hitBuffer, nodeType) {
         let bounds;
 
-        // Obtener bounds según tipo de nodo
-        if (nodeType === 'sticky') {
-            bounds = BoundsCalculator.getStickyNoteBounds(node, null, zoomScale);
-        } else if (nodeType === 'container') {
-            const store = getDesignerStore();
-            if (!store || !store.state || !store.state.nodes) {
-                console.warn('[DragSelectionManager] Cannot get container bounds: DesignerStore not available');
-                return false;
+        // Issue #13: Use cached bounds when available
+        const store = getDesignerStore();
+        if (store && store.getCachedBounds && node.id) {
+            bounds = store.getCachedBounds(node.id, zoomScale);
+        }
+
+        // Fallback: Compute bounds if not cached
+        if (!bounds) {
+            if (nodeType === 'sticky') {
+                bounds = BoundsCalculator.getStickyNoteBounds(node, null, zoomScale);
+            } else if (nodeType === 'container') {
+                if (!store || !store.state || !store.state.nodes) {
+                    console.warn('[DragSelectionManager] Cannot get container bounds: DesignerStore not available');
+                    return false;
+                }
+                const nodes = store.state.nodes;
+                bounds = BoundsCalculator.getContainerBounds(node, nodes, zoomScale);
+            } else {
+                // Regular node: usar radio
+                const radius = ScalingCalculator.getNodeRadius(node, zoomScale);
+                bounds = {
+                    centerX: node.x,
+                    centerY: node.y,
+                    renderW: radius * 2,
+                    renderH: radius * 2
+                };
             }
-            const nodes = store.state.nodes;
-            bounds = BoundsCalculator.getContainerBounds(node, nodes, zoomScale);
-        } else {
-            // Regular node: usar radio
-            const radius = ScalingCalculator.getNodeRadius(node, zoomScale);
-            bounds = {
-                centerX: node.x,
-                centerY: node.y,
-                renderW: radius * 2,
-                renderH: radius * 2
-            };
         }
 
         if (!bounds) return false;
