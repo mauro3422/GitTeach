@@ -11,7 +11,9 @@
       "Bash(ls -la *.md)",
       "Bash(npm run build:*)",
       "Bash(npm run:*)",
-      "Bash(1)"
+      "Bash(1)",
+      "Bash(ls:*)",
+      "Bash(tree:*)"
     ]
   }
 }

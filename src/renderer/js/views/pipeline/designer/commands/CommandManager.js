@@ -65,4 +65,29 @@ export class CommandManager {
         DesignerStore.clearHistory?.();
         console.log('[CommandManager] History cleared');
     }
+
+    /**
+     * Undo last command (delegates to HistoryManager via Store)
+     */
+    undo() {
+        DesignerStore.undo?.();
+        console.log('[CommandManager] Undo executed');
+    }
+
+    /**
+     * Redo last undone command (delegates to HistoryManager via Store)
+     */
+    redo() {
+        DesignerStore.redo?.();
+        console.log('[CommandManager] Redo executed');
+    }
+
+    /**
+     * Get current history size
+     */
+    getHistorySize() {
+        // This delegates to HistoryManager via DesignerStore
+        // For now, return a reasonable default
+        return DesignerStore.state?.historySize || 0;
+    }
 }

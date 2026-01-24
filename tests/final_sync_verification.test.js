@@ -7,11 +7,8 @@ import { ResizeHandler } from '../src/renderer/js/views/pipeline/designer/intera
 import { DimensionSync } from '../src/renderer/js/views/pipeline/designer/DimensionSync';
 
 describe('Final Synchronization Verification', () => {
-    let canvas;
-    let resizeHandler;
-
     beforeEach(() => {
-        canvas = document.createElement('canvas');
+        const canvas = document.createElement('canvas');
         canvas.id = 'designer-canvas';
         canvas.width = 1920;
         canvas.height = 1080;
@@ -24,19 +21,9 @@ describe('Final Synchronization Verification', () => {
         DesignerStore.setState({
             nodes: {},
             connections: [],
-            navigation: { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 },
+            camera: { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 },
             interaction: { hoveredNodeId: null, selectedNodeId: null, selectedConnectionId: null, draggingNodeId: null, resizingNodeId: null }
         });
-
-        // Crear un controlador simulado para el resize handler
-        const mockController = {
-            nodes: DesignerStore.state.nodes,
-            state: { zoomScale: 1.0 },
-            screenToWorld: (pos) => pos,
-            getMousePos: (e) => ({ x: e.clientX, y: e.clientY })
-        };
-
-        resizeHandler = new ResizeHandler(mockController);
     });
 
     it('should use DimensionSync to get consistent visual dimensions', () => {

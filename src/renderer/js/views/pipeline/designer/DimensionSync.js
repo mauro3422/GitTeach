@@ -71,5 +71,31 @@ export const DimensionSync = {
             centerX: sync.centerX,
             centerY: sync.centerY
         };
+    },
+
+    /**
+     * Get the position of a specific handle corner for a node
+     */
+    getVisualHandlePosition(node, corner, zoom, nodes = {}) {
+        const dims = this.getSyncDimensions(node, nodes, zoom);
+        const corners = GeometryUtils.getRectCorners(dims.centerX, dims.centerY, dims.w, dims.h);
+        const cornerMap = { nw: 0, ne: 1, sw: 2, se: 3 };
+        const index = cornerMap[corner];
+        return corners[index] || { x: dims.centerX, y: dims.centerY };
+    },
+
+    /**
+     * Validate that sync is consistent between logical and visual representations
+     */
+    validateSync(node, zoom, nodes = {}) {
+        if (!node || !node.dimensions) return false;
+
+        const sync = this.getSyncDimensions(node, nodes, zoom);
+
+        // Basic validation: dimensions should be positive and defined
+        if (!sync || sync.w <= 0 || sync.h <= 0) return false;
+        if (typeof sync.centerX !== 'number' || typeof sync.centerY !== 'number') return false;
+
+        return true;
     }
 };
