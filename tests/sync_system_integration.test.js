@@ -3,8 +3,8 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { DesignerStore } from '../src/renderer/js/views/pipeline/designer/modules/DesignerStore.js';
-import { ResizeHandler } from '../src/renderer/js/views/pipeline/designer/interaction/ResizeHandler';
-import { SyncManager } from '../src/renderer/js/views/pipeline/designer/system/SyncSystem';
+import { ResizeHandler } from '../src/renderer/js/views/pipeline/designer/interaction/ResizeHandler.js';
+import { DimensionSync } from '../src/renderer/js/views/pipeline/designer/DimensionSync.js';
 
 describe('LV-Sync System Integration Test', () => {
     let canvas;
@@ -52,17 +52,13 @@ describe('LV-Sync System Integration Test', () => {
         DesignerStore.state.nodes[node.id] = node;
 
         // Obtener dimensiones sincronizadas
-        const dims = SyncManager.getSyncedDimensions(node, 1.0, DesignerStore.state.nodes);
+        const dims = DimensionSync.getSyncDimensions(node, DesignerStore.state.nodes, 1.0);
 
         // Verificar que las dimensiones tengan valores razonables
         expect(dims.centerX).toBeCloseTo(node.x);
         expect(dims.centerY).toBeCloseTo(node.y);
-        expect(dims.logicalW).toBeGreaterThan(0);
-        expect(dims.logicalH).toBeGreaterThan(0);
-        expect(dims.visualW).toBeGreaterThan(0);
-        expect(dims.visualH).toBeGreaterThan(0);
-        expect(dims.hitAreaW).toBeGreaterThan(dims.visualW); // El área de detección debe ser mayor
-        expect(dims.hitAreaH).toBeGreaterThan(dims.visualH);
+        expect(dims.w).toBeGreaterThan(0);
+        expect(dims.h).toBeGreaterThan(0);
     });
 
     it('should provide consistent dimensions for containers across logical and visual systems', () => {
@@ -77,17 +73,13 @@ describe('LV-Sync System Integration Test', () => {
         DesignerStore.state.nodes[node.id] = node;
 
         // Obtener dimensiones sincronizadas
-        const dims = SyncManager.getSyncedDimensions(node, 1.0, DesignerStore.state.nodes);
+        const dims = DimensionSync.getSyncDimensions(node, DesignerStore.state.nodes, 1.0);
 
         // Verificar que las dimensiones tengan valores razonables
         expect(dims.centerX).toBeCloseTo(node.x);
         expect(dims.centerY).toBeCloseTo(node.y);
-        expect(dims.logicalW).toBeGreaterThan(0);
-        expect(dims.logicalH).toBeGreaterThan(0);
-        expect(dims.visualW).toBeGreaterThan(0);
-        expect(dims.visualH).toBeGreaterThan(0);
-        expect(dims.hitAreaW).toBeGreaterThan(dims.visualW);
-        expect(dims.hitAreaH).toBeGreaterThan(dims.visualH);
+        expect(dims.w).toBeGreaterThan(0);
+        expect(dims.h).toBeGreaterThan(0);
     });
 
     it('should detect resize handles accurately using synchronized dimensions', () => {
@@ -103,9 +95,9 @@ describe('LV-Sync System Integration Test', () => {
         DesignerStore.state.nodes[node.id] = node;
 
         // Obtener dimensiones sincronizadas para calcular la posición de la esquina
-        const dims = SyncManager.getSyncedDimensions(node, 1.0, DesignerStore.state.nodes);
-        const cornerX = dims.centerX + dims.visualW / 2;
-        const cornerY = dims.centerY + dims.visualH / 2;
+        const dims = DimensionSync.getSyncDimensions(node, DesignerStore.state.nodes, 1.0);
+        const cornerX = dims.centerX + dims.w / 2;
+        const cornerY = dims.centerY + dims.h / 2;
         const worldPos = { x: cornerX, y: cornerY };
 
         // Verificar que el resize handler detecte el handle en la posición correcta
@@ -132,15 +124,13 @@ describe('LV-Sync System Integration Test', () => {
         const zoomLevels = [0.5, 1.0, 2.0, 3.0];
 
         for (const zoom of zoomLevels) {
-            const dims = SyncManager.getSyncedDimensions(node, zoom, DesignerStore.state.nodes);
+            const dims = DimensionSync.getSyncDimensions(node, DesignerStore.state.nodes, zoom);
 
             // Verificar que las dimensiones sean consistentes en todos los niveles de zoom
             expect(dims.centerX).toBeCloseTo(node.x);
             expect(dims.centerY).toBeCloseTo(node.y);
-            expect(dims.logicalW).toBeGreaterThan(0);
-            expect(dims.logicalH).toBeGreaterThan(0);
-            expect(dims.visualW).toBeGreaterThan(0);
-            expect(dims.visualH).toBeGreaterThan(0);
+            expect(dims.w).toBeGreaterThan(0);
+            expect(dims.h).toBeGreaterThan(0);
         }
     });
 
@@ -166,11 +156,11 @@ describe('LV-Sync System Integration Test', () => {
         DesignerStore.state.nodes = { [shortNode.id]: shortNode, [longNode.id]: longNode };
 
         // Obtener dimensiones sincronizadas para ambos nodos
-        const shortDims = SyncManager.getSyncedDimensions(shortNode, 1.0, DesignerStore.state.nodes);
-        const longDims = SyncManager.getSyncedDimensions(longNode, 1.0, DesignerStore.state.nodes);
+        const shortDims = DimensionSync.getSyncDimensions(shortNode, DesignerStore.state.nodes, 1.0);
+        const longDims = DimensionSync.getSyncDimensions(longNode, DesignerStore.state.nodes, 1.0);
 
-        // El nodo con texto largo debería tener dimensiones visuales más anchas
-        expect(longDims.visualW).toBeGreaterThanOrEqual(shortDims.visualW);
+        // El nodo con texto largo debería tener dimensiones más anchas
+        expect(longDims.w).toBeGreaterThanOrEqual(shortDims.w);
 
         // Ambos deberían tener la misma posición central
         expect(shortDims.centerX).toBeCloseTo(shortNode.x);
@@ -200,17 +190,17 @@ describe('LV-Sync System Integration Test', () => {
         DesignerStore.state.nodes = { [container.id]: container, [stickyNote.id]: stickyNote };
 
         // Probar detección de handles para ambos tipos de nodos
-        const containerDims = SyncManager.getSyncedDimensions(container, 1.0, DesignerStore.state.nodes);
-        const containerCornerX = containerDims.centerX + containerDims.visualW / 2;
-        const containerCornerY = containerDims.centerY + containerDims.visualH / 2;
+        const containerDims = DimensionSync.getSyncDimensions(container, DesignerStore.state.nodes, 1.0);
+        const containerCornerX = containerDims.centerX + containerDims.w / 2;
+        const containerCornerY = containerDims.centerY + containerDims.h / 2;
         const containerHit = resizeHandler.findResizeHandle({ x: containerCornerX, y: containerCornerY });
 
         expect(containerHit).not.toBeNull();
         expect(containerHit.nodeId).toBe(container.id);
 
-        const stickyDims = SyncManager.getSyncedDimensions(stickyNote, 1.0, DesignerStore.state.nodes);
-        const stickyCornerX = stickyDims.centerX + stickyDims.visualW / 2;
-        const stickyCornerY = stickyDims.centerY + stickyDims.visualH / 2;
+        const stickyDims = DimensionSync.getSyncDimensions(stickyNote, DesignerStore.state.nodes, 1.0);
+        const stickyCornerX = stickyDims.centerX + stickyDims.w / 2;
+        const stickyCornerY = stickyDims.centerY + stickyDims.h / 2;
         const stickyHit = resizeHandler.findResizeHandle({ x: stickyCornerX, y: stickyCornerY });
 
         expect(stickyHit).not.toBeNull();

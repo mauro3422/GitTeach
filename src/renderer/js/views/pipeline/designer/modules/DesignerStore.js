@@ -108,24 +108,20 @@ class DesignerStoreClass extends Store {
     }
 
     /**
-     * Add a sticky note
+     * Add a sticky note - Uses NodeFactory for guaranteed properties
      */
     addStickyNote(x, y, options = {}) {
         const id = options.id || `sticky_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-        const newNode = {
-            id, x, y,
+
+        // Use NodeFactory to guarantee properties
+        const newNode = NodeFactory.createStickyNote({
+            id,
+            x,
+            y,
             label: options.label || 'Nota',
             text: options.text || 'Doble click para editar...',
-            isStickyNote: true,
-            dimensions: {
-                w: DESIGNER_CONSTANTS.DIMENSIONS.STICKY_NOTE.MIN_W,
-                h: DESIGNER_CONSTANTS.DIMENSIONS.STICKY_NOTE.MIN_H,
-                animW: DESIGNER_CONSTANTS.DIMENSIONS.STICKY_NOTE.MIN_W,
-                animH: DESIGNER_CONSTANTS.DIMENSIONS.STICKY_NOTE.MIN_H,
-                targetW: DESIGNER_CONSTANTS.DIMENSIONS.STICKY_NOTE.MIN_W,
-                targetH: DESIGNER_CONSTANTS.DIMENSIONS.STICKY_NOTE.MIN_H
-            }
-        };
+            ...options
+        });
 
         const nextNodes = { ...this.state.nodes, [id]: newNode };
         this.setState({ nodes: nextNodes }, 'ADD_STICKY');
