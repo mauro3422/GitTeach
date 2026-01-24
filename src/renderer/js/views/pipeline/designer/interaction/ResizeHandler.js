@@ -95,8 +95,26 @@ export class ResizeHandler extends InteractionHandler {
             actualMinW = Math.max(actualMinW, BoundsCalculator.calculateTitleMinWidth(node.label, zoom));
         }
 
+        // Issue #14: Log when constraints are applied
+        const origW = newW;
+        const origH = newH;
+
         newW = Math.max(actualMinW, newW);
         newH = Math.max(minH, newH);
+
+        // Issue #14: Silent Fallback Logging - Report constraint violations
+        if (newW !== origW) {
+            console.warn(
+                `[ResizeHandler] Width clamped: ${origW.toFixed(1)}px → ${newW.toFixed(1)}px (MIN_WIDTH: ${actualMinW}px)`,
+                { nodeId: node.id, nodeLabel: node.label || '(unnamed)' }
+            );
+        }
+        if (newH !== origH) {
+            console.warn(
+                `[ResizeHandler] Height clamped: ${origH.toFixed(1)}px → ${newH.toFixed(1)}px (MIN_HEIGHT: ${minH}px)`,
+                { nodeId: node.id, nodeLabel: node.label || '(unnamed)' }
+            );
+        }
 
         // ATOMIC UPDATE: Collect all changes into one Store call to avoid state-fight
         const nextNodes = { ...nodes };
