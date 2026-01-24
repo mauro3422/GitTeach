@@ -7,33 +7,15 @@
 
 import { ScalingCalculator } from './ScalingCalculator.js';
 import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
+import { TextScalingManager } from './TextScalingManager.js';
 
 export const BoundsCalculator = {
-    _dummyCtx: null,
-
     /**
-     * Medición de texto robusta con fallback heurístico (Vitest/JSDOM)
+     * DEPRECATED: Use TextScalingManager.measureTextWidth() instead
+     * Kept for backward compatibility
      */
     getTextWidth(ctx, text, fontSize) {
-        if (!text) return 0;
-
-        // Lazy init dummy canvas if needed
-        if (!ctx && !this._dummyCtx && typeof document !== 'undefined') {
-            try { this._dummyCtx = document.createElement('canvas').getContext('2d'); } catch (e) { }
-        }
-        const activeCtx = ctx || this._dummyCtx;
-
-        if (!activeCtx) {
-            // Pure heuristic if no context is available
-            return text.length * fontSize * 0.6;
-        }
-
-        const measured = activeCtx.measureText(text).width;
-        // JSDOM symptom: constant width or zero
-        if (measured <= 0 || (text.length > 5 && measured < 5)) {
-            return text.length * fontSize * 0.6;
-        }
-        return measured;
+        return TextScalingManager.measureTextWidth(ctx, text, fontSize);
     },
 
     /**
@@ -52,48 +34,23 @@ export const BoundsCalculator = {
             return { w, h, renderW: baseInflatedW, renderH: baseInflatedH, centerX: node.x, centerY: node.y };
         }
 
-        const fScale = ScalingCalculator.getFontScale(zoomScale);
+        // ROBUST PATTERN: Use TextScalingManager (Single Source of Truth)
         const { STICKY_FONT_SIZE, LINE_HEIGHT_OFFSET } = DESIGNER_CONSTANTS.TYPOGRAPHY;
-        const worldFontSize = STICKY_FONT_SIZE * fScale;
+        const worldFontSize = TextScalingManager.getWorldFontSize(STICKY_FONT_SIZE, zoomScale);
         const worldLineHeight = worldFontSize + LINE_HEIGHT_OFFSET;
 
-        // Measurement context
-        if (!ctx && !this._dummyCtx && typeof document !== 'undefined') {
-            try { this._dummyCtx = document.createElement('canvas').getContext('2d'); } catch (e) { }
-        }
-        const activeCtx = ctx || this._dummyCtx;
-
-        if (!activeCtx) {
-            return { w, h, renderW: Math.max(baseInflatedW, w + PADDING * 2), renderH: Math.max(baseInflatedH, h + PADDING * 2), centerX: node.x, centerY: node.y };
-        }
-
-        activeCtx.save();
-        // Fallback font format
-        const fontName = (typeof window !== 'undefined' && window.ThemeManager) ? window.ThemeManager.colors.fontMono : 'monospace';
-        activeCtx.font = `${worldFontSize}px ${fontName}`;
-
+        // Measurement: Calculate max word width
         const words = node.text.split(/[\s\n]+/);
         let maxWordWidth = 0;
         words.forEach(wd => {
-            const width = this.getTextWidth(activeCtx, wd, worldFontSize);
+            const width = TextScalingManager.measureTextWidth(ctx, wd, worldFontSize);
             if (width > maxWordWidth) maxWordWidth = width;
         });
 
+        // Calculate wrapped lines
         const effectiveMaxWidth = Math.max(baseInflatedW - PADDING * 2, maxWordWidth);
-        const wordsForLines = node.text.split(' ');
-        let currentLine = '', linesCount = 0;
-
-        wordsForLines.forEach(word => {
-            const testLine = currentLine + word + ' ';
-            if (this.getTextWidth(activeCtx, testLine, worldFontSize) > effectiveMaxWidth && currentLine.length > 0) {
-                linesCount++;
-                currentLine = word + ' ';
-            } else {
-                currentLine = testLine;
-            }
-        });
-        if (currentLine.trim()) linesCount++;
-        activeCtx.restore();
+        const lines = TextScalingManager.calculateWrappedLines(ctx, node.text, effectiveMaxWidth, worldFontSize);
+        const linesCount = lines.length;
 
         const renderW = Math.max(baseInflatedW, maxWordWidth + PADDING * 2 + 10);
         const renderH = Math.max(baseInflatedH, (linesCount * worldLineHeight) + PADDING * 2);
@@ -131,8 +88,9 @@ export const BoundsCalculator = {
         const target = this._calculateTargetSize(node, children, zoomScale);
 
         // 3. Establecer mínimos de contenido (para no dejar que el resize manual colapse demasiado)
-        const titleMinW = this.calculateTitleMinWidth(node.label);
-        node.dimensions.contentMinW = Math.max(target.targetW / vScale, titleMinW);
+        // ROBUST FIX: Pasar zoomScale para calcular el ancho correcto del título
+        const titleMinW = this.calculateTitleMinWidth(node.label, zoomScale);
+        node.dimensions.contentMinW = Math.max(target.targetW / vScale, titleMinW / vScale);
         node.dimensions.contentMinH = target.targetH / vScale;
 
         // 4. Modo MANUAL (Resize del usuario)
@@ -243,10 +201,12 @@ export const BoundsCalculator = {
         }
     },
 
-    calculateTitleMinWidth(label) {
-        if (!label) return DESIGNER_CONSTANTS.DIMENSIONS.CONTAINER.MIN_W;
-        const text = label.toUpperCase();
-        const { TITLE_CHAR_WIDTH, TITLE_PADDING } = DESIGNER_CONSTANTS.LAYOUT;
-        return Math.max(DESIGNER_CONSTANTS.DIMENSIONS.CONTAINER.MIN_W, text.length * TITLE_CHAR_WIDTH + TITLE_PADDING);
+    /**
+     * ROBUST: Calcula ancho mínimo del título teniendo en cuenta el zoom
+     * UNIFIED: Usa TextScalingManager (Single Source of Truth)
+     */
+    calculateTitleMinWidth(label, zoomScale = 1.0, ctx = null) {
+        // ROBUST PATTERN: Delegar a TextScalingManager (único punto de verdad)
+        return TextScalingManager.calculateContainerTitleWidth(label, zoomScale, ctx);
     }
 };

@@ -1,7 +1,7 @@
 import { PanZoomHandler } from './interaction/PanZoomHandler.js';
 import { ResizeHandler } from './interaction/ResizeHandler.js';
 import { CoordinateUtils } from './CoordinateUtils.js';
-import { VisualStateManager } from './modules/VisualStateManager.js';
+import { NodeVisualManager } from './modules/NodeVisualManager.js';
 import { InputManager } from './modules/InputManager.js';
 import { DesignerStore } from './modules/DesignerStore.js';
 import { StrategyManager } from './interaction/StrategyManager.js';
@@ -37,7 +37,7 @@ export const DesignerInteraction = {
     },
 
     getVisualState(node) {
-        return VisualStateManager.getVisualState(node, this.getInteractionState());
+        return NodeVisualManager.getNodeVisualState(node, this.getInteractionState());
     },
 
     init(canvas, nodeProvider, onUpdate, onConnection, onNodeDoubleClick, onNodeDrop, onStickyNoteEdit, onInteractionEnd, onDeleteNode) {
@@ -105,6 +105,17 @@ export const DesignerInteraction = {
         InputManager.registerShortcut('backspace', 'DeleteNode', () => {
             if (this.onDeleteNode) this.onDeleteNode();
         });
+
+        // ROBUST PATTERN: Cancel all interactions on Escape
+        InputManager.registerShortcut('escape', 'CancelInteractions', () => {
+            DesignerStore.cancelAllInteractions();
+            this.resizeHandler.cancel();
+            this.panZoomHandler.cancel();
+            this.strategyManager.cancel();
+            this.canvas.style.cursor = 'default';
+            this.onUpdate?.();
+            console.log('[Interaction] ⏹ All interactions cancelled (Escape)');
+        });
     },
 
     _handleKeyUp(e) {
@@ -129,6 +140,7 @@ export const DesignerInteraction = {
 
             // 1. Check for Resize Handles
             const resizeHit = this.resizeHandler.findResizeHandle(worldPos);
+
             if (resizeHit) {
                 // UNIFIED HISTORY: Create savepoint BEFORE resize starts (makes it undoable)
                 DesignerStore.savepoint('NODE_RESIZE', { nodeId: resizeHit.nodeId });
@@ -146,14 +158,18 @@ export const DesignerInteraction = {
             // 3. Check for Node Selection/Drag
             const clickedNode = this.hoverManager.findNodeAt(worldPos);
             if (clickedNode) {
-                // Only select if different from current selection
+                // ROBUST PATTERN: Create savepoint BEFORE any interaction
+                DesignerStore.savepoint('NODE_MOVE', { nodeId: clickedNode.id });
+
+                // Select the node if not already selected
                 if (DesignerStore.state.interaction.selectedNodeId !== clickedNode.id) {
                     DesignerStore.selectNode(clickedNode.id);
                 }
 
-                // For node clicks, don't immediately start drag strategy
-                // Let handleMouseMove determine if drag should start based on movement threshold
-                return; // Exit to prevent immediate drag start
+                // CRITICAL FIX: Allow strategyManager to initiate drag
+                // This enables dragging nodes, containers, and sticky notes
+                this.strategyManager.handleMouseDown(e);
+                return; // Exit to prevent other interactions
             } else {
                 // 4. Check for Connection Selection
                 const clickedConn = DesignerStore.findConnectionAt(worldPos);

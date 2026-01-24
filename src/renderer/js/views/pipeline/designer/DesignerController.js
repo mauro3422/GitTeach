@@ -285,9 +285,10 @@ class DesignerControllerClass extends BaseController {
             ? DesignerStore.findDropTarget(interactionState.draggingId, navState.zoomScale)
             : null;
 
-        const resizingNodeId = (DesignerInteraction.resizeHandler && typeof DesignerInteraction.resizeHandler.getState === 'function')
-            ? (DesignerInteraction.resizeHandler.getState() || {}).resizingNodeId
-            : null;
+        // CRITICAL FIX: Read resizingNodeId from Store (Single Source of Truth)
+        const resizingNodeId = DesignerStore.state.interaction.resizingNodeId;
+
+        const draggingNodeId = DesignerStore.state.interaction.draggingNodeId;
 
         DesignerCanvas.render(
             this.canvas.width,
@@ -301,7 +302,8 @@ class DesignerControllerClass extends BaseController {
             dropTargetId,
             resizingNodeId,
             DesignerStore.state.interaction.selectedNodeId,
-            interactionState.selectedConnectionId
+            interactionState.selectedConnectionId,
+            draggingNodeId
         );
 
         // Sync inline editor if active (Passing explicit viewport state and coordinate transform)

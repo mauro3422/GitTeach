@@ -1,5 +1,6 @@
 import { ThemeManager } from '../../core/ThemeManager.js';
 import { GeometryUtils } from './designer/GeometryUtils.js';
+import { TextScalingManager } from './designer/utils/TextScalingManager.js';
 
 export const LabelRenderer = {
     /**
@@ -17,8 +18,8 @@ export const LabelRenderer = {
         // We increase base size slightly for 'Glass' aesthetics
         const baseFontSize = isSatellite ? 16 : (isHovered ? 28 : 24);
 
-        const fScale = GeometryUtils.getFontScale(zoomScale, baseFontSize);
-        const worldFontSize = baseFontSize * fScale;
+        // ROBUST PATTERN: Use TextScalingManager (Single Source of Truth)
+        const worldFontSize = TextScalingManager.getWorldFontSize(baseFontSize, zoomScale);
 
         // PROBE: Log scaling details
         if (window.DEBUG_SCALING) {
@@ -77,12 +78,12 @@ export const LabelRenderer = {
             vScale = 1.0
         } = options;
 
-        // Paper Scaling: proportional to inflation
-        const fScale = GeometryUtils.getFontScale(zoom, fontSize);
+        // ROBUST PATTERN: Use TextScalingManager (Single Source of Truth)
+        const fScale = options.fScale || TextScalingManager.getFontScale(zoom, fontSize);
         const worldSize = fontSize * (options.vScale || fScale);
 
         ctx.save();
-        ctx.font = `${bold ? 'bold ' : ''}${worldSize}px ${ThemeManager.colors.fontMono}`;
+        TextScalingManager.applyFont(ctx, worldSize, bold);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 

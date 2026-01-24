@@ -5,6 +5,7 @@
  */
 
 import { ThemeManager } from '../../../../core/ThemeManager.js';
+import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 
 export const TextRenderer = {
     /**

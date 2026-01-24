@@ -2,6 +2,7 @@ import { PIPELINE_NODES } from '../../PipelineConstants.js';
 import { GeometryUtils } from '../GeometryUtils.js';
 import { ThemeManager } from '../../../../core/ThemeManager.js';
 import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
+import { NodeFactory } from './NodeFactory.js';
 
 /**
  * DesignerHydrator.js
@@ -34,18 +35,36 @@ export const DesignerHydrator = {
                 }
             }
 
-            const node = {
-                id, x, y,
-                label: config.label,
-                sublabel: config.sublabel,
-                icon: config.icon,
-                color: config.color,
-                description: config.description,
-                internalClasses: config.internalClasses,
-                isRepoContainer: config.isRepoContainer,
-                isSatellite: config.isSatellite,
-                orbitParent: config.orbitParent
-            };
+            // Use NodeFactory to guarantee properties
+            let node;
+            if (config.isSatellite) {
+                node = NodeFactory.createSatelliteNode({
+                    id, x, y,
+                    label: config.label,
+                    icon: config.icon,
+                    color: config.color,
+                    description: config.description,
+                    orbitParent: config.orbitParent
+                });
+            } else if (config.isRepoContainer) {
+                node = NodeFactory.createContainerNode({
+                    id, x, y,
+                    label: config.label,
+                    icon: config.icon,
+                    color: config.color,
+                    description: config.description,
+                    internalClasses: config.internalClasses
+                });
+            } else {
+                node = NodeFactory.createRegularNode({
+                    id, x, y,
+                    label: config.label,
+                    icon: config.icon,
+                    color: config.color,
+                    description: config.description
+                });
+            }
+
             this.ensureDimensions(node, config);
             newNodes[id] = node;
         });
@@ -64,16 +83,17 @@ export const DesignerHydrator = {
                     const row = Math.floor(idx / cols);
                     const col = idx % cols;
 
-                    const child = {
+                    // Use NodeFactory to guarantee properties (including missing ones like isRepoContainer, isStickyNote)
+                    const child = NodeFactory.createSatelliteNode({
                         id: childId,
                         parentId: parentId,
                         x: parent.x + (col - (cols - 1) / 2) * gapX,
                         y: parent.y + (row * gapY) + DESIGNER_CONSTANTS.LAYOUT.CHILD_OFFSET_TOP,
                         label: className,
-                        icon: '📁',
-                        color: parent.color,
-                        isSatellite: true
-                    };
+                        icon: className.includes('integrity_check') ? '🔍' : '📁',  // Better icon for sys/integrity_check
+                        color: parent.color
+                    });
+
                     this.ensureDimensions(child);
                     newNodes[childId] = child;
                 });

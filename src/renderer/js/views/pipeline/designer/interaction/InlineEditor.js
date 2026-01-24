@@ -3,6 +3,7 @@ import { ThemeManager } from '../../../../core/ThemeManager.js';
 import { GeometryUtils } from '../GeometryUtils.js';
 import { CoordinateUtils } from '../CoordinateUtils.js';
 import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
+import { TextScalingManager } from '../utils/TextScalingManager.js';
 
 export const InlineEditor = {
     activeRef: null, // { textarea, note, onSave, handlers } - includes event handlers for cleanup
@@ -141,10 +142,10 @@ export const InlineEditor = {
         textarea.style.width = `${w}px`;
         textarea.style.height = `${h}px`;
 
-        // FIXED: Sync font size with inflation logic
+        // ROBUST PATTERN: Use TextScalingManager (Single Source of Truth)
         const { TYPOGRAPHY, DIMENSIONS } = DESIGNER_CONSTANTS;
         const baseFontSize = TYPOGRAPHY.STICKY_FONT_SIZE;
-        const fScale = GeometryUtils.getFontScale(zoom, baseFontSize);
+        const fScale = TextScalingManager.getFontScale(zoom, baseFontSize);
         const physicalFontSize = baseFontSize * fScale * zoom;
 
         textarea.style.fontSize = `${physicalFontSize}px`;

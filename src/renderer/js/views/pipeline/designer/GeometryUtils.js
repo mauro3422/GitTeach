@@ -7,12 +7,19 @@
 import { ScalingCalculator } from './utils/ScalingCalculator.js';
 import { DESIGNER_CONSTANTS } from './DesignerConstants.js';
 import { BoundsCalculator } from './utils/BoundsCalculator.js';
+import { TextScalingManager } from './utils/TextScalingManager.js';
 
 export const GeometryUtils = {
     _dummyCtx: null,
 
     getVisualScale(zoomScale) { return ScalingCalculator.getVisualScale(zoomScale); },
-    getFontScale(zoomScale, baseFontSize = 18) { return ScalingCalculator.getFontScale(zoomScale, baseFontSize); },
+
+    /**
+     * DEPRECATED: Use TextScalingManager.getFontScale() instead
+     * Kept for backward compatibility, delegates to TextScalingManager (Single Source of Truth)
+     */
+    getFontScale(zoomScale, baseFontSize = 18) { return TextScalingManager.getFontScale(zoomScale, baseFontSize); },
+
     getDistance(p1, p2) { return ScalingCalculator.getDistance(p1, p2); },
     getNodeRadius(node, zoomScale = 1) { return ScalingCalculator.getNodeRadius(node, zoomScale); },
 

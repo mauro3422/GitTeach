@@ -6,8 +6,10 @@
 import { GeometryUtils } from '../GeometryUtils.js';
 import { CanvasPrimitives } from '../../../../core/CanvasPrimitives.js';
 import { ThemeManager } from '../../../../core/ThemeManager.js';
-import { VisualStateManager } from '../modules/VisualStateManager.js';
+import { NodeVisualManager } from '../modules/NodeVisualManager.js';
 import { LabelRenderer } from '../../LabelRenderer.js';
+import { TextScalingManager } from '../utils/TextScalingManager.js';
+import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 
 export const NodeRenderer = {
     render(ctx, nodes, camera, activeConnectionId, hoveredNodeId = null, selectedNodeId = null) {
@@ -19,43 +21,39 @@ export const NodeRenderer = {
             const { x, y, color } = node;
             const radius = GeometryUtils.getNodeRadius(node, zoom);
 
-            const visual = VisualStateManager.getVisualState(node, {
-                hoveredId: hoveredNodeId,
-                selectedId: selectedNodeId,
-                activeConnectionId: activeConnectionId,
-                draggingId: node.isDragging ? node.id : null
+            const visual = NodeVisualManager.getNodeVisualState(node, {
+                hoveredNodeId: hoveredNodeId,
+                selectedNodeId: selectedNodeId,
+                draggingNodeId: node.isDragging ? node.id : null
             });
 
             ctx.save();
             ctx.globalAlpha = visual.opacity;
 
+            // ROBUST PATTERN: Selection only brightens the border, doesn't change color
+            const glowColor = color || ThemeManager.colors.accent;
+
             if (visual.glowIntensity > 0) {
-                const { GLOW } = DESIGNER_CONSTANTS.VISUAL;
-                ctx.shadowBlur = GLOW.BASE_BLUR * visual.glowIntensity;
-                ctx.shadowColor = visual.state === VisualStateManager.STATES.SELECTED
-                    ? ThemeManager.colors.primary
-                    : (color || ThemeManager.colors.accent);
+                const glowConfig = NodeVisualManager.getGlowConfig(visual);
+                ctx.shadowBlur = glowConfig.shadowBlur;
+                ctx.shadowColor = glowConfig.shadowColor;
             }
 
             // Draw primary circle
-            CanvasPrimitives.drawNodeCircle(ctx, x, y, radius, color, visual.state !== VisualStateManager.STATES.NORMAL);
+            CanvasPrimitives.drawNodeCircle(ctx, x, y, radius, color, visual.state !== 'normal');
+
+            // CRITICAL FIX: Reset shadow/glow BEFORE drawing icon to prevent it from being covered
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
 
             const vScale = GeometryUtils.getVisualScale(zoom);
-            const fScale = GeometryUtils.getFontScale(zoom);
+            // ROBUST PATTERN: Use TextScalingManager (Single Source of Truth)
+            const fScale = TextScalingManager.getFontScale(zoom);
 
             // Icon and Label (Now definitively in World Space)
             // We pass the zoom for screen-space lines, fScale for font inflation
             LabelRenderer.drawNodeIcon(ctx, node.icon, x, y, node.isSatellite, zoom, radius);
-            LabelRenderer.drawNodeLabel(ctx, node, x, y, visual.state === VisualStateManager.STATES.HOVERED, zoom, radius, fScale);
-
-            // Selection/Connection Highlight Ring
-            if (visual.state === VisualStateManager.STATES.SELECTED || activeConnectionId === node.id) {
-                ctx.strokeStyle = ThemeManager.colors.primary;
-                ctx.lineWidth = visual.borderWidth / zoom; // Adjust line width for zoom
-                ctx.beginPath();
-                ctx.arc(x, y, radius + DESIGNER_CONSTANTS.VISUAL.CONNECTION.RING_OFFSET / zoom, 0, Math.PI * 2);
-                ctx.stroke();
-            }
+            LabelRenderer.drawNodeLabel(ctx, node, x, y, visual.state === 'HOVERED', zoom, radius, fScale);
 
             // Message Badge (Pencil) - Moved to World Space for nodes too
             if (node.message) {

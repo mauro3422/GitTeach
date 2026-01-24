@@ -3,6 +3,7 @@ import { DesignerStore } from './DesignerStore.js';
 import { ThemeManager } from '../../../../core/ThemeManager.js';
 import ContainerBoxManager from '../../../../utils/ContainerBoxManager.js';
 import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
+import { NodeFactory } from './NodeFactory.js';
 
 export const DesignerLoader = {
     /**
@@ -33,25 +34,38 @@ export const DesignerLoader = {
         let node = DesignerStore.getNode(id);
 
         if (!node) {
-            // Create custom/lost nodes
-            node = {
+            // Create custom/lost nodes using NodeFactory to guarantee properties
+            const isStickyNote = data.isStickyNote || id.startsWith('sticky_');
+            const isContainer = data.isRepoContainer;
+            const isSatellite = data.isSatellite;
+
+            const nodeData = {
                 id,
                 x: data.x * scale,
                 y: data.y * scale,
                 label: data.label,
                 message: data.message,
                 parentId: data.parentId,
-                icon: data.isStickyNote ? '📝' : (data.isRepoContainer ? '📦' : '🧩'),
+                icon: isStickyNote ? '📝' : (isContainer ? '📦' : '🧩'),
                 color: data.color || ThemeManager.colors.drawerBorder,
-                isRepoContainer: data.isRepoContainer,
-                isStickyNote: data.isStickyNote || id.startsWith('sticky_'),
-                text: data.text || (id.startsWith('sticky_') ? "Contenido recuperado..." : ""),
-                isSatellite: data.isSatellite,
+                text: isStickyNote ? (data.text || "Contenido recuperado...") : "",
                 orbitParent: data.orbitParent
             };
+
+            // Use NodeFactory based on type
+            if (isStickyNote) {
+                node = NodeFactory.createStickyNote(nodeData);
+            } else if (isContainer) {
+                node = NodeFactory.createContainerNode(nodeData);
+            } else if (isSatellite) {
+                node = NodeFactory.createSatelliteNode(nodeData);
+            } else {
+                node = NodeFactory.createRegularNode(nodeData);
+            }
+
             DesignerStore.state.nodes[id] = node;
         } else {
-            // Update existing nodes
+            // Update existing nodes with hydration data
             node.x = data.x * scale;
             node.y = data.y * scale;
             node.label = data.label;

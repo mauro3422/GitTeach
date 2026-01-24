@@ -6,6 +6,8 @@ import { DesignerLogic } from './DesignerLogic.js';
 import { ThemeManager } from '../../../../core/ThemeManager.js';
 import ContainerBoxManager from '../../../../utils/ContainerBoxManager.js';
 import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
+import { DragSelectionManager } from './DragSelectionManager.js';
+import { NodeFactory } from './NodeFactory.js';
 
 class DesignerStoreClass extends Store {
     constructor() {
@@ -18,7 +20,16 @@ class DesignerStoreClass extends Store {
                 selectedConnectionId: null,
                 draggingNodeId: null,
                 resizingNodeId: null,
-                activeMode: 'IDLE' // IDLE, DRAG, RESIZE, DRAW, PAN
+                activeMode: 'IDLE', // IDLE, DRAG, RESIZE, DRAW, PAN
+
+                // Resize state (Single Source of Truth)
+                resize: {
+                    corner: null,              // nw, ne, sw, se
+                    startMouse: null,          // { x, y } in world coords
+                    startLogicalSize: null,    // { w, h } logical dimensions
+                    startVisualSize: null,     // { w, h } visual dimensions
+                    childPositions: null       // { nodeId: { relX, relY } }
+                }
             },
             camera: {
                 panOffset: { x: 0, y: 0 },
@@ -54,7 +65,7 @@ class DesignerStoreClass extends Store {
     }
 
     /**
-     * Add a custom node
+     * Add a custom node - Uses NodeFactory for guaranteed properties
      */
     addNode(isContainer, x, y, options = {}) {
         const typeLabel = isContainer ? 'Box' : 'Node';
@@ -62,16 +73,27 @@ class DesignerStoreClass extends Store {
         const name = options.label || `${typeLabel} ${count}`;
         const id = options.id || `custom_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
-        const newNode = {
-            id, x, y,
-            label: name,
-            icon: isContainer ? '📦' : '🧩',
-            isRepoContainer: isContainer,
-            description: options.description || `Elemento personalizado: ${name}`,
-            internalClasses: [],
-            ...options
-        };
-        DesignerHydrator.ensureDimensions(newNode, options);
+        // Use NodeFactory to guarantee properties
+        const newNode = isContainer
+            ? NodeFactory.createContainerNode({
+                id,
+                x,
+                y,
+                label: name,
+                icon: '📦',
+                description: options.description || `Elemento personalizado: ${name}`,
+                internalClasses: [],
+                ...options
+            })
+            : NodeFactory.createRegularNode({
+                id,
+                x,
+                y,
+                label: name,
+                icon: '🧩',
+                description: options.description || `Elemento personalizado: ${name}`,
+                ...options
+            });
 
         const nextNodes = { ...this.state.nodes, [id]: newNode };
         this.setState({ nodes: nextNodes }, 'ADD_NODE');
@@ -200,7 +222,68 @@ class DesignerStoreClass extends Store {
 
     // --- State Accessors ---
 
-    setInteractionState(partial) { this.setState({ interaction: { ...this.state.interaction, ...partial } }, 'INTERACTION_UPDATE'); }
+    setInteractionState(partial) {
+        const newState = { ...this.state.interaction, ...partial };
+
+        // AUTO-VALIDATION: Ensure only one interaction mode is active at a time
+        this._validateInteractionState(newState);
+
+        this.setState({ interaction: newState }, 'INTERACTION_UPDATE');
+    }
+
+    /**
+     * Validates that only one interaction mode is active at a time
+     * Auto-corrects invalid states
+     */
+    _validateInteractionState(state) {
+        const activeModes = [];
+        if (state.draggingNodeId) activeModes.push('DRAG');
+        if (state.resizingNodeId) activeModes.push('RESIZE');
+        if (state.activeMode === 'DRAW') activeModes.push('DRAW');
+        if (this.state.camera.isPanning) activeModes.push('PAN');
+
+        // If multiple modes are active, this is a bug
+        if (activeModes.length > 1) {
+            console.warn(`[InteractionWarning] Multiple active modes detected: ${activeModes.join(', ')}. Auto-correcting...`);
+
+            // Auto-correct: Keep only the activeMode, clear everything else
+            if (state.activeMode !== 'IDLE') {
+                // Clear conflicting states
+                if (state.activeMode !== 'DRAG') state.draggingNodeId = null;
+                if (state.activeMode !== 'RESIZE') {
+                    state.resizingNodeId = null;
+                    state.resize = {
+                        corner: null,
+                        startMouse: null,
+                        startLogicalSize: null,
+                        startVisualSize: null,
+                        childPositions: null
+                    };
+                }
+            } else {
+                // activeMode is IDLE but other states are set - clear them
+                state.draggingNodeId = null;
+                state.resizingNodeId = null;
+                state.resize = {
+                    corner: null,
+                    startMouse: null,
+                    startLogicalSize: null,
+                    startVisualSize: null,
+                    childPositions: null
+                };
+            }
+        }
+
+        // Ensure activeMode matches the actual state
+        if (state.resizingNodeId && state.activeMode !== 'RESIZE') {
+            console.warn('[InteractionWarning] resizingNodeId set but activeMode is not RESIZE. Auto-correcting...');
+            state.activeMode = 'RESIZE';
+        }
+        if (state.draggingNodeId && state.activeMode !== 'DRAG') {
+            console.warn('[InteractionWarning] draggingNodeId set but activeMode is not DRAG. Auto-correcting...');
+            state.activeMode = 'DRAG';
+        }
+    }
 
     setHover(nodeId) {
         if (this.state.interaction.hoveredNodeId === nodeId) return;
@@ -214,11 +297,54 @@ class DesignerStoreClass extends Store {
         });
     }
 
-    setResizing(nodeId) {
+    /**
+     * Start resize operation with full state (Single Source of Truth)
+     */
+    startResize(nodeId, resizeState) {
         this.setInteractionState({
             resizingNodeId: nodeId,
-            activeMode: nodeId ? 'RESIZE' : 'IDLE'
+            activeMode: 'RESIZE',
+            resize: {
+                corner: resizeState.corner,
+                startMouse: { ...resizeState.startMouse },
+                startLogicalSize: { ...resizeState.startLogicalSize },
+                startVisualSize: { ...resizeState.startVisualSize },
+                childPositions: resizeState.childPositions ? { ...resizeState.childPositions } : null
+            }
         });
+    }
+
+    /**
+     * Clear resize state completely (used on resize end/cancel)
+     */
+    clearResize() {
+        this.setInteractionState({
+            resizingNodeId: null,
+            activeMode: 'IDLE',
+            resize: {
+                corner: null,
+                startMouse: null,
+                startLogicalSize: null,
+                startVisualSize: null,
+                childPositions: null
+            }
+        });
+    }
+
+    /**
+     * Legacy support - use startResize() instead
+     * @deprecated
+     */
+    setResizing(nodeId) {
+        if (nodeId === null) {
+            this.clearResize();
+        } else {
+            // Minimal state for legacy code
+            this.setInteractionState({
+                resizingNodeId: nodeId,
+                activeMode: nodeId ? 'RESIZE' : 'IDLE'
+            });
+        }
     }
 
     setDrawing(sourceNodeId) {
@@ -231,6 +357,32 @@ class DesignerStoreClass extends Store {
         this.setState({
             camera: { ...this.state.camera, ...updates }
         }, 'CAMERA_UPDATE');
+    }
+
+    /**
+     * Cancel ALL active interactions (Emergency reset)
+     * Useful for Escape key, window blur, or error recovery
+     */
+    cancelAllInteractions() {
+        this.setState({
+            interaction: {
+                ...this.state.interaction,
+                draggingNodeId: null,
+                resizingNodeId: null,
+                activeMode: 'IDLE',
+                resize: {
+                    corner: null,
+                    startMouse: null,
+                    startLogicalSize: null,
+                    startVisualSize: null,
+                    childPositions: null
+                }
+            },
+            camera: {
+                ...this.state.camera,
+                isPanning: false
+            }
+        }, 'CANCEL_ALL_INTERACTIONS');
     }
 
     /**
@@ -275,51 +427,8 @@ class DesignerStoreClass extends Store {
     // --- Hit Detection ---
 
     findNodeAt(worldPos, excludeId = null, zoomScale = 1.0) {
-        const nodeList = this.getAllNodes();
-
-        // PERF: Iterate backwards without .slice().reverse() (saves allocation)
-        // 1. Sticky Notes (Top-most)
-        for (let i = nodeList.length - 1; i >= 0; i--) {
-            const node = nodeList[i];
-            if (excludeId && node.id === excludeId) continue;
-            if (!node.isStickyNote) continue;
-
-            // Usar límites visuales para detección precisa (con un canvas dummy si es necesario para medir)
-            const bounds = GeometryUtils.getStickyNoteBounds(node, null, zoomScale);
-            const m = DESIGNER_CONSTANTS.INTERACTION.NODE_HIT_BUFFER;
-            // Corregir coordenadas para que coincidan con el sistema de detección de rectángulos
-            // bounds.centerX y bounds.centerY son las coordenadas del centro
-            if (GeometryUtils.isPointInRectangle(worldPos, {
-                x: bounds.centerX - (bounds.renderW + m * 2) / 2,
-                y: bounds.centerY - (bounds.renderH + m * 2) / 2,
-                w: bounds.renderW + m * 2,
-                h: bounds.renderH + m * 2
-            })) return node;
-        }
-
-        // 2. Regular Nodes
-        for (let i = nodeList.length - 1; i >= 0; i--) {
-            const node = nodeList[i];
-            if (excludeId && node.id === excludeId || node.isRepoContainer || node.isStickyNote) continue;
-            if (GeometryUtils.isPointInNode(worldPos, node, zoomScale)) return node;
-        }
-
-        // 3. Containers (Bottom-most)
-        for (let i = nodeList.length - 1; i >= 0; i--) {
-            const node = nodeList[i];
-            if (excludeId && node.id === excludeId || !node.isRepoContainer) continue;
-            const bounds = GeometryUtils.getContainerBounds(node, this.state.nodes, zoomScale);
-            // Usar el mismo sistema de detección que sticky notes para consistencia
-            const m = ThemeManager.geometry.thresholds.nodeHitBuffer;
-            if (GeometryUtils.isPointInRectangle(worldPos, {
-                x: bounds.centerX - (bounds.renderW + m * 2) / 2,
-                y: bounds.centerY - (bounds.renderH + m * 2) / 2,
-                w: bounds.renderW + m * 2,
-                h: bounds.renderH + m * 2
-            })) return node;
-        }
-
-        return null;
+        // ROBUST PATTERN: Delegar a DragSelectionManager (Single Source of Truth para hit-testing)
+        return DragSelectionManager.findNodeAtPosition(this.getAllNodes(), worldPos, zoomScale, excludeId);
     }
 
     findConnectionAt(worldPos) {
@@ -447,3 +556,8 @@ class DesignerStoreClass extends Store {
 }
 
 export const DesignerStore = new DesignerStoreClass();
+
+// Expose to window for debugging
+if (typeof window !== 'undefined') {
+    window.DesignerStore = DesignerStore;
+}

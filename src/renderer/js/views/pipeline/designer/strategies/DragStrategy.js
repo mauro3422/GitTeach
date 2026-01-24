@@ -28,13 +28,14 @@ export class DragStrategy extends InteractionStrategy {
     handleMouseDown(e, context = {}) {
         const worldPos = this.controller.getWorldPosFromEvent(e);
 
-        // ONLY concern: Start dragging the clicked node
+        // ROBUST PATTERN: Start dragging the SELECTED node (not hovered)
+        // Selection is already handled by DesignerInteraction.handleMouseDown
         if (e.button === 0) {
-            const clickedNodeId = this.controller.hoveredNodeId;
-            const clickedNode = clickedNodeId ? this.controller.nodes[clickedNodeId] : null;
+            const selectedNodeId = DesignerStore.state.interaction.selectedNodeId;
+            const selectedNode = selectedNodeId ? this.controller.nodes[selectedNodeId] : null;
 
-            if (clickedNode) {
-                this.startDrag(clickedNode, worldPos);
+            if (selectedNode) {
+                this.startDrag(selectedNode, worldPos);
                 this.controller.onUpdate?.();
             }
         }

@@ -7,6 +7,7 @@ import { TextRenderer } from './TextRenderer.js';
 import { VisualEffects } from '../utils/VisualEffects.js';
 import { LabelRenderer } from '../../LabelRenderer.js';
 import { DimensionSync } from '../DimensionSync.js';
+import { TextScalingManager } from '../utils/TextScalingManager.js';
 
 export const ContainerRenderer = {
     getNodeColor(node) {
@@ -33,20 +34,21 @@ export const ContainerRenderer = {
             const y = centerY;
 
             const { VISUAL } = DESIGNER_CONSTANTS;
+            // ROBUST PATTERN: Selection only brightens the border, doesn't change color
             VisualEffects.drawGlassPanel(ctx, x - w / 2, y - h / 2, w, h, VISUAL.PANEL_RADIUS.CONTAINER, {
-                shadowColor: isSelected ? ThemeManager.colors.primary : neonColor,
-                shadowBlur: isSelected ? 30 : 20,
-                borderColor: isSelected ? ThemeManager.colors.primary : neonColor,
+                shadowColor: neonColor,
+                shadowBlur: isSelected ? 40 : (isHovered ? 25 : 20),
+                borderColor: neonColor,
                 borderWidth: isSelected ? VISUAL.BORDER.RESIZING : (isHovered ? VISUAL.BORDER.SELECTED : VISUAL.BORDER.HOVERED),
                 isHovered: isHovered || isSelected
             });
 
-            // Label (World Space)
+            // Label (World Space) - ROBUST PATTERN: Use TextScalingManager
             const { BADGE, PANEL_RADIUS } = DESIGNER_CONSTANTS.VISUAL;
             const { TYPOGRAPHY } = DESIGNER_CONSTANTS;
             const labelY = y - h / 2 + BADGE.LABEL_OFFSET_Y / zoom;
             const baseFontSize = node.isRepoContainer ? TYPOGRAPHY.CONTAINER_FONT_SIZE : TYPOGRAPHY.CONTAINER_SUB_FONT_SIZE;
-            const fScale = GeometryUtils.getFontScale(zoom, baseFontSize);
+            const fScale = TextScalingManager.getFontScale(zoom, baseFontSize);
 
             LabelRenderer.drawStandardText(ctx, node.label?.toUpperCase() || 'BOX', x, labelY, {
                 fontSize: baseFontSize,
@@ -79,20 +81,19 @@ export const ContainerRenderer = {
 
             const { VISUAL } = DESIGNER_CONSTANTS;
             ctx.save();
+            // ROBUST PATTERN: Selection only brightens the border, doesn't change color
             VisualEffects.drawGlassPanel(ctx, x - renderW / 2, y - renderH / 2, renderW, renderH, VISUAL.PANEL_RADIUS.STICKY, {
-                shadowColor: isSelected ? ThemeManager.colors.primary : neonColor,
-                shadowBlur: isSelected ? 30 : 20,
-                borderColor: isSelected ? ThemeManager.colors.primary : neonColor,
+                shadowColor: neonColor,
+                shadowBlur: isSelected ? 40 : (isHovered ? 25 : 20),
+                borderColor: neonColor,
                 borderWidth: isSelected ? VISUAL.BORDER.RESIZING : (isHovered ? VISUAL.BORDER.SELECTED : VISUAL.BORDER.HOVERED + 0.5),
                 isHovered: isHovered || isSelected
             });
 
-            // Text (World Space) - PAPER SCALING
+            // Text (World Space) - ROBUST PATTERN: Use TextScalingManager
             if (node.text && (!InlineEditor.activeRef || InlineEditor.activeRef.note.id !== node.id)) {
                 const baseFontSize = DESIGNER_CONSTANTS.TYPOGRAPHY.STICKY_FONT_SIZE;
-                const fScale = GeometryUtils.getFontScale(zoom, baseFontSize);
-
-                const worldFontSize = baseFontSize * fScale;
+                const worldFontSize = TextScalingManager.getWorldFontSize(baseFontSize, zoom);
                 const worldLineHeight = worldFontSize + DESIGNER_CONSTANTS.TYPOGRAPHY.LINE_HEIGHT_OFFSET;
 
                 TextRenderer.drawMultilineText(ctx, node.text, x - renderW / 2 + padding, y - renderH / 2 + padding, {
