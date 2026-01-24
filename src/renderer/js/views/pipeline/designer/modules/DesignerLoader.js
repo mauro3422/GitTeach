@@ -17,6 +17,16 @@ export const DesignerLoader = {
         const savedState = await BlueprintManager.loadFromLocalStorage();
         if (savedState && savedState.layout) {
             const scale = DESIGNER_CONSTANTS.DIMENSIONS.DEFAULT_HYDRATION_SCALE;
+
+            // DEBUG: Check cache data in blueprint
+            if (savedState.layout.cache) {
+                console.log('[DesignerLoader] Blueprint cache data:', {
+                    isRepoContainer: savedState.layout.cache.isRepoContainer,
+                    isStickyNote: savedState.layout.cache.isStickyNote,
+                    label: savedState.layout.cache.label
+                });
+            }
+
             Object.entries(savedState.layout).forEach(([id, data]) => {
                 this.hydrateNode(id, data, scale);
             });
@@ -69,6 +79,7 @@ export const DesignerLoader = {
                 node = NodeFactory.createStickyNote(nodeData);
             } else if (isContainer) {
                 node = NodeFactory.createContainerNode(nodeData);
+                if (id === 'cache') console.log('[DesignerLoader] Cache store created as CONTAINER via NodeFactory');
             } else if (isSatellite) {
                 node = NodeFactory.createSatelliteNode(nodeData);
             } else {
@@ -78,22 +89,27 @@ export const DesignerLoader = {
             DesignerStore.state.nodes[id] = node;
 
             // Hydrate Dimensions (Issue #6)
-            if (data.dimensions) {
-                node.dimensions = {
-                    w: data.dimensions.w,
-                    h: data.dimensions.h,
-                    targetW: data.dimensions.w,
-                    targetH: data.dimensions.h,
-                    animW: data.dimensions.w,
-                    animH: data.dimensions.h,
-                    isManual: data.dimensions.isManual
-                };
+            // NOTE: NodeFactory already created dimensions, we're updating them from saved data
+            if (data.dimensions && node.dimensions) {
+                // Keep NodeFactory defaults but update with saved values
+                node.dimensions.w = data.dimensions.w;
+                node.dimensions.h = data.dimensions.h;
+                node.dimensions.targetW = data.dimensions.w;
+                node.dimensions.targetH = data.dimensions.h;
+                node.dimensions.animW = data.dimensions.w;
+                node.dimensions.animH = data.dimensions.h;
+                node.dimensions.isManual = data.dimensions.isManual;
+
+                if (id === 'cache') {
+                    console.log('[DesignerLoader] Hydrated cache dimensions:', node.dimensions);
+                }
             } else if (!node.dimensions) {
-                // Fallback for missing dimensions in saved data
+                // Emergency fallback - should not happen since NodeFactory creates dimensions
                 const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
                 const defW = data.isStickyNote ? STICKY_NOTE.MIN_W : CONTAINER.DEFAULT_W;
                 const defH = data.isStickyNote ? STICKY_NOTE.MIN_H : CONTAINER.DEFAULT_H;
 
+                console.warn(`[DesignerLoader] Emergency dimension creation for ${id}`);
                 node.dimensions = {
                     w: data.manualWidth || data.width || defW,
                     h: data.manualHeight || data.height || defH,

@@ -49,10 +49,15 @@ export const VisualEffects = {
      * @param {Object} style - Configuración visual
      */
     drawGlassPanel(ctx, x, y, w, h, radius, style = {}) {
-        // Convertimos de top-left (x, y) a centro (centerX, centerY) 
+        // Convertimos de top-left (x, y) a centro (centerX, centerY)
         // porque CanvasPrimitives.drawGlassPanel usa coordenadas basadas en centro
         const centerX = x + w / 2;
         const centerY = y + h / 2;
+
+        // DEBUG cache store rendering
+        if (style.borderColor === '#ccff00' || style.shadowColor === '#ccff00') {
+            console.log('[VisualEffects.drawGlassPanel] Rendering cache/container at:', { x, y, w, h, centerX, centerY, radius });
+        }
 
         CanvasPrimitives.drawGlassPanel(ctx, centerX, centerY, w, h, radius, style);
     },

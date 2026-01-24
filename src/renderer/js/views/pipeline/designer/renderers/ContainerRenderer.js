@@ -49,6 +49,10 @@ export const ContainerRenderer = {
             const x = centerX;
             const y = centerY;
 
+            if (node.id === 'cache') {
+                console.log('[ContainerRenderer.cache] Sync dimensions:', { w, h, centerX, centerY, zoom, nodeX: node.x, nodeY: node.y });
+            }
+
             const { VISUAL } = DESIGNER_CONSTANTS;
             // ROBUST PATTERN: Selection only brightens the border, doesn't change color
             VisualEffects.drawGlassPanel(ctx, x - w / 2, y - h / 2, w, h, VISUAL.PANEL_RADIUS.CONTAINER, {
