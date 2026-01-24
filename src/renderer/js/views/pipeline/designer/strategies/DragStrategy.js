@@ -158,23 +158,25 @@ export class DragStrategy extends InteractionStrategy {
     endDrag() {
         const nodes = this.controller.nodes;
         const node = nodes[this.dragState.draggingNodeId];
+        const nodeId = this.dragState.draggingNodeId;
 
         if (node) {
             node.isDragging = false;
 
             // Handle drop
             if (this.dragState.dropTargetId && this.controller.onNodeDrop) {
-                this.controller.onNodeDrop(this.dragState.draggingNodeId, this.dragState.dropTargetId);
+                this.controller.onNodeDrop(nodeId, this.dragState.dropTargetId);
             }
             // Handle unparenting
             else if (node.parentId) {
                 this.handleUnparenting(node);
-                // CRITICAL: Sync unparenting change with DesignerStore
-                // handleUnparenting modifies node.parentId, but we need to persist it
-                const updatedNodes = { ...nodes };
-                updatedNodes[node.id] = { ...node };
-                DesignerStore.setState({ nodes: updatedNodes }, 'NODE_UNPARENTED');
             }
+
+            // CRITICAL: Always sync final node state with Store to ensure isDragging is cleared
+            // This prevents stale references where isDragging=true but Store has different state
+            const finalNodes = { ...nodes };
+            finalNodes[nodeId] = { ...nodes[nodeId], isDragging: false };
+            DesignerStore.setState({ nodes: finalNodes }, 'DRAG_END');
         }
 
         DesignerStore.setDragging(null);
@@ -281,13 +283,25 @@ export class DragStrategy extends InteractionStrategy {
 
     /**
      * Clean up drag state
+     * CRITICAL: Clear _originalPos from Store, not local references
      * @param {Object} nodes - All nodes
      */
     cleanupDragState(nodes) {
         if (nodes) {
-            Object.values(nodes).forEach(child => {
-                delete child._originalPos;
+            // Clean up temporary position markers from all nodes
+            const cleanedNodes = { ...nodes };
+            Object.keys(nodes).forEach(nodeId => {
+                const node = nodes[nodeId];
+                if (node._originalPos) {
+                    cleanedNodes[nodeId] = { ...node };
+                    delete cleanedNodes[nodeId]._originalPos;
+                }
             });
+
+            // Only sync with Store if we made changes
+            if (Object.keys(cleanedNodes).some(id => cleanedNodes[id] !== nodes[id])) {
+                DesignerStore.setState({ nodes: cleanedNodes }, 'DRAG_CLEANUP');
+            }
         }
 
         this.dragState.draggingNodeId = null;
