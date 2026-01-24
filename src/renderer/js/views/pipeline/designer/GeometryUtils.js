@@ -117,10 +117,10 @@ export const GeometryUtils = {
     calculateResizeDelta(corner, startW, startH, dx, dy) {
         let w = startW, h = startH;
         switch (corner) {
-            case 'se': w += dx * 2; h += dy * 2; break;
-            case 'sw': w -= dx * 2; h += dy * 2; break;
-            case 'ne': w += dx * 2; h -= dy * 2; break;
-            case 'nw': w -= dx * 2; h -= dy * 2; break;
+            case 'se': w += dx; h += dy; break;
+            case 'sw': w -= dx; h += dy; break;
+            case 'ne': w += dx; h -= dy; break;
+            case 'nw': w -= dx; h -= dy; break;
         }
         return { w, h };
     },

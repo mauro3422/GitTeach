@@ -243,6 +243,8 @@ export class DragStrategy extends InteractionStrategy {
 
     /**
      * Handle unparenting logic when node is dragged outside container
+     * CRITICAL: Use LOGICAL dimensions (w/h), not visual (renderW/renderH)
+     * Node positions are logical, so bounds comparison must be logical too
      * @param {Object} node - Node being dragged
      */
     handleUnparenting(node) {
@@ -256,10 +258,15 @@ export class DragStrategy extends InteractionStrategy {
         const bounds = GeometryUtils.getContainerBounds(parent, nodes);
         const margin = DESIGNER_CONSTANTS.INTERACTION.DRAG.UNPARENT_MARGIN;
 
-        const isInside = node.x >= bounds.centerX - bounds.w / 2 - margin &&
-            node.x <= bounds.centerX + bounds.w / 2 + margin &&
-            node.y >= bounds.centerY - bounds.h / 2 - margin &&
-            node.y <= bounds.centerY + bounds.h / 2 + margin;
+        // CRITICAL: Use logical dimensions (bounds.w/h), not visual (bounds.renderW/renderH)
+        // Node coordinates are logical, must compare with logical bounds
+        const logicalW = bounds.w || bounds.renderW || 100;
+        const logicalH = bounds.h || bounds.renderH || 100;
+
+        const isInside = node.x >= bounds.centerX - logicalW / 2 - margin &&
+            node.x <= bounds.centerX + logicalW / 2 + margin &&
+            node.y >= bounds.centerY - logicalH / 2 - margin &&
+            node.y <= bounds.centerY + logicalH / 2 + margin;
 
         if (!isInside) {
             console.log(`[DragStrategy] Unparented ${node.id} from ${parentId}`);
