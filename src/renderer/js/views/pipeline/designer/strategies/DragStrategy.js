@@ -123,7 +123,11 @@ export class DragStrategy extends InteractionStrategy {
         };
         this.dragState.dropTargetId = null;
 
+        // Sync initial isDragging state with Store (Single Source of Truth)
         node.isDragging = true;
+        const updatedNodes = { ...this.controller.nodes };
+        updatedNodes[node.id] = { ...node, isDragging: true };
+        DesignerStore.setState({ nodes: updatedNodes }, 'DRAG_START');
         DesignerStore.setDragging(node.id);
 
         console.log(`[DragStrategy] Started dragging: ${node.id}`);
@@ -138,6 +142,9 @@ export class DragStrategy extends InteractionStrategy {
         const node = nodes[this.dragState.draggingNodeId];
 
         if (!node) return;
+
+        // Ensure isDragging is set (in case it got reset somehow)
+        node.isDragging = true;
 
         // Update node position
         node.x = worldPos.x - this.dragState.dragOffset.x;
@@ -283,23 +290,28 @@ export class DragStrategy extends InteractionStrategy {
 
     /**
      * Clean up drag state
-     * CRITICAL: Clear _originalPos from Store, not local references
+     * CRITICAL: Clear _originalPos from Store, clear isDragging flag
      * @param {Object} nodes - All nodes
      */
     cleanupDragState(nodes) {
         if (nodes) {
-            // Clean up temporary position markers from all nodes
+            // Clean up temporary position markers and ensure isDragging is false for all
             const cleanedNodes = { ...nodes };
+            let hasChanges = false;
+
             Object.keys(nodes).forEach(nodeId => {
                 const node = nodes[nodeId];
-                if (node._originalPos) {
+                // Check if node has _originalPos OR isDragging flag
+                if (node._originalPos || node.isDragging) {
                     cleanedNodes[nodeId] = { ...node };
                     delete cleanedNodes[nodeId]._originalPos;
+                    cleanedNodes[nodeId].isDragging = false;
+                    hasChanges = true;
                 }
             });
 
-            // Only sync with Store if we made changes
-            if (Object.keys(cleanedNodes).some(id => cleanedNodes[id] !== nodes[id])) {
+            // Always sync if we found changes
+            if (hasChanges) {
                 DesignerStore.setState({ nodes: cleanedNodes }, 'DRAG_CLEANUP');
             }
         }
