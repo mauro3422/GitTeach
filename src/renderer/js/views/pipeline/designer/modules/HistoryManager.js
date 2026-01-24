@@ -31,7 +31,12 @@ export const HistoryManager = {
 
     undoStack: [],
     redoStack: [],
-    maxSize: 50,
+
+    // Memory management
+    maxSize: 50,  // Already exists
+    maxMemoryMB: 10,  // NEW: 10MB limit for history
+    _currentMemoryUsage: 0,  // NEW: Track memory
+
     _isRecording: true,
 
     /**
@@ -42,11 +47,52 @@ export const HistoryManager = {
     },
 
     /**
-     * Save current state to history (before making changes)
-     * @param {Object} nodes - Current nodes state
-     * @param {Array} connections - Current connections state
-     * @param {string} actionType - Type of action (from ACTION_TYPES)
-     * @param {Object} metadata - Additional action info { nodeId, description }
+     * Estimate memory usage of a snapshot
+     */
+    _estimateMemoryUsage(nodes, connections) {
+        // Rough estimate: JSON size in bytes
+        const nodesJson = JSON.stringify(nodes);
+        const connectionsJson = JSON.stringify(connections);
+        const estimatedBytes = nodesJson.length + connectionsJson.length;
+        return estimatedBytes / (1024 * 1024);  // Convert to MB
+    },
+
+    /**
+     * Check if we can add another snapshot without exceeding limits
+     */
+    _canAddSnapshot(nodes, connections) {
+        const estimatedSize = this._estimateMemoryUsage(nodes, connections);
+
+        // Check both limits
+        if (this.undoStack.length >= this.maxSize) {
+            console.warn(`[HistoryManager] Max history size (${this.maxSize}) reached`);
+            return false;
+        }
+
+        if (this._currentMemoryUsage + estimatedSize > this.maxMemoryMB) {
+            console.warn(`[HistoryManager] Memory limit (${this.maxMemoryMB}MB) would be exceeded`);
+            console.warn(`[HistoryManager] Current: ${this._currentMemoryUsage.toFixed(2)}MB + ${estimatedSize.toFixed(2)}MB`);
+            return false;
+        }
+
+        return true;
+    },
+
+    /**
+     * Remove oldest snapshot to make space
+     */
+    _removeOldest() {
+        if (this.undoStack.length === 0) return;
+
+        const removed = this.undoStack.shift();
+        const removedSize = this._estimateMemoryUsage(removed.nodes, removed.connections);
+        this._currentMemoryUsage -= removedSize;
+
+        console.log(`[HistoryManager] Removed oldest snapshot, freed ${removedSize.toFixed(2)}MB`);
+    },
+
+    /**
+     * Save snapshot to history (MODIFIED)
      */
     saveToHistory(nodes, connections, actionType = 'BULK_UPDATE', metadata = {}) {
         if (!this._isRecording) return;
@@ -60,47 +106,73 @@ export const HistoryManager = {
                 ...metadata
             }
         };
-        this.undoStack.push(snapshot);
-        if (this.undoStack.length > this.maxSize) {
-            this.undoStack.shift();
+
+        const snapshotSize = this._estimateMemoryUsage(nodes, connections);
+
+        // Keep removing old entries until we have space
+        while (!this._canAddSnapshot(nodes, connections)) {
+            this._removeOldest();
         }
-        this.redoStack = []; // Clear redo stack on new action
+
+        this.undoStack.push(snapshot);
+        this._currentMemoryUsage += snapshotSize;
+
+        // Clear redo stack
+        this.redoStack = [];
+
+        // Log memory status
+        console.log(`[HistoryManager] Saved snapshot (${snapshotSize.toFixed(2)}MB), total: ${this._currentMemoryUsage.toFixed(2)}MB /
+${this.maxMemoryMB}MB`);
     },
 
     /**
-     * Undo the last action
+     * Undo (MODIFIED to track memory)
      */
     undo(nodes, connections) {
         if (this.undoStack.length === 0) return null;
 
-        // Save current state to redo stack
         const currentState = {
             nodes: JSON.parse(JSON.stringify(nodes)),
             connections: JSON.parse(JSON.stringify(connections))
         };
+
+        const currentSize = this._estimateMemoryUsage(nodes, connections);
         this.redoStack.push(currentState);
 
-        // Restore previous state
         const prevState = this.undoStack.pop();
+        const prevSize = this._estimateMemoryUsage(prevState.nodes, prevState.connections);
+
+        // Update memory tracking
+        this._currentMemoryUsage -= prevSize;
+        this._currentMemoryUsage += currentSize;
+
         return prevState;
     },
 
     /**
-     * Redo the last undone action
+     * Redo (MODIFIED to track memory)
      */
     redo(nodes, connections) {
         if (this.redoStack.length === 0) return null;
 
-        // Save current state to undo stack
         const currentState = {
             nodes: JSON.parse(JSON.stringify(nodes)),
             connections: JSON.parse(JSON.stringify(connections))
         };
+
+        const currentSize = this._estimateMemoryUsage(nodes, connections);
+
+        const nextState = this.redoStack.pop();
+        const nextSize = this._estimateMemoryUsage(nextState.nodes, nextState.connections);
+
+        // Save current to undo for proper undo/redo chain
         this.undoStack.push(currentState);
 
-        // Restore redo state
-        const redoState = this.redoStack.pop();
-        return redoState;
+        // Update memory tracking
+        this._currentMemoryUsage -= nextSize;
+        this._currentMemoryUsage += currentSize;
+
+        return nextState;
     },
 
     /**
@@ -118,10 +190,25 @@ export const HistoryManager = {
     },
 
     /**
-     * Clear all history
+     * Clear all history (useful for testing or cleanup)
      */
     clear() {
         this.undoStack = [];
         this.redoStack = [];
+        this._currentMemoryUsage = 0;
+        console.log('[HistoryManager] History cleared');
+    },
+
+    /**
+     * Get memory statistics
+     */
+    getMemoryStats() {
+        return {
+            undoStackSize: this.undoStack.length,
+            redoStackSize: this.redoStack.length,
+            currentMemoryMB: this._currentMemoryUsage.toFixed(2),
+            maxMemoryMB: this.maxMemoryMB,
+            percentageUsed: ((this._currentMemoryUsage / this.maxMemoryMB) * 100).toFixed(1)
+        };
     }
 };
