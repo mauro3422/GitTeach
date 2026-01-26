@@ -28,63 +28,38 @@
 
 ---
 
-## 📂 Documentation Structure
+## 📂 Documentation Structure (Simplified)
 
 ```
 docs/
-├── 00_ANALYSIS_HISTORY/              ← Current Session Analysis
-│   ├── phase1_complete/              ← Phase 1: 90% Stability (DONE)
-│   │   ├── PHASE1_COMPLETE.md         ← Summary of all 8 issues
-│   │   ├── PHASE1_PROGRESS_SUMMARY.md
-│   │   ├── PHASE1_ISSUE6_AUDIT_RESULTS.md
-│   │   ├── PHASE1_ISSUE6_PLAN.md
-│   │   ├── PHASE1_ISSUE7_PLAN.md      ← Last implementation
-│   │   ├── QUICK_WINS_COMPLETE.md
-│   │   └── PHASE1_REMAINING_ISSUES.md
-│   │
-│   ├── phase2_planning/              ← Phase 2: 95% Stability Planning
-│   │   ├── PHASE2_INVESTIGATION.md    ← Issues #9-17 breakdown
-│   │   └── ROADMAP_TO_100_STABILITY.md ← Full roadmap to 100%
-│   │
-│   ├── audit_trails/                 ← Verification & Audit Records
-│   │   ├── SESSION_COMPLETION_SUMMARY.md
-│   │   ├── VERIFICATION_COMPLETE.md
-│   │   ├── FINAL_FIX_VERIFICATION.md
-│   │   ├── SYSTEM_VERIFICATION_SUMMARY.md
-│   │   └── SSOT_CONSOLIDATION_COMPLETE.md
-│   │
-│   ├── CONTINUE_HERE.md              ← ⭐ START HERE
-│   ├── EXECUTIVE_SUMMARY.md          ← Quick overview
-│   └── CURRENT_SESSION_STATUS.md     ← Detailed status
+├── 00_ANALYSIS_HISTORY/              ← Historical Context
+│   ├── sessions/                     ← Session Logs
+│   │   └── SESSION_LOG_CONSOLIDATED.md ← ⭐ ALL developer sessions
+│   ├── audit_trails/                 ← Verification Records
+│   │   ├── FINAL_SYSTEM_AUDIT_REPORT.md
+│   │   └── SYSTEM_VERIFICATION_SUMMARY.md
+│   ├── CONTINUE_HERE.md              ← Current focus
+│   └── EXECUTIVE_SUMMARY.md          ← High-level overview
 │
 ├── 01_GUIDES/                        ← How-to Documentation
 │   ├── DEBUG_RESIZE_INSTRUCTIONS.md
-│   ├── QUICK_VERIFICATION_CHECKLIST.md
-│   └── DOCUMENTATION_INDEX.md
+│   ├── DRAG_RESIZE_BATCHING_PATTERN.md
+│   ├── QUICK_VERIFICATION_CHECKLIST.md  ← ⭐ Use for testing
+│   └── TRACER_MANUAL.md
 │
-├── 02_ROADMAPS/                      ← Implementation History
-│   ├── system_history/
-│   │   ├── ROBUST_SYSTEM_DOCUMENTATION.md
-│   │   ├── ROBUST_SYSTEM_COMPLETE.md
-│   │   ├── TEXT_SYSTEM_DOCUMENTATION.md
-│   │   └── TEXT_SYSTEM_COMPLETE.md
-│   │
-│   └── fixes_implemented/
-│       ├── DRAG_SYSTEM_STANDARDIZED.md
-│       ├── DRAG_SELECTION_MANAGER_COMPLETE.md
-│       ├── DRAG_SELECTION_FIX.md
-│       ├── RESIZE_FIX_COMPLETE.md
-│       ├── RESIZE_ROBUSTNESS_PLAN.md
-│       ├── COMPLETE_NODE_SYSTEM.md
-│       ├── CIRCULAR_DEPENDENCY_FIX.md
-│       └── CLEANUP_SUMMARY.md
+├── 02_ROADMAPS/                      ← Project Evolution
+│   ├── PHASE2_CONSOLIDATED.md         ← ⭐ Phase 2 Roadmap & Status
+│   ├── ROADMAP_100_PERCENT.md         ← Long-term vision
+│   ├── system_history/                ← Legacy system docs
+│   └── fixes_implemented/             ← Detailed fix records
 │
-└── architecture/                      ← Already in repo
-    ├── modules/
-    │   ├── main_process.md
-    │   └── renderer_process.md
-    └── diagrams/
-        └── overall_architecture.md
+├── architecture/                     ← Technical Core
+│   ├── REFACTOR_STATUS_FINAL.md       ← ⭐ TIER 2 Refactor Status
+│   ├── ARCHITECTURE_OVERVIEW.md
+│   └── designer_canvas_system_documentation.md
+│
+├── LFM2_OPTIMIZATION.md              ← AI Engine Specs
+└── flujo_dato.md                     ← Data Flow Specs
 ```
 
 ---
@@ -130,26 +105,12 @@ docs/
 
 ---
 
-## 📖 Reading Guide (Recommended Order)
+## 📖 Recommended Reading Order
 
-### 🟢 Essential (Start Here)
-1. **This file** (INDEX.md) ← You are here
-2. **CONTINUE_HERE.md** (5 min) - Current position
-3. **PHASE1_COMPLETE.md** (10 min) - What we achieved
-
-### 🟡 For Phase 2 Decision
-4. **PHASE2_INVESTIGATION.md** (15 min) - What's next
-5. **ROADMAP_TO_100_STABILITY.md** (30 min) - Full picture
-
-### 🔵 Reference (As Needed)
-- **EXECUTIVE_SUMMARY.md** - High-level overview
-- **CURRENT_SESSION_STATUS.md** - All commits & changes
-- **Quick Verification Checklist** - For testing
-
-### 🟣 Deep Dives (Optional)
-- **phase1_complete/** - Detailed issue breakdowns
-- **fixes_implemented/** - History of implementations
-- **audit_trails/** - Verification records
+1. **[INDEX.md](INDEX.md)** (You are here)
+2. **[CONTINUE_HERE.md](00_ANALYSIS_HISTORY/CONTINUE_HERE.md)** - Current tasks and status.
+3. **[PHASE2_CONSOLIDATED.md](02_ROADMAPS/PHASE2_CONSOLIDATED.md)** - Project progress.
+4. **[REFACTOR_STATUS_FINAL.md](architecture/REFACTOR_STATUS_FINAL.md)** - Current architecture.
 
 ---
 
