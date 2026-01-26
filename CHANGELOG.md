@@ -8,6 +8,23 @@ All notable changes to the GitTeach project will be documented in this file.
 - [Versions v2.0.0 - v2.29.0](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/changelog/archive-2026-v2.md)
 - [Versions v1.0.0 - v1.9.0](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/changelog/archive-2026-v1.md)
 
+## [v2.84.0] - 2026-01-26
+
+### Added
+- **SOLID Interaction Architecture (TIER 3):**
+  - **Full Dependency Injection**: Handlers (`ResizeHandler`, `PanZoomHandler`, `HoverManager`) and strategies (`DragStrategy`, `DrawStrategy`) now receive state-stores via DI (Single Responsibility & Testability).
+  - **Mode Precedence logic**: Unified event filtering ensuring `Ctrl` (DrawMode) inhibits resizing and other conflicting interactions.
+
+### Fixed
+- **Interaction Integrity:**
+  - **Zero-Jump Resize**: Implemented center-preserving geometry in `GeometryUtils.js` and `ResizeHandler.js`, maintaining the opposite corner's anchor.
+  - **Dead Zone Elimination**: Synchronized logical/visual dimensions at resize-start to prevent initial dimension jumps.
+  - **Locked State Prevention**: Wrapped interaction lifecycles in `try-finally` blocks to guarantee cleanup of `draggingNodeId` and `resizingNodeId`.
+  - **Panning Restriction**: Limited panning strictly to the Middle Mouse Button (MMB), preventing right-click artifacts.
+
+### Changed
+- **Architectural Purity**: Removed direct `DesignerStore` / `interactionState` imports from all interaction logic, fully adhering to the facade pattern.
+
 ---
 
 ## [v2.83.0] - 2026-01-26

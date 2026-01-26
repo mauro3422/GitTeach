@@ -5,7 +5,7 @@ GitTeach is a high-performance desktop platform (Electron) engineered for deep t
 
 ---
 
-## 🍱 **The Master UI (v2.82.0)**
+## 🍱 **The Master UI (v2.84.0)**
 The latest evolution introduces **Interaction Centralization**, **Architectural Purity**, and **Lince Performance Engine**:
 - **Lince Performance Engine (O(visible))**: High-speed viewport culling and spatial caching enables 60 FPS fluid navigation with thousands of nodes.
 - **Fachada TIER 2 Store**: Decoupled state management into specialized stores (`NodeRepository`, `InteractionState`, `CameraState`) unified by a gateway facade.

@@ -71,10 +71,10 @@ export const GeometryUtils = {
                 ? this.getContainerBounds(node, nodes, zoom)
                 : this.getStickyNoteBounds(node, null, zoom);
 
-            const w = bounds.renderW || bounds.w || DESIGNER_CONSTANTS.DIMENSIONS.CONTAINER.DEFAULT_W;
-            const h = bounds.renderH || bounds.h || DESIGNER_CONSTANTS.DIMENSIONS.CONTAINER.DEFAULT_H;
-            const cx = bounds.centerX || node.x;
-            const cy = bounds.centerY || node.y;
+            const w = bounds.renderW || bounds.w;
+            const h = bounds.renderH || bounds.h;
+            const cx = bounds.centerX;
+            const cy = bounds.centerY;
 
             const dx = targetX - cx;
             const dy = targetY - cy;
@@ -114,15 +114,24 @@ export const GeometryUtils = {
         };
     },
 
-    calculateResizeDelta(corner, startW, startH, dx, dy) {
+    calculateResizeDelta(corner, startW, startH, dx, dy, startX, startY) {
         let w = startW, h = startH;
+
         switch (corner) {
             case 'se': w += dx; h += dy; break;
             case 'sw': w -= dx; h += dy; break;
             case 'ne': w += dx; h -= dy; break;
             case 'nw': w -= dx; h -= dy; break;
         }
-        return { w, h };
+
+        // To maintain the opposite corner fixed, the center (x, y) 
+        // must move exactly by half of the mouse delta in world coordinates.
+        return {
+            w,
+            h,
+            x: startX + dx / 2,
+            y: startY + dy / 2
+        };
     },
 
     /**
@@ -152,12 +161,17 @@ export const GeometryUtils = {
 
     isPointInContainer(point, container, nodes, zoomScale = 1) {
         if (!container.isRepoContainer && !container.isStickyNote) return false;
-        const bounds = container.isRepoContainer ? this.getContainerBounds(container, nodes, zoomScale) : this.getStickyNoteBounds(container, null, zoomScale);
-        const w = (bounds.renderW || bounds.w) + 10;
-        const h = (bounds.renderH || bounds.h) + DESIGNER_CONSTANTS.INTERACTION.CONNECTION_HIT_BUFFER;
-        const centerX = bounds.centerX || container.x;
-        const centerY = bounds.centerY || container.y;
-        return point.x >= centerX - w / 2 && point.x <= centerX + w / 2 && point.y >= centerY - h / 2 && point.y <= centerY + h / 2;
+
+        const bounds = container.isRepoContainer
+            ? this.getContainerBounds(container, nodes, zoomScale)
+            : this.getStickyNoteBounds(container, null, zoomScale);
+
+        return this.isPointInRectangle(point, {
+            centerX: bounds.centerX,
+            centerY: bounds.centerY,
+            w: (bounds.renderW || bounds.w) + 10,
+            h: (bounds.renderH || bounds.h) + DESIGNER_CONSTANTS.INTERACTION.CONNECTION_HIT_BUFFER
+        });
     },
 
     isPointNearLine(point, p1, p2, threshold = 10) {

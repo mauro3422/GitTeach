@@ -5,8 +5,13 @@
  */
 
 export class InteractionStrategy {
-    constructor(controller) {
-        this.controller = controller;
+    constructor(dependencies = {}) {
+        this.dependencies = dependencies;
+        this.controller = dependencies.controller;
+        this.nodeRepository = dependencies.nodeRepository;
+        this.interactionState = dependencies.interactionState;
+        this.cameraState = dependencies.cameraState;
+
         if (this.constructor === InteractionStrategy) {
             throw new Error('InteractionStrategy is abstract and cannot be instantiated directly');
         }

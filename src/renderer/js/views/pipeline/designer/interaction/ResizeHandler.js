@@ -1,8 +1,7 @@
 
 import { InteractionHandler } from '../InteractionHandler.js';
 import { GeometryUtils } from '../GeometryUtils.js';
-import { nodeRepository } from '../modules/stores/NodeRepository.js';
-import { interactionState } from '../modules/stores/InteractionState.js';
+// Removed direct imports of nodeRepository and interactionState
 import { DimensionSync } from '../DimensionSync.js';
 import { LayoutUtils } from '../utils/LayoutUtils.js';
 import { BoundsCalculator } from '../utils/BoundsCalculator.js';
@@ -10,6 +9,10 @@ import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 
 export class ResizeHandler extends InteractionHandler {
     static DEBUG = false; // Set to true for resize debugging
+
+    constructor(dependencies) {
+        super(dependencies);
+    }
 
     onStart(e, context) {
         const { nodeId, corner, initialPos } = context;
@@ -25,31 +28,60 @@ export class ResizeHandler extends InteractionHandler {
         // SYNC: Before starting, ensure node.dimensions.w/h reflect the CURRENT visual size
         // converted back to logical units. This eliminates the "Dead Zone" jump.
         if (!node.dimensions.isManual) {
-            node.dimensions.w = sync.w / vScale;
-            node.dimensions.h = sync.h / vScale;
-        }
+            const nextNodes = { ...nodes };
+            const newLogicalW = sync.w / vScale;
+            const newLogicalH = sync.h / vScale;
 
-        // ROBUST PATTERN: Store ALL resize state in specialized store (Single Source of Truth)
-        interactionState.startResize(nodeId, {
-            corner: corner,
-            startMouse: { ...initialPos },
-            startLogicalSize: {
-                w: node.dimensions.w,
-                h: node.dimensions.h
-            },
-            startVisualSize: {
-                w: sync.w,
-                h: sync.h
-            },
-            childPositions: this.captureChildPositions(node, nodes)
-        });
+            nextNodes[nodeId] = {
+                ...node,
+                dimensions: {
+                    ...node.dimensions,
+                    w: newLogicalW,
+                    h: newLogicalH
+                }
+            };
+            this.nodeRepository.setNodes(nextNodes);
+
+            // Fetch the updated node for capture
+            const updatedNode = nextNodes[nodeId];
+            this.interactionState.startResize(nodeId, {
+                corner: corner,
+                startMouse: { ...initialPos },
+                startPos: { x: updatedNode.x, y: updatedNode.y },
+                startLogicalSize: {
+                    w: updatedNode.dimensions.w,
+                    h: updatedNode.dimensions.h
+                },
+                startVisualSize: {
+                    w: sync.w,
+                    h: sync.h
+                },
+                childPositions: this.captureChildPositions(updatedNode, nextNodes)
+            });
+        } else {
+            // ROBUST PATTERN: Store ALL resize state in specialized store (Single Source of Truth)
+            this.interactionState.startResize(nodeId, {
+                corner: corner,
+                startMouse: { ...initialPos },
+                startPos: { x: node.x, y: node.y },
+                startLogicalSize: {
+                    w: node.dimensions.w,
+                    h: node.dimensions.h
+                },
+                startVisualSize: {
+                    w: sync.w,
+                    h: sync.h
+                },
+                childPositions: this.captureChildPositions(node, nodes)
+            });
+        }
 
         // Mark handler as active (local flag only for performance checks)
         this._active = true;
     }
     onUpdate(e) {
         // ROBUST PATTERN: Read state from specialized interaction store
-        const interaction = interactionState.state;
+        const interaction = this.interactionState.state;
         const { resizingNodeId, resize } = interaction;
         if (!resizingNodeId || !resize.startMouse) return;
 
@@ -70,16 +102,20 @@ export class ResizeHandler extends InteractionHandler {
         // Logic normalization: dx/dy are world coordinates.
         // CRITICAL SYNC: Since the visual box is inflated by vScale, a 1-unit movement of the mouse
         // corresponds to a 1/vScale movement in logical dimensions to keep the handle under the cursor.
-        const dimensions = GeometryUtils.calculateResizeDelta(
+        const result = GeometryUtils.calculateResizeDelta(
             resize.corner,
             logicalStart.w,
             logicalStart.h,
             dx / vScale,
-            dy / vScale
+            dy / vScale,
+            resize.startPos.x,
+            resize.startPos.y
         );
 
-        let newW = dimensions.w;
-        let newH = dimensions.h;
+        let newW = result.w;
+        let newH = result.h;
+        let newX = result.x;
+        let newY = result.y;
 
         const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
         const minW = node.isStickyNote ? STICKY_NOTE.MIN_W : CONTAINER.MIN_W;
@@ -103,10 +139,32 @@ export class ResizeHandler extends InteractionHandler {
         newW = Math.max(actualMinW, newW);
         newH = Math.max(minH, newH);
 
+        // Adjust position if dimensions were clamped (to maintain fixed corner)
+        if (newW !== origW) {
+            const clampDx = (newW - origW);
+            // If we moved the left side (sw or nw), and it got clamped, 
+            // the center must move in the opposite direction than the drag
+            if (resize.corner === 'sw' || resize.corner === 'nw') {
+                newX -= clampDx / 2;
+            } else {
+                newX += clampDx / 2;
+            }
+        }
+        if (newH !== origH) {
+            const clampDy = (newH - origH);
+            if (resize.corner === 'nw' || resize.corner === 'ne') {
+                newY -= clampDy / 2;
+            } else {
+                newY += clampDy / 2;
+            }
+        }
+
         // ATOMIC UPDATE: Collect all changes into one Store call to avoid state-fight
         const nextNodes = { ...nodes };
         nextNodes[node.id] = {
             ...node,
+            x: newX,
+            y: newY,
             dimensions: {
                 ...node.dimensions,
                 w: newW,
@@ -122,7 +180,7 @@ export class ResizeHandler extends InteractionHandler {
         if (ResizeHandler.DEBUG) {
             console.log(`[StateTrace] RESIZE_DRAG: ${node.id} | w:${newW.toFixed(1)} h:${newH.toFixed(1)}`);
         }
-        nodeRepository.setNodes(nextNodes);
+        this.nodeRepository.setNodes(nextNodes);
 
 
         // Trigger local renderer
@@ -130,23 +188,25 @@ export class ResizeHandler extends InteractionHandler {
     }
 
     onEnd(e) {
-        // ISSUE #8: Validate node still exists before completing resize
-        const resizingNodeId = interactionState.state.resizingNodeId;
-        if (resizingNodeId) {
-            const node = nodeRepository.getNode(resizingNodeId);
-            if (!node) {
-                console.warn('[ResizeHandler] Node was deleted mid-resize, cleaning up:', resizingNodeId);
+        try {
+            // ISSUE #8: Validate node still exists before completing resize
+            const resizingNodeId = this.interactionState.state.resizingNodeId;
+            if (resizingNodeId) {
+                const node = this.nodeRepository.getNode(resizingNodeId);
+                if (!node) {
+                    console.warn('[ResizeHandler] Node was deleted mid-resize, cleaning up:', resizingNodeId);
+                }
             }
+        } finally {
+            // ROBUST PATTERN: Clear resize state from specialized store
+            this.interactionState.clearResize();
+            this._active = false;
         }
-
-        // ROBUST PATTERN: Clear resize state from specialized store
-        interactionState.clearResize();
-        this._active = false;
     }
 
     onCancel() {
         // ROBUST PATTERN: Clear resize state from specialized store
-        interactionState.clearResize();
+        this.interactionState.clearResize();
         this._active = false;
     }
 
@@ -200,8 +260,8 @@ export class ResizeHandler extends InteractionHandler {
 
     findResizeHandle(worldPos) {
         const nodes = this.controller.nodes;
-        const zoom = this.controller.state?.zoomScale || 1.0;
-        const selectedNodeId = interactionState.state.selectedNodeId;
+        const zoom = this.cameraState.state?.zoomScale || 1.0;
+        const selectedNodeId = this.interactionState.state.selectedNodeId;
 
         // In test environments, selectedNodeId might be interfering with detection
         // So we'll try both approaches: selected first, then all nodes
@@ -231,7 +291,7 @@ export class ResizeHandler extends InteractionHandler {
             }
 
             const hit = this._checkNodeHandles(node, worldPos, nodes, zoom);
-            if (hit && (process.env.NODE_ENV === 'test')) {
+            if (hit && ResizeHandler.DEBUG) {
                 console.log(`[ResizeHit] Found handle for ${node.id} at ${hit.corner}`);
             }
             if (hit) return hit;

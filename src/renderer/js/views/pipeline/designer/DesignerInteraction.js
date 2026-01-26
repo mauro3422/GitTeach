@@ -28,15 +28,15 @@ export const DesignerInteraction = {
     get dragStrategy() { return this.strategyManager.dragStrategy; },
     get drawStrategy() { return this.strategyManager.drawStrategy; },
     get activeStrategy() { return this.strategyManager.activeStrategy; },
-    get hoveredNodeId() { return interactionState.state.hoveredNodeId; },
-    get state() { return cameraState.state; },
+    get hoveredNodeId() { return this.deps ? this.deps.interactionState.state.hoveredNodeId : null; },
+    get state() { return this.deps ? this.deps.cameraState.state : { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 }; },
     get activeConnection() { return this.strategyManager.getConnectionState(); },
 
     /**
      * Get visual state for a node (facade for NodeVisualManager)
      */
     getInteractionState() {
-        return interactionState.state;
+        return this.deps ? this.deps.interactionState.state : interactionState.state;
     },
 
     getVisualState(node) {
@@ -54,11 +54,20 @@ export const DesignerInteraction = {
         this.onInteractionEnd = onInteractionEnd;
         this.onDeleteNode = onDeleteNode;
 
-        // Initialize Managers
-        this.hoverManager = new HoverManager(this);
-        this.strategyManager = new StrategyManager(this);
-        this.resizeHandler = new ResizeHandler(this);
-        this.panZoomHandler = new PanZoomHandler(this);
+        // Dependency Injection Object
+        this.deps = {
+            controller: this,
+            nodeRepository,
+            interactionState,
+            cameraState
+        };
+        const deps = this.deps;
+
+        // Initialize Managers with injected dependencies
+        this.hoverManager = new HoverManager(deps);
+        this.strategyManager = new StrategyManager(deps);
+        this.resizeHandler = new ResizeHandler(deps);
+        this.panZoomHandler = new PanZoomHandler(deps);
 
         this.panZoomHandler.init({ panOffset: { x: 0, y: 0 }, zoomScale: ThemeManager.instance.navigation.defaultZoom });
 
@@ -132,8 +141,12 @@ export const DesignerInteraction = {
         }
     },
 
+    saveToHistory() {
+        DesignerStore.savepoint();
+    },
+
     handleMouseDown(e) {
-        if (e.button === 1 || e.button === 2) {
+        if (e.button === 1) {
             this.panZoomHandler.start(e, { rawPos: this.getMousePos(e) });
             return;
         }
@@ -141,8 +154,8 @@ export const DesignerInteraction = {
         if (e.button === 0) {
             const worldPos = this.getWorldPosFromEvent(e);
 
-            // 1. Check for Resize Handles
-            const resizeHit = this.resizeHandler.findResizeHandle(worldPos);
+            // 1. Check for Resize Handles (SKIP if Ctrl is pressed for DrawMode)
+            const resizeHit = e.ctrlKey ? null : this.resizeHandler.findResizeHandle(worldPos);
 
             if (resizeHit) {
                 // UNIFIED HISTORY: Create savepoint BEFORE resize starts (makes it undoable)
@@ -152,12 +165,6 @@ export const DesignerInteraction = {
                 return; // Exit here to prevent other interactions
             }
 
-            // 2. Check for Panning (if Ctrl or Shift is pressed)
-            if (e.ctrlKey || e.shiftKey) {
-                this.panZoomHandler.start(e, { rawPos: this.getMousePos(e) });
-                return; // Exit to prevent other interactions
-            }
-
             // 3. Check for Node Selection/Drag
             const clickedNode = this.hoverManager.findNodeAt(worldPos);
             if (clickedNode) {
@@ -165,8 +172,8 @@ export const DesignerInteraction = {
                 DesignerStore.savepoint('NODE_MOVE', { nodeId: clickedNode.id });
 
                 // Select the node if not already selected
-                if (interactionState.state.selectedNodeId !== clickedNode.id) {
-                    interactionState.selectNode(clickedNode.id);
+                if (DesignerStore.getInteractionState().selectedNodeId !== clickedNode.id) {
+                    DesignerStore.selectNode(clickedNode.id);
                 }
 
                 // CRITICAL FIX: Allow strategyManager to initiate drag
@@ -177,9 +184,9 @@ export const DesignerInteraction = {
                 // 4. Check for Connection Selection
                 const clickedConn = DesignerStore.findConnectionAt(worldPos);
                 if (clickedConn) {
-                    interactionState.selectConnection(clickedConn);
+                    DesignerStore.selectConnection(clickedConn.id);
                 } else {
-                    interactionState.clearSelection();
+                    DesignerStore.clearSelection();
                 }
 
                 // For empty space clicks, allow strategy manager to handle it (panning, etc.)
@@ -221,31 +228,32 @@ export const DesignerInteraction = {
     },
 
     handleMouseUp(e) {
-        if (this.panZoomHandler.isActive()) this.panZoomHandler.end(e);
-        if (this.resizeHandler.isActive()) {
-            const state = this.resizeHandler.getState();
-            const nodeId = state.resizingNodeId;
+        try {
+            if (this.panZoomHandler.isActive()) this.panZoomHandler.end(e);
+            if (this.resizeHandler.isActive()) {
+                const nodeId = DesignerStore.getInteractionState().resizingNodeId;
+                this.resizeHandler.end(e);
+                this.canvas.style.cursor = 'default';
 
-            this.resizeHandler.end(e);
-            this.canvas.style.cursor = 'default';
-
-            // CRITICAL: Commit the final manual size to the Store
-            if (nodeId && this.nodes[nodeId]) {
-                const node = this.nodes[nodeId];
-                const success = DesignerStore.updateNode(nodeId, {
-                    dimensions: { ...node.dimensions }
-                });
-                if (!success) {
-                    console.warn('[Interaction] Failed to update node dimensions after resize:', nodeId);
+                // CRITICAL: Commit the final manual size to the Store
+                if (nodeId && this.nodes[nodeId]) {
+                    const node = this.nodes[nodeId];
+                    const success = DesignerStore.updateNode(nodeId, {
+                        dimensions: { ...node.dimensions }
+                    });
+                    if (!success) {
+                        console.warn('[Interaction] Failed to update node dimensions after resize:', nodeId);
+                    }
                 }
             }
+        } catch (err) {
+            console.error('[Interaction] Error in handleMouseUp:', err);
+        } finally {
+            this.strategyManager.handleMouseUp(e);
+            DesignerStore.validateAndCleanup();
+            this.onUpdate();
+            if (this.onInteractionEnd) this.onInteractionEnd();
         }
-
-        this.strategyManager.handleMouseUp(e);
-
-        DesignerStore.validateAndCleanup();
-        this.onUpdate();
-        if (this.onInteractionEnd) this.onInteractionEnd();
     },
 
     handleDoubleClick(e) {

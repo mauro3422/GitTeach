@@ -5,11 +5,11 @@
  */
 
 import { InteractionStrategy } from './InteractionStrategy.js';
-import { interactionState } from '../modules/stores/InteractionState.js';
+// Removed direct store imports
 
 export class DrawStrategy extends InteractionStrategy {
-    constructor(controller) {
-        super(controller);
+    constructor(dependencies) {
+        super(dependencies);
         this.connectionState = {
             fromNode: null,
             currentPos: null
@@ -93,7 +93,7 @@ export class DrawStrategy extends InteractionStrategy {
     cancel() {
         this.connectionState.fromNode = null;
         this.connectionState.currentPos = null;
-        interactionState.setDrawing(null);
+        this.interactionState.setDrawing(null);
         console.log('[DrawStrategy] Connection cancelled');
     }
 
@@ -116,7 +116,7 @@ export class DrawStrategy extends InteractionStrategy {
             // Start connection
             this.connectionState.fromNode = clickedNode;
             this.connectionState.currentPos = { ...worldPos };
-            interactionState.setDrawing(clickedNode.id);
+            this.interactionState.setDrawing(clickedNode.id);
             console.log(`[DrawStrategy] Started connection from: ${clickedNode.id}`);
         }
     }

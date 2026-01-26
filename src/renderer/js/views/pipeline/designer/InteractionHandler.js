@@ -4,8 +4,13 @@
  * Provides a common bridge between the controller and specific logic
  */
 export class InteractionHandler {
-    constructor(controller) {
-        this.controller = controller;
+    constructor(dependencies = {}) {
+        this.dependencies = dependencies;
+        this.controller = dependencies.controller;
+        this.nodeRepository = dependencies.nodeRepository;
+        this.interactionState = dependencies.interactionState;
+        this.cameraState = dependencies.cameraState;
+
         this.state = {};
         this._active = false;
     }

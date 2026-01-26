@@ -26,12 +26,37 @@ class DesignerStoreClass extends Store {
     }
 
     /**
-     * Aggregated state setter.
-     * Required to prevent TypeError because the base Store class tries to set this.state in the constructor.
-     * We ignore direct assignments as the state is aggregated from sub-stores.
+     * Override setState to distribute updates to sub-stores.
+     * This maintains backward compatibility for tests and legacy calls.
+     */
+    setState(update, actionName = 'UPDATE') {
+        const partial = typeof update === 'function' ? update(this.state) : update;
+
+        if (partial.nodes !== undefined) nodeRepository.setNodes(partial.nodes);
+        if (partial.connections !== undefined) nodeRepository.setConnections(partial.connections);
+        if (partial.interaction !== undefined) {
+            interactionState.setInteractionState(partial.interaction);
+        }
+        if (partial.camera !== undefined) {
+            cameraState.setCamera(partial.camera);
+        }
+
+        // If it's a sync from sub-stores, we don't need to do anything else 
+        // as the getter will already reflect the new state and notify() will be called by sub-store.
+        if (actionName.includes('_SYNC')) {
+            this._notify(this.state, actionName);
+        } else {
+            // If it's a direct call to DesignerStore.setState (like in tests)
+            this._notify(this.state, actionName);
+        }
+    }
+
+    /**
+     * Block direct state assignment to ensure getter/setter logic is used.
      */
     set state(val) {
-        // No-op: The facade state is derived from sub-stores
+        // No-op or delegate if needed. For now, super.setState will call this.
+        // We can just let it be or handle it.
     }
 
     /**
@@ -75,6 +100,10 @@ class DesignerStoreClass extends Store {
             const margin = 100;
             const bounds = { xMin: x - margin, xMax: x + margin, yMin: y - margin, yMax: y + margin };
             ContainerBoxManager.createUserBox(nodeId, bounds);
+        }
+
+        if (node && node.isStickyNote && this.onStickyNoteEdit) {
+            this.onStickyNoteEdit(node);
         }
 
         return node;
@@ -134,6 +163,7 @@ class DesignerStoreClass extends Store {
     clearResize() { interactionState.clearResize(); }
     setDrawing(sourceNodeId) { interactionState.setDrawing(sourceNodeId); }
     setInteractionState(partial) { interactionState.setInteractionState(partial); }
+    getInteractionState() { return interactionState.state; }
     cancelAllInteractions() { interactionState.cancelAllInteractions(); cameraState.setIsPanning(false); }
     selectNode(nodeId) { interactionState.selectNode(nodeId); }
     selectConnection(connectionId) { interactionState.selectConnection(connectionId); }
@@ -142,6 +172,7 @@ class DesignerStoreClass extends Store {
     // ============ CAMERA (Delegated to CameraState) ============
 
     setCamera(updates) { cameraState.setCamera(updates); }
+    getCameraState() { return cameraState.state; }
 
     // ============ HIT DETECTION (Delegated to HitTester Service) ============
 

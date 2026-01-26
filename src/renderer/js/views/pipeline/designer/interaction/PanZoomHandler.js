@@ -2,12 +2,12 @@ import { InteractionHandler } from '../InteractionHandler.js';
 import { CoordinateUtils } from '../CoordinateUtils.js';
 import { AnimationManager } from '../AnimationManager.js';
 import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
-import { cameraState } from '../modules/stores/CameraState.js';
+// Removed direct cameraState import
 
 export class PanZoomHandler extends InteractionHandler {
 
-    constructor(controller) {
-        super(controller);
+    constructor(dependencies) {
+        super(dependencies);
         this.state = {
             panOffset: { x: 0, y: 0 },
             zoomScale: 1.0,
@@ -27,7 +27,7 @@ export class PanZoomHandler extends InteractionHandler {
             if (config.zoomScale) this.state.zoomScale = config.zoomScale;
         }
         // Initialize store with whatever we have
-        cameraState.setCamera({
+        this.cameraState.setCamera({
             panOffset: { ...this.state.panOffset },
             zoomScale: this.state.zoomScale,
             isPanning: false
@@ -37,7 +37,7 @@ export class PanZoomHandler extends InteractionHandler {
     setState(updates) {
         super.setState(updates);
         // Important: sync to store when manually setting state (common in tests)
-        cameraState.setCamera({
+        this.cameraState.setCamera({
             panOffset: { ...this.state.panOffset },
             zoomScale: this.state.zoomScale,
             isPanning: this.state.isPanning
@@ -55,8 +55,7 @@ export class PanZoomHandler extends InteractionHandler {
             panStart: { ...rawPos }
         });
 
-        DesignerStore.setCamera({ isPanning: true }); // Still using Facade for backward compat if needed, but let's change to cameraState
-        cameraState.setCamera({ isPanning: true });
+        this.cameraState.setCamera({ isPanning: true });
 
         // Use setCursor if available on controller, or set directly
         if (this.controller.canvas) {
@@ -77,7 +76,7 @@ export class PanZoomHandler extends InteractionHandler {
         this.state.panStart = { ...rawPos };
 
         // Sync to store for reactive components
-        cameraState.setCamera({
+        this.cameraState.setCamera({
             panOffset: { ...this.state.panOffset }
         });
     }
@@ -88,7 +87,7 @@ export class PanZoomHandler extends InteractionHandler {
             panStart: null
         });
 
-        cameraState.setCamera({ isPanning: false });
+        this.cameraState.setCamera({ isPanning: false });
 
         if (this.controller.canvas) {
             this.controller.canvas.style.cursor = 'default'; // Or restore previous
@@ -126,7 +125,7 @@ export class PanZoomHandler extends InteractionHandler {
         }
 
         // Sync to store
-        cameraState.setCamera({
+        this.cameraState.setCamera({
             zoomScale: this.state.zoomScale,
             panOffset: { ...this.state.panOffset }
         });
@@ -192,7 +191,7 @@ export class PanZoomHandler extends InteractionHandler {
                 this.state.panOffset.y = startY + (targetY - startY) * ease;
 
                 // Sync to store
-                cameraState.setCamera({
+                this.cameraState.setCamera({
                     panOffset: { ...this.state.panOffset }
                 });
 

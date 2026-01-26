@@ -57,21 +57,6 @@ export const DimensionSync = {
         return GeometryUtils.getRectCorners(dims.centerX, dims.centerY, dims.w, dims.h);
     },
 
-    /**
-     * Legacy support: Mapped to getSyncDimensions for backward compatibility
-     */
-    getVisualDimensions(node, zoom, nodes = {}) {
-        const sync = this.getSyncDimensions(node, nodes, zoom);
-        const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
-        return {
-            logicalW: node.dimensions?.w || (node.isStickyNote ? STICKY_NOTE.MIN_W : CONTAINER.DEFAULT_W),
-            logicalH: node.dimensions?.h || (node.isStickyNote ? STICKY_NOTE.MIN_H : CONTAINER.DEFAULT_H),
-            visualW: sync.w,
-            visualH: sync.h,
-            centerX: sync.centerX,
-            centerY: sync.centerY
-        };
-    },
 
     /**
      * Get the position of a specific handle corner for a node
@@ -79,9 +64,7 @@ export const DimensionSync = {
     getVisualHandlePosition(node, corner, zoom, nodes = {}) {
         const dims = this.getSyncDimensions(node, nodes, zoom);
         const corners = GeometryUtils.getRectCorners(dims.centerX, dims.centerY, dims.w, dims.h);
-        const cornerMap = { nw: 0, ne: 1, sw: 2, se: 3 };
-        const index = cornerMap[corner];
-        return corners[index] || { x: dims.centerX, y: dims.centerY };
+        return corners[corner] || { x: dims.centerX, y: dims.centerY };
     },
 
     /**

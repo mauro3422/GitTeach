@@ -22,6 +22,7 @@ class InteractionStateClass extends Store {
             resize: {
                 corner: null,              // nw, ne, sw, se
                 startMouse: null,          // { x, y } in world coords
+                startPos: null,            // { x, y } initial center of node
                 startLogicalSize: null,    // { w, h } logical dimensions
                 startVisualSize: null,     // { w, h } visual dimensions
                 childPositions: null       // { nodeId: { relX, relY } }
@@ -150,6 +151,7 @@ class InteractionStateClass extends Store {
             resize: {
                 corner: resizeState.corner,
                 startMouse: { ...resizeState.startMouse },
+                startPos: { ...resizeState.startPos },
                 startLogicalSize: { ...resizeState.startLogicalSize },
                 startVisualSize: { ...resizeState.startVisualSize },
                 childPositions: resizeState.childPositions ? { ...resizeState.childPositions } : null
@@ -183,6 +185,7 @@ class InteractionStateClass extends Store {
             resize: {
                 corner: null,
                 startMouse: null,
+                startPos: null,
                 startLogicalSize: null,
                 startVisualSize: null,
                 childPositions: null
@@ -240,6 +243,7 @@ class InteractionStateClass extends Store {
             resize: {
                 corner: null,
                 startMouse: null,
+                startPos: null,
                 startLogicalSize: null,
                 startVisualSize: null,
                 childPositions: null

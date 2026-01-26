@@ -2,12 +2,13 @@ import { DragStrategy } from '../strategies/DragStrategy.js';
 import { DrawStrategy } from '../strategies/DrawStrategy.js';
 
 export class StrategyManager {
-    constructor(interactionContext) {
-        this.context = interactionContext;
+    constructor(dependencies = {}) {
+        this.dependencies = dependencies;
+        this.context = dependencies.controller;
 
-        // Instantiate strategies with the main context
-        this.dragStrategy = new DragStrategy(interactionContext);
-        this.drawStrategy = new DrawStrategy(interactionContext);
+        // Instantiate strategies with the main dependency object
+        this.dragStrategy = new DragStrategy(dependencies);
+        this.drawStrategy = new DrawStrategy(dependencies);
 
         // Default strategy
         this.activeStrategy = this.dragStrategy;

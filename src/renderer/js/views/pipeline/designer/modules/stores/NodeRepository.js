@@ -91,15 +91,13 @@ class NodeRepositoryClass extends Store {
      * @returns {string} New node ID
      */
     addNode(isContainer, x, y, options = {}) {
-        const nodeFactory = isContainer ?
-            NodeFactory.createContainerNode :
-            NodeFactory.createRegularNode;
+        const newNode = isContainer ?
+            NodeFactory.createContainerNode(options) :
+            NodeFactory.createRegularNode(options);
 
-        const newNode = nodeFactory({
-            x,
-            y,
-            ...options
-        });
+        // Merge coordinates into options-processed node
+        newNode.x = x;
+        newNode.y = y;
 
         const nextNodes = { ...this.state.nodes };
         nextNodes[newNode.id] = newNode;
