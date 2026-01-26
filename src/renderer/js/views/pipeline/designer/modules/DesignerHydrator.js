@@ -83,14 +83,23 @@ export const DesignerHydrator = {
                     const row = Math.floor(idx / cols);
                     const col = idx % cols;
 
-                    // Use NodeFactory to guarantee properties (including missing ones like isRepoContainer, isStickyNote)
+                    // Use NodeFactory to guarantee properties
+                    const labelLower = className.toLowerCase();
+                    let componentIcon = '⚙️'; // Default for system logic
+
+                    if (labelLower.includes('integrity')) componentIcon = '🛡️';
+                    else if (labelLower.includes('repository')) componentIcon = '🗄️';
+                    else if (labelLower.includes('manager')) componentIcon = '🛠️';
+                    else if (labelLower.includes('cache')) componentIcon = '📦';
+                    else if (className.includes('/')) componentIcon = '📁';
+
                     const child = NodeFactory.createSatelliteNode({
                         id: childId,
                         parentId: parentId,
                         x: parent.x + (col - (cols - 1) / 2) * gapX,
                         y: parent.y + (row * gapY) + DESIGNER_CONSTANTS.LAYOUT.CHILD_OFFSET_TOP,
                         label: className,
-                        icon: className.includes('integrity_check') ? '🔍' : '📁',  // Better icon for sys/integrity_check
+                        icon: componentIcon,
                         color: parent.color
                     });
 

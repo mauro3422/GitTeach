@@ -4,6 +4,7 @@ import { ThemeManager } from '../../../../core/ThemeManager.js';
 import ContainerBoxManager from '../../../../utils/ContainerBoxManager.js';
 import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 import { NodeFactory } from './NodeFactory.js';
+import { PIPELINE_NODES } from '../../PipelineConstants.js';
 
 export const DesignerLoader = {
     /**
@@ -48,6 +49,10 @@ export const DesignerLoader = {
             const isContainer = data.isRepoContainer;
             const isSatellite = data.isSatellite;
 
+            // NEW: Try to find icon in data, then in existing store (from loadInitialNodes), then in constants, then fallback
+            const existingNode = DesignerStore.state.nodes[id];
+            const constantNode = PIPELINE_NODES ? PIPELINE_NODES[id] : null;
+
             const nodeData = {
                 id,
                 x: data.x * scale,
@@ -55,7 +60,11 @@ export const DesignerLoader = {
                 label: data.label,
                 message: data.message,
                 parentId: data.parentId,
-                icon: isStickyNote ? '📝' : (isContainer ? '📦' : '🧩'),
+                // ROBUST FIX: For internal nodes (child_), ALWAYS force use of the engine-provided icon
+                // This prevents old "folder" icons from LocalStorage from overriding new system icons.
+                icon: (id.startsWith('child_') || data.icon === '🧩')
+                    ? (existingNode?.icon || constantNode?.icon || (isStickyNote ? '📝' : (isContainer ? '📦' : '🧩')))
+                    : (data.icon && data.icon.trim() !== '' ? data.icon : '🧩'),
                 color: data.color || ThemeManager.colors.drawerBorder,
                 text: isStickyNote ? (data.text || "Contenido recuperado...") : "",
                 orbitParent: data.orbitParent,

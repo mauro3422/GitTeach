@@ -8,6 +8,25 @@ All notable changes to the GitTeach project will be documented in this file.
 - [Versions v2.0.0 - v2.29.0](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/changelog/archive-2026-v2.md)
 - [Versions v1.0.0 - v1.9.0](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/changelog/archive-2026-v1.md)
 
+## [v2.85.0] - 2026-01-26
+
+### Added
+- **Engineering-Focused Visual Language**: Replaced generic icons with specialized symbols for internal pipeline components (Managers 🛠️, Repositories 🗄️, Cache 📦, Logic ⚙️).
+
+### Fixed
+- **Icon Persistence & Hydration Lifecycle**:
+  - Resolved issue where generic `🧩` icons from old blueprints would overwrite correctly initialized node icons.
+  - Implemented **Engine-Favored Hydration** in `DesignerLoader.js` to prioritize in-memory system icons over stale database values.
+  - Fixed `BlueprintManager.js` missing the `icon` property during serialization.
+- **Reference Safety**: Fixed `ReferenceError: labelY is not defined` regression in `ContainerRenderer.js`.
+
+### Changed
+- **Refined Container Aesthetics**:
+  - Centered container icons horizontally below the title for semantic clarity.
+  - Compacted visual layout by reducing icon vertical offset significantly (12px offset) for a tighter UI footprint.
+
+---
+
 ## [v2.84.0] - 2026-01-26
 
 ### Added

@@ -54,6 +54,13 @@ export const ContainerRenderer = {
                 const baseFontSize = node.isRepoContainer ? TYPOGRAPHY.CONTAINER_FONT_SIZE : TYPOGRAPHY.CONTAINER_SUB_FONT_SIZE;
                 const fScale = TextScalingManager.getFontScale(zoom, baseFontSize);
 
+                // Draw Icon (NEW: Positioned directly below title for compactness)
+                if (node.icon) {
+                    const iconX = x; // Center
+                    const iconY = labelY + 12 / zoom; // Even more compact (12px) to keep it tightly coupled with the title
+                    LabelRenderer.drawNodeIcon(ctx, node.icon, iconX, iconY, false, zoom, 18);
+                }
+
                 LabelRenderer.drawStandardText(ctx, node.label?.toUpperCase() || 'BOX', x, labelY, {
                     fontSize: baseFontSize,
                     color: (isSelected || isHovered) ? ThemeManager.colors.text : neonColor,

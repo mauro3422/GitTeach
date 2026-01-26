@@ -184,6 +184,7 @@ export const BlueprintManager = {
                 color: node.color,
                 isRepoContainer: node.isRepoContainer || false,
                 isSatellite: node.isSatellite || false,
+                icon: node.icon || '🧩',
                 orbitParent: node.orbitParent || null,
                 // Only save essential dimensions
                 dimensions: {
