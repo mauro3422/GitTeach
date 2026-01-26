@@ -11,10 +11,20 @@ export const GridRenderer = {
         ctx.lineWidth = 1 / camera.zoomScale;
         const gridGeom = ThemeManager.geometry.grid;
         const size = gridGeom.size;
-        const startX = -Math.floor(camera.panOffset.x / camera.zoomScale / size) * size - size * gridGeom.buffer;
-        const endX = startX + (width / camera.zoomScale) + size * (gridGeom.buffer * 2);
-        const startY = -Math.floor(camera.panOffset.y / camera.zoomScale / size) * size - size * gridGeom.buffer;
-        const endY = startY + (height / camera.zoomScale) + size * (gridGeom.buffer * 2);
+        const buffer = gridGeom.buffer * size;
+        const zoom = camera.zoomScale;
+        const pan = camera.panOffset;
+
+        // Get world-space viewport locally to avoid circular dependency with DesignerCanvas
+        const startX_world = (-pan.x / zoom) - buffer;
+        const endX_world = ((width - pan.x) / zoom) + buffer;
+        const startY_world = (-pan.y / zoom) - buffer;
+        const endY_world = ((height - pan.y) / zoom) + buffer;
+
+        const startX = Math.floor(startX_world / size) * size;
+        const endX = Math.ceil(endX_world / size) * size;
+        const startY = Math.floor(startY_world / size) * size;
+        const endY = Math.ceil(endY_world / size) * size;
         for (let x = startX; x <= endX; x += size) {
             ctx.beginPath(); ctx.moveTo(x, startY); ctx.lineTo(x, endY); ctx.stroke();
         }

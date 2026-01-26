@@ -1,4 +1,3 @@
-import { DesignerCanvas } from '../DesignerCanvas.js';
 import { ThemeManager } from '../../../../core/ThemeManager.js';
 import { GeometryUtils } from '../GeometryUtils.js';
 import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
@@ -43,8 +42,8 @@ export const ConnectionRenderer = {
         ctx.save(); // CRITICAL: Isolate state changes
 
         // Get edge points for both nodes (handles circles and rectangles)
-        const startPoint = DesignerCanvas.getEdgePoint(fromNode, toNode.x, toNode.y, nodes, camera);
-        const endPoint = DesignerCanvas.getEdgePoint(toNode, fromNode.x, fromNode.y, nodes, camera);
+        const startPoint = GeometryUtils.getEdgePoint(fromNode, toNode.x, toNode.y, nodes, camera);
+        const endPoint = GeometryUtils.getEdgePoint(toNode, fromNode.x, fromNode.y, nodes, camera);
 
         const angle = GeometryUtils.calculateAngle(startPoint, endPoint);
 

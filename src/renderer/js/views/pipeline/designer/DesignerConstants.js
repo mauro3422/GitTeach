@@ -66,6 +66,7 @@ export const DESIGNER_CONSTANTS = {
         LINE_HEIGHT_OFFSET: 6
     },
     VISUAL: {
+        VIEWPORT_MARGIN: 150,
         CONNECTION: {
             DASH_PATTERN: [5, 5],
             ACTIVE_WIDTH: 2,

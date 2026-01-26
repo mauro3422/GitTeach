@@ -6,6 +6,9 @@ import { UIRenderer } from './renderers/UIRenderer.js';
 import { CanvasCamera } from '../../../core/CanvasCamera.js';
 import { ThemeManager } from '../../../core/ThemeManager.js';
 import { GeometryUtils } from './GeometryUtils.js';
+import { cameraState } from './modules/stores/CameraState.js';
+import { nodeRepository } from './modules/stores/NodeRepository.js';
+import { DESIGNER_CONSTANTS } from './DesignerConstants.js';
 // Import LayoutUtils to ensure it's loaded and exported to window (for GeometryUtils fallback)
 import { LayoutUtils } from './utils/LayoutUtils.js';
 
@@ -29,15 +32,23 @@ export const DesignerCanvas = {
      * Issue #17: Calculate viewport bounds in world-space coordinates
      * @returns {Object} { minX, maxX, minY, maxY } in world space
      */
-    getViewportBounds(width, height, camera) {
-        // Calculate viewport in screen space, then convert to world space
-        const halfW = width / 2 / camera.zoom;
-        const halfH = height / 2 / camera.zoom;
+    getViewportBounds(width, height) {
+        // Use cameraState directly (Single Source of Truth)
+        const cameraVal = cameraState.state;
+        const zoom = cameraVal.zoomScale;
+        const pan = cameraVal.panOffset;
+
+        // Margin in world space
+        const margin = DESIGNER_CONSTANTS.VISUAL.VIEWPORT_MARGIN / zoom;
+
+        // Correct formula: (ScreenPos - Pan) / Zoom
+        // Screen(0,0) -> World(minX, minY)
+        // Screen(width, height) -> World(maxX, maxY)
         return {
-            minX: camera.pan.x - halfW,
-            maxX: camera.pan.x + halfW,
-            minY: camera.pan.y - halfH,
-            maxY: camera.pan.y + halfH
+            minX: (-pan.x / zoom) - margin,
+            maxX: ((width - pan.x) / zoom) + margin,
+            minY: (-pan.y / zoom) - margin,
+            maxY: ((height - pan.y) / zoom) + margin
         };
     },
 
@@ -60,35 +71,14 @@ export const DesignerCanvas = {
         );
     },
 
-    /**
-     * Issue #17: Get only visible nodes based on viewport culling
-     * @param {Array} nodes - All nodes as array
-     * @param {Object} viewport - Viewport bounds
-     * @param {Object} camera - Camera for bounds calculation
-     * @returns {Array} Only nodes visible in viewport
-     */
-    getVisibleNodes(nodes, viewport, camera, zoom) {
-        if (!nodes || nodes.length === 0) return [];
+    getVisibleNodes(nodes, viewport, zoom) {
+        const nodeList = Array.isArray(nodes) ? nodes : Object.values(nodes);
+        if (nodeList.length === 0) return [];
 
         const visible = [];
-        for (const node of nodes) {
-            let bounds;
-            if (node.isRepoContainer) {
-                bounds = GeometryUtils.getContainerBounds(node, {}, zoom);
-            } else if (node.isStickyNote) {
-                bounds = GeometryUtils.getStickyNoteBounds(node, null, zoom);
-            } else {
-                // Regular node: use radius to calculate bounds
-                const radius = GeometryUtils.getNodeRadius(node, zoom);
-                bounds = {
-                    centerX: node.x,
-                    centerY: node.y,
-                    w: radius * 2,
-                    h: radius * 2,
-                    renderW: radius * 2,
-                    renderH: radius * 2
-                };
-            }
+        for (const node of nodeList) {
+            // PERFORMANCE: Use bounds cache from NodeRepository (Fase 3)
+            const bounds = nodeRepository.getCachedBounds(node.id, zoom);
 
             if (this.boundsIntersectViewport(bounds, viewport)) {
                 visible.push(node);
@@ -112,10 +102,17 @@ export const DesignerCanvas = {
     /**
      * Main render method using composite renderer pattern
      */
-    render(width, height, nodes, navState, connections, activeConnectionId, activeConnection = null, hoveredNodeId = null, dropTargetId = null, resizingNodeId = null, selectedNodeId = null, selectedConnectionId = null, draggingNodeId = null) {
-        // Sincronizar camera con navState (temporal para compatibilidad)
-        this.camera.pan = navState.panOffset;
-        this.camera.zoom = navState.zoomScale;
+    render(width, height, nodes, connections, activeConnectionId, activeConnection = null, hoveredNodeId = null, dropTargetId = null, resizingNodeId = null, selectedNodeId = null, selectedConnectionId = null, draggingNodeId = null) {
+        // Sync internal camera with cameraState (Single Source of Truth)
+        const cameraVal = cameraState.state;
+        this.camera.pan = cameraVal.panOffset;
+        this.camera.zoom = cameraVal.zoomScale;
+
+        // --- CULLING LOGIC (Issue #17) ---
+        const viewport = this.getViewportBounds(width, height);
+        const visibleNodes = this.getVisibleNodes(nodes, viewport, this.camera.zoom);
+        const visibleNodeIds = visibleNodes.map(n => n.id);
+        const visibleConnections = this.getVisibleConnections(connections, visibleNodeIds);
 
         // 1. Grid Renderer (Handles its own space/tiling)
         GridRenderer.render(this.ctx, width, height, this.camera);
@@ -123,10 +120,17 @@ export const DesignerCanvas = {
         // 2. World Space Renderers (Apply camera transform once)
         this.camera.apply(this.ctx);
 
-        ContainerRenderer.render(this.ctx, nodes, this.camera, hoveredNodeId, dropTargetId, resizingNodeId, selectedNodeId);
-        NodeRenderer.render(this.ctx, nodes, this.camera, activeConnectionId, hoveredNodeId, selectedNodeId);
-        // ConnectionRenderer now handles both persistent and active connections
-        ConnectionRenderer.render(this.ctx, nodes, this.camera, connections, activeConnection, selectedConnectionId);
+        // Optimization: Pass visibleNodeIds set to avoid O(N) loops in sub-renderers
+        const visibleNodeIdsSet = new Set(visibleNodeIds);
+
+        // ContainerRenderer needs full nodes list for auto-growth calculations, but we pass visibility set
+        ContainerRenderer.render(this.ctx, nodes, this.camera, visibleNodeIdsSet, hoveredNodeId, dropTargetId, resizingNodeId, selectedNodeId);
+
+        // NodeRenderer only processes visible nodes (O(visible) complexity now)
+        NodeRenderer.render(this.ctx, visibleNodes, this.camera, activeConnectionId, hoveredNodeId, selectedNodeId);
+
+        // ConnectionRenderer handles persistent connections
+        ConnectionRenderer.render(this.ctx, nodes, this.camera, visibleConnections, activeConnection, selectedConnectionId);
 
         // Render resize handles in world space (before camera restore)
         if (selectedNodeId && nodes[selectedNodeId]) {
@@ -143,7 +147,6 @@ export const DesignerCanvas = {
         this.ctx.shadowBlur = 0;
 
         // Render screen-space UI (tooltips)
-        // Desactivar tooltips si hay un nodo siendo arrastrado (evita bugs visuales)
         UIRenderer.renderTooltips(this.ctx, nodes, this.camera, hoveredNodeId, draggingNodeId);
     },
 

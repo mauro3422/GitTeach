@@ -6,6 +6,8 @@
 
 import { InteractionStrategy } from './InteractionStrategy.js';
 import { GeometryUtils } from '../GeometryUtils.js';
+import { nodeRepository } from '../modules/stores/NodeRepository.js';
+import { interactionState } from '../modules/stores/InteractionState.js';
 import { DesignerStore } from '../modules/DesignerStore.js';
 import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 
@@ -31,7 +33,7 @@ export class DragStrategy extends InteractionStrategy {
         // ROBUST PATTERN: Start dragging the SELECTED node (not hovered)
         // Selection is already handled by DesignerInteraction.handleMouseDown
         if (e.button === 0) {
-            const selectedNodeId = DesignerStore.state.interaction.selectedNodeId;
+            const selectedNodeId = interactionState.state.selectedNodeId;
             const selectedNode = selectedNodeId ? this.controller.nodes[selectedNodeId] : null;
 
             if (selectedNode) {
@@ -123,12 +125,12 @@ export class DragStrategy extends InteractionStrategy {
         };
         this.dragState.dropTargetId = null;
 
-        // Sync initial isDragging state with Store (Single Source of Truth)
+        // Sync initial isDragging state with specialized record store
         node.isDragging = true;
         const updatedNodes = { ...this.controller.nodes };
         updatedNodes[node.id] = { ...node, isDragging: true };
-        DesignerStore.setState({ nodes: updatedNodes }, 'DRAG_START');
-        DesignerStore.setDragging(node.id);
+        nodeRepository.setNodes(updatedNodes);
+        interactionState.setDragging(node.id);
 
         console.log(`[DragStrategy] Started dragging: ${node.id}`);
     }
@@ -163,9 +165,9 @@ export class DragStrategy extends InteractionStrategy {
             this.updateChildPositionsInObject(updatedNodes, node, worldPos);
         }
 
-        // CRITICAL: Sync to Store every frame (eliminates lag and state divergence)
+        // CRITICAL: Sync to Record Store every frame (eliminates lag and state divergence)
         // This matches the pattern used by ResizeHandler for consistency
-        DesignerStore.setState({ nodes: updatedNodes }, 'DRAG_UPDATE');
+        nodeRepository.setNodes(updatedNodes);
 
         // Update drop target detection
         this.updateDropTarget(worldPos, updatedNodes);
@@ -191,14 +193,14 @@ export class DragStrategy extends InteractionStrategy {
                 this.handleUnparenting(node);
             }
 
-            // CRITICAL: Always sync final node state with Store to ensure isDragging is cleared
+            // CRITICAL: Always sync final node state with Record Store to ensure isDragging is cleared
             // This prevents stale references where isDragging=true but Store has different state
             const finalNodes = { ...nodes };
             finalNodes[nodeId] = { ...nodes[nodeId], isDragging: false };
-            DesignerStore.setState({ nodes: finalNodes }, 'DRAG_END');
+            nodeRepository.setNodes(finalNodes);
         }
 
-        DesignerStore.setDragging(null);
+        interactionState.setDragging(null);
         this.cleanupDragState(nodes);
     }
 
@@ -345,11 +347,11 @@ export class DragStrategy extends InteractionStrategy {
             // CRITICAL FIX: ALWAYS sync to Store, even if no changes detected
             // This ensures _originalPos is removed from Store and won't persist
             // Unconditional update prevents state divergence
-            DesignerStore.setState({ nodes: cleanedNodes }, 'DRAG_CLEANUP');
+            nodeRepository.setNodes(cleanedNodes);
 
             // CRITICAL FIX: Invalidate bounds cache after drag
             // Prevents hit detection from using stale bounds with old _originalPos
-            DesignerStore.clearBoundsCache();
+            nodeRepository.clearBoundsCache();
         }
 
         this.dragState.draggingNodeId = null;
@@ -358,6 +360,6 @@ export class DragStrategy extends InteractionStrategy {
         this.dragState.dropTargetId = null;
 
         // This also clears selectedNodeId now (from our DesignerStore fix)
-        DesignerStore.setDragging(null);
+        interactionState.setDragging(null);
     }
 }

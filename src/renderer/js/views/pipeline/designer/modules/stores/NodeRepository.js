@@ -8,6 +8,7 @@
 
 import { Store } from '../../../../../core/Store.js';
 import { NodeFactory } from '../NodeFactory.js';
+import { GeometryUtils } from '../../GeometryUtils.js';
 import { DESIGNER_CONSTANTS } from '../../DesignerConstants.js';
 
 class NodeRepositoryClass extends Store {
@@ -297,24 +298,89 @@ class NodeRepositoryClass extends Store {
     }
 
     /**
-     * Replace all connections (batch)
+     * Replace all connections (batch) with validation
      * @param {Array} connections
      */
     setConnections(connections) {
-        this.setState({ connections }, 'SET_CONNECTIONS');
+        // SAFETY: Validate connection structure before storing
+        const validConnections = Array.isArray(connections) ? connections.filter(c => {
+            if (!c || typeof c !== 'object') {
+                console.warn('[NodeRepository] Invalid connection structure (not an object):', c);
+                return false;
+            }
+            if (typeof c.from !== 'string' || typeof c.to !== 'string') {
+                console.warn('[NodeRepository] Connection missing from/to:', c);
+                return false;
+            }
+            return true;
+        }) : [];
+
+        if (validConnections.length !== (Array.isArray(connections) ? connections.length : 0)) {
+            console.warn('[NodeRepository] Filtered out invalid connections. Before:', connections?.length || 0, 'After:', validConnections.length);
+        }
+
+        this.setState({ connections: [...validConnections] }, 'SET_CONNECTIONS');
+        this.clearBoundsCache();
     }
 
     // ============ BOUNDS CACHING (Issue #13) ============
 
     /**
-     * Get cached bounds for node at zoom level
+     * Get cached bounds for node at zoom level, computing if necessary
      * @param {string} nodeId
      * @param {number} zoomScale
      * @returns {Object|null} Cached bounds or null
      */
     getCachedBounds(nodeId, zoomScale = 1.0) {
         const cacheKey = `${nodeId}_${zoomScale}`;
-        return this.boundsCache[cacheKey] || null;
+
+        // Return if cached
+        if (this.boundsCache[cacheKey]) {
+            return this.boundsCache[cacheKey];
+        }
+
+        // Compute and cache if not found
+        const node = this.state.nodes[nodeId];
+        if (!node) return null;
+
+        const { GeometryUtils } = (typeof window !== 'undefined' && window.GeometryUtils) ? window : { GeometryUtils: null };
+        // Fallback: try to import if not on window (assuming it's imported in the file)
+        // Note: NodeRepository already needs GeometryUtils for hit-testing logic if we move it here
+
+        const bounds = this._computeNodeBounds(node, zoomScale);
+        if (bounds) {
+            this.boundsCache[cacheKey] = bounds;
+        }
+
+        return bounds;
+    }
+
+    /**
+     * Private helper to compute bounds
+     * @private
+     * @param {Object} node
+     * @param {number} zoomScale
+     * @returns {Object|null}
+     */
+    _computeNodeBounds(node, zoomScale) {
+        if (!node) return null;
+
+        if (node.isRepoContainer) {
+            return GeometryUtils.getContainerBounds(node, this.state.nodes, zoomScale);
+        } else if (node.isStickyNote) {
+            return GeometryUtils.getStickyNoteBounds(node, null, zoomScale);
+        } else {
+            // Regular node: use radius to calculate bounds
+            const radius = GeometryUtils.getNodeRadius(node, zoomScale);
+            return {
+                centerX: node.x,
+                centerY: node.y,
+                w: radius * 2,
+                h: radius * 2,
+                renderW: radius * 2,
+                renderH: radius * 2
+            };
+        }
     }
 
     /**

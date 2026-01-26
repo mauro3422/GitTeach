@@ -1,7 +1,8 @@
 
 import { InteractionHandler } from '../InteractionHandler.js';
 import { GeometryUtils } from '../GeometryUtils.js';
-import { DesignerStore } from '../modules/DesignerStore.js';
+import { nodeRepository } from '../modules/stores/NodeRepository.js';
+import { interactionState } from '../modules/stores/InteractionState.js';
 import { DimensionSync } from '../DimensionSync.js';
 import { LayoutUtils } from '../utils/LayoutUtils.js';
 import { BoundsCalculator } from '../utils/BoundsCalculator.js';
@@ -28,8 +29,8 @@ export class ResizeHandler extends InteractionHandler {
             node.dimensions.h = sync.h / vScale;
         }
 
-        // ROBUST PATTERN: Store ALL resize state in DesignerStore (Single Source of Truth)
-        DesignerStore.startResize(nodeId, {
+        // ROBUST PATTERN: Store ALL resize state in specialized store (Single Source of Truth)
+        interactionState.startResize(nodeId, {
             corner: corner,
             startMouse: { ...initialPos },
             startLogicalSize: {
@@ -46,10 +47,10 @@ export class ResizeHandler extends InteractionHandler {
         // Mark handler as active (local flag only for performance checks)
         this._active = true;
     }
-
     onUpdate(e) {
-        // ROBUST PATTERN: Read state from Store (Single Source of Truth)
-        const { resizingNodeId, resize } = DesignerStore.state.interaction;
+        // ROBUST PATTERN: Read state from specialized interaction store
+        const interaction = interactionState.state;
+        const { resizingNodeId, resize } = interaction;
         if (!resizingNodeId || !resize.startMouse) return;
 
         const mousePos = this.controller.screenToWorld(this.controller.getMousePos(e));
@@ -102,20 +103,6 @@ export class ResizeHandler extends InteractionHandler {
         newW = Math.max(actualMinW, newW);
         newH = Math.max(minH, newH);
 
-        // Issue #14: Silent Fallback Logging - Report constraint violations
-        if (newW !== origW) {
-            console.warn(
-                `[ResizeHandler] Width clamped: ${origW.toFixed(1)}px → ${newW.toFixed(1)}px (MIN_WIDTH: ${actualMinW}px)`,
-                { nodeId: node.id, nodeLabel: node.label || '(unnamed)' }
-            );
-        }
-        if (newH !== origH) {
-            console.warn(
-                `[ResizeHandler] Height clamped: ${origH.toFixed(1)}px → ${newH.toFixed(1)}px (MIN_HEIGHT: ${minH}px)`,
-                { nodeId: node.id, nodeLabel: node.label || '(unnamed)' }
-            );
-        }
-
         // ATOMIC UPDATE: Collect all changes into one Store call to avoid state-fight
         const nextNodes = { ...nodes };
         nextNodes[node.id] = {
@@ -135,7 +122,7 @@ export class ResizeHandler extends InteractionHandler {
         if (ResizeHandler.DEBUG) {
             console.log(`[StateTrace] RESIZE_DRAG: ${node.id} | w:${newW.toFixed(1)} h:${newH.toFixed(1)}`);
         }
-        DesignerStore.setState({ nodes: nextNodes }, 'RESIZE_DRAG');
+        nodeRepository.setNodes(nextNodes);
 
 
         // Trigger local renderer
@@ -144,22 +131,22 @@ export class ResizeHandler extends InteractionHandler {
 
     onEnd(e) {
         // ISSUE #8: Validate node still exists before completing resize
-        const resizingNodeId = DesignerStore.state.interaction.resizingNodeId;
+        const resizingNodeId = interactionState.state.resizingNodeId;
         if (resizingNodeId) {
-            const node = DesignerStore.state.nodes[resizingNodeId];
+            const node = nodeRepository.getNode(resizingNodeId);
             if (!node) {
                 console.warn('[ResizeHandler] Node was deleted mid-resize, cleaning up:', resizingNodeId);
             }
         }
 
-        // ROBUST PATTERN: Clear resize state from Store
-        DesignerStore.clearResize();
+        // ROBUST PATTERN: Clear resize state from specialized store
+        interactionState.clearResize();
         this._active = false;
     }
 
     onCancel() {
-        // ROBUST PATTERN: Clear resize state from Store
-        DesignerStore.clearResize();
+        // ROBUST PATTERN: Clear resize state from specialized store
+        interactionState.clearResize();
         this._active = false;
     }
 
@@ -214,7 +201,7 @@ export class ResizeHandler extends InteractionHandler {
     findResizeHandle(worldPos) {
         const nodes = this.controller.nodes;
         const zoom = this.controller.state?.zoomScale || 1.0;
-        const selectedNodeId = DesignerStore.state.interaction.selectedNodeId;
+        const selectedNodeId = interactionState.state.selectedNodeId;
 
         // In test environments, selectedNodeId might be interfering with detection
         // So we'll try both approaches: selected first, then all nodes

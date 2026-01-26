@@ -3,6 +3,9 @@ import { ResizeHandler } from './interaction/ResizeHandler.js';
 import { CoordinateUtils } from './CoordinateUtils.js';
 import { NodeVisualManager } from './modules/NodeVisualManager.js';
 import { InputManager } from './modules/InputManager.js';
+import { nodeRepository } from './modules/stores/NodeRepository.js';
+import { interactionState } from './modules/stores/InteractionState.js';
+import { cameraState } from './modules/stores/CameraState.js';
 import { DesignerStore } from './modules/DesignerStore.js';
 import { StrategyManager } from './interaction/StrategyManager.js';
 import { HoverManager } from './interaction/HoverManager.js';
@@ -25,15 +28,15 @@ export const DesignerInteraction = {
     get dragStrategy() { return this.strategyManager.dragStrategy; },
     get drawStrategy() { return this.strategyManager.drawStrategy; },
     get activeStrategy() { return this.strategyManager.activeStrategy; },
-    get hoveredNodeId() { return DesignerStore.state.interaction.hoveredNodeId; },
-    get state() { return DesignerStore.state.camera; },
+    get hoveredNodeId() { return interactionState.state.hoveredNodeId; },
+    get state() { return cameraState.state; },
     get activeConnection() { return this.strategyManager.getConnectionState(); },
 
     /**
      * Get visual state for a node (facade for NodeVisualManager)
      */
     getInteractionState() {
-        return DesignerStore.state.interaction;
+        return interactionState.state;
     },
 
     getVisualState(node) {
@@ -162,8 +165,8 @@ export const DesignerInteraction = {
                 DesignerStore.savepoint('NODE_MOVE', { nodeId: clickedNode.id });
 
                 // Select the node if not already selected
-                if (DesignerStore.state.interaction.selectedNodeId !== clickedNode.id) {
-                    DesignerStore.selectNode(clickedNode.id);
+                if (interactionState.state.selectedNodeId !== clickedNode.id) {
+                    interactionState.selectNode(clickedNode.id);
                 }
 
                 // CRITICAL FIX: Allow strategyManager to initiate drag
@@ -174,9 +177,9 @@ export const DesignerInteraction = {
                 // 4. Check for Connection Selection
                 const clickedConn = DesignerStore.findConnectionAt(worldPos);
                 if (clickedConn) {
-                    DesignerStore.selectConnection(clickedConn);
+                    interactionState.selectConnection(clickedConn);
                 } else {
-                    DesignerStore.clearSelection();
+                    interactionState.clearSelection();
                 }
 
                 // For empty space clicks, allow strategy manager to handle it (panning, etc.)

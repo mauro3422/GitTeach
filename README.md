@@ -5,17 +5,17 @@ GitTeach is a high-performance desktop platform (Electron) engineered for deep t
 
 ---
 
-## 🍱 **The Master UI (v2.80.0)**
-The latest evolution introduces **Interaction Centralization** and **Architectural Purity**:
-- **Interaction Single Source of Truth**: Centralized all camera (pan/zoom) and tool states (hover, drag, resize, draw) within `DesignerStore`, eliminating handler-level redundancy.
+## 🍱 **The Master UI (v2.82.0)**
+The latest evolution introduces **Interaction Centralization**, **Architectural Purity**, and **Lince Performance Engine**:
+- **Lince Performance Engine (O(visible))**: High-speed viewport culling and spatial caching enables 60 FPS fluid navigation with thousands of nodes.
+- **Fachada TIER 2 Store**: Decoupled state management into specialized stores (`NodeRepository`, `InteractionState`, `CameraState`) unified by a gateway facade.
+- **Interaction Single Source of Truth**: Centralized all camera (pan/zoom) and tool states, eliminating handler-level redundancy.
 - **Parametric Precision**: Unified `DesignerConstants.js` as the source of truth for all interaction thresholds and visual tokens.
 - **Extreme Zoom Support**: Hit-testing compensation allows 1:1 precision even at 0.1x zoom, maintaining a consistent 14px on-screen target.
 - **Double Label Fix**: Centralized container identities in the screen-space UI layer, eliminating redundant legacy labels.
-- **Magnetic Sticky Notes**: Automatic height adjustment to fit text content, combined with strict minimum size constraints.
 - **Coordinate Synchronization**: Perfect alignment of HTML overlays (editors) with the underlying WebGL/Canvas world.
 - **SOLID Architectural Pivot**: The entire Designer has been modularized into specialized state-based handlers for interaction, rendering, and domain logic.
 - **Persistent Disk Blueprints**: Blueprints are now saved primarily to the file system (`%appdata%`), ensuring layouts persist even after cache cleared.
-- **Proportional Magnetic Scaling**: Fixed world-space delta logic for pixel-perfect container resizing across all zoom levels.
 - **Resolution-Independent UI**: All text labels, icons, and badges are rendered in 1:1 screen pixels for maximum clarity.
 
 ---

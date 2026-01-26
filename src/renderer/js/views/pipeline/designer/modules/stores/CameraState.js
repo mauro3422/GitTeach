@@ -152,15 +152,15 @@ class CameraStateClass extends Store {
      * @param {number} screenHeight
      * @returns {Object} { minX, maxX, minY, maxY }
      */
-    getViewportBounds(screenWidth, screenHeight) {
-        const halfW = screenWidth / 2 / this.state.zoomScale;
-        const halfH = screenHeight / 2 / this.state.zoomScale;
+    getViewportBounds(screenWidth, screenHeight, margin = 0) {
+        const zoom = this.state.zoomScale;
+        const pan = this.state.panOffset;
 
         return {
-            minX: this.state.panOffset.x - halfW,
-            maxX: this.state.panOffset.x + halfW,
-            minY: this.state.panOffset.y - halfH,
-            maxY: this.state.panOffset.y + halfH
+            minX: (-pan.x / zoom) - margin,
+            maxX: ((screenWidth - pan.x) / zoom) + margin,
+            minY: (-pan.y / zoom) - margin,
+            maxY: ((screenHeight - pan.y) / zoom) + margin
         };
     }
 
@@ -174,7 +174,7 @@ class CameraStateClass extends Store {
     isPointInViewport(point, screenWidth, screenHeight) {
         const bounds = this.getViewportBounds(screenWidth, screenHeight);
         return point.x >= bounds.minX && point.x <= bounds.maxX &&
-               point.y >= bounds.minY && point.y <= bounds.maxY;
+            point.y >= bounds.minY && point.y <= bounds.maxY;
     }
 }
 

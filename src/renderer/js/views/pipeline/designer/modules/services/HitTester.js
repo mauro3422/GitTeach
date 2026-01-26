@@ -50,7 +50,7 @@ export const HitTester = {
         }
 
         return null;
-    }
+    },
 
     /**
      * Find connection at world position
@@ -83,7 +83,7 @@ export const HitTester = {
         }
 
         return null;
-    }
+    },
 
     /**
      * Find drop target container for dragging node
@@ -117,7 +117,7 @@ export const HitTester = {
         }
 
         return null;
-    }
+    },
 
     /**
      * Find all nodes in a region
@@ -139,7 +139,7 @@ export const HitTester = {
                 );
             }
         });
-    }
+    },
 
     /**
      * Test if point is inside circle
@@ -149,7 +149,7 @@ export const HitTester = {
         const radius = GeometryUtils.getNodeRadius(node, zoomScale);
         const dist = GeometryUtils.getDistance(point, node);
         return dist < radius;
-    }
+    },
 
     /**
      * Test if point is inside bounds
@@ -164,8 +164,8 @@ export const HitTester = {
         const cy = bounds.centerY;
 
         return point.x >= cx - w / 2 && point.x <= cx + w / 2 &&
-               point.y >= cy - h / 2 && point.y <= cy + h / 2;
-    }
+            point.y >= cy - h / 2 && point.y <= cy + h / 2;
+    },
 
     /**
      * Test if bounds intersect region (AABB collision)
@@ -185,7 +185,7 @@ export const HitTester = {
             by + h / 2 < region.minY ||
             by - h / 2 > region.maxY
         );
-    }
+    },
 
     /**
      * Test if circle intersects region

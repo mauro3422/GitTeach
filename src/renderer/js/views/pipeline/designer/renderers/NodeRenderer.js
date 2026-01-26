@@ -12,11 +12,11 @@ import { TextScalingManager } from '../utils/TextScalingManager.js';
 import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 
 export const NodeRenderer = {
-    render(ctx, nodes, camera, activeConnectionId, hoveredNodeId = null, selectedNodeId = null) {
+    render(ctx, visibleNodes, camera, activeConnectionId, hoveredNodeId = null, selectedNodeId = null) {
         const zoom = camera.zoomScale;
 
         // LEVEL 2: Per-node error boundary
-        Object.values(nodes).forEach(node => {
+        visibleNodes.forEach(node => {
             try {
                 if (node.isRepoContainer || node.isStickyNote) return;
 

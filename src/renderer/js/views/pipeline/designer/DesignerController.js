@@ -10,6 +10,7 @@ import { UIManager } from './UIManager.js';
 import { CoordinateUtils } from './CoordinateUtils.js';
 import { AnimationManager } from './AnimationManager.js';
 import { DesignerStore } from './modules/DesignerStore.js';
+import { cameraState } from './modules/stores/CameraState.js';
 import { DESIGNER_CONSTANTS } from './DesignerConstants.js';
 import {
     commandManager,
@@ -162,7 +163,7 @@ class DesignerControllerClass extends BaseController {
     }
 
     addCustomNode(isContainer) {
-        const centerPos = CoordinateUtils.getCanvasCenterWorldPos(this.canvas, DesignerInteraction.state);
+        const centerPos = CoordinateUtils.getCanvasCenterWorldPos(this.canvas, cameraState.state);
         const command = new AddNodeCommand(isContainer, centerPos.x, centerPos.y);
 
         commandManager.execute(command);
@@ -170,7 +171,7 @@ class DesignerControllerClass extends BaseController {
     }
 
     addStickyNote() {
-        const centerPos = CoordinateUtils.getCanvasCenterWorldPos(this.canvas, DesignerInteraction.state);
+        const centerPos = CoordinateUtils.getCanvasCenterWorldPos(this.canvas, cameraState.state);
         const command = new AddStickyNoteCommand(centerPos.x, centerPos.y);
 
         const newNote = commandManager.execute(command);
@@ -277,16 +278,7 @@ class DesignerControllerClass extends BaseController {
         const ctx = this.canvas.getContext('2d');
         ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        let navState;
-        try {
-            navState = DesignerInteraction.state;
-            if (!navState || !navState.panOffset) {
-                navState = { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 };
-            }
-        } catch (e) {
-            console.warn('[RoutingDesigner] Interaction state access failed:', e);
-            navState = { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 };
-        }
+        // navState logic removed - DesignerCanvas now gets it from cameraState
 
         let activeConn = null;
         let activeConnId = null;
@@ -295,9 +287,9 @@ class DesignerControllerClass extends BaseController {
             activeConnId = activeConn.fromNode ? activeConn.fromNode.id : null;
         }
 
-        const interactionState = DesignerInteraction.getInteractionState();
-        const dropTargetId = interactionState?.draggingId
-            ? DesignerStore.findDropTarget(interactionState.draggingId, navState.zoomScale)
+        const interaction = DesignerInteraction.getInteractionState();
+        const dropTargetId = interaction?.draggingId
+            ? DesignerStore.findDropTarget(interaction.draggingId, cameraState.state.zoomScale)
             : null;
 
         // CRITICAL FIX: Read resizingNodeId from Store (Single Source of Truth)
@@ -311,7 +303,6 @@ class DesignerControllerClass extends BaseController {
                 this.canvas.width,
                 this.canvas.height,
                 DesignerStore.state.nodes,
-                navState,
                 DesignerStore.state.connections,
                 activeConnId,
                 activeConn,
@@ -319,7 +310,7 @@ class DesignerControllerClass extends BaseController {
                 dropTargetId,
                 resizingNodeId,
                 DesignerStore.state.interaction.selectedNodeId,
-                interactionState.selectedConnectionId,
+                interaction.selectedConnectionId,
                 draggingNodeId
             );
         } catch (e) {
@@ -330,7 +321,7 @@ class DesignerControllerClass extends BaseController {
         }
 
         // Sync inline editor if active (Passing explicit viewport state and coordinate transform)
-        InlineEditor.syncPosition(navState, (pos) => DesignerInteraction.worldToScreen(pos));
+        InlineEditor.syncPosition(cameraState.state, (pos) => DesignerInteraction.worldToScreen(pos));
 
         // Check for container animations
         this.checkAnimations();
