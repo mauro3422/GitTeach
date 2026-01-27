@@ -69,6 +69,35 @@ export const ContainerRenderer = {
                     fScale: fScale
                 });
 
+                // DRAW INTERNAL COMPONENT LABELS ("Blue Labels")
+                if (node.internalClasses && node.internalClasses.length > 0) {
+                    const startY = labelY + (35 / zoom); // Start below the main title
+                    const itemHeight = 30 / zoom;
+
+                    // NEW: Filter out classes that are ALREADY rendered as physical child nodes
+                    // Robust check: Normalize strings (trim + lowercase) to ensure matching works even if renamed slightly
+                    const existingNodeLabels = new Set();
+                    Object.values(nodes).forEach(n => {
+                        if (n.label) existingNodeLabels.add(n.label.trim().toLowerCase());
+                    });
+
+                    // Filter: Must not be a path AND must not already exist as a node anywhere on the canvas
+                    const visibleClasses = node.internalClasses.filter(c => {
+                        if (c.includes('/')) return false; // Folders are NEVER badges on canvas
+                        const normalizedClass = c.trim().toLowerCase();
+                        // If it's on canvas as a node, we hide the blue badge (even if it's still a child)
+                        return !existingNodeLabels.has(normalizedClass);
+                    });
+
+                    visibleClasses.forEach((className, idx) => {
+                        const itemY = startY + (idx * itemHeight);
+                        // Heuristic width based on char count approx
+                        const width = (className.length * 9 + 20) / zoom;
+
+                        LabelRenderer.drawInternalLabel(ctx, className, x, itemY, width, zoom);
+                    });
+                }
+
                 // Message Badge (Pencil)
                 if (node.message) {
                     const badgeX = x + w / 2 - BADGE.OFFSET / zoom;

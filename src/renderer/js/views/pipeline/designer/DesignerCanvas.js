@@ -146,8 +146,8 @@ export const DesignerCanvas = {
         this.ctx.globalAlpha = 1.0;
         this.ctx.shadowBlur = 0;
 
-        // Render screen-space UI (tooltips)
-        UIRenderer.renderTooltips(this.ctx, nodes, this.camera, hoveredNodeId, draggingNodeId);
+        // Render screen-space UI (tooltips disabled as per user feedback)
+        // UIRenderer.renderTooltips(this.ctx, nodes, this.camera, hoveredNodeId, draggingNodeId);
     },
 
 

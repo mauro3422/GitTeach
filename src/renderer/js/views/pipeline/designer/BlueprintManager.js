@@ -185,7 +185,11 @@ export const BlueprintManager = {
                 isRepoContainer: node.isRepoContainer || false,
                 isSatellite: node.isSatellite || false,
                 icon: node.icon || '🧩',
+                icon: node.icon || '🧩',
                 orbitParent: node.orbitParent || null,
+                // PERSISTENCE FIX: Save secondary visual properties for seamless restoration
+                description: node.description || "",
+                internalClasses: node.internalClasses || [],
                 // Only save essential dimensions
                 dimensions: {
                     w: node.dimensions?.w || (node.isStickyNote ? DESIGNER_CONSTANTS.DIMENSIONS.STICKY_NOTE.MIN_W : DESIGNER_CONSTANTS.DIMENSIONS.CONTAINER.DEFAULT_W),

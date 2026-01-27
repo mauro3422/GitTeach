@@ -102,6 +102,7 @@ class DesignerControllerClass extends BaseController {
     initializeModules() {
         HistoryManager.clear();
         ModalController.editingNode = null;
+        ModalController.init();
     }
 
     /**

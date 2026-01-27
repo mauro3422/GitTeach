@@ -54,7 +54,7 @@ export const BoundsCalculator = {
     /**
      * Calcula los límites de un contenedor (auto-grow + elástico)
      */
-    getContainerBounds(node, nodes, zoomScale = 1.0, dropTargetId = null) {
+    getContainerBounds(node, nodes, zoomScale = 1.0, dropTargetId = null, excludeNodeId = null) {
         const containerId = node.id;
         const isScaleUp = node.id === dropTargetId;
         const scaleFactor = isScaleUp ? DESIGNER_CONSTANTS.INTERACTION.DROP_TARGET_SCALE : 1.0;
@@ -74,7 +74,10 @@ export const BoundsCalculator = {
         }
 
         const dims = node.dimensions;
-        const children = Object.values(nodes).filter(n => n.parentId === containerId);
+        // Filter children: belongs to container AND is not the excluded node
+        const children = Object.values(nodes).filter(n =>
+            n.parentId === containerId && n.id !== excludeNodeId
+        );
         const vScale = ScalingCalculator.getVisualScale(zoomScale);
 
         // 2. Calcular Target Size (Lógica de Auto-Layout)

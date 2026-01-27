@@ -138,8 +138,8 @@ export const GeometryUtils = {
      * Delegado para obtener límites de contenedor.
      * @returns {{ w: number, h: number, renderW: number, renderH: number, centerX: number, centerY: number }}
      */
-    getContainerBounds(node, nodes, zoomScale = 1.0, dropTargetId = null) {
-        return BoundsCalculator.getContainerBounds(node, nodes, zoomScale, dropTargetId);
+    getContainerBounds(node, nodes, zoomScale = 1.0, dropTargetId = null, excludeNodeId = null) {
+        return BoundsCalculator.getContainerBounds(node, nodes, zoomScale, dropTargetId, excludeNodeId);
     },
 
     getStickyNoteBounds(node, ctx, zoomScale = 1.0) {

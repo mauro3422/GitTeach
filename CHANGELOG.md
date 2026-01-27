@@ -8,6 +8,22 @@ All notable changes to the GitTeach project will be documented in this file.
 - [Versions v2.0.0 - v2.29.0](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/changelog/archive-2026-v2.md)
 - [Versions v1.0.0 - v1.9.0](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/changelog/archive-2026-v1.md)
 
+## [v2.86.0] - 2026-01-26
+
+### Fixed
+- **Parenting Synchronization & Node Extraction**:
+  - Resolved "Extraction Trap" bug where containers would grow to re-capture nodes being dragged out.
+  - Fixed state-overwrite race condition in `DragStrategy.js` where interaction cleanup reverted parenting changes.
+  - Implemented **Exclusion Bounds** during drag to prevent containers from "chasing" nodes during extraction.
+- **Drawer Interaction & UI Cleanup**:
+  - Removed intrusive tooltips on hover to declutter the canvas.
+  - Cleaned up internal component lists by removing redundant "(Extracted)" labels and checkmarks.
+  - Implemented automatic fallback descriptions for internal components from technical documentation.
+
+### Added
+- **Reactive Message Drawer**: `ModalController` now subscribes to `DesignerStore`, providing real-time inventory updates without losing unsaved text.
+- **Wide-Angle Initial View**: Set default zoom to 30% (0.3) for a better global perspective on startup.
+
 ## [v2.85.0] - 2026-01-26
 
 ### Added

@@ -7,12 +7,13 @@
  */
 
 import { Store } from '../../../../../core/Store.js';
+import { ThemeManager } from '../../../../../core/ThemeManager.js';
 
 class CameraStateClass extends Store {
     constructor() {
         super({
             panOffset: { x: 0, y: 0 },
-            zoomScale: 1.0,
+            zoomScale: ThemeManager.instance.navigation.defaultZoom,
             isPanning: false
         });
     }

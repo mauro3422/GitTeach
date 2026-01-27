@@ -7,9 +7,42 @@
 import { drawerManager } from '../../DrawerManager.js';
 import { UIDrawerRenderer } from '../UIDrawerRenderer.js';
 import { DesignerEvents } from '../core/DesignerEvents.js';
+import { DesignerStore } from './DesignerStore.js';
 
 export const ModalController = {
     editingNode: null,
+    _subscription: null,
+
+    /**
+     * SRP: Initialize global listeners
+     */
+    init() {
+        if (this._subscription) return;
+        this._subscription = DesignerStore.subscribe(() => this.handleStoreUpdate());
+    },
+
+    /**
+     * React to store changes (Reactivity fix)
+     */
+    handleStoreUpdate() {
+        if (!this.editingNode) return;
+
+        const drawer = document.getElementById('pipeline-drawer');
+        if (!drawer || !drawer.classList.contains('open')) return;
+
+        // Ensure we use the latest nodes state for deduplication logic
+        const latestNodes = DesignerStore.state.nodes;
+        drawer.allNodes = latestNodes;
+
+        // CRITICAL: Update the editingNode reference itself from the latest state
+        // This ensures the drawer UI reflects recent canvas changes (like parenting)
+        if (latestNodes[this.editingNode.id]) {
+            this.editingNode = latestNodes[this.editingNode.id];
+        }
+
+        // Refresh only the functional components list to avoid losing textarea focus/content
+        UIDrawerRenderer.refreshInternalComponents(drawer, this.editingNode);
+    },
 
     /**
      * Open message modal for a node

@@ -61,7 +61,7 @@ export class ThemeManager {
         };
 
         this.navigation = {
-            defaultZoom: 1.5,
+            defaultZoom: 0.3,
             minZoom: 0.2,
             maxZoom: 5.0
         };

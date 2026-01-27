@@ -69,7 +69,13 @@ export const DesignerInteraction = {
         this.resizeHandler = new ResizeHandler(deps);
         this.panZoomHandler = new PanZoomHandler(deps);
 
-        this.panZoomHandler.init({ panOffset: { x: 0, y: 0 }, zoomScale: ThemeManager.instance.navigation.defaultZoom });
+        // Synchronize zoom indicator with cameraState
+        cameraState.subscribe((state) => {
+            const indicator = document.getElementById('zoom-value');
+            if (indicator) {
+                indicator.textContent = `${Math.round(state.zoomScale * 100)}%`;
+            }
+        });
 
         this._setupInput();
         this._setupShortcuts();
@@ -274,8 +280,6 @@ export const DesignerInteraction = {
     handleWheel(e) {
         e.preventDefault();
         this.panZoomHandler.handleWheel(e, this.onUpdate);
-        const indicator = document.getElementById('zoom-value');
-        if (indicator) indicator.textContent = `${Math.round(this.state.zoomScale * 100)}%`;
     },
 
     handleResize() {

@@ -68,8 +68,9 @@ export const DesignerLoader = {
                 color: data.color || ThemeManager.colors.drawerBorder,
                 text: isStickyNote ? (data.text || "Contenido recuperado...") : "",
                 orbitParent: data.orbitParent,
-                description: data.description,
-                internalClasses: data.internalClasses
+                // FALLBACK FIX: If saved data lacks description/internals (old saves), pull from constants
+                description: (data.description && data.description !== "") ? data.description : (constantNode?.description || ""),
+                internalClasses: (data.internalClasses && data.internalClasses.length > 0) ? data.internalClasses : (constantNode?.internalClasses || [])
             };
 
             // Create or recreate node using NodeFactory - this guarantees all properties

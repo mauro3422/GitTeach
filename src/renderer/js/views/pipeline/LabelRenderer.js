@@ -94,5 +94,75 @@ export const LabelRenderer = {
         ctx.fillStyle = color;
         ctx.fillText(text, x, y);
         ctx.restore();
+    },
+
+    /**
+     * Draw Node Description (Always Visible)
+     * Renders small, italicized text below the main label.
+     */
+    drawNodeDescription(ctx, description, x, y, zoomScale = 1) {
+        if (!description) return;
+
+        const fontSize = 14;
+        const fScale = TextScalingManager.getFontScale(zoomScale, fontSize);
+        const worldSize = fontSize * fScale;
+
+        ctx.save();
+        ctx.font = `italic ${worldSize}px ${ThemeManager.colors.fontMono || 'monospace'}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top'; // Draw below Y
+
+        // Light stroke for readability
+        ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+        ctx.lineWidth = 2 / zoomScale;
+        ctx.strokeText(description, x, y);
+
+        ctx.fillStyle = ThemeManager.colors.textDim || '#8b949e';
+        ctx.fillText(description, x, y);
+        ctx.restore();
+    },
+
+    /**
+     * Draw Internal Component Label (The "Blue Label")
+     * Renders a badge-like label for internal functions within a container.
+     */
+    drawInternalLabel(ctx, text, x, y, width, zoomScale = 1) {
+        const height = 24 / zoomScale;
+        const radius = 4 / zoomScale;
+        const fontSize = 12;
+        const fScale = TextScalingManager.getFontScale(zoomScale, fontSize);
+        const worldSize = fontSize * fScale;
+
+        ctx.save();
+
+        // Background Badge (Glass/Blue)
+        ctx.beginPath();
+        // Use a simple rect for performance, or roundRect if available
+        if (ctx.roundRect) {
+            ctx.roundRect(x - width / 2, y - height / 2, width, height, radius);
+        } else {
+            ctx.rect(x - width / 2, y - height / 2, width, height);
+        }
+
+        // Fill - Premium Blue Glass
+        ctx.fillStyle = 'rgba(0, 204, 255, 0.15)'; // Blue tint
+        ctx.fill();
+
+        // Border - Neon Blue
+        ctx.strokeStyle = 'rgba(0, 204, 255, 0.4)';
+        ctx.lineWidth = 1 / zoomScale;
+        ctx.stroke();
+
+        // Text
+        ctx.font = `${worldSize}px ${ThemeManager.colors.fontMono || 'monospace'}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#00ccff'; // Neon Blue Text
+
+        // Clip text to width
+        // (Simplified for performance: just draw it)
+        ctx.fillText(text, x, y);
+
+        ctx.restore();
     }
 };

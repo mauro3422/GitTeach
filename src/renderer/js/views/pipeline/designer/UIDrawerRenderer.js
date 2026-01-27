@@ -26,22 +26,23 @@ export const UIDrawerRenderer = {
             ? `
                 <div class="drawer-section internal-components" style="margin-bottom: 20px;">
                     <h4>🏗️ INTERNAL COMPONENTS / DIRECTORIES</h4>
-                    <ul class="components-list">
-                        ${node.internalClasses.map(c => {
-                const desc = INTERNAL_COMPONENT_DESCRIPTIONS[c] || 'Arquitectura interna de bajo nivel.';
-                return `<li title="${desc}"><code>${c}</code></li>`;
-            }).join('')}
+                    <ul class="components-list" id="drawer-components-list">
+                        ${this._renderInternalComponents(drawer, node)}
                     </ul>
                 </div>
             `
             : '';
 
-        // Description Section
-        const descriptionHtml = node.description
+        // Description Section - Try to find fallback in constants if empty
+        const effectiveDescription = (node.description && node.description.trim() !== "")
+            ? node.description
+            : (INTERNAL_COMPONENT_DESCRIPTIONS[node.label] || "");
+
+        const descriptionHtml = effectiveDescription
             ? `
                 <div class="drawer-section node-description" style="margin-bottom: 20px; border-bottom: 1px solid ${ThemeManager.colors.glassBorderSubtle}; padding-bottom: 15px;">
                     <p style="font-size: 13px; color: ${ThemeManager.colors.drawerTextDim}; line-height: 1.5; font-style: italic; margin: 0;">
-                        ${node.description}
+                        ${effectiveDescription}
                     </p>
                 </div>
             `
@@ -156,5 +157,74 @@ export const UIDrawerRenderer = {
         requestAnimationFrame(() => {
             if (textarea) textarea.focus({ preventScroll: true });
         });
+    },
+
+    /**
+     * Partial update for internal components only
+     */
+    refreshInternalComponents(drawer, node) {
+        const list = drawer.querySelector('#drawer-components-list');
+        if (list) {
+            list.innerHTML = this._renderInternalComponents(drawer, node);
+        }
+    },
+
+    /**
+     * Sub-renderer for internal components
+     * @private
+     */
+    _renderInternalComponents(drawer, node) {
+        if (!node.internalClasses) return '';
+
+        // Filter out folders/paths
+        const blueprintClasses = node.internalClasses.filter(c => !c.includes('/'));
+
+        if (blueprintClasses.length === 0) return '';
+
+        const allNodes = drawer.allNodes || {};
+        const nodeMap = new Map(); // Label -> Node
+        Object.values(allNodes).forEach(n => {
+            if (n.label) nodeMap.set(n.label.trim().toLowerCase(), n);
+        });
+
+        // Inventory Logic:
+        // - HIDE if it exists as a node ELSEWHERE (different parent)
+        // - SHOW with ✅ if it's a child node of THIS box
+        // - SHOW with ⚙️ if it's still just a blueprint (not on canvas)
+        const inventory = blueprintClasses.map(c => {
+            const normalized = c.trim().toLowerCase();
+            const physicalNode = nodeMap.get(normalized);
+
+            if (physicalNode) {
+                // If it's a node but belongs to ANOTHER parent, we hide it from this inventory
+                if (physicalNode.parentId !== node.id) {
+                    return null;
+                }
+                // If it's a child of this box, show as extracted
+                return { name: c, status: 'extracted' };
+            }
+            // Not on canvas yet
+            return { name: c, status: 'blueprint' };
+        }).filter(Boolean);
+
+        if (inventory.length === 0) {
+            return '<li style="color: #666; font-style: italic; padding: 10px;">No components in this scope.</li>';
+        }
+
+        return inventory.map(item => {
+            const desc = INTERNAL_COMPONENT_DESCRIPTIONS[item.name] || 'Arquitectura interna de bajo nivel.';
+
+            // User requested to remove the green checkmark and the "(Extracted)" label
+            const isExtracted = item.status === 'extracted';
+            const icon = isExtracted ? '' : '<span style="font-size: 12px;">⚙️</span>';
+            const style = isExtracted ? `color: ${ThemeManager.colors.success}; opacity: 0.8;` : '';
+
+            return `
+                <li title="${desc}" style="padding: 4px 8px; margin: 4px 0; display: flex; align-items: center; gap: 8px; ${style}">
+                    ${icon}
+                    <code>${item.name}</code>
+                </li>
+            `;
+        }).join('');
     }
 };
