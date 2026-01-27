@@ -214,6 +214,7 @@ class DesignerControllerClass extends BaseController {
             BlueprintManager.autoSave(DesignerStore.state.nodes, DesignerStore.state.connections);
         } else if (selectedConnId) {
             console.log(`[DesignerController] Deleting selected connection: ${selectedConnId}`);
+            this.saveToHistory(); // CRITICAL: Save state before deletion to allow Undo
             const command = new DeleteConnectionCommand(selectedConnId);
             commandManager.execute(command);
             DesignerStore.clearSelection();

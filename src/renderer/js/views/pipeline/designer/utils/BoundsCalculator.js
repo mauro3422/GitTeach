@@ -67,9 +67,11 @@ export const BoundsCalculator = {
         const vScale = ScalingCalculator.getVisualScale(zoomScale);
 
         // 2. Calcular Tamaño Lógico actual (Pure Calculation)
-        const children = Object.values(nodes).filter(n =>
-            n.parentId === containerId && n.id !== excludeNodeId
-        );
+        // FIX: Handle case where nodes list is null (e.g. active connection preview)
+        const children = (nodes && typeof nodes === 'object')
+            ? Object.values(nodes).filter(n => n.parentId === containerId && n.id !== excludeNodeId)
+            : [];
+
         const target = this._calculateTargetSize(node, children, zoomScale);
 
         // 3. Establecer mínimos de contenido (Cache lógico para hit-testing y resize)

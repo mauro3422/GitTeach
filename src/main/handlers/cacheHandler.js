@@ -214,8 +214,8 @@ export function register(ipcMain) {
 
     // --- Designer Blueprint Persistence (File-based for debugging) ---
     const getDesignerBlueprintPath = () => {
-        const userDataPath = app.getPath('userData');
-        return path.join(userDataPath, 'designer_blueprint.json');
+        // CHANGED: Use absolute path to guarantee file resolution regardless of CWD
+        return 'c:\\Users\\mauro\\OneDrive\\Escritorio\\Giteach\\designer_blueprint.json';
     };
 
     IpcWrapper.registerHandler(
@@ -242,6 +242,8 @@ export function register(ipcMain) {
         'designer:load-blueprint',
         true, null
     );
+
+
 
     console.log('[Handlers] ✅ cacheHandler registered with IpcWrapper.');
 }

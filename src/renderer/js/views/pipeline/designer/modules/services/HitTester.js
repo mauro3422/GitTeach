@@ -26,26 +26,39 @@ export const HitTester = {
 
         const nodeList = Object.values(nodes);
 
-        // Check from last to first (render order, top is last)
+        // LAYER 1: Sticky Notes (Top)
+        // Check from last to first
         for (let i = nodeList.length - 1; i >= 0; i--) {
             const node = nodeList[i];
+            if (!node.isStickyNote || (excludeId && node.id === excludeId)) continue;
 
-            if (excludeId && node.id === excludeId) {
-                continue;
+            const bounds = GeometryUtils.getStickyNoteBounds(node, null, zoomScale);
+            if (bounds && this._boundsContainPoint(bounds, worldPos)) {
+                return node;
             }
+        }
 
-            // Hit test based on node type
-            if (node.isRepoContainer || node.isStickyNote) {
-                // Container: test against bounds
-                const bounds = GeometryUtils.getContainerBounds(node, nodes, zoomScale, null, excludeId);
-                if (bounds && this._boundsContainPoint(bounds, worldPos)) {
-                    return node;
-                }
-            } else {
-                // Regular node: test against circle
-                if (this._circleContainsPoint(node, worldPos, zoomScale)) {
-                    return node;
-                }
+        // LAYER 2: Regular Nodes (Middle)
+        // Check from last to first
+        for (let i = nodeList.length - 1; i >= 0; i--) {
+            const node = nodeList[i];
+            if (node.isRepoContainer || node.isStickyNote || (excludeId && node.id === excludeId)) continue;
+
+            if (this._circleContainsPoint(node, worldPos, zoomScale)) {
+                return node;
+            }
+        }
+
+        // LAYER 3: Containers (Bottom)
+        // Check from last to first
+        for (let i = nodeList.length - 1; i >= 0; i--) {
+            const node = nodeList[i];
+            if (!node.isRepoContainer || (excludeId && node.id === excludeId)) continue;
+
+            // Container: test against bounds
+            const bounds = GeometryUtils.getContainerBounds(node, nodes, zoomScale, null, excludeId);
+            if (bounds && this._boundsContainPoint(bounds, worldPos)) {
+                return node;
             }
         }
 

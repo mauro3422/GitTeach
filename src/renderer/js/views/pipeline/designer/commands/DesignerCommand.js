@@ -1,6 +1,8 @@
 /**
  * Base Command class for the Pipeline Designer
  */
+import { DesignerEvents } from '../core/DesignerEvents.js';
+
 export class DesignerCommand {
     constructor(description = '') {
         this.description = description;
@@ -21,5 +23,16 @@ export class DesignerCommand {
 
     canUndo() {
         return true;
+    }
+
+    /**
+     * Emite un evento cuando se ejecuta un comando
+     */
+    emitEvent(eventType, eventData) {
+        DesignerEvents.emit(`command:${eventType}`, {
+            ...eventData,
+            command: this.constructor.name,
+            timestamp: this.timestamp
+        });
     }
 }

@@ -29,7 +29,9 @@ export class DrawStrategy extends InteractionStrategy {
             const clickedNodeId = this.controller.hoveredNodeId;
             const clickedNode = clickedNodeId ? this.controller.nodes[clickedNodeId] : null;
 
-            if (clickedNode && !clickedNode.isRepoContainer && !clickedNode.isStickyNote) {
+            // Updated: Allow containers to be connection targets per user request
+            // Still exclude sticky notes unless specifically requested
+            if (clickedNode && !clickedNode.isStickyNote) {
                 this.handleConnectionClick(clickedNode, worldPos);
                 this.controller.onUpdate?.();
             }

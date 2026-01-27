@@ -19,6 +19,7 @@
 import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 import { BoundsCalculator } from '../utils/BoundsCalculator.js';
 import { ScalingCalculator } from '../utils/ScalingCalculator.js';
+import { HitTester } from './services/HitTester.js';
 
 // Acceso a DesignerStore - ya está expuesto globalmente en window
 function getDesignerStore() {
@@ -44,53 +45,26 @@ export const DragSelectionManager = {
         if (!nodeList || nodeList.length === 0) return null;
         if (!worldPos) return null;
 
-        // UNIFIED HIT BUFFER: Un solo valor para consistencia
-        const hitBuffer = DESIGNER_CONSTANTS.INTERACTION.NODE_HIT_BUFFER;
-
-        // FIX: Asegurar que containers tienen isRepoContainer correcto
-        // (algunos podrían haber sido cargados sin esta propiedad)
+        // FIX: Ensure containers generally have correct flag if labelled 'Box'
         nodeList.forEach(node => {
             if (!node) return;
-            // Si tiene label 'Box' pero no tiene isRepoContainer seteado, es un container
             if (typeof node.isRepoContainer === 'undefined' && node.label?.includes('Box')) {
                 node.isRepoContainer = true;
             }
         });
 
-        // 1. Sticky Notes (Top layer - rendered last)
-        for (let i = nodeList.length - 1; i >= 0; i--) {
-            const node = nodeList[i];
-            if (excludeId && node.id === excludeId) continue;
-            if (!node.isStickyNote) continue;
+        // Use the centralized HitTester which implements correct layering (Sticky -> Regular -> Container)
+        // rather than re-implementing 3 loops here.
+        // Convert array back to map if needed, but HitTester handles array-like objects if they have values()
+        // Here we just pass the raw list disguised as values for HitTester or adapt HitTester to accept arrays better.
+        // Actually HitTester expects an object where Object.values() works. 
+        // If nodeList is array, Object.values(array) is the array itself. Correct.
 
-            if (this._hitTestNode(node, worldPos, zoomScale, hitBuffer, 'sticky')) {
-                return node;
-            }
-        }
+        // However, HitTester signature is (worldPos, nodes, zoom, excludeId)
+        // DragSelectionManager signature is (nodeList, worldPos, zoom, excludeId) -> nodeList is Array.
 
-        // 2. Regular Nodes (Middle layer)
-        for (let i = nodeList.length - 1; i >= 0; i--) {
-            const node = nodeList[i];
-            if (excludeId && node.id === excludeId) continue;
-            if (node.isRepoContainer || node.isStickyNote) continue;
-
-            if (this._hitTestNode(node, worldPos, zoomScale, hitBuffer, 'regular')) {
-                return node;
-            }
-        }
-
-        // 3. Containers (Bottom layer - rendered first)
-        for (let i = nodeList.length - 1; i >= 0; i--) {
-            const node = nodeList[i];
-            if (excludeId && node.id === excludeId) continue;
-            if (!node.isRepoContainer) continue;
-
-            if (this._hitTestNode(node, worldPos, zoomScale, hitBuffer, 'container')) {
-                return node;
-            }
-        }
-
-        return null;
+        // Single Source of Truth
+        return HitTester.findNodeAt(worldPos, nodeList, zoomScale, excludeId);
     },
 
     /**
@@ -246,7 +220,7 @@ export const DragSelectionManager = {
 /**
  * DEBUG: Helper para analizar containers
  */
-DragSelectionManager.debugContainers = function() {
+DragSelectionManager.debugContainers = function () {
     const store = getDesignerStore();
     if (!store || !store.state.nodes) {
         console.log('❌ DesignerStore not available');

@@ -1,4 +1,6 @@
 import { DESIGNER_CONSTANTS } from './DesignerConstants.js';
+import { NodeFactory } from './modules/NodeFactory.js';
+
 
 export const BlueprintManager = {
     nodes: null,
@@ -89,7 +91,10 @@ export const BlueprintManager = {
                 console.warn('[BlueprintManager] Failed to load from file system:', e.message);
             }
         }
-        if (!rawData) {
+
+        // FORCE FILE SYSTEM: Only check localStorage if we are NOT in Electron (designerAPI missing)
+        // This ensures we see the new 'designer_blueprint.json' migration.
+        if (!rawData && !window.designerAPI) {
             const data = localStorage.getItem('giteach_designer_blueprint');
             if (data) {
                 try {
@@ -102,7 +107,12 @@ export const BlueprintManager = {
             }
         }
         if (!rawData) {
-            console.warn('[BlueprintManager] No blueprint found in file system or localStorage');
+            console.warn('[BlueprintManager] No blueprint found via standard methods.');
+            // rawData = await this._loadRobustFallback(); // Disabled for clean architecture
+        }
+
+        if (!rawData) {
+            console.warn('[BlueprintManager] All loading attempts failed. Reverting to factory defaults.');
             return null;
         }
 
@@ -117,48 +127,12 @@ export const BlueprintManager = {
         // ADD: Log version info
         console.log(`[BlueprintManager] Loading blueprint version: ${version}`);
 
-        // ADD: Future-proof - apply migrations if needed
-        if (version !== DESIGNER_CONSTANTS.BLUEPRINT_VERSIONING.CURRENT_VERSION) {
-            console.log(`[BlueprintManager] Applying migrations from ${version} to ${DESIGNER_CONSTANTS.BLUEPRINT_VERSIONING.CURRENT_VERSION}`);
-            // When migrations are added, they would be applied here
-            // For now, existing dimension migration (lines 104-131) handles v1.2→v1.3
-        }
+        return rawData;
+    },
 
-        // Validation & Dimension Migration
-        try {
-            if (!rawData.layout || typeof rawData.layout !== 'object') {
-                console.error('[BlueprintManager] Invalid blueprint: missing or invalid layout property');
-                return null;
-            }
-
-            Object.keys(rawData.layout).forEach(id => {
-                const node = rawData.layout[id];
-                node.x = node.x ?? 0.5;
-                node.y = node.y ?? 0.5;
-                node.label = node.label || id;
-
-                // MIGRATION: Convert old size properties to unified dimensions
-                if (!node.dimensions) {
-                    const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
-                    node.dimensions = {
-                        w: node.manualWidth || node.width || (node.isStickyNote ? STICKY_NOTE.MIN_W : CONTAINER.DEFAULT_W),
-                        h: node.manualHeight || node.height || (node.isStickyNote ? STICKY_NOTE.MIN_H : CONTAINER.DEFAULT_H),
-                        isManual: !!(node.manualWidth || node.manualHeight)
-                    };
-                    // Ensure animation properties exist for fresh loads
-                    node.dimensions.animW = node.dimensions.w;
-                    node.dimensions.animH = node.dimensions.h;
-                    node.dimensions.targetW = node.dimensions.w;
-                    node.dimensions.targetH = node.dimensions.h;
-                }
-            });
-
-            console.log('[BlueprintManager] Successfully loaded and migrated blueprint with', Object.keys(rawData.layout).length, 'nodes');
-            return rawData;
-        } catch (err) {
-            console.error('[BlueprintManager] Failed to process blueprint:', err.message);
-            return null;
-        }
+    // Reverted: Clean architecture relies on correct cacheHandler configuration in Main Process.
+    async _loadRobustFallback() {
+        return null;
     },
 
     generateBlueprint(manualConnections, nodesOverride = null) {
