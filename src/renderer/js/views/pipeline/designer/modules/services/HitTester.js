@@ -37,7 +37,7 @@ export const HitTester = {
             // Hit test based on node type
             if (node.isRepoContainer || node.isStickyNote) {
                 // Container: test against bounds
-                const bounds = GeometryUtils.getContainerBounds(node, nodes, zoomScale);
+                const bounds = GeometryUtils.getContainerBounds(node, nodes, zoomScale, null, excludeId);
                 if (bounds && this._boundsContainPoint(bounds, worldPos)) {
                     return node;
                 }
@@ -110,7 +110,7 @@ export const HitTester = {
             }
 
             // Test if position is inside container bounds
-            const bounds = GeometryUtils.getContainerBounds(node, nodes, zoomScale);
+            const bounds = GeometryUtils.getContainerBounds(node, nodes, zoomScale, null, draggingNodeId);
             if (bounds && this._boundsContainPoint(bounds, worldPos)) {
                 return node.id;
             }

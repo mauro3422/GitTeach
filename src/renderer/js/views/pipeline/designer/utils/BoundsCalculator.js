@@ -53,41 +53,29 @@ export const BoundsCalculator = {
 
     /**
      * Calcula los límites de un contenedor (auto-grow + elástico)
+     * QUERY PURA: No modifica el estado del nodo ni avanza la animación.
      */
     getContainerBounds(node, nodes, zoomScale = 1.0, dropTargetId = null, excludeNodeId = null) {
         const containerId = node.id;
         const isScaleUp = node.id === dropTargetId;
         const scaleFactor = isScaleUp ? DESIGNER_CONSTANTS.INTERACTION.DROP_TARGET_SCALE : 1.0;
 
-        // 1. Asegurar estructura de dimensiones
-        if (!node.dimensions) {
-            const { CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
-            node.dimensions = {
-                w: CONTAINER.DEFAULT_W,
-                h: CONTAINER.DEFAULT_H,
-                animW: CONTAINER.DEFAULT_W,
-                animH: CONTAINER.DEFAULT_H,
-                targetW: CONTAINER.DEFAULT_W,
-                targetH: CONTAINER.DEFAULT_H,
-                isManual: false
-            };
-        }
+        // 1. Asegurar estructura de dimensiones (Punto de Verdad)
+        this.ensureDimensionObject(node);
 
         const dims = node.dimensions;
-        // Filter children: belongs to container AND is not the excluded node
+        const vScale = ScalingCalculator.getVisualScale(zoomScale);
+
+        // 2. Calcular Tamaño Lógico actual (Pure Calculation)
         const children = Object.values(nodes).filter(n =>
             n.parentId === containerId && n.id !== excludeNodeId
         );
-        const vScale = ScalingCalculator.getVisualScale(zoomScale);
-
-        // 2. Calcular Target Size (Lógica de Auto-Layout)
         const target = this._calculateTargetSize(node, children, zoomScale);
 
-        // 3. Establecer mínimos de contenido (para no dejar que el resize manual colapse demasiado)
-        // ROBUST FIX: Pasar zoomScale para calcular el ancho correcto del título
+        // 3. Establecer mínimos de contenido (Cache lógico para hit-testing y resize)
         const titleMinW = this.calculateTitleMinWidth(node.label, zoomScale);
-        node.dimensions.contentMinW = Math.max(target.targetW / vScale, titleMinW / vScale);
-        node.dimensions.contentMinH = target.targetH / vScale;
+        dims.contentMinW = Math.max(target.targetW / vScale, titleMinW / vScale);
+        dims.contentMinH = target.targetH / vScale;
 
         // 4. Modo MANUAL (Resize del usuario)
         if (dims.isManual) {
@@ -102,32 +90,72 @@ export const BoundsCalculator = {
             };
         }
 
-        // 5. Modo AUTOMÁTICO (Layout Elástico)
-        // Detectar cambios bruscos para disparar "transition padding" (efecto pop)
-        if (dims._lastChildCount !== undefined && children.length > dims._lastChildCount) {
-            dims.transitionPadding = DESIGNER_CONSTANTS.LAYOUT.AUTO_GROW_PADDING;
-        }
-        dims._lastChildCount = children.length;
-        dims.transitionPadding = dims.transitionPadding || 0;
-
-        dims.targetW = target.targetW + dims.transitionPadding;
-        dims.targetH = target.targetH + dims.transitionPadding;
-
-        // Aplicar paso de animación elástica
-        this._updateElasticStep(node);
-
-        // Amortiguar el padding de transición
-        dims.transitionPadding *= DESIGNER_CONSTANTS.ANIMATION.TRANSITION_DAMPING;
-        if (dims.transitionPadding < 0.1) dims.transitionPadding = 0;
-
+        // 5. Modo AUTOMÁTICO (Layout Elástico) - Lee animW/animH existentes
         return {
-            w: target.targetW / vScale, // Logical width from current state
+            w: target.targetW / vScale,
             h: target.targetH / vScale,
             renderW: dims.animW * scaleFactor,
             renderH: dims.animH * scaleFactor,
             centerX: node.x,
             centerY: node.y
         };
+    },
+
+    /**
+     * Sincroniza el estado de animación y crecimiento de un contenedor.
+     * DEBE LLAMARSE EXACTAMENTE UNA VEZ POR FRAME.
+     */
+    syncContainerAnimation(node, nodes, zoomScale = 1.0, draggingNodeId = null) {
+        if (!node.isRepoContainer || node.dimensions?.isManual) return;
+
+        this.ensureDimensionObject(node);
+        const dims = node.dimensions;
+        const containerId = node.id;
+
+        // Filter valid children for bounds calculation
+        const children = Object.values(nodes).filter(n =>
+            n.parentId === containerId && n.id !== draggingNodeId
+        );
+
+        // 1. Detectar cambios bruscos para disparar "transition padding" (efecto pop)
+        const currentCount = children.length;
+        if (dims._lastChildCount !== undefined && currentCount > dims._lastChildCount) {
+            dims.transitionPadding = DESIGNER_CONSTANTS.LAYOUT.AUTO_GROW_PADDING;
+        }
+        dims._lastChildCount = currentCount;
+        dims.transitionPadding = dims.transitionPadding || 0;
+
+        // 2. Calcular Tamaño Objetivo
+        const target = this._calculateTargetSize(node, children, zoomScale);
+        dims.targetW = target.targetW + dims.transitionPadding;
+        dims.targetH = target.targetH + dims.transitionPadding;
+
+        // 3. Aplicar paso de animación elástica (Modifica animW/animH)
+        this._updateElasticStep(node);
+
+        // 4. Amortiguar el padding de transición
+        dims.transitionPadding *= DESIGNER_CONSTANTS.ANIMATION.TRANSITION_DAMPING;
+        if (dims.transitionPadding < 0.1) dims.transitionPadding = 0;
+    },
+
+    /**
+     * Asegura que el nodo tenga el objeto de dimensiones inicializado
+     */
+    ensureDimensionObject(node) {
+        if (!node.dimensions) {
+            const { CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
+            node.dimensions = {
+                w: CONTAINER.DEFAULT_W,
+                h: CONTAINER.DEFAULT_H,
+                animW: CONTAINER.DEFAULT_W,
+                animH: CONTAINER.DEFAULT_H,
+                targetW: CONTAINER.DEFAULT_W,
+                targetH: CONTAINER.DEFAULT_H,
+                isManual: false,
+                transitionPadding: 0,
+                _lastChildCount: 0
+            };
+        }
     },
 
     /**

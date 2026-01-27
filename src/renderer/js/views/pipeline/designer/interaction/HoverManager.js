@@ -35,8 +35,14 @@ export class HoverManager {
         // Use current zoom scale for hit testing precision
         const zoomScale = this.dependencies.cameraState.state ? this.dependencies.cameraState.state.zoomScale : 1.0;
 
-        const nodes = this.dependencies.nodeRepository.state.nodes;
-        const node = HitTester.findNodeAt(worldPos, nodes, zoomScale, excludeId);
+        const nodes = this.nodeRepository.state.nodes;
+        const draggingId = this.interactionState.state.draggingNodeId;
+
+        // ROBUST: If we are dragging, the dragged node must ALWAYS be excluded from 
+        // container bounds calculations to prevent state flip-flops (shaking).
+        const effectiveExcludeId = excludeId || draggingId;
+
+        const node = HitTester.findNodeAt(worldPos, nodes, zoomScale, effectiveExcludeId);
 
         // Debug logging for hit detection
         if (this.DEBUG_HIT_TEST) {

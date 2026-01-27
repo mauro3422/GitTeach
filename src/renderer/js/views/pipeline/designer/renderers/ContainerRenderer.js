@@ -17,7 +17,7 @@ export const ContainerRenderer = {
         return node.color || ThemeManager.colors.accent;
     },
 
-    render(ctx, nodes, camera, visibleNodeIds = null, hoveredNodeId = null, dropTargetId = null, resizingNodeId = null, selectedNodeId = null) {
+    render(ctx, nodes, camera, visibleNodeIds = null, hoveredNodeId = null, dropTargetId = null, resizingNodeId = null, selectedNodeId = null, draggingNodeId = null) {
         const zoom = camera.zoomScale;
 
         // Phase 1: Containers
@@ -32,7 +32,7 @@ export const ContainerRenderer = {
                 const isHovered = node.id === hoveredNodeId;
                 const isSelected = node.id === selectedNodeId;
 
-                const sync = DimensionSync.getSyncDimensions(node, nodes, zoom);
+                const sync = DimensionSync.getSyncDimensions(node, nodes, zoom, dropTargetId, draggingNodeId);
                 const { w, h, centerX, centerY } = sync;
                 const x = centerX;
                 const y = centerY;

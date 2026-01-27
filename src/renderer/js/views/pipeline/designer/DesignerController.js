@@ -25,6 +25,7 @@ import {
 } from './commands/DesignerCommands.js';
 // Removed direct DragHandler import, accessed via DesignerInteraction
 import { DesignerEvents } from './core/DesignerEvents.js';
+import { BoundsCalculator } from './utils/BoundsCalculator.js';
 
 class DesignerControllerClass extends BaseController {
     constructor() {
@@ -289,14 +290,23 @@ class DesignerControllerClass extends BaseController {
         }
 
         const interaction = DesignerInteraction.getInteractionState();
-        const dropTargetId = interaction?.draggingId
-            ? DesignerStore.findDropTarget(interaction.draggingId, cameraState.state.zoomScale)
+        const dropTargetId = interaction?.draggingNodeId
+            ? DesignerStore.findDropTarget(interaction.draggingNodeId, cameraState.state.zoomScale)
             : null;
 
         // CRITICAL FIX: Read resizingNodeId from Store (Single Source of Truth)
         const resizingNodeId = DesignerStore.state.interaction.resizingNodeId;
 
         const draggingNodeId = DesignerStore.state.interaction.draggingNodeId;
+
+        // 0. PRE-RENDER PASS: Sync container animations (Exactly once per frame)
+        // This ensures all systems (Culling, Rendering, Hit-Testing) see the same "Truth"
+        const nodesMap = DesignerStore.state.nodes;
+        Object.values(nodesMap).forEach(node => {
+            if (node.isRepoContainer) {
+                BoundsCalculator.syncContainerAnimation(node, nodesMap, cameraState.state.zoomScale, draggingNodeId);
+            }
+        });
 
         // LEVEL 1: Top-level render error boundary
         try {

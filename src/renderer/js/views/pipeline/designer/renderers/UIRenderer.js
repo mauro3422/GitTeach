@@ -43,8 +43,8 @@ export const UIRenderer = {
     /**
      * Render resize handles for a node in world space (called before camera.restore())
      */
-    renderResizeHandles(ctx, node, nodes, zoom) {
-        const sync = DimensionSync.getSyncDimensions(node, nodes, zoom);
+    renderResizeHandles(ctx, node, nodes, zoom, draggingNodeId = null) {
+        const sync = DimensionSync.getSyncDimensions(node, nodes, zoom, null, draggingNodeId);
         const corners = GeometryUtils.getRectCorners(sync.centerX, sync.centerY, sync.w, sync.h);
 
         // Convert corners object to array of corner positions

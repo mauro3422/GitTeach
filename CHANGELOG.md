@@ -8,6 +8,21 @@ All notable changes to the GitTeach project will be documented in this file.
 - [Versions v2.0.0 - v2.29.0](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/changelog/archive-2026-v2.md)
 - [Versions v1.0.0 - v1.9.0](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/changelog/archive-2026-v1.md)
 
+## [v2.87.0] - 2026-01-26
+
+### Fixed
+- **Container "Convulsions" Resolution**:
+  - Eliminated rapid expansion/contraction (state-jitter) during node extraction by decoupling geometry queries from stateful animations.
+  - Resolved "State Poisoning" feedback loop where multiple systems (culling, rendering, hit-testing) fought over the container's transformation state.
+- **Interaction Logic**:
+  - Corrected `draggingId` vs `draggingNodeId` typo in `DesignerController.js` to restore drop target glow feedback.
+  - Synchronized `HitTester` and `HoverManager` with drag context to maintain visual consistency during extraction.
+
+### Changed
+- **Architectural Purity (Bounds & Animations)**:
+  - Refactored `BoundsCalculator` to separate pure `getContainerBounds` (Calculations) from `syncContainerAnimation` (Stateful Update).
+  - Implemented a unified pre-render animation pass in `DesignerController.js`, ensuring animation logic runs exactly once per frame.
+
 ## [v2.86.0] - 2026-01-26
 
 ### Fixed

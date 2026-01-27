@@ -124,7 +124,7 @@ export const DesignerCanvas = {
         const visibleNodeIdsSet = new Set(visibleNodeIds);
 
         // ContainerRenderer needs full nodes list for auto-growth calculations, but we pass visibility set
-        ContainerRenderer.render(this.ctx, nodes, this.camera, visibleNodeIdsSet, hoveredNodeId, dropTargetId, resizingNodeId, selectedNodeId);
+        ContainerRenderer.render(this.ctx, nodes, this.camera, visibleNodeIdsSet, hoveredNodeId, dropTargetId, resizingNodeId, selectedNodeId, draggingNodeId);
 
         // NodeRenderer only processes visible nodes (O(visible) complexity now)
         NodeRenderer.render(this.ctx, visibleNodes, this.camera, activeConnectionId, hoveredNodeId, selectedNodeId);
@@ -136,7 +136,7 @@ export const DesignerCanvas = {
         if (selectedNodeId && nodes[selectedNodeId]) {
             const selectedNode = nodes[selectedNodeId];
             if (selectedNode.isRepoContainer || selectedNode.isStickyNote) {
-                UIRenderer.renderResizeHandles(this.ctx, selectedNode, nodes, this.camera.zoom);
+                UIRenderer.renderResizeHandles(this.ctx, selectedNode, nodes, this.camera.zoom, draggingNodeId);
             }
         }
 

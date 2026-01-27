@@ -16,10 +16,10 @@ export const DimensionSync = {
      * Si no, recurre a dimensiones lógicas puras.
      * @returns {Object} { w, h, centerX, centerY, isVisual }
      */
-    getSyncDimensions(node, nodes = {}, zoom = 1.0) {
+    getSyncDimensions(node, nodes = {}, zoom = 1.0, dropTargetId = null, excludeNodeId = null) {
         // Use BoundsCalculator as the single source of truth (it handles JSDOM fallbacks internally)
         const bounds = node.isRepoContainer
-            ? BoundsCalculator.getContainerBounds(node, nodes, zoom)
+            ? BoundsCalculator.getContainerBounds(node, nodes, zoom, dropTargetId, excludeNodeId)
             : node.isStickyNote
                 ? BoundsCalculator.getStickyNoteBounds(node, null, zoom)
                 : null;
