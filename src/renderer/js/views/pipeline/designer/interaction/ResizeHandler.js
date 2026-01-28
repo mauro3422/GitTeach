@@ -3,7 +3,6 @@ import { InteractionHandler } from '../InteractionHandler.js';
 import { GeometryUtils } from '../GeometryUtils.js';
 // Removed direct imports of nodeRepository and interactionState
 import { DimensionSync } from '../DimensionSync.js';
-import { LayoutUtils } from '../utils/LayoutUtils.js';
 import { BoundsCalculator } from '../utils/BoundsCalculator.js';
 import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 
@@ -114,8 +113,14 @@ export class ResizeHandler extends InteractionHandler {
 
         let newW = result.w;
         let newH = result.h;
-        let newX = result.x;
-        let newY = result.y;
+
+        // CRITICAL SYNC: The center must move along with the visual delta,
+        // but since it's the center of a box whose dimensions are INFLATED,
+        // we must move it by (visualDelta / 2). The world dx/dy already represents the mouse delta.
+        // However, standard GeometryUtils moves x by dx/2. 
+        // We need to ensure that move follows the visual intent.
+        let newX = resize.startPos.x + dx / 2;
+        let newY = resize.startPos.y + dy / 2;
 
         const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
         const minW = node.isStickyNote ? STICKY_NOTE.MIN_W : CONTAINER.MIN_W;

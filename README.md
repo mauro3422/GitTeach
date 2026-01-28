@@ -5,9 +5,11 @@ GitTeach is a high-performance desktop platform (Electron) engineered for deep t
 
 ---
 
-## 🍱 **The Master UI (v2.87.0)**
-The latest evolution introduces **Decoupled Animation Architecture**, **Interaction Centralization**, and **Lince Performance Engine**:
-- **Decoupled Animation Architecture**: Separated pure geometry queries from stateful animation updates, eliminating container "vibrations" and ensuring a single source of truth for visual transitions.
+## 🍱 **The Master UI (v2.88.0)**
+The latest evolution introduces **Decoupled Animation Architecture**, **Legacy Cleanup**, and **Lince Performance Engine**:
+- **Legacy Cleanup (Codebase Health)**: Completely decommissioned legacy `LayoutUtils.js`, streamlining the dependency tree and unifying all geometric logic under `BoundsCalculator`.
+- **Resize Tracking Precision**: 1:1 pixel-perfect tracking even at extreme zoom (0.1x), ensuring visual handles stay pinned to the cursor during inflation.
+- **Decoupled Animation Architecture**: Separated pure geometry queries from stateful animation updates, eliminating container "vibrations".
 - **Lince Performance Engine (O(visible))**: High-speed viewport culling and spatial caching enables 60 FPS fluid navigation with thousands of nodes.
 - **Fachada TIER 2 Store**: Decoupled state management into specialized stores (`NodeRepository`, `InteractionState`, `CameraState`) unified by a gateway facade.
 - **Interaction Single Source of Truth**: Centralized all camera (pan/zoom) and tool states, eliminating handler-level redundancy.

@@ -1,7 +1,6 @@
 /**
  * GeometryUtils.js
- * Responsabilidad: Hit-testing y fachada de geometría.
- * La lógica de layout elástico reside en LayoutUtils.
+    * Responsabilidad: Hit - testing y fachada de geometría.
  */
 
 import { ScalingCalculator } from './utils/ScalingCalculator.js';

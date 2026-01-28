@@ -9,8 +9,7 @@ import { GeometryUtils } from './GeometryUtils.js';
 import { cameraState } from './modules/stores/CameraState.js';
 import { nodeRepository } from './modules/stores/NodeRepository.js';
 import { DESIGNER_CONSTANTS } from './DesignerConstants.js';
-// Import LayoutUtils to ensure it's loaded and exported to window (for GeometryUtils fallback)
-import { LayoutUtils } from './utils/LayoutUtils.js';
+// BoundsCalculator provides unified dimensions
 
 export const DesignerCanvas = {
     ctx: null,

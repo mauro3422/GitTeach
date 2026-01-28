@@ -8,6 +8,17 @@ All notable changes to the GitTeach project will be documented in this file.
 - [Versions v2.0.0 - v2.29.0](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/changelog/archive-2026-v2.md)
 - [Versions v1.0.0 - v1.9.0](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/changelog/archive-2026-v1.md)
 
+## [v2.88.0] - 2026-01-28
+
+### Fixed
+- **Resize Tracking Precision**: Resolved "drift" issue during node resizing where the center position would desynchronize at extreme zoom levels (0.1x).
+- **Test Suite Stabilization**: Fixed dependency injection and state mutation patterns in `resize_accuracy.test.js` and `interaction_integrity.test.js` to align with TIER 2 architectural standards.
+- **Interaction Integrity**: Achieved 1:1 mouse tracking for all visual elements under dynamic inflation (vScale).
+
+### Changed
+- **Legacy Code Removal**: Completely removed `LayoutUtils.js` (Deprecated). Migrated all remaining calls to `BoundsCalculator` and `GeometryUtils`.
+- **Architectural Cleanup**: Removed redundant imports and tightened the dependency graph in `DesignerCanvas.js` and `ResizeHandler.js`.
+
 ## [v2.87.0] - 2026-01-26
 
 ### Fixed

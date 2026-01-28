@@ -34,7 +34,9 @@ describe('Resize System Accuracy', () => {
 
         DesignerInteraction.init(canvas, () => DesignerStore.state.nodes, () => { });
         DesignerInteraction.panZoomHandler.init({ panOffset: { x: 0, y: 0 }, zoomScale: 1.0 });
-        resizeHandler = new ResizeHandler(DesignerInteraction);
+
+        ResizeHandler.DEBUG = true;
+        resizeHandler = new ResizeHandler(DesignerInteraction.deps);
     });
 
     describe('Handle Detection Accuracy', () => {
@@ -168,9 +170,9 @@ describe('Resize System Accuracy', () => {
             });
 
             // Verify initial state
-            const initialState = resizeHandler.getState();
-            expect(initialState.resizingNodeId).toBe(node.id);
-            expect(initialState.resizeCorner).toBe('se');
+            const interaction = DesignerInteraction.deps.interactionState.state;
+            expect(interaction.resizingNodeId).toBe(node.id);
+            expect(interaction.resize.corner).toBe('se');
 
             // Simulate mouse movement to increase size
             const newMousePos = { x: initialPos.x + 50, y: initialPos.y + 50 };

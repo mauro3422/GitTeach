@@ -38,8 +38,10 @@ describe('Interaction & Overlay Integrity', () => {
                 isStickyNote: true,
                 dimensions: { w: 200, h: 150, isManual: true }
             };
-            DesignerStore.state.nodes[node.id] = node;
-            DesignerInteraction.panZoomHandler.setState({ panOffset: { x: 0, y: 0 }, zoomScale: 0.1 });
+            DesignerStore.setState({
+                nodes: { [node.id]: node },
+                camera: { panOffset: { x: 0, y: 0 }, zoomScale: 0.1 }
+            });
 
             const zoom = 0.1;
             const bounds = GeometryUtils.getStickyNoteBounds(node, null, zoom);
@@ -133,9 +135,11 @@ describe('Interaction & Overlay Integrity', () => {
                 dimensions: { w: 100, h: 100 }
             };
 
-            DesignerStore.state.nodes = { [container.id]: container, [child.id]: child };
-            DesignerStore.state.interaction.selectedNodeId = container.id; // Must select to resize!
-            DesignerInteraction.panZoomHandler.setState({ panOffset: { x: 0, y: 0 }, zoomScale: 1.0 });
+            DesignerStore.setState({
+                nodes: { [container.id]: container, [child.id]: child },
+                camera: { panOffset: { x: 0, y: 0 }, zoomScale: 1.0 }
+            });
+            DesignerStore.selectNode(container.id); // Must select to resize!
 
             // Start resizing container SE corner
             DesignerInteraction.resizeHandler.onStart(null, {
@@ -171,9 +175,12 @@ describe('Interaction & Overlay Integrity', () => {
                 text: 'Hello World',
                 dimensions: { w: 200, h: 100, isManual: true }
             };
-            DesignerStore.state.nodes[node.id] = node;
             const zoom = 0.1;
             const navState = { panOffset: { x: 0, y: 0 }, zoomScale: zoom };
+            DesignerStore.setState({
+                nodes: { [node.id]: node },
+                camera: navState
+            });
 
             InlineEditor.open(node, () => { });
             InlineEditor.syncPosition(navState, (pos) => DesignerInteraction.worldToScreen(pos));
