@@ -1,625 +1,249 @@
 {
-  "version": "1.3.0",
-  "timestamp": "2026-01-27T01:59:20.339Z",
+  "version": "2.0.0",
+  "timestamp": "2026-01-29T00:48:42.103Z",
   "layout": {
     "data_source": {
       "x": -0.7291594745119013,
       "y": -0.314805681697193,
-      "label": "GitHub",
       "message": "",
       "parentId": "node_1769476394881_fhepc",
-      "isStickyNote": false,
-      "text": "",
-      "color": "#8b949e",
-      "isRepoContainer": false,
-      "isSatellite": false,
-      "icon": "🐙",
-      "orbitParent": null,
-      "description": "Detecta los repositorios del usuario en GitHub. Punto de entrada del pipeline.",
-      "internalClasses": [],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "api_fetch": {
       "x": -0.7240204290949318,
       "y": -0.15206915755519892,
-      "label": "API Fetch",
       "message": "",
       "parentId": "node_1769476394881_fhepc",
-      "isStickyNote": false,
-      "text": "",
-      "color": "#8b949e",
-      "isRepoContainer": false,
-      "isSatellite": false,
-      "icon": "🌐",
-      "orbitParent": null,
-      "description": "Descarga el árbol de archivos de cada repositorio usando la API de GitHub.",
-      "internalClasses": [
-        "RepoTreeFetcher",
-        "FileDownloader"
-      ],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "cache": {
       "x": 0.37041943706640507,
       "y": -0.15796576759609693,
-      "label": "Cache Store",
       "message": "",
       "parentId": null,
-      "isStickyNote": false,
-      "text": "",
-      "color": "#8b949e",
-      "isRepoContainer": true,
-      "isSatellite": false,
-      "icon": "💾",
-      "orbitParent": null,
-      "description": "Almacena localmente los archivos descargados. Evita re-descargas usando checksums (SHA).",
-      "internalClasses": [
-        "CacheRepository",
-        "RepoCacheManager",
-        "FileCacheManager",
-        "fs/temp_store",
-        "lib/buffer_cache",
-        "sys/integrity_check"
-      ],
       "dimensions": {
+        "isManual": true,
         "w": 977.3262703752655,
-        "h": 551.1964526810225,
-        "isManual": true
+        "h": 551.1964526810225
       }
     },
     "discard_bin": {
       "x": -0.7651020918294319,
       "y": 0.4447297573327458,
-      "label": "Discarded",
       "message": "",
       "parentId": null,
-      "isStickyNote": false,
-      "text": "",
-      "color": "#da3633",
-      "isRepoContainer": false,
-      "isSatellite": false,
-      "icon": "🗑️",
-      "orbitParent": null,
-      "description": "Archivos descartados: node_modules, .git, binarios, configs irrelevantes.",
-      "internalClasses": [],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "workers_hub": {
       "x": 0.9605752146976524,
       "y": 0.575019262741046,
-      "label": "Worker Hub",
       "message": "",
       "parentId": null,
-      "isStickyNote": false,
-      "text": "",
-      "color": "#3fb950",
-      "isRepoContainer": false,
-      "isSatellite": false,
-      "icon": "🔄",
-      "orbitParent": null,
-      "description": "Cola FIFO que distribuye archivos a los Worker Slots. 4 slots (3 workers + 1 reserved).",
-      "internalClasses": [
-        "AIWorkerPool",
-        "QueueManager",
-        "CoordinatorAgent"
-      ],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "embedding_server": {
       "x": -0.7670427972823008,
       "y": 0.7959061346501454,
-      "label": "Embeddings",
       "message": "",
       "parentId": null,
-      "isStickyNote": false,
-      "text": "",
-      "color": "#a371f7",
-      "isRepoContainer": false,
-      "isSatellite": false,
-      "icon": "🧠",
-      "orbitParent": null,
-      "description": "Servidor de embeddings (puerto 8001). Genera vectores semánticos.",
-      "internalClasses": [
-        "EmbeddingService",
-        "VectorStore"
-      ],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "worker_1": {
       "x": 1.8281756963575146,
       "y": 0.8200673400673398,
-      "label": "Slot 1",
       "message": "",
       "parentId": null,
-      "isStickyNote": false,
-      "text": "",
-      "color": "#3fb950",
-      "isRepoContainer": false,
-      "isSatellite": false,
-      "icon": "⚡",
-      "orbitParent": null,
-      "description": "Worker GPU que analiza archivos con IA local (llama-server). Genera summary textual + metadata de calidad (complexity, patterns, signals).",
-      "internalClasses": [
-        "AIWorker",
-        "RichFindingGenerator"
-      ],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "worker_2": {
       "x": 1.8296211406273688,
       "y": 0.3074597752563167,
-      "label": "Slot 2",
       "message": "",
       "parentId": null,
-      "isStickyNote": false,
-      "text": "",
-      "color": "#3fb950",
-      "isRepoContainer": false,
-      "isSatellite": false,
-      "icon": "⚡",
-      "orbitParent": null,
-      "description": "Worker GPU que analiza archivos con IA local (llama-server). Genera summary textual + metadata de calidad (complexity, patterns, signals).",
-      "internalClasses": [
-        "AIWorker",
-        "RichFindingGenerator"
-      ],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "worker_3": {
       "x": 1.8229160289766349,
       "y": 0.5594653606774819,
-      "label": "Slot 3",
       "message": "",
       "parentId": null,
-      "isStickyNote": false,
-      "text": "",
-      "color": "#3fb950",
-      "isRepoContainer": false,
-      "isSatellite": false,
-      "icon": "⚡",
-      "orbitParent": null,
-      "description": "Worker GPU que analiza archivos con IA local (llama-server). Genera summary textual + metadata de calidad (complexity, patterns, signals).",
-      "internalClasses": [
-        "AIWorker",
-        "RichFindingGenerator"
-      ],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "mixing_buffer": {
       "x": 1.4580307043257097,
       "y": 0.5782210466830463,
-      "label": "Mixing Buffer",
       "message": "",
       "parentId": null,
-      "isStickyNote": false,
-      "text": "",
-      "color": "#8b949e",
-      "isRepoContainer": false,
-      "isSatellite": false,
-      "icon": "🌪️",
-      "orbitParent": null,
-      "description": "Mezcla y organiza evidencias parciales antes de la síntesis final.",
-      "internalClasses": [
-        "StreamingHandler",
-        "EvidenceStore",
-        "MemoryManager"
-      ],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "compaction": {
       "x": 2.633922558922559,
       "y": 0.5266937047240081,
-      "label": "Compaction",
       "message": "",
       "parentId": null,
-      "isStickyNote": false,
-      "text": "",
-      "color": "#a371f7",
-      "isRepoContainer": false,
-      "isSatellite": false,
-      "icon": "🗜️",
-      "orbitParent": null,
-      "description": "Condensa findings cada 10 archivos. Genera goldenKnowledge curado.",
-      "internalClasses": [
-        "RepoContextManager",
-        "InsightsCurator",
-        "InsightPartitioner"
-      ],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "mapper_architecture": {
       "x": 1.6888888888888889,
       "y": 0.04722222222222221,
-      "label": "Architecture",
       "message": "",
       "parentId": null,
-      "isStickyNote": false,
-      "text": "",
-      "color": "#f1e05a",
-      "isRepoContainer": false,
-      "isSatellite": false,
-      "icon": "🏗️",
-      "orbitParent": null,
-      "description": "Mapper CPU especializado en architecture. Analiza insights curados para detectar patrones de architecture.",
-      "internalClasses": [
-        "ThematicMapper",
-        "PatternExtractor"
-      ],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "mapper_habits": {
       "x": 2.4916666666666667,
       "y": 0.35,
-      "label": "Habits",
       "message": "",
       "parentId": null,
-      "isStickyNote": false,
-      "text": "",
-      "color": "#f1e05a",
-      "isRepoContainer": false,
-      "isSatellite": false,
-      "icon": "🔧",
-      "orbitParent": null,
-      "description": "Mapper CPU especializado en habits. Analiza insights curados para detectar patrones de habits.",
-      "internalClasses": [
-        "ThematicMapper",
-        "PatternExtractor"
-      ],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "mapper_stack": {
       "x": 2.7314916845219877,
       "y": -0.10467809407203331,
-      "label": "Stack",
       "message": "",
       "parentId": null,
-      "isStickyNote": false,
-      "text": "",
-      "color": "#f1e05a",
-      "isRepoContainer": false,
-      "isSatellite": false,
-      "icon": "📚",
-      "orbitParent": null,
-      "description": "Mapper CPU especializado en stack. Analiza insights curados para detectar patrones de stack.",
-      "internalClasses": [
-        "ThematicMapper",
-        "PatternExtractor"
-      ],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "dna_synth": {
       "x": 2.238888888888889,
       "y": 0.20277777777777778,
-      "label": "DNA Synth",
       "message": "",
       "parentId": null,
-      "isStickyNote": false,
-      "text": "",
-      "color": "#3fb950",
-      "isRepoContainer": false,
-      "isSatellite": false,
-      "icon": "🧬",
-      "orbitParent": null,
-      "description": "Sintetiza el perfil técnico (DNA). Combina thematicAnalyses + healthReport.",
-      "internalClasses": [
-        "DNASynthesizer",
-        "SynthesisOrchestrator",
-        "DNAPromptBuilder",
-        "DNAParser"
-      ],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "persistence": {
       "x": 3.0080961126415673,
       "y": 0.07921640648913386,
-      "label": "Persistence",
       "message": "",
       "parentId": null,
-      "isStickyNote": false,
-      "text": "",
-      "color": "#2f81f7",
-      "isRepoContainer": false,
-      "isSatellite": false,
-      "icon": "💾",
-      "orbitParent": null,
-      "description": "Persistencia dual en LevelDB y espejos JSON.",
-      "internalClasses": [
-        "CacheService",
-        "LevelDBManager"
-      ],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "intelligence": {
       "x": 2.8029945923885315,
       "y": 0.3137945107642077,
-      "label": "Intelligence",
       "message": "",
       "parentId": null,
-      "isStickyNote": false,
-      "text": "",
-      "color": "#8b949e",
-      "isRepoContainer": false,
-      "isSatellite": false,
-      "icon": "🧠",
-      "orbitParent": null,
-      "description": "Evoluciona el DNA a identidad técnica final: título, bio, core_languages.",
-      "internalClasses": [
-        "IntelligenceSynthesizer",
-        "GlobalIdentityRefiner"
-      ],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "radar_adopt": {
       "x": 1.3321880626569784,
       "y": -0.08999999999999994,
-      "label": "Adopt",
       "message": "",
       "parentId": null,
-      "isStickyNote": false,
-      "text": "",
-      "color": "#3fb950",
-      "isRepoContainer": false,
-      "isSatellite": true,
-      "icon": "✅",
-      "orbitParent": "intelligence",
-      "description": "",
-      "internalClasses": [],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "radar_trial": {
       "x": 1.5596008474163126,
       "y": -0.14305110756885725,
-      "label": "Trial",
       "message": "",
       "parentId": null,
-      "isStickyNote": false,
-      "text": "",
-      "color": "#f1e05a",
-      "isRepoContainer": false,
-      "isSatellite": true,
-      "icon": "🧪",
-      "orbitParent": "intelligence",
-      "description": "",
-      "internalClasses": [],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "radar_assess": {
       "x": 2.020711958527424,
       "y": -0.19306000354225394,
-      "label": "Assess",
       "message": "",
       "parentId": null,
-      "isStickyNote": false,
-      "text": "",
-      "color": "#2f81f7",
-      "isRepoContainer": false,
-      "isSatellite": true,
-      "icon": "🔭",
-      "orbitParent": "intelligence",
-      "description": "",
-      "internalClasses": [],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "radar_hold": {
       "x": 2.198854729323645,
       "y": -0.08499999999999998,
-      "label": "Hold",
       "message": "",
       "parentId": null,
-      "isStickyNote": false,
-      "text": "",
-      "color": "#da3633",
-      "isRepoContainer": false,
-      "isSatellite": true,
-      "icon": "🛑",
-      "orbitParent": "intelligence",
-      "description": "",
-      "internalClasses": [],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "child_cache_0": {
       "x": 0.4231667882944396,
       "y": -0.047915625196992315,
-      "label": "CacheRepository",
       "message": "",
       "parentId": "cache",
-      "isStickyNote": false,
-      "text": "",
-      "color": "#8b949e",
-      "isRepoContainer": false,
-      "isSatellite": true,
-      "icon": "🗄️",
-      "orbitParent": null,
-      "description": "",
-      "internalClasses": [],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "child_cache_1": {
       "x": 0.016225307310535727,
       "y": -0.15766008762545392,
-      "label": "RepoCacheManager",
       "message": "",
       "parentId": "cache",
-      "isStickyNote": false,
-      "text": "",
-      "color": "#8b949e",
-      "isRepoContainer": false,
-      "isSatellite": true,
-      "icon": "🛠️",
-      "orbitParent": null,
-      "description": "",
-      "internalClasses": [],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "child_cache_2": {
       "x": 0.015468437695294407,
       "y": -0.3534711807525479,
-      "label": "FileCacheManager",
       "message": "",
       "parentId": "cache",
-      "isStickyNote": false,
-      "text": "",
-      "color": "#8b949e",
-      "isRepoContainer": false,
-      "isSatellite": true,
-      "icon": "🛠️",
-      "orbitParent": null,
-      "description": "",
-      "internalClasses": [],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "child_cache_3": {
       "x": 0.8380754685158408,
       "y": -0.06254404765981297,
-      "label": "fs/temp_store",
       "message": "",
       "parentId": null,
-      "isStickyNote": false,
-      "text": "",
-      "color": "#8b949e",
-      "isRepoContainer": false,
-      "isSatellite": true,
-      "icon": "📁",
-      "orbitParent": null,
-      "description": "",
-      "internalClasses": [],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "child_cache_4": {
       "x": 0.7325236199742478,
       "y": -0.23840746867218163,
-      "label": "lib/buffer_cache",
       "message": "",
       "parentId": "cache",
-      "isStickyNote": false,
-      "text": "",
-      "color": "#8b949e",
-      "isRepoContainer": false,
-      "isSatellite": true,
-      "icon": "📦",
-      "orbitParent": null,
-      "description": "",
-      "internalClasses": [],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },
     "child_cache_5": {
       "x": 0.5295954503705458,
       "y": -0.34917773916464045,
-      "label": "sys/integrity_check",
       "message": "",
       "parentId": "cache",
-      "isStickyNote": false,
-      "text": "",
-      "color": "#8b949e",
-      "isRepoContainer": false,
-      "isSatellite": true,
-      "icon": "🛡️",
-      "orbitParent": null,
-      "description": "",
-      "internalClasses": [],
       "dimensions": {
-        "w": 180,
-        "h": 100,
         "isManual": false
       }
     },

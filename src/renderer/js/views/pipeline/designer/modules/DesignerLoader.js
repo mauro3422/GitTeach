@@ -11,16 +11,27 @@ export const DesignerLoader = {
      * Carga y hidrata el estado desde LocalStorage/File System
      */
     async loadAndHydrate() {
-        // Load Initial State
+        // STEP 1: Skeleton Stage - Initialize all Registry nodes first
+        // This guarantees that all system nodes exist, even if missing from JSON.
         DesignerStore.loadInitialNodes();
+        const nodes = { ...DesignerStore.state.nodes };
 
-        // MERGE with File System / LocalStorage if exists
+        // STEP 2: Load Saved State (FileSystem / LocalStorage)
         const savedState = await BlueprintManager.loadFromLocalStorage();
         if (savedState && savedState.layout) {
             const scale = DESIGNER_CONSTANTS.DIMENSIONS.DEFAULT_HYDRATION_SCALE;
+            const version = savedState.version || '1.0.0';
+            const isLegacy = version.startsWith('1.');
+
+            console.log(`[DesignerLoader] Hydrating blueprint v${version} (Legacy: ${isLegacy})`);
+
+            // STEP 3: Patch/Skin Stage - Apply saved data as "overlays"
             Object.entries(savedState.layout).forEach(([id, data]) => {
-                this.hydrateNode(id, data, scale);
+                this.hydrateNode(id, data, scale, nodes, isLegacy);
             });
+
+            // STEP 4: Finalize State
+            DesignerStore.setNodes(nodes);
             DesignerStore.setConnections(Array.isArray(savedState.connections) ? savedState.connections : []);
 
             // Final notify after all hydration is done
@@ -28,52 +39,68 @@ export const DesignerLoader = {
 
             // Validate and cleanup orphaned connections/nodes after hydration
             DesignerStore.validateAndCleanup();
-            console.log('[DesignerLoader] Hydration complete with validation');
+            console.log('[DesignerLoader] Hydration complete with v2.0.0 modular merge');
         }
     },
 
     /**
-     * Hidrata un nodo individual desde el estado guardado
+     * Patch/Hydrate an individual node. 
+     * Performs a Merge (Registry + Delta) for built-in nodes.
+     * Performs a full Creation for custom/legacy nodes.
      */
-    hydrateNode(id, data, scale) {
+    hydrateNode(id, data, scale, targetNodes, isLegacy) {
         try {
-            // Validate input data
-            if (!data || typeof data !== 'object') {
-                console.warn(`[DesignerLoader] Invalid node data for ${id}, skipping`);
-                return;
+            if (!data || typeof data !== 'object') return;
+
+            const existingNode = targetNodes[id];
+            const registryConfig = PIPELINE_NODES ? PIPELINE_NODES[id] : null;
+
+            // DETERMINATION: Is this a Registry node we are patching, or a new User node?
+            const isBuiltIn = !!registryConfig;
+
+            if (isBuiltIn) {
+                // PATCH LOGIC: Reuse the existing "Skeleton" node created by DesignerHydrator/loadInitialNodes
+                if (!existingNode) {
+                    console.warn(`[DesignerLoader] Built-in node ${id} found in JSON but missing in Runtime Registry. Proceeding with manual creation.`);
+                } else {
+                    // Update only position, message, and parenting (The "Delta")
+                    existingNode.x = data.x * scale;
+                    existingNode.y = data.y * scale;
+                    existingNode.message = data.message || "";
+                    existingNode.parentId = data.parentId || null;
+
+                    // Handle manual dimensions override
+                    if (data.dimensions?.isManual) {
+                        existingNode.dimensions.w = data.dimensions.w;
+                        existingNode.dimensions.h = data.dimensions.h;
+                        existingNode.dimensions.targetW = data.dimensions.w;
+                        existingNode.dimensions.targetH = data.dimensions.h;
+                        existingNode.dimensions.isManual = true;
+                    }
+                    return; // Done with built-in patching
+                }
             }
 
-            // IMPORTANT: ALL nodes must go through NodeFactory for guaranteed properties
-            // Determine node type
+            // CREATION LOGIC: For Stickies, Custom Boxes, or Orphans from stale registries
             const isStickyNote = data.isStickyNote || id.startsWith('sticky_');
             const isContainer = data.isRepoContainer;
             const isSatellite = data.isSatellite;
-
-            // NEW: Try to find icon in data, then in existing store (from loadInitialNodes), then in constants, then fallback
-            const existingNode = DesignerStore.state.nodes[id];
-            const constantNode = PIPELINE_NODES ? PIPELINE_NODES[id] : null;
 
             const nodeData = {
                 id,
                 x: data.x * scale,
                 y: data.y * scale,
                 label: data.label,
-                message: data.message,
-                parentId: data.parentId,
-                // ROBUST FIX: For internal nodes (child_), ALWAYS force use of the engine-provided icon
-                // This prevents old "folder" icons from LocalStorage from overriding new system icons.
-                icon: (id.startsWith('child_') || data.icon === '🧩')
-                    ? (existingNode?.icon || constantNode?.icon || (isStickyNote ? '📝' : (isContainer ? '📦' : '🧩')))
-                    : (data.icon && data.icon.trim() !== '' ? data.icon : '🧩'),
+                message: data.message || "",
+                parentId: data.parentId || null,
+                icon: data.icon || (isStickyNote ? '📝' : (isContainer ? '📦' : '🧩')),
                 color: data.color || ThemeManager.colors.drawerBorder,
-                text: isStickyNote ? (data.text || "Contenido recuperado...") : "",
-                orbitParent: data.orbitParent,
-                // FALLBACK FIX: If saved data lacks description/internals (old saves), pull from constants
-                description: (data.description && data.description !== "") ? data.description : (constantNode?.description || ""),
-                internalClasses: (data.internalClasses && data.internalClasses.length > 0) ? data.internalClasses : (constantNode?.internalClasses || [])
+                text: isStickyNote ? (data.text || "") : "",
+                orbitParent: data.orbitParent || null,
+                description: data.description || "",
+                internalClasses: data.internalClasses || []
             };
 
-            // Create or recreate node using NodeFactory - this guarantees all properties
             let node;
             if (isStickyNote) {
                 node = NodeFactory.createStickyNote(nodeData);
@@ -85,39 +112,23 @@ export const DesignerLoader = {
                 node = NodeFactory.createRegularNode(nodeData);
             }
 
-            DesignerStore.state.nodes[id] = node;
-
-            // Hydrate Dimensions (Issue #6)
-            // NOTE: NodeFactory already created dimensions, we're updating them from saved data
+            // Patch dimensions for custom nodes
             if (data.dimensions && node.dimensions) {
-                // Keep NodeFactory defaults but update with saved values
-                node.dimensions.w = data.dimensions.w;
-                node.dimensions.h = data.dimensions.h;
-                node.dimensions.targetW = data.dimensions.w;
-                node.dimensions.targetH = data.dimensions.h;
-                node.dimensions.animW = data.dimensions.w;
-                node.dimensions.animH = data.dimensions.h;
-                node.dimensions.isManual = data.dimensions.isManual;
-            } else if (!node.dimensions) {
-                // Emergency fallback - should not happen since NodeFactory creates dimensions
-                const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
-                const defW = data.isStickyNote ? STICKY_NOTE.MIN_W : CONTAINER.DEFAULT_W;
-                const defH = data.isStickyNote ? STICKY_NOTE.MIN_H : CONTAINER.DEFAULT_H;
-
-                console.warn(`[DesignerLoader] Emergency dimension creation for ${id}`);
-                node.dimensions = {
-                    w: data.manualWidth || data.width || defW,
-                    h: data.manualHeight || data.height || defH,
-                    targetW: data.manualWidth || data.width || defW,
-                    targetH: data.manualHeight || data.height || defH,
-                    animW: data.manualWidth || data.width || defW,
-                    animH: data.manualHeight || data.height || defH,
-                    isManual: !!(data.manualWidth || data.manualHeight)
-                };
+                Object.assign(node.dimensions, {
+                    w: data.dimensions.w,
+                    h: data.dimensions.h,
+                    targetW: data.dimensions.w,
+                    targetH: data.dimensions.h,
+                    animW: data.dimensions.w,
+                    animH: data.dimensions.h,
+                    isManual: data.dimensions.isManual
+                });
             }
 
-            // Re-register dynamic containers
-            if (data.isRepoContainer && id.startsWith('custom_')) {
+            targetNodes[id] = node;
+
+            // Re-register dynamic containers in the BoxManager
+            if (isContainer && id.startsWith('custom_')) {
                 const dims = node.dimensions;
                 const bounds = {
                     minX: node.x - dims.w / 2,
@@ -125,15 +136,12 @@ export const DesignerLoader = {
                     maxX: node.x + dims.w / 2,
                     maxY: node.y + dims.h / 2
                 };
-
                 if (typeof ContainerBoxManager?.createUserBox === 'function') {
                     ContainerBoxManager.createUserBox(id, bounds, DESIGNER_CONSTANTS.INTERACTION.RESIZE_MARGIN);
                 }
             }
         } catch (e) {
             console.error(`[DesignerLoader] Failed to hydrate node ${id}:`, e.message);
-            console.warn(`[DesignerLoader] Skipping node ${id}`);
-            // Continue loading other nodes
         }
     }
 };

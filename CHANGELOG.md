@@ -8,6 +8,20 @@ All notable changes to the GitTeach project will be documented in this file.
 - [Versions v2.0.0 - v2.29.0](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/changelog/archive-2026-v2.md)
 - [Versions v1.0.0 - v1.9.0](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/changelog/archive-2026-v1.md)
 
+## [v2.89.0] - 2026-01-29
+
+### Added
+- **Modular Blueprint Persistence (v2.0.0)**: Implemented a Hybrid Storage Model that decouples system node definitions from user-defined state.
+- **Registry-First Hydration**: Centralized node skeletons in `PipelineConstants.js` (Registry) which are then patched with delta data from `designer_blueprint.json`.
+
+### Fixed
+- **Content Auditor Persistence**: Resolved the bug where messages for system nodes would disappear due to race conditions during hydration.
+- **Path Regression**: Corrected incorrect relative import for `PipelineConstants.js` in `BlueprintManager.js`.
+
+### Performance
+- **Massive Blueprint Footprint Reduction**: Reduced `designer_blueprint.json` from 844 lines to 468 lines (~45% shrink) by eliminating redundant constant metadata.
+- **Optimized Loading**: Faster hydration pass by using pre-initialized skeletons from the Registry.
+
 ## [v2.88.0] - 2026-01-28
 
 ### Fixed

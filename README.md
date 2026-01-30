@@ -5,8 +5,9 @@ GitTeach is a high-performance desktop platform (Electron) engineered for deep t
 
 ---
 
-## 🍱 **The Master UI (v2.88.0)**
-The latest evolution introduces **Decoupled Animation Architecture**, **Legacy Cleanup**, and **Lince Performance Engine**:
+## 🍱 **The Master UI (v2.89.0)**
+The latest evolution introduces **Modular Hybrid Persistence**, **Decoupled Animation Architecture**, and **Lince Performance Engine**:
+- **Modular Hybrid Persistence (v2.0.0)**: Transitioned to a "Registry vs. Delta" storage model. The system now uses `PipelineConstants.js` as a read-only Registry, saving only user-defined overrides (Deltas) to `designer_blueprint.json`. This reduced the blueprint footprint by ~45% and guaranteed data integrity for system nodes.
 - **Legacy Cleanup (Codebase Health)**: Completely decommissioned legacy `LayoutUtils.js`, streamlining the dependency tree and unifying all geometric logic under `BoundsCalculator`.
 - **Resize Tracking Precision**: 1:1 pixel-perfect tracking even at extreme zoom (0.1x), ensuring visual handles stay pinned to the cursor during inflation.
 - **Decoupled Animation Architecture**: Separated pure geometry queries from stateful animation updates, eliminating container "vibrations".

@@ -2,7 +2,7 @@
  * BoundsCalculator.js
  * Responsabilidad: Cálculos puros de dimensiones lógicas y visuales.
  * Único punto de verdad para el tamaño de nodos, notas y contenedores.
- * Sin dependencias circulares (No importa GeometryUtils ni LayoutUtils).
+ * Sin dependencias circulares (No importa GeometryUtils).
  */
 
 import { ScalingCalculator } from './ScalingCalculator.js';

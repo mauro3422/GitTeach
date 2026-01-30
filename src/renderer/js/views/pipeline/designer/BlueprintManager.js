@@ -1,5 +1,6 @@
 import { DESIGNER_CONSTANTS } from './DesignerConstants.js';
 import { NodeFactory } from './modules/NodeFactory.js';
+import { PIPELINE_NODES } from '../PipelineConstants.js';
 
 
 export const BlueprintManager = {
@@ -43,14 +44,7 @@ export const BlueprintManager = {
             }
         }
 
-        // Also download for manual backup
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(blueprint, null, 2));
-        const downloadAnchorNode = document.createElement('a');
-        downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", `manual_blueprint_${Date.now()}.json`);
-        document.body.appendChild(downloadAnchorNode);
-        downloadAnchorNode.click();
-        downloadAnchorNode.remove();
+        console.log("[BlueprintManager] Manual save completed and persisted to storage.");
 
         console.log("[BlueprintManager] Saved manual blueprint and persisted:", blueprint);
     },
@@ -92,9 +86,8 @@ export const BlueprintManager = {
             }
         }
 
-        // FORCE FILE SYSTEM: Only check localStorage if we are NOT in Electron (designerAPI missing)
-        // This ensures we see the new 'designer_blueprint.json' migration.
-        if (!rawData && !window.designerAPI) {
+        // FALLBACK: Always check localStorage if file system load failed/returned empty
+        if (!rawData) {
             const data = localStorage.getItem('giteach_designer_blueprint');
             if (data) {
                 try {
@@ -138,7 +131,7 @@ export const BlueprintManager = {
     generateBlueprint(manualConnections, nodesOverride = null) {
         const nodesToExport = nodesOverride || this.nodes;
         const blueprint = {
-            version: DESIGNER_CONSTANTS.BLUEPRINT_VERSIONING.CURRENT_VERSION,  // Use constant
+            version: DESIGNER_CONSTANTS.BLUEPRINT_VERSIONING.CURRENT_VERSION,
             timestamp: new Date().toISOString(),
             layout: {},
             connections: manualConnections
@@ -146,31 +139,47 @@ export const BlueprintManager = {
 
         const scale = DESIGNER_CONSTANTS.DIMENSIONS.DEFAULT_HYDRATION_SCALE;
         Object.values(nodesToExport).forEach(node => {
-            // Clean up temporary props before saving (Issue #5)
-            const exportNode = {
-                x: node.x / scale,
-                y: node.y / scale,
-                label: node.label,
-                message: node.message || "",
-                parentId: node.parentId || null,
-                isStickyNote: node.isStickyNote || false,
-                text: node.text || "",
-                color: node.color,
-                isRepoContainer: node.isRepoContainer || false,
-                isSatellite: node.isSatellite || false,
-                icon: node.icon || '🧩',
-                icon: node.icon || '🧩',
-                orbitParent: node.orbitParent || null,
-                // PERSISTENCE FIX: Save secondary visual properties for seamless restoration
-                description: node.description || "",
-                internalClasses: node.internalClasses || [],
-                // Only save essential dimensions
-                dimensions: {
-                    w: node.dimensions?.w || (node.isStickyNote ? DESIGNER_CONSTANTS.DIMENSIONS.STICKY_NOTE.MIN_W : DESIGNER_CONSTANTS.DIMENSIONS.CONTAINER.DEFAULT_W),
-                    h: node.dimensions?.h || (node.isStickyNote ? DESIGNER_CONSTANTS.DIMENSIONS.STICKY_NOTE.MIN_H : DESIGNER_CONSTANTS.DIMENSIONS.CONTAINER.DEFAULT_H),
-                    isManual: node.dimensions?.isManual || false
-                }
-            };
+            const isBuiltIn = !!PIPELINE_NODES[node.id];
+
+            let exportNode;
+            if (isBuiltIn) {
+                // DELTA STORAGE: Only save state overrides for Registry nodes
+                exportNode = {
+                    x: node.x / scale,
+                    y: node.y / scale,
+                    message: node.message || "",
+                    parentId: node.parentId || null,
+                    dimensions: {
+                        isManual: node.dimensions?.isManual || false,
+                        w: node.dimensions?.isManual ? node.dimensions.w : undefined,
+                        h: node.dimensions?.isManual ? node.dimensions.h : undefined
+                    }
+                };
+            } else {
+                // FULL STORAGE: Custom nodes (Sticky notes, custom boxes) need full data
+                exportNode = {
+                    x: node.x / scale,
+                    y: node.y / scale,
+                    label: node.label,
+                    message: node.message || "",
+                    parentId: node.parentId || null,
+                    isStickyNote: node.isStickyNote || false,
+                    text: node.text || "",
+                    color: node.color,
+                    isRepoContainer: node.isRepoContainer || false,
+                    isSatellite: node.isSatellite || false,
+                    icon: node.icon || '🧩',
+                    orbitParent: node.orbitParent || null,
+                    description: node.description || "",
+                    internalClasses: node.internalClasses || [],
+                    dimensions: {
+                        w: node.dimensions?.w || (node.isStickyNote ? DESIGNER_CONSTANTS.DIMENSIONS.STICKY_NOTE.MIN_W : DESIGNER_CONSTANTS.DIMENSIONS.CONTAINER.DEFAULT_W),
+                        h: node.dimensions?.h || (node.isStickyNote ? DESIGNER_CONSTANTS.DIMENSIONS.STICKY_NOTE.MIN_H : DESIGNER_CONSTANTS.DIMENSIONS.CONTAINER.DEFAULT_H),
+                        isManual: node.dimensions?.isManual || false
+                    }
+                };
+            }
+
             blueprint.layout[node.id] = exportNode;
         });
         return blueprint;

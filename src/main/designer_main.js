@@ -1,6 +1,7 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import cacheHandler from './handlers/cacheHandler.js';
 
 // ESM dirname shim
 const __filename = fileURLToPath(import.meta.url);
@@ -23,7 +24,10 @@ function createWindow() {
     win.webContents.openDevTools({ mode: 'detach' });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+    cacheHandler.register(ipcMain);
+    createWindow();
+});
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();

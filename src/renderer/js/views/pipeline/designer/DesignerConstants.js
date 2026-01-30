@@ -132,14 +132,15 @@ export const DESIGNER_CONSTANTS = {
      * Used for backward compatibility and data migration
      */
     BLUEPRINT_VERSIONING: {
-        CURRENT_VERSION: '1.3.0',
+        CURRENT_VERSION: '2.0.0',
 
         // Supported versions with their migration functions
         VERSIONS: {
             '1.0.0': { label: 'Initial Release' },
             '1.1.0': { label: 'Added Connections' },
             '1.2.0': { label: 'Added Dimensions' },
-            '1.3.0': { label: 'Unified Dimensions' }
+            '1.3.0': { label: 'Unified Dimensions' },
+            '2.0.0': { label: 'Modular Delta Storage' }
         },
 
         // Migration functions (future versions can expand)
