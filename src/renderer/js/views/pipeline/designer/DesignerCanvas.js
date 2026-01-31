@@ -126,7 +126,7 @@ export const DesignerCanvas = {
         ContainerRenderer.render(this.ctx, nodes, this.camera, visibleNodeIdsSet, hoveredNodeId, dropTargetId, resizingNodeId, selectedNodeId, draggingNodeId);
 
         // NodeRenderer only processes visible nodes (O(visible) complexity now)
-        NodeRenderer.render(this.ctx, visibleNodes, this.camera, activeConnectionId, hoveredNodeId, selectedNodeId);
+        NodeRenderer.render(this.ctx, visibleNodes, this.camera, activeConnectionId, hoveredNodeId, selectedNodeId, draggingNodeId);
 
         // ConnectionRenderer handles persistent connections
         ConnectionRenderer.render(this.ctx, nodes, this.camera, visibleConnections, activeConnection, selectedConnectionId);

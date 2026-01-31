@@ -20,6 +20,9 @@ class NodeRepositoryClass extends Store {
 
         // Issue #13: Bounds cache for hit-testing performance
         this.boundsCache = {};
+
+        // OPTIMIZATION: Adjacency list for O(1) child lookups
+        this.childrenByParent = {};
     }
 
     // ============ QUERIES ============
@@ -42,14 +45,18 @@ class NodeRepositoryClass extends Store {
     }
 
     /**
-     * Get children of a container
+     * Get children of a container (Optimized O(1))
      * @param {string} parentId
      * @returns {Array}
      */
     getChildren(parentId) {
-        return Object.values(this.state.nodes).filter(
-            node => node.parentId === parentId
-        );
+        if (!parentId) return [];
+        const childIds = this.childrenByParent[parentId];
+        if (!childIds) return [];
+
+        return childIds
+            .map(id => this.state.nodes[id])
+            .filter(node => !!node); // Filter out any deleted nodes still in index
     }
 
     /**
@@ -103,6 +110,12 @@ class NodeRepositoryClass extends Store {
         nextNodes[newNode.id] = newNode;
 
         this.setState({ nodes: nextNodes }, 'ADD_NODE');
+
+        // Update index if it has a parent
+        if (newNode.parentId) {
+            this._addChildToIndex(newNode.parentId, newNode.id);
+        }
+
         this.invalidateBoundsCache(newNode.id);
 
         return newNode.id;
@@ -126,6 +139,12 @@ class NodeRepositoryClass extends Store {
         nextNodes[newNote.id] = newNote;
 
         this.setState({ nodes: nextNodes }, 'ADD_STICKY_NOTE');
+
+        // Update index if it has a parent
+        if (newNote.parentId) {
+            this._addChildToIndex(newNote.parentId, newNote.id);
+        }
+
         this.invalidateBoundsCache(newNote.id);
 
         return newNote.id;
@@ -176,6 +195,13 @@ class NodeRepositoryClass extends Store {
             connections: nextConnections
         }, 'REMOVE_NODE');
 
+        // Update index
+        if (node.parentId) {
+            this._removeChildFromIndex(node.parentId, nodeId);
+        }
+        // If it was a parent, clear its index entries
+        delete this.childrenByParent[nodeId];
+
         this.invalidateBoundsCache(nodeId);
 
         return true;
@@ -192,12 +218,19 @@ class NodeRepositoryClass extends Store {
         if (!node) return false;
 
         const nextNodes = { ...this.state.nodes };
+        const oldParentId = node.parentId;
+
         nextNodes[nodeId] = {
             ...node,
             parentId: containerId
         };
 
         this.setState({ nodes: nextNodes }, 'DROP_NODE');
+
+        // Update index: remove from old, add to new
+        if (oldParentId) this._removeChildFromIndex(oldParentId, nodeId);
+        if (containerId) this._addChildToIndex(containerId, nodeId);
+
         this.invalidateBoundsCache(nodeId);
 
         return true;
@@ -209,6 +242,9 @@ class NodeRepositoryClass extends Store {
      */
     setNodes(nodes) {
         this.setState({ nodes }, 'SET_NODES');
+        // Do NOT clear entire bounds cache if possible, but for batch it's safer
+        // However, we MUST rebuild the children index
+        this._rebuildChildrenIndex(nodes);
         this.clearBoundsCache();
     }
 
@@ -218,6 +254,7 @@ class NodeRepositoryClass extends Store {
      */
     loadInitialNodes(nodes) {
         this.setState({ nodes }, 'LOAD_INITIAL_NODES');
+        this._rebuildChildrenIndex(nodes);
         this.clearBoundsCache();
     }
 
@@ -393,17 +430,25 @@ class NodeRepositoryClass extends Store {
     }
 
     /**
-     * Invalidate bounds cache for specific node
-     * Called whenever node dimensions or position changes
+     * Invalidate bounds cache for specific node (Recursive)
+     * Called whenever node dimensions or position changes.
+     * RECURSIVE: Also invalidates parent containers since their bounds depend on children.
      * @param {string} nodeId
      */
     invalidateBoundsCache(nodeId) {
+        const node = this.state.nodes[nodeId];
+
         // Remove all cache entries for this node (all zoom levels)
         Object.keys(this.boundsCache).forEach(key => {
             if (key.startsWith(`${nodeId}_`)) {
                 delete this.boundsCache[key];
             }
         });
+
+        // RECURSIVE: If this node has a parent, the parent's bounds might have changed too
+        if (node && node.parentId) {
+            this.invalidateBoundsCache(node.parentId);
+        }
     }
 
     /**
@@ -414,15 +459,33 @@ class NodeRepositoryClass extends Store {
         this.boundsCache = {};
     }
 
-    /**
-     * Get cache stats (debugging)
-     * @returns {Object}
-     */
-    getCacheStats() {
-        return {
-            entries: Object.keys(this.boundsCache).length,
-            size: JSON.stringify(this.boundsCache).length
-        };
+    // ============ INTERNAL HELPERS ============
+
+    _addChildToIndex(parentId, childId) {
+        if (!this.childrenByParent[parentId]) {
+            this.childrenByParent[parentId] = [];
+        }
+        if (!this.childrenByParent[parentId].includes(childId)) {
+            this.childrenByParent[parentId].push(childId);
+        }
+    }
+
+    _removeChildFromIndex(parentId, childId) {
+        if (this.childrenByParent[parentId]) {
+            this.childrenByParent[parentId] = this.childrenByParent[parentId].filter(id => id !== childId);
+            if (this.childrenByParent[parentId].length === 0) {
+                delete this.childrenByParent[parentId];
+            }
+        }
+    }
+
+    _rebuildChildrenIndex(nodes) {
+        this.childrenByParent = {};
+        Object.values(nodes).forEach(node => {
+            if (node.parentId) {
+                this._addChildToIndex(node.parentId, node.id);
+            }
+        });
     }
 }
 

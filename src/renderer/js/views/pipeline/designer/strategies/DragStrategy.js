@@ -103,8 +103,7 @@ export class DragStrategy extends InteractionStrategy {
         };
         this.dragState.dropTargetId = null;
 
-        // Commit dragging state
-        this.nodeRepository.updateNode(node.id, { isDragging: true });
+        // Commit dragging state (VOLATILE: Only in InteractionState)
         this.interactionState.setDragging(node.id);
     }
 
@@ -124,16 +123,30 @@ export class DragStrategy extends InteractionStrategy {
         updatedNodes[node.id] = {
             ...node,
             x: newX,
-            y: newY,
-            isDragging: true
+            y: newY
         };
 
         if (node.isRepoContainer) {
             this.updateChildPositionsInObject(updatedNodes, node, worldPos);
         }
 
-        this.nodeRepository.setNodes(updatedNodes);
-        this.updateDropTarget(worldPos, updatedNodes);
+        // OPTIMIZATION: Use batchUpdateNodes instead of setNodes 
+        // to avoid full cache clear and preserve other nodes
+        const updates = {};
+        Object.keys(updatedNodes).forEach(id => {
+            // Only include nodes that actually moved (container + children)
+            if (updatedNodes[id].x !== nodes[id].x || updatedNodes[id].y !== nodes[id].y || updatedNodes[id].isDragging !== nodes[id].isDragging) {
+                updates[id] = {
+                    x: updatedNodes[id].x,
+                    y: updatedNodes[id].y,
+                    isDragging: updatedNodes[id].isDragging,
+                    _originalPos: updatedNodes[id]._originalPos
+                };
+            }
+        });
+
+        this.nodeRepository.batchUpdateNodes(updates);
+        this.updateDropTarget(worldPos, this.controller.nodes);
     }
 
     /**
@@ -148,8 +161,8 @@ export class DragStrategy extends InteractionStrategy {
             const node = nodes[nodeId];
 
             if (node) {
-                // 1. Commit coordinates and clear isDragging flag
-                this.nodeRepository.updateNode(nodeId, { isDragging: false });
+                // 1. Commit coordinates (No longer need isDragging flag on data)
+                this.nodeRepository.updateNode(nodeId, {}); // Triggers SSOT sync if needed
 
                 // 2. Refresh reference to ensure we have latest SSOT
                 const latestNode = this.nodeRepository.getNode(nodeId);
@@ -170,24 +183,23 @@ export class DragStrategy extends InteractionStrategy {
     }
 
     /**
-     * Update positions of child nodes immutably
+     * Update positions of child nodes immutably (Optimized O(1) lookup)
      */
     updateChildPositionsInObject(updatedNodes, containerNode, mousePos) {
         const dx = mousePos.x - this.dragState.dragStart.x;
         const dy = mousePos.y - this.dragState.dragStart.y;
 
-        Object.entries(this.controller.nodes).forEach(([childId, child]) => {
-            if (child.parentId === containerNode.id) {
-                const originalChild = this.controller.nodes[childId];
-                const originalPos = originalChild._originalPos || { x: originalChild.x, y: originalChild.y };
+        // OPTIMIZATION: Use getChildren (O(1) index) instead of Object.entries (O(N))
+        const children = this.nodeRepository.getChildren(containerNode.id);
 
-                updatedNodes[childId] = {
-                    ...child,
-                    x: originalPos.x + dx,
-                    y: originalPos.y + dy,
-                    _originalPos: originalPos
-                };
-            }
+        children.forEach(child => {
+            const originalPos = child._originalPos || { x: child.x, y: child.y };
+            updatedNodes[child.id] = {
+                ...child,
+                x: originalPos.x + dx,
+                y: originalPos.y + dy,
+                _originalPos: originalPos
+            };
         });
     }
 
@@ -266,17 +278,22 @@ export class DragStrategy extends InteractionStrategy {
         this.interactionState.setDragging(null);
         this.dragState.dropTargetId = null;
         this.dragState.draggingNodeId = null;
-        this.nodeRepository.clearBoundsCache();
+        // Optimization: Selective invalidation already handled by updateNode/batchUpdateNodes
+        // No need for clearBoundsCache() here.
 
         if (nodes) {
+            const updates = {};
             Object.values(nodes).forEach(node => {
-                if (node.isDragging || node._originalPos) {
-                    this.nodeRepository.updateNode(node.id, {
-                        isDragging: false,
+                if (node._originalPos) {
+                    updates[node.id] = {
                         _originalPos: undefined
-                    });
+                    };
                 }
             });
+
+            if (Object.keys(updates).length > 0) {
+                this.nodeRepository.batchUpdateNodes(updates);
+            }
         }
     }
 }

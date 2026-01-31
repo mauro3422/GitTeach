@@ -111,16 +111,10 @@ export class ResizeHandler extends InteractionHandler {
             resize.startPos.y
         );
 
-        let newW = result.w;
-        let newH = result.h;
-
-        // CRITICAL SYNC: The center must move along with the visual delta,
-        // but since it's the center of a box whose dimensions are INFLATED,
-        // we must move it by (visualDelta / 2). The world dx/dy already represents the mouse delta.
-        // However, standard GeometryUtils moves x by dx/2. 
-        // We need to ensure that move follows the visual intent.
-        let newX = resize.startPos.x + dx / 2;
-        let newY = resize.startPos.y + dy / 2;
+        // PIVOT LOGIC: Calculate the pivot point (the corner that stays still)
+        // For 'se' corner drag, the pivot is 'nw' corner, etc.
+        const pivotX = resize.corner.includes('w') ? resize.startPos.x + logicalStart.w / 2 : resize.startPos.x - logicalStart.w / 2;
+        const pivotY = resize.corner.includes('n') ? resize.startPos.y + logicalStart.h / 2 : resize.startPos.y - logicalStart.h / 2;
 
         const { STICKY_NOTE, CONTAINER } = DESIGNER_CONSTANTS.DIMENSIONS;
         const minW = node.isStickyNote ? STICKY_NOTE.MIN_W : CONTAINER.MIN_W;
@@ -132,37 +126,21 @@ export class ResizeHandler extends InteractionHandler {
             if (node.dimensions.contentMinW) actualMinW = Math.max(minW, node.dimensions.contentMinW);
         }
 
-        // For containers, ensure minimum width fits the title text (centralized calculation)
         if (node.isRepoContainer && node.label) {
             actualMinW = Math.max(actualMinW, BoundsCalculator.calculateTitleMinWidth(node.label, zoom));
         }
 
-        // Issue #14: Log when constraints are applied
-        const origW = newW;
-        const origH = newH;
-
+        // Apply clamping to dimensions
         newW = Math.max(actualMinW, newW);
         newH = Math.max(minH, newH);
 
-        // Adjust position if dimensions were clamped (to maintain fixed corner)
-        if (newW !== origW) {
-            const clampDx = (newW - origW);
-            // If we moved the left side (sw or nw), and it got clamped, 
-            // the center must move in the opposite direction than the drag
-            if (resize.corner === 'sw' || resize.corner === 'nw') {
-                newX -= clampDx / 2;
-            } else {
-                newX += clampDx / 2;
-            }
-        }
-        if (newH !== origH) {
-            const clampDy = (newH - origH);
-            if (resize.corner === 'nw' || resize.corner === 'ne') {
-                newY -= clampDy / 2;
-            } else {
-                newY += clampDy / 2;
-            }
-        }
+        // PIVOT LOGIC: Calculate NEW center based on pivot and new dimensions
+        // The center always moves by half the delta of the dimensions relative to the pivot.
+        const signX = resize.corner.includes('w') ? -1 : 1;
+        const signY = resize.corner.includes('n') ? -1 : 1;
+
+        const newX = pivotX + (newW / 2) * signX;
+        const newY = pivotY + (newH / 2) * signY;
 
         // ATOMIC UPDATE: Collect all changes into one Store call to avoid state-fight
         const nextNodes = { ...nodes };
@@ -185,7 +163,23 @@ export class ResizeHandler extends InteractionHandler {
         if (ResizeHandler.DEBUG) {
             console.log(`[StateTrace] RESIZE_DRAG: ${node.id} | w:${newW.toFixed(1)} h:${newH.toFixed(1)}`);
         }
-        this.nodeRepository.setNodes(nextNodes);
+
+        // OPTIMIZATION: Use batchUpdateNodes to avoid full cache clear
+        const updates = {};
+        Object.keys(nextNodes).forEach(id => {
+            // Only include nodes that changed (targeting container + children)
+            const oldNode = nodes[id];
+            const newNode = nextNodes[id];
+            if (newNode.x !== oldNode.x || newNode.y !== oldNode.y || (newNode.dimensions && (newNode.dimensions.w !== oldNode.dimensions.w || newNode.dimensions.h !== oldNode.dimensions.h))) {
+                updates[id] = {
+                    x: newNode.x,
+                    y: newNode.y,
+                    dimensions: newNode.dimensions
+                };
+            }
+        });
+
+        this.nodeRepository.batchUpdateNodes(updates);
 
 
         // Trigger local renderer
@@ -219,13 +213,14 @@ export class ResizeHandler extends InteractionHandler {
 
     captureChildPositions(containerNode, nodes) {
         const positions = {};
-        Object.values(nodes).forEach(child => {
-            if (child.parentId === containerNode.id) {
-                positions[child.id] = {
-                    relX: child.x - containerNode.x,
-                    relY: child.y - containerNode.y
-                };
-            }
+        // OPTIMIZATION: Use getChildren (O(1)) instead of Object.values(nodes).forEach (O(N))
+        const children = this.nodeRepository.getChildren(containerNode.id);
+
+        children.forEach(child => {
+            positions[child.id] = {
+                relX: child.x - containerNode.x,
+                relY: child.y - containerNode.y
+            };
         });
         return positions;
     }
@@ -245,8 +240,11 @@ export class ResizeHandler extends InteractionHandler {
             maxY: containerNode.y + newHeight / 2 - margin
         };
 
-        Object.values(nextNodes).forEach(child => {
-            if (child.parentId === containerNode.id && resizeState.childPositions[child.id]) {
+        // OPTIMIZATION: Use getChildren (O(1))
+        const children = this.nodeRepository.getChildren(containerNode.id);
+
+        children.forEach(child => {
+            if (resizeState.childPositions[child.id]) {
                 const startRel = resizeState.childPositions[child.id];
 
                 // Clone the child for the nextNodes map

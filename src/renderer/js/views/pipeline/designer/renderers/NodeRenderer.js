@@ -12,7 +12,7 @@ import { TextScalingManager } from '../utils/TextScalingManager.js';
 import { DESIGNER_CONSTANTS } from '../DesignerConstants.js';
 
 export const NodeRenderer = {
-    render(ctx, visibleNodes, camera, activeConnectionId, hoveredNodeId = null, selectedNodeId = null) {
+    render(ctx, visibleNodes, camera, activeConnectionId, hoveredNodeId = null, selectedNodeId = null, draggingNodeId = null) {
         const zoom = camera.zoomScale;
 
         // LEVEL 2: Per-node error boundary
@@ -26,7 +26,7 @@ export const NodeRenderer = {
                 const visual = NodeVisualManager.getNodeVisualState(node, {
                     hoveredNodeId: hoveredNodeId,
                     selectedNodeId: selectedNodeId,
-                    draggingNodeId: node.isDragging ? node.id : null
+                    draggingNodeId: draggingNodeId === node.id ? node.id : null
                 });
 
                 ctx.save();

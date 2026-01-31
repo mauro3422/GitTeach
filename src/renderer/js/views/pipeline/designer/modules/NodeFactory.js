@@ -154,11 +154,6 @@ export const NodeFactory = {
             // Propiedades de relación
             parentId: options.parentId ?? null,
 
-            // Propiedades de renderizado
-            isDragging: false,
-            isSelected: false,
-            isHovered: false,
-
             // Propiedades de clase/tipo
             isRepoContainer: false,
             isStickyNote: false,
