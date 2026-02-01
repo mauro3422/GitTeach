@@ -173,6 +173,53 @@ class NodeRepositoryClass extends Store {
     }
 
     /**
+     * Batch update multiple nodes in a single Store call
+     * @param {Object} updates - Map of nodeId → update object
+     * @returns {boolean} Success (true if any changes made)
+     */
+    batchUpdateNodes(updates) {
+        const nodeIds = Object.keys(updates);
+        if (nodeIds.length === 0) return false;
+
+        const currentNodes = this.state.nodes;
+        const nextNodes = { ...currentNodes };
+        let hasChanges = false;
+
+        nodeIds.forEach(nodeId => {
+            const node = currentNodes[nodeId];
+            if (!node) return;
+
+            const update = updates[nodeId];
+            const merged = { ...node };
+
+            // Undefined = remove property (used by DragStrategy:289 for _originalPos cleanup)
+            Object.entries(update).forEach(([key, value]) => {
+                if (value === undefined) {
+                    delete merged[key];
+                } else {
+                    merged[key] = value;
+                }
+            });
+
+            nextNodes[nodeId] = merged;
+            hasChanges = true;
+        });
+
+        if (!hasChanges) return false;
+
+        this.setState({ nodes: nextNodes }, 'BATCH_UPDATE');
+
+        // Invalidate cache only for changed nodes (optimization)
+        nodeIds.forEach(nodeId => {
+            if (nextNodes[nodeId] !== currentNodes[nodeId]) {
+                this.invalidateBoundsCache(nodeId);
+            }
+        });
+
+        return true;
+    }
+
+    /**
      * Remove node and its connections
      * @param {string} nodeId
      * @returns {boolean} Success

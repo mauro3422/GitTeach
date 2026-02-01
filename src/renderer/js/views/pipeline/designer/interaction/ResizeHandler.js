@@ -111,6 +111,10 @@ export class ResizeHandler extends InteractionHandler {
             resize.startPos.y
         );
 
+        // Extract dimensions from result for clamping and pivot logic
+        let newW = result.w;
+        let newH = result.h;
+
         // PIVOT LOGIC: Calculate the pivot point (the corner that stays still)
         // For 'se' corner drag, the pivot is 'nw' corner, etc.
         const pivotX = resize.corner.includes('w') ? resize.startPos.x + logicalStart.w / 2 : resize.startPos.x - logicalStart.w / 2;
