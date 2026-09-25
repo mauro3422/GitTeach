@@ -6,7 +6,7 @@
 - Pre-rebuild Electron recovery is preserved at `archive/legacy-electron-v2.89` plus tag `legacy-electron-v2.89-final`.
 - F9 is active. F9.1 repository/audit identity, F9.2a repository snapshots, F9.2b personal-profile snapshots and **F9.3a private declaration persistence** are closed.
 - Product remains local-first Tauri 2 + Rust; remote source hydration is transient. The current verified webview is vanilla HTML/CSS/JS; Svelte 5 + Vite is the next presentation-layer modernization and must preserve existing Rust/Tauri command and privacy contracts.
-- Latest functional receipt: `.mssr/sessions/2026-09-25-f9-private-declaration-persistence.md`, trace `mssr-20260925050753-79957f3d-433`. The later main-promotion operation is authorized separately and must preserve the publication lock.
+- Latest functional receipt remains `.mssr/sessions/2026-09-25-f9-private-declaration-persistence.md`. Main promotion is now complete: rebuild is authoritative on `main`, Electron is archived for recovery, and CI fix commit `00f62d4cdbcb813ff49c8c049cfcd579000fd9f8` is published.
 
 ## Stable boundaries
 

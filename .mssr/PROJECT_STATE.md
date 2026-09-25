@@ -16,13 +16,13 @@
 - `save_private_profile_declaration` / `load_private_profile_declarations` restore private answers only for that exact actor/repository profile. Publication and approval permissions remain **hard-disabled** during extended testing in the UI, JS runtime policy and native Tauri command. Consent is not persisted or implicitly restored.
 - Restored repository/profile/declaration state is continuity data, not freshness proof; current repository contents still require re-inspection.
 
-### Latest verification — F9.3a
+### Latest verification — main promotion + F9.3a
 
-- JavaScript core: 232/232 PASS; focused desktop-shell: 19/19 PASS.
-- Rust: 135 core + 6 collector + 1 repository-audit + 2 lifecycle + 1 repository-workspace + 2 technology-evolution + 11 desktop = 158/158 PASS.
-- v1/v2/v3→v4 migration, exact-profile declaration isolation, private-only enforcement, publication-lock defense in depth and privacy exclusions are tested.
-- `cargo fmt --all -- --check`, strict Clippy `-D warnings`, Node syntax and `git diff --check`: PASS.
-- QA remained headless; no commit/push was requested.
+- F9.3a product gate remains JavaScript core 232/232; focused desktop-shell 19/19; Rust 158/158 PASS.
+- `main` now contains the rebuild; pre-rebuild Electron remains recoverable from `archive/legacy-electron-v2.89` and `legacy-electron-v2.89-final`.
+- Main-promotion follow-up fixed Linux Tauri packaging and made the live TypeSafe canary credential-conditional rather than a required product/core gate.
+- GitHub Actions run `36110601217` completed `core=success` (JS tests, `cargo test --workspace`, strict Clippy) and `typesafe-canary=success`; with no repository secret, the live provider steps were explicitly skipped.
+- Published CI-fix commit: `00f62d4cdbcb813ff49c8c049cfcd579000fd9f8`; direct remote `main` was verified at the same hash.
 
 ### Next
 
