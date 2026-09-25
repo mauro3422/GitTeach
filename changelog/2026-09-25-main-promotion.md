@@ -41,6 +41,8 @@ Before promotion, the full rebuild gate completed successfully:
 
 - The first Ubuntu CI run reached the Rust/Tauri compile after all 232 JavaScript tests passed and exposed one packaging omission: Tauri's generated context expects `crates/giteach-desktop/icons/icon.png` on Linux.
 - Added a 256x256 PNG derived from the existing canonical `icon.ico`; this is packaging metadata only and does not change product/runtime contracts.
+- The follow-up Ubuntu run then passed the complete `core` job: JavaScript core tests, `cargo test --workspace`, and strict workspace Clippy all succeeded.
+- Its only remaining red job was the optional live TypeSafe canary failing on an absent repository secret. CI now emits a notice and skips that live canary when `TYPESAFE_API_KEY` is unavailable, while preserving the real canary path when the secret is configured.
 
 ## Recovery note
 

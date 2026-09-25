@@ -45,14 +45,19 @@ jobs:
     env:
       TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
     steps:
+      - name: TypeSafe canary unavailable
+        if: env.TYPESAFE_API_KEY == ''
+        shell: bash
+        run: echo "::notice::TYPESAFE_API_KEY is not configured; skipping optional live TypeSafe canary."
       - uses: actions/checkout@v4
+        if: env.TYPESAFE_API_KEY != ''
       - uses: actions/setup-node@v4
+        if: env.TYPESAFE_API_KEY != ''
         with:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Verify TypeSafe secret is configured
-        shell: bash
-        run: test -n "$TYPESAFE_API_KEY"
+        if: env.TYPESAFE_API_KEY != ''
       - name: Run bounded TypeSafe canary
+        if: env.TYPESAFE_API_KEY != ''
         run: node scripts/typesafe-canary.mjs
