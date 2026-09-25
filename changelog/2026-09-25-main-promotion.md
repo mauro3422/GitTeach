@@ -37,6 +37,11 @@ Before promotion, the full rebuild gate completed successfully:
 - `git diff --check`: PASS.
 - `src/core` legacy import check: no references to `src/main` or `src/renderer`.
 
+## Cross-platform CI follow-up
+
+- The first Ubuntu CI run reached the Rust/Tauri compile after all 232 JavaScript tests passed and exposed one packaging omission: Tauri's generated context expects `crates/giteach-desktop/icons/icon.png` on Linux.
+- Added a 256x256 PNG derived from the existing canonical `icon.ico`; this is packaging metadata only and does not change product/runtime contracts.
+
 ## Recovery note
 
 A Bridge workspace snapshot was attempted before cleanup but the global snapshot store was already at capacity. No unrelated snapshots were deleted. Recovery therefore relies on the explicit archive branch/tag plus normal Git history, which preserve the complete pre-rebuild commit.
