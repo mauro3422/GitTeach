@@ -1,0 +1,7 @@
+{
+  "schema": "giteach-technology-evolution-v1",
+  "fields": ["schema", "repository", "source", "headCommit", "commitCount", "snapshotCount", "sampling", "snapshots", "deterministic"],
+  "samplingFields": ["strategy", "maxSnapshots", "completeHistory"],
+  "snapshotFields": ["commit", "committedAt", "sourceFileCount", "languages"],
+  "languageFields": ["language", "files", "bytes"]
+}

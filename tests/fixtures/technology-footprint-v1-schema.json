@@ -1,0 +1,7 @@
+{
+  "schema": "giteach-technology-footprint-v1",
+  "fields": ["schema", "analyzedRepositoryCount", "coverage", "languages", "technologies"],
+  "coverageFields": ["completeInventoryRepositoryCount", "partialInventoryRepositoryCount", "inventorySummaryRepositoryCount", "selectedContentSummaryRepositoryCount", "knownPathCount", "summarizedPathCount"],
+  "languageFields": ["key", "label", "repositoryCount", "analyzedRepositoryCount", "repositoryPrevalence", "observedFileCount", "observedFileUnit", "observedByteCount", "observedByteUnit", "repositories"],
+  "technologyFields": ["key", "label", "repositoryCount", "analyzedRepositoryCount", "repositoryPrevalence", "repositories", "sourceRefs"]
+}

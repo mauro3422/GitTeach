@@ -1,0 +1,18 @@
+{
+  "schema": "giteach-profile-declaration-v1",
+  "fields": [
+    "schema",
+    "id",
+    "actorKey",
+    "category",
+    "key",
+    "value",
+    "sourceKind",
+    "sourceRef",
+    "declaredAt",
+    "authorizationRef",
+    "publicationStatus",
+    "sourceHash",
+    "repositories"
+  ]
+}

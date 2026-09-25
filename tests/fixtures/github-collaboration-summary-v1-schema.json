@@ -1,0 +1,51 @@
+{
+  "schema": "giteach-github-collaboration-summary-v1",
+  "summaryFields": [
+    "schema",
+    "connectedLogin",
+    "analyzedRepositoryCount",
+    "coverage",
+    "authoredReleases",
+    "authoredPullRequests",
+    "mergedAuthoredPullRequests",
+    "submittedReviews",
+    "authoredIssues",
+    "repositories",
+    "deterministic"
+  ],
+  "coverageFields": [
+    "completeBaseRepositoryCount",
+    "partialBaseRepositoryCount",
+    "allBaseSurfacesComplete",
+    "reviewCoverageMode",
+    "targetedReviewRepositoryCount",
+    "completeRequestedReviewRepositoryCount",
+    "partialRequestedReviewRepositoryCount",
+    "requestedReviewPullCount",
+    "queriedReviewPullCount",
+    "omittedReviewPullCount",
+    "reviewHistoryComplete"
+  ],
+  "metricFields": [
+    "observedCount",
+    "repositoryCount",
+    "repositories",
+    "evidenceRefs",
+    "omittedEvidenceRefCount"
+  ],
+  "repositoryFields": [
+    "repository",
+    "baseCoverageComplete",
+    "reviewCoverageRequested",
+    "reviewCoverageCompleteForRequestedPulls",
+    "requestedReviewPullCount",
+    "queriedReviewPullCount",
+    "omittedReviewPullCount",
+    "reviewCoverageTruncated",
+    "authoredReleaseCount",
+    "authoredPullRequestCount",
+    "mergedAuthoredPullRequestCount",
+    "submittedReviewCount",
+    "authoredIssueCount"
+  ]
+}

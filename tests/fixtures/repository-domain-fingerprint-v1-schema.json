@@ -1,0 +1,15 @@
+{
+  "schema": "giteach-repository-domain-fingerprint-v1",
+  "profileFields": ["schema", "repository", "declaredTopics", "candidates"],
+  "candidateFields": [
+    "key",
+    "label",
+    "sourceKinds",
+    "evidenceRefs",
+    "sourceRefs",
+    "technologies",
+    "languages",
+    "topics",
+    "ruleBased"
+  ]
+}

@@ -1,0 +1,4 @@
+{
+  "schema": "giteach-jev-observation-store-v1",
+  "storeFields": ["schema", "observations"]
+}

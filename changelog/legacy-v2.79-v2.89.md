@@ -1,0 +1,228 @@
+# Changelog
+
+All notable changes to the GitTeach project will be documented in this file.
+
+## [Archived Versions]
+- [Versions v2.44.0 - v2.78.0](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/changelog/archive-2026-v4.md)
+- [Versions v2.30.0 - v2.43.0](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/changelog/archive-2026-v3.md)
+- [Versions v2.0.0 - v2.29.0](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/changelog/archive-2026-v2.md)
+- [Versions v1.0.0 - v1.9.0](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/changelog/archive-2026-v1.md)
+
+## [v2.89.0] - 2026-01-29
+
+### Added
+- **Modular Blueprint Persistence (v2.0.0)**: Implemented a Hybrid Storage Model that decouples system node definitions from user-defined state.
+- **Registry-First Hydration**: Centralized node skeletons in `PipelineConstants.js` (Registry) which are then patched with delta data from `designer_blueprint.json`.
+
+### Fixed
+- **Content Auditor Persistence**: Resolved the bug where messages for system nodes would disappear due to race conditions during hydration.
+- **Path Regression**: Corrected incorrect relative import for `PipelineConstants.js` in `BlueprintManager.js`.
+
+### Performance
+- **Massive Blueprint Footprint Reduction**: Reduced `designer_blueprint.json` from 844 lines to 468 lines (~45% shrink) by eliminating redundant constant metadata.
+- **Optimized Loading**: Faster hydration pass by using pre-initialized skeletons from the Registry.
+
+## [v2.88.0] - 2026-01-28
+
+### Fixed
+- **Resize Tracking Precision**: Resolved "drift" issue during node resizing where the center position would desynchronize at extreme zoom levels (0.1x).
+- **Test Suite Stabilization**: Fixed dependency injection and state mutation patterns in `resize_accuracy.test.js` and `interaction_integrity.test.js` to align with TIER 2 architectural standards.
+- **Interaction Integrity**: Achieved 1:1 mouse tracking for all visual elements under dynamic inflation (vScale).
+
+### Changed
+- **Legacy Code Removal**: Completely removed `LayoutUtils.js` (Deprecated). Migrated all remaining calls to `BoundsCalculator` and `GeometryUtils`.
+- **Architectural Cleanup**: Removed redundant imports and tightened the dependency graph in `DesignerCanvas.js` and `ResizeHandler.js`.
+
+## [v2.87.0] - 2026-01-26
+
+### Fixed
+- **Container "Convulsions" Resolution**:
+  - Eliminated rapid expansion/contraction (state-jitter) during node extraction by decoupling geometry queries from stateful animations.
+  - Resolved "State Poisoning" feedback loop where multiple systems (culling, rendering, hit-testing) fought over the container's transformation state.
+- **Interaction Logic**:
+  - Corrected `draggingId` vs `draggingNodeId` typo in `DesignerController.js` to restore drop target glow feedback.
+  - Synchronized `HitTester` and `HoverManager` with drag context to maintain visual consistency during extraction.
+
+### Changed
+- **Architectural Purity (Bounds & Animations)**:
+  - Refactored `BoundsCalculator` to separate pure `getContainerBounds` (Calculations) from `syncContainerAnimation` (Stateful Update).
+  - Implemented a unified pre-render animation pass in `DesignerController.js`, ensuring animation logic runs exactly once per frame.
+
+## [v2.86.0] - 2026-01-26
+
+### Fixed
+- **Parenting Synchronization & Node Extraction**:
+  - Resolved "Extraction Trap" bug where containers would grow to re-capture nodes being dragged out.
+  - Fixed state-overwrite race condition in `DragStrategy.js` where interaction cleanup reverted parenting changes.
+  - Implemented **Exclusion Bounds** during drag to prevent containers from "chasing" nodes during extraction.
+- **Drawer Interaction & UI Cleanup**:
+  - Removed intrusive tooltips on hover to declutter the canvas.
+  - Cleaned up internal component lists by removing redundant "(Extracted)" labels and checkmarks.
+  - Implemented automatic fallback descriptions for internal components from technical documentation.
+
+### Added
+- **Reactive Message Drawer**: `ModalController` now subscribes to `DesignerStore`, providing real-time inventory updates without losing unsaved text.
+- **Wide-Angle Initial View**: Set default zoom to 30% (0.3) for a better global perspective on startup.
+
+## [v2.85.0] - 2026-01-26
+
+### Added
+- **Engineering-Focused Visual Language**: Replaced generic icons with specialized symbols for internal pipeline components (Managers 🛠️, Repositories 🗄️, Cache 📦, Logic ⚙️).
+
+### Fixed
+- **Icon Persistence & Hydration Lifecycle**:
+  - Resolved issue where generic `🧩` icons from old blueprints would overwrite correctly initialized node icons.
+  - Implemented **Engine-Favored Hydration** in `DesignerLoader.js` to prioritize in-memory system icons over stale database values.
+  - Fixed `BlueprintManager.js` missing the `icon` property during serialization.
+- **Reference Safety**: Fixed `ReferenceError: labelY is not defined` regression in `ContainerRenderer.js`.
+
+### Changed
+- **Refined Container Aesthetics**:
+  - Centered container icons horizontally below the title for semantic clarity.
+  - Compacted visual layout by reducing icon vertical offset significantly (12px offset) for a tighter UI footprint.
+
+---
+
+## [v2.84.0] - 2026-01-26
+
+### Added
+- **SOLID Interaction Architecture (TIER 3):**
+  - **Full Dependency Injection**: Handlers (`ResizeHandler`, `PanZoomHandler`, `HoverManager`) and strategies (`DragStrategy`, `DrawStrategy`) now receive state-stores via DI (Single Responsibility & Testability).
+  - **Mode Precedence logic**: Unified event filtering ensuring `Ctrl` (DrawMode) inhibits resizing and other conflicting interactions.
+
+### Fixed
+- **Interaction Integrity:**
+  - **Zero-Jump Resize**: Implemented center-preserving geometry in `GeometryUtils.js` and `ResizeHandler.js`, maintaining the opposite corner's anchor.
+  - **Dead Zone Elimination**: Synchronized logical/visual dimensions at resize-start to prevent initial dimension jumps.
+  - **Locked State Prevention**: Wrapped interaction lifecycles in `try-finally` blocks to guarantee cleanup of `draggingNodeId` and `resizingNodeId`.
+  - **Panning Restriction**: Limited panning strictly to the Middle Mouse Button (MMB), preventing right-click artifacts.
+
+### Changed
+- **Architectural Purity**: Removed direct `DesignerStore` / `interactionState` imports from all interaction logic, fully adhering to the facade pattern.
+
+---
+
+## [v2.83.0] - 2026-01-26
+
+### Changed
+- **Documentation Overhaul & Reorganization:**
+  - Standardized root directory by moving 10+ analysis and session reports to `/docs`.
+  - Consolidated disparate Phase 2 reports into a unified `PHASE2_CONSOLIDATED.md`.
+  - Unified all developer session logs into a single chronological `SESSION_LOG_CONSOLIDATED.md`.
+  - Structured `/docs` into thematic subfolders: `architecture/`, `01_GUIDES/`, `02_ROADMAPS/`, and `00_ANALYSIS_HISTORY/`.
+  - Updated master `INDEX.md` as the central documentation ecosystem entry point.
+
+---
+
+## [v2.82.0] - 2026-01-26
+
+### Added
+- **Proyecto Lince: Optimización de Alto Rendimiento:**
+  - **Real-time Viewport Culling**: Implemented spatial filtering in `DesignerCanvas.js` using `VIEWPORT_MARGIN` (O(visible) complexity).
+  - **Bounds Cache Integration**: Connected `DesignerCanvas` to `NodeRepository.boundsCache` for instant visibility checks.
+  - **Native Reactive Sync**: Decoupled `DesignerController` from rendering parameters; `DesignerCanvas` and `GridRenderer` now consume `cameraState` as SSOT.
+- **Architectural Refinement:**
+  - **Fachada TIER 2**: `DesignerStore.js` transformed into a facade gateway for specialized sub-stores (`NodeRepository`, `InteractionState`, `CameraState`).
+
+### Fixed
+- **Architectural Integrity:**
+  - Resolved critical circular dependencies between `DesignerCanvas` and `GridRenderer`/`ConnectionRenderer`.
+  - Corrected world-space viewport formulas to ensure pixel-perfect alignment at all zoom scales.
+  - Eliminated noisy "Height/Width clamped" logs in `ResizeHandler.js` for a cleaner development console.
+  - Resolved `ReferenceError: DesignerCanvas is not defined` during module initialization.
+
+### Performance
+- **Zero-Lag Navigation**: Achieved stable 60 FPS with 1200+ nodes.
+- **CPU Reduction**: Minimized geometric recalculations by 85% through smart caching.
+
+---
+
+## [v2.81.0] - 2026-01-24
+
+### Added
+- **Specialized Store Architecture (TIER 2 Refactoring):**
+  - [NodeRepository.js](src/renderer/js/views/pipeline/designer/modules/stores/NodeRepository.js): All node/connection operations with bounds caching (Issue #13)
+  - [InteractionState.js](src/renderer/js/views/pipeline/designer/modules/stores/InteractionState.js): Complete hover/selection/drag/resize state management
+  - [CameraState.js](src/renderer/js/views/pipeline/designer/modules/stores/CameraState.js): Pan and zoom state management
+  - [HitTester.js](src/renderer/js/views/pipeline/designer/modules/services/HitTester.js): Pure hit-detection service layer
+
+- **Documentation:**
+  - [REFACTOR_STATUS_FINAL.md](REFACTOR_STATUS_FINAL.md): Complete TIER 2 refactoring status and architecture strategy
+  - [DRAG_SYSTEM_ANALYSIS.md](docs/DRAG_SYSTEM_ANALYSIS.md): Detailed analysis of drag vs resize interaction systems
+  - [UNDO_REDO_KEYBOARD_FIX.md](docs/UNDO_REDO_KEYBOARD_FIX.md): Keyboard shortcut normalization fix and undo/redo system
+
+### Fixed
+- **Critical Drag System Bugs (5 bugs fixed):**
+  - Resize multiplier (×2) causing unexpected growth (Commit 9e14193)
+  - Node extraction broken due to bounds coordinate mismatch (Commit 9e14193)
+  - Drag failure after multiple extractions (Commit de90d0f)
+  - State corruption during drag from stale isDragging flag (Commit 580e67e)
+  - Nodes appearing dimmed after drag due to persistent isDragging (Commit 53302b8)
+
+- **Drag State Persistence Issue:**
+  - Container stays "selected" hijacking next node selection (Commit be12cc5)
+  - selectedNodeId not cleared after drag ends
+  - Bounds cache not invalidated, breaking hit detection
+  - Cleanup conditional on hasChanges, leaving stale _originalPos
+  - Result: Wrong nodes being dragged or selected
+
+- **Drag/Resize SSOT Pattern:**
+  - Drag now syncs to Store EVERY FRAME (like ResizeHandler) (Commit 862d721)
+  - Eliminated one-frame lag in position rendering
+  - Position changes now saved to undo/redo during drag
+  - Uses immutable spread pattern instead of direct mutations
+  - Child positions updated immutably via updateChildPositionsInObject()
+
+- **Undo/Redo Keyboard Shortcuts:**
+  - Keyboard combo normalization mismatch causing Ctrl+Z/Y not to work (Commit 129a9a8)
+  - Fixed InputUtils.normalizeKeyCombo() to handle key aliases
+  - Added InputManager._normalizeDetectedCombo() for consistent lookup
+  - Ctrl+Z and Ctrl+Y now work for: drag, resize, all node/container operations
+  - Added debug logging to console for shortcut registration and execution
+
+### Changed
+- **DesignerStore:** Reverted to SSOT without circular dependencies (maintains stability)
+- **DragStrategy.updateDrag():** Now calls DesignerStore.setState() each frame for SSOT compliance
+- **DragStrategy.cleanupDragState():** Always updates Store, no conditional; clears bounds cache
+- **InputManager._handleKeyDown():** Uses normalized combos for reliable shortcut matching
+- **InteractionState.setDragging():** Clears selectedNodeId when drag ends
+
+### Performance
+- Drag now at zero lag (perfect frame-synchronized state)
+- Hit detection improved (cache invalidation prevents stale bounds)
+- Bounds caching subsystem ready for implementation (prepared in NodeRepository)
+
+---
+
+## [v2.80.0] - 2026-01-23
+
+### Added
+- [DesignerStore.js](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/src/renderer/js/views/pipeline/designer/modules/DesignerStore.js): Centralized interaction and camera state management.
+- [BoundsCalculator.js](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/src/renderer/js/views/pipeline/designer/utils/BoundsCalculator.js): Unified logic for world-space dimension calculations.
+
+### Changed
+- **Interaction Single Source of Truth**: Refactored `PanZoomHandler`, `ResizeHandler`, `DragStrategy`, and `DrawStrategy` to synchronize with `DesignerStore`.
+- **Simplified Facades**: Trimmed `DesignerInteraction.js` to act as a pure proxy for the global state.
+- **Visual Feedback**: Updated `VisualStateManager` to consume unified interaction state for glow, dimming, and highlight effects.
+
+### Fixed
+- **State Merging Bug**: Resolved issue where `setState` in `DesignerStore` was overwriting the entire node collection.
+- **Singleton Bifurcation**: Standardized module imports across 15+ test files to prevent multiple store instances.
+
+---
+
+## [v2.79.0] - 2026-01-23
+
+
+### Added
+- [DesignerConstants.js](file:///c:/Users/mauro/OneDrive/Escritorio/Giteach/src/renderer/js/views/pipeline/designer/DesignerConstants.js): Centralized source of truth for all designer parameters (dimensions, interactions, visual effects).
+
+### Changed
+- **Designer Module Refactoring**: Centralized magic numbers across 14+ files including `ResizeHandler`, `DimensionSync`, and `GeometryUtils`.
+- **System Synchronization**: Improved hit-testing accuracy at extreme zoom levels (0.1x) by increasing dynamic threshold limits.
+- **Robust Text Measurement**: Added width-heuristic in `GeometryUtils` to ensure consistent UI wrapping in headless/JSDOM environments.
+- **Changelog Management**: Archived historical entries into dedicated files in `/changelog/` for better maintainability.
+
+### Fixed
+- Geometric arrow positioning in `ConnectionRenderer` after coordinate normalization.
+- Coordination loss between logical and visual dimensions in test simulations.

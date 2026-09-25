@@ -1,0 +1,40 @@
+{
+  "schema": "giteach-document-input-v1",
+  "topLevelFields": ["schema", "target", "developer", "repositories", "claims"],
+  "claimFields": [
+    "key",
+    "label",
+    "repositories",
+    "evidenceDiversity",
+    "latestEvidenceAt",
+    "attribution",
+    "evidenceRefs",
+    "evidence",
+    "supportingStatements",
+    "cautions"
+  ],
+  "attributionFields": ["status", "actorEvidenceRefs", "actorRelations", "implementationOrigins"],
+  "evidenceFields": [
+    "id",
+    "repo",
+    "path",
+    "kind",
+    "subject",
+    "commit",
+    "sourceHash",
+    "excerptHash",
+    "observedAt",
+    "actorRelation",
+    "implementationOrigin"
+  ],
+  "supportingStatementFields": ["repository", "reason", "evidenceRefs"],
+  "cautionFields": [
+    "hasStaleEvidence",
+    "staleEvidenceRefs",
+    "hasContradictions",
+    "contradictionCount",
+    "personalAttributionMissing",
+    "identityOnly",
+    "aiAssistanceObserved"
+  ]
+}

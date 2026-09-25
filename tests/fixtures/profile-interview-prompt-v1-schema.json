@@ -1,0 +1,15 @@
+{
+  "schema": "giteach-profile-interview-prompt-v1",
+  "fields": [
+    "schema",
+    "id",
+    "questionId",
+    "actorKey",
+    "kind",
+    "category",
+    "subjectKey",
+    "text",
+    "evidenceRefs",
+    "declarationIds"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "schema": "giteach-repository-lifecycle-v1",
+  "lifecycleFields": [
+    "schema",
+    "repository",
+    "source",
+    "commitCount",
+    "firstCommitAt",
+    "latestCommitAt",
+    "activeMonthCount",
+    "activeYearCount",
+    "tagCount",
+    "firstTag",
+    "latestTag",
+    "commitsAfterLatestTag",
+    "hasPostTagCommits",
+    "deterministic"
+  ],
+  "tagFields": [
+    "name",
+    "target",
+    "observedAt"
+  ]
+}

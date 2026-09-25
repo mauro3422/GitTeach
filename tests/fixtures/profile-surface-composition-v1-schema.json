@@ -1,0 +1,5 @@
+{
+  "schema": "giteach-profile-surface-composition-v1",
+  "fields": ["schema", "actorKey", "surface", "sections"],
+  "sectionFields": ["id", "title", "widgetIds"]
+}

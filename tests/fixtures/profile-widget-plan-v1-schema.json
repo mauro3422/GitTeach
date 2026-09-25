@@ -1,0 +1,6 @@
+{
+  "schema": "giteach-profile-widget-plan-v1",
+  "fields": ["schema", "actorKey", "widgets"],
+  "widgetFields": ["id", "kind", "title", "source", "visualization", "valueMeaning", "surfaces"],
+  "sourceFields": ["plane", "section", "repository"]
+}

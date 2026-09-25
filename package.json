@@ -1,24 +1,12 @@
 {
-    "name": "giteach",
-    "version": "1.0.0",
-    "type": "module",
-    "main": "src/main/index.js",
-    "scripts": {
-        "start": "electron .",
-        "design": "electron src/main/designer_main.js",
-        "test": "vitest",
-        "test:run": "vitest run",
-        "test:ui": "vitest --ui"
-    },
-    "dependencies": {
-        "classic-level": "^3.0.0",
-        "node-fetch": "^3.3.2",
-        "opencode-windows-x64": "^1.1.28"
-    },
-    "devDependencies": {
-        "canvas": "^3.2.1",
-        "electron": "^39.2.7",
-        "jsdom": "^24.1.0",
-        "vitest": "^1.6.0"
-    }
+  "name": "giteach",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "npm run test:core",
+    "test:core": "node --test tests/core/*.test.js",
+    "desktop:check": "cargo check -p giteach-desktop",
+    "desktop:dev": "cargo run -p giteach-desktop"
+  }
 }

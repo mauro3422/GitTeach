@@ -1,0 +1,581 @@
+{
+  "schemaVersion": 1,
+  "core": [
+    {
+      "id": "project-identity",
+      "kind": "context",
+      "description": "GitTeach identity, scope and architecture boundary.",
+      "source": {
+        "path": ".mssr/PROJECT_CONTEXT.md"
+      },
+      "topic": "architecture",
+      "maxChars": 4000
+    }
+  ],
+  "modules": [
+    {
+      "id": "evidence-profile-core",
+      "kind": "context",
+      "description": "Evidence/profile data flow, authority and integration boundaries.",
+      "source": {
+        "path": ".mssr/knowledge/architecture/evidence-profile-core.md"
+      },
+      "topic": "architecture",
+      "stages": [],
+      "domains": [],
+      "actions": [
+        "design",
+        "review",
+        "analyze",
+        "edit",
+        "verify"
+      ],
+      "artifacts": [
+        "project",
+        "repository",
+        "code",
+        "document"
+      ],
+      "needs": [],
+      "signals": [],
+      "required": false,
+      "priority": 45,
+      "maxChars": 5000
+    },
+    {
+      "id": "project-decisions-foundation",
+      "kind": "memory",
+      "description": "Durable product and technology decisions for the rebuild.",
+      "source": {
+        "path": ".mssr/knowledge/decision/project-decisions-foundation.md"
+      },
+      "topic": "decision",
+      "stages": [],
+      "domains": [],
+      "actions": [
+        "design",
+        "review",
+        "analyze",
+        "recover"
+      ],
+      "artifacts": [],
+      "needs": [
+        "history-recovery"
+      ],
+      "signals": [],
+      "required": false,
+      "priority": 44,
+      "maxChars": 5000
+    },
+    {
+      "id": "evidence-semantic-profile-contracts",
+      "kind": "memory",
+      "description": "Durable F1-F4 provenance, Jev/TypeSafe, DeveloperProfile and DocumentInput contracts.",
+      "source": {
+        "path": ".mssr/knowledge/decision/evidence-semantic-profile-contracts.md"
+      },
+      "topic": "decision",
+      "stages": [],
+      "domains": [],
+      "actions": [
+        "design",
+        "review",
+        "analyze",
+        "edit",
+        "verify"
+      ],
+      "artifacts": [
+        "code",
+        "project",
+        "repository",
+        "document"
+      ],
+      "needs": [
+        "integrity-verification"
+      ],
+      "signals": [],
+      "required": false,
+      "priority": 49,
+      "maxChars": 5000
+    },
+    {
+      "id": "incremental-profile-contracts",
+      "kind": "memory",
+      "description": "Durable F5 incremental reuse, invalidation and semantic-cache contracts.",
+      "source": {
+        "path": ".mssr/knowledge/decision/incremental-profile-contracts.md"
+      },
+      "topic": "decision",
+      "stages": [],
+      "domains": [],
+      "actions": [
+        "design",
+        "review",
+        "analyze",
+        "edit",
+        "verify",
+        "maintain"
+      ],
+      "artifacts": [
+        "code",
+        "project",
+        "repository"
+      ],
+      "needs": [
+        "integrity-verification"
+      ],
+      "signals": [],
+      "required": false,
+      "priority": 50,
+      "maxChars": 3500
+    },
+    {
+      "id": "experience-attribution-contracts",
+      "kind": "memory",
+      "description": "Durable repository-fact, project-semantic, actor-attribution and AI-assisted experience rules.",
+      "source": {
+        "path": ".mssr/knowledge/decision/experience-attribution-contracts.md"
+      },
+      "topic": "decision",
+      "stages": [],
+      "domains": [],
+      "actions": [
+        "design",
+        "review",
+        "analyze",
+        "edit",
+        "verify",
+        "maintain"
+      ],
+      "artifacts": [
+        "code",
+        "project",
+        "repository",
+        "document"
+      ],
+      "needs": [
+        "integrity-verification"
+      ],
+      "signals": [],
+      "required": false,
+      "priority": 51,
+      "maxChars": 4000
+    },
+    {
+      "id": "actor-evidence-sources",
+      "kind": "memory",
+      "description": "Durable ActorEvidence producer status and source attachment rules.",
+      "source": {
+        "path": ".mssr/knowledge/decision/actor-evidence-sources.md"
+      },
+      "topic": "decision",
+      "stages": [],
+      "domains": [],
+      "actions": [
+        "design",
+        "review",
+        "analyze",
+        "edit",
+        "verify",
+        "maintain"
+      ],
+      "artifacts": [
+        "code",
+        "project",
+        "repository"
+      ],
+      "needs": [
+        "integrity-verification"
+      ],
+      "signals": [],
+      "required": false,
+      "priority": 50,
+      "maxChars": 3000
+    },
+    {
+      "id": "actor-evidence-quality",
+      "kind": "memory",
+      "description": "Durable actor-evidence quality, privacy and cross-actor isolation rules.",
+      "source": {
+        "path": ".mssr/knowledge/decision/actor-evidence-quality.md"
+      },
+      "topic": "decision",
+      "stages": [],
+      "domains": [],
+      "actions": [
+        "design",
+        "review",
+        "analyze",
+        "verify",
+        "maintain"
+      ],
+      "artifacts": [
+        "project",
+        "repository",
+        "document"
+      ],
+      "needs": [
+        "integrity-verification"
+      ],
+      "signals": [],
+      "required": false,
+      "priority": 49,
+      "maxChars": 2500
+    },
+    {
+      "id": "ai-era-product-direction",
+      "kind": "memory",
+      "description": "Standalone AI-era product direction, cross-project tendencies, interviewer and WidgetForge boundary.",
+      "source": {
+        "path": ".mssr/knowledge/decision/ai-era-product-direction.md"
+      },
+      "topic": "decision",
+      "stages": [],
+      "domains": [],
+      "actions": [
+        "design",
+        "review",
+        "analyze",
+        "edit",
+        "verify",
+        "document"
+      ],
+      "artifacts": [
+        "project",
+        "repository",
+        "document"
+      ],
+      "needs": [
+        "integrity-verification"
+      ],
+      "signals": [],
+      "required": false,
+      "priority": 52,
+      "maxChars": 3200
+    },
+    {
+      "id": "lifecycle-metrics",
+      "kind": "state",
+      "description": "Verified local Git lifecycle and cross-repository portfolio lifecycle contracts, interpretation limits and canary facts.",
+      "source": {
+        "path": ".mssr/knowledge/state/lifecycle-metrics.md"
+      },
+      "topic": "phase",
+      "stages": [],
+      "domains": [],
+      "actions": [
+        "analyze",
+        "review",
+        "verify",
+        "document",
+        "maintain"
+      ],
+      "artifacts": [
+        "repository",
+        "project",
+        "code",
+        "document"
+      ],
+      "needs": [
+        "integrity-verification"
+      ],
+      "signals": [],
+      "required": false,
+      "priority": 53,
+      "maxChars": 3000
+    },
+    {
+      "id": "github-connected-facts",
+      "kind": "state",
+      "description": "Verified GitHub Releases/PR/review/issue fact contracts, actor-attribution boundary and public canary evidence.",
+      "source": {
+        "path": ".mssr/knowledge/state/github-connected-facts.md"
+      },
+      "topic": "phase",
+      "stages": [],
+      "domains": [],
+      "actions": [
+        "analyze",
+        "review",
+        "verify",
+        "document",
+        "maintain"
+      ],
+      "artifacts": [
+        "repository",
+        "project",
+        "code",
+        "document"
+      ],
+      "needs": [
+        "integrity-verification"
+      ],
+      "signals": [],
+      "required": false,
+      "priority": 54,
+      "maxChars": 3000
+    },
+    {
+      "id": "profile-signals-domain",
+      "kind": "state",
+      "description": "Verified observability/benchmark profile signals and deterministic repository-domain fingerprint contracts/canaries.",
+      "source": {
+        "path": ".mssr/knowledge/state/profile-signals-domain.md"
+      },
+      "topic": "phase",
+      "stages": [],
+      "domains": [],
+      "actions": [
+        "analyze",
+        "review",
+        "verify",
+        "document",
+        "maintain"
+      ],
+      "artifacts": [
+        "repository",
+        "project",
+        "code",
+        "document"
+      ],
+      "needs": [
+        "integrity-verification"
+      ],
+      "signals": [],
+      "required": false,
+      "priority": 55,
+      "maxChars": 3200
+    },
+    {
+      "id": "profile-declarations-interview",
+      "kind": "state",
+      "description": "Verified F6 profile declarations, reconciliation, publication-consent and deterministic interview-planning contracts.",
+      "source": {
+        "path": ".mssr/knowledge/state/profile-declarations-interview.md"
+      },
+      "topic": "phase",
+      "stages": [],
+      "domains": [],
+      "actions": [
+        "analyze",
+        "design",
+        "review",
+        "verify",
+        "document",
+        "maintain"
+      ],
+      "artifacts": [
+        "project",
+        "repository",
+        "code",
+        "document"
+      ],
+      "needs": [
+        "integrity-verification"
+      ],
+      "signals": [],
+      "required": false,
+      "priority": 56,
+      "maxChars": 3000
+    },
+    {
+      "id": "profile-statistics-widgetforge",
+      "kind": "state",
+      "description": "Verified F7 WidgetForge-facing profile statistics contract, semantic metric units and real canary outputs.",
+      "source": {
+        "path": ".mssr/knowledge/state/profile-statistics-widgetforge.md"
+      },
+      "topic": "state",
+      "stages": [],
+      "domains": [],
+      "actions": [
+        "analyze",
+        "design",
+        "review",
+        "verify",
+        "document",
+        "maintain"
+      ],
+      "artifacts": [
+        "project",
+        "repository",
+        "code",
+        "document",
+        "ui"
+      ],
+      "needs": [
+        "integrity-verification"
+      ],
+      "signals": [],
+      "required": false,
+      "priority": 57,
+      "maxChars": 2600
+    },
+    {
+      "id": "technology-evolution-widgetforge",
+      "kind": "state",
+      "description": "Verified F7 historical Git technology-evolution contract, real canaries and WidgetForge interpretation boundary.",
+      "source": {
+        "path": ".mssr/knowledge/state/technology-evolution-widgetforge.md"
+      },
+      "topic": "state",
+      "stages": [
+        "implement",
+        "verify",
+        "persist",
+        "resume"
+      ],
+      "domains": [],
+      "actions": [
+        "analyze",
+        "verify",
+        "document"
+      ],
+      "artifacts": [
+        "code",
+        "project",
+        "repository",
+        "ui"
+      ],
+      "needs": [
+        "integrity-verification"
+      ],
+      "signals": [],
+      "required": false,
+      "priority": 58,
+      "maxChars": 3200
+    },
+    {
+      "id": "local-product-persistence",
+      "kind": "state",
+      "description": "Verified F9 SQLite repository connection/audit identity persistence, privacy boundary and remaining durable-state work.",
+      "source": {
+        "path": ".mssr/knowledge/state/local-product-persistence.md"
+      },
+      "topic": "state",
+      "stages": [
+        "implement",
+        "verify",
+        "persist",
+        "close",
+        "resume"
+      ],
+      "domains": [
+        "coding",
+        "filesystem",
+        "git"
+      ],
+      "actions": [
+        "design",
+        "edit",
+        "verify",
+        "document",
+        "recover"
+      ],
+      "artifacts": [
+        "code",
+        "project",
+        "repository",
+        "document",
+        "ui"
+      ],
+      "needs": [
+        "integrity-verification"
+      ],
+      "signals": [],
+      "required": false,
+      "priority": 59,
+      "maxChars": 3400
+    },
+    {
+      "id": "project-current-phase",
+      "kind": "state",
+      "description": "Current milestone, constraints and session-continuity rules.",
+      "source": {
+        "path": ".mssr/knowledge/phase/project-current-phase.md"
+      },
+      "topic": "phase",
+      "stages": [
+        "start",
+        "implement",
+        "verify",
+        "persist",
+        "close",
+        "resume"
+      ],
+      "domains": [],
+      "actions": [],
+      "artifacts": [],
+      "needs": [],
+      "signals": [],
+      "required": false,
+      "priority": 50,
+      "maxChars": 4500
+    },
+    {
+      "id": "project-state",
+      "kind": "state",
+      "description": "Latest verified state and next step.",
+      "source": {
+        "path": ".mssr/PROJECT_STATE.md"
+      },
+      "topic": "phase",
+      "stages": [
+        "start",
+        "verify",
+        "persist",
+        "close",
+        "resume"
+      ],
+      "domains": [],
+      "actions": [],
+      "artifacts": [],
+      "needs": [],
+      "signals": [],
+      "required": false,
+      "priority": 52,
+      "maxChars": 5000
+    },
+    {
+      "id": "project-memory",
+      "kind": "memory",
+      "description": "Compact durable decisions and operating rules.",
+      "source": {
+        "path": ".mssr/PROJECT_MEMORY.md"
+      },
+      "topic": "decision",
+      "stages": [],
+      "domains": [],
+      "actions": [],
+      "artifacts": [],
+      "needs": [
+        "history-recovery"
+      ],
+      "signals": [],
+      "required": false,
+      "priority": 46,
+      "maxChars": 5000
+    },
+    {
+      "id": "latest-handoff",
+      "kind": "state",
+      "description": "Pointer and compact resume instructions for the latest work session.",
+      "source": {
+        "path": ".mssr/HANDOFF.md"
+      },
+      "topic": "phase",
+      "stages": [
+        "start",
+        "resume"
+      ],
+      "domains": [],
+      "actions": [],
+      "artifacts": [],
+      "needs": [],
+      "signals": [],
+      "required": false,
+      "priority": 55,
+      "maxChars": 3500
+    }
+  ]
+}

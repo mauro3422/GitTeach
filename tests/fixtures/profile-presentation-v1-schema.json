@@ -1,0 +1,4 @@
+{
+  "schema": "giteach-profile-presentation-v1",
+  "fields": ["schema", "actorKey", "statistics", "technologyEvolution", "publicationContext"]
+}

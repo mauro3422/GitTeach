@@ -1,0 +1,5 @@
+{
+  "schema": "giteach-profile-publication-context-v1",
+  "fields": ["schema", "actorKey", "declarations"],
+  "declarationFields": ["id", "category", "key", "value", "sourceKind", "repositories"]
+}

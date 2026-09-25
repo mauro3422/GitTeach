@@ -1,0 +1,20 @@
+{
+  "schema": "giteach-development-tendencies-v1",
+  "profileFields": [
+    "schema",
+    "analyzedRepositoryCount",
+    "minimumRepositories",
+    "tendencies"
+  ],
+  "tendencyFields": [
+    "key",
+    "label",
+    "repositoryCount",
+    "analyzedRepositoryCount",
+    "prevalence",
+    "repositories",
+    "evidenceRefs",
+    "evidenceKinds",
+    "deterministic"
+  ]
+}

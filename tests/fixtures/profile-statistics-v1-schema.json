@@ -1,0 +1,14 @@
+{
+  "schema": "giteach-profile-statistics-v1",
+  "fields": ["schema", "technology", "tendencies", "domains", "lifecycle", "collaboration"],
+  "technologyFields": ["analyzedRepositoryCount", "coverage", "languages", "technologies"],
+  "technologyCoverageFields": ["completeInventoryRepositoryCount", "partialInventoryRepositoryCount", "inventorySummaryRepositoryCount", "selectedContentSummaryRepositoryCount", "knownPathCount", "summarizedPathCount"],
+  "technologyLanguageFields": ["key", "label", "repositoryCount", "analyzedRepositoryCount", "repositoryPrevalence", "observedFileCount", "observedFileUnit", "observedByteCount", "observedByteUnit", "repositories"],
+  "technologyMetricFields": ["key", "label", "repositoryCount", "analyzedRepositoryCount", "repositoryPrevalence", "repositories", "sourceRefs"],
+  "sectionFields": ["analyzedRepositoryCount", "metrics"],
+  "tendencyMetricFields": ["key", "label", "value", "unit", "supportingRepositoryCount", "analyzedRepositoryCount", "repositories", "evidenceRefs"],
+  "domainMetricFields": ["key", "label", "value", "unit", "supportingRepositoryCount", "analyzedRepositoryCount", "repositories", "sourceRefs"],
+  "lifecycleMetricFields": ["key", "label", "value", "unit"],
+  "collaborationFields": ["analyzedRepositoryCount", "coverage", "metrics"],
+  "collaborationMetricFields": ["key", "label", "value", "unit", "supportingRepositoryCount", "supportingUnit", "repositories", "evidenceRefs", "omittedEvidenceRefCount"]
+}

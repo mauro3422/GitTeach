@@ -1,0 +1,13 @@
+{
+  "schema": "giteach-profile-reconciliation-v1",
+  "fields": ["schema", "actorKey", "items"],
+  "itemFields": [
+    "key",
+    "label",
+    "status",
+    "declarationIds",
+    "observedSupportRefs",
+    "observedContradictionRefs",
+    "sourceClasses"
+  ]
+}

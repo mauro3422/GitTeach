@@ -1,0 +1,48 @@
+{
+  "schema": "giteach-github-repository-facts-v1",
+  "bundleFields": [
+    "schema",
+    "repository",
+    "connectedLogin",
+    "observedAt",
+    "facts",
+    "summary",
+    "connectedActorActivity",
+    "deterministic"
+  ],
+  "repositoryFields": ["owner", "name", "fullName"],
+  "factFields": [
+    "factRef",
+    "kind",
+    "sourceId",
+    "number",
+    "tagName",
+    "state",
+    "actorLogin",
+    "createdAt",
+    "updatedAt",
+    "closedAt",
+    "mergedAt",
+    "publishedAt",
+    "draft",
+    "prerelease",
+    "sourceRef",
+    "metadata"
+  ],
+  "summaryFields": [
+    "releaseCount",
+    "publishedReleaseCount",
+    "pullRequestCount",
+    "mergedPullRequestCount",
+    "reviewCount",
+    "issueCount",
+    "closedIssueCount"
+  ],
+  "connectedActorActivityFields": [
+    "login",
+    "authoredReleaseCount",
+    "authoredPullRequestCount",
+    "submittedReviewCount",
+    "authoredIssueCount"
+  ]
+}

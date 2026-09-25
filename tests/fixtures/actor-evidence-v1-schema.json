@@ -1,0 +1,18 @@
+{
+  "schema": "giteach-actor-evidence-v1",
+  "fields": [
+    "schema",
+    "id",
+    "actorKey",
+    "relation",
+    "repository",
+    "sourceKind",
+    "sourceRef",
+    "observedAt",
+    "implementationOrigin",
+    "capabilityKeys",
+    "targetEvidenceRefs",
+    "summary",
+    "sourceHash"
+  ]
+}

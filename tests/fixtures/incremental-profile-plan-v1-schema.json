@@ -1,0 +1,14 @@
+{
+  "schema": "giteach-incremental-profile-plan-v1",
+  "topLevelFields": [
+    "schema",
+    "reusableSkills",
+    "invalidatedSkills",
+    "newEvidenceRefs",
+    "removedEvidenceRefs",
+    "requiresSemanticRefresh",
+    "requiresDiscovery"
+  ],
+  "reusableSkillFields": ["key", "label", "evidenceRefs"],
+  "invalidatedSkillFields": ["key", "label", "missingEvidenceRefs", "retainedEvidenceRefs"]
+}

@@ -1,0 +1,22 @@
+{
+  "schema": "giteach-portfolio-lifecycle-v1",
+  "summaryFields": [
+    "schema",
+    "analyzedRepositoryCount",
+    "repositoryWithHistoryCount",
+    "multiMonthHistoryRepositoryCount",
+    "taggedRepositoryCount",
+    "postTagMaintenanceRepositoryCount",
+    "totalReachableTagCount",
+    "repositories",
+    "deterministic"
+  ],
+  "repositoryFields": [
+    "repository",
+    "commitCount",
+    "activeMonthCount",
+    "activeYearCount",
+    "tagCount",
+    "hasPostTagCommits"
+  ]
+}

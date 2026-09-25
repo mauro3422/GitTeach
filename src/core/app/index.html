@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>GitTeach</title>
+    <link rel="stylesheet" href="./app.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">LOCAL-FIRST DEVELOPER PROFILE</p>
+          <h1>GitTeach</h1>
+        </div>
+        <div class="runtime-pill" id="runtime-status" data-state="loading">Checking native runtimeâ€¦</div>
+      </header>
+
+      <section class="hero panel">
+        <div class="hero-copy">
+          <p class="section-kicker">F9.1 durable repository connection</p>
+          <h2>Analyze local or remote repositories without a hosted analysis server.</h2>
+          <p class="muted">
+            Local repositories are read in place. Remote repositories keep a blobless audit cache and hydrate only bounded selected evidence temporarily. Successful connections and refresh identity are remembered locally in SQLite.
+          </p>
+        </div>
+
+        <form id="repository-form" class="repository-form">
+          <label for="repository-kind">Repository source</label>
+          <select id="repository-kind" name="kind">
+            <option value="local">Local folder</option>
+            <option value="remote">Remote Git repository</option>
+          </select>
+
+          <div id="local-fields" class="target-fields">
+            <label for="repository-path">Local repository path</label>
+            <input
+              id="repository-path"
+              name="path"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="D:\\Dev\\kode"
+            />
+          </div>
+
+          <div id="remote-fields" class="target-fields" hidden>
+            <div class="remote-identity-row">
+              <div>
+                <label for="remote-owner">Owner / namespace</label>
+                <input id="remote-owner" name="owner" type="text" autocomplete="off" placeholder="mauro" />
+              </div>
+              <div>
+                <label for="remote-name">Repository name</label>
+                <input id="remote-name" name="name" type="text" autocomplete="off" placeholder="kode" />
+              </div>
+            </div>
+            <label for="remote-url">Git remote URL</label>
+            <input
+              id="remote-url"
+              name="remoteUrl"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="https://github.com/owner/repository.git"
+            />
+            <p class="field-help">Embedded HTTP credentials are rejected. HTTPS, SSH, file:// and absolute local Git paths are accepted.</p>
+          </div>
+
+          <div class="input-row action-row">
+            <button id="analyze-button" type="submit">Analyze repository</button>
+          </div>
+          <p class="form-status" id="form-status" aria-live="polite">Choose a repository source to inspect.</p>
+        </form>
+      </section>
+
+      <section class="remembered-repositories panel" aria-labelledby="remembered-title">
+        <div class="remembered-heading">
+          <div>
+            <p class="section-kicker">F9.1 local persistence</p>
+            <h2 id="remembered-title">Remembered repositories</h2>
+            <p class="muted">Successful connections survive app restart. Raw remote source bodies are not stored here; selecting a remembered repository only adds its connection target to the current profile session.</p>
+          </div>
+          <p class="form-status" id="remembered-status" aria-live="polite">Waiting for the native runtime.</p>
+        </div>
+        <div class="remembered-list" id="remembered-list">
+          <p class="empty-row">No remembered repositories loaded yet.</p>
+        </div>
+      </section>
+
+      <section class="profile-builder panel">
+        <div class="profile-builder-copy">
+          <p class="section-kicker">F8.2 personal attribution</p>
+          <h2>Build a cross-repository profile without guessing authorship.</h2>
+          <p class="muted">
+            Each repository you inspect is added to this session. Local Git identity matches can establish contribution linkage; repository-only facts stay out of the personal view.
+          </p>
+          <div class="selected-targets" id="profile-targets">No repositories selected yet.</div>
+        </div>
+        <form id="profile-form" class="repository-form">
+          <label for="profile-actor-key">Subject actor key</label>
+          <input id="profile-actor-key" type="text" value="developer:local" autocomplete="off" spellcheck="false" />
+          <div class="remote-identity-row profile-identity-row">
+            <div>
+              <label for="profile-git-name">Git name</label>
+              <input id="profile-git-name" type="text" autocomplete="off" placeholder="Your configured Git author name" />
+            </div>
+            <div>
+              <label for="profile-git-email">Git email</label>
+              <input id="profile-git-email" type="email" autocomplete="off" placeholder="you@example.com" />
+            </div>
+          </div>
+          <p class="field-help">Git identity establishes identity-linked contribution only. It does not prove manual implementation authorship.</p>
+          <div class="input-row action-row">
+            <button id="profile-button" type="submit" disabled>Inspect personal profile</button>
+            <button id="profile-restore-button" type="button" disabled>Restore saved profile</button>
+          </div>
+          <p class="form-status" id="profile-status" aria-live="polite">Inspect at least one repository first.</p>
+        </form>
+      </section>
+
+      <section id="profile-result" class="result-grid profile-result" hidden>
+        <article class="panel overview-card">
+          <div class="card-heading">
+            <div>
+              <p class="section-kicker">Attribution boundary</p>
+              <h2 id="profile-subject">â€”</h2>
+              <p class="acquisition-label" id="profile-summary">â€”</p>
+            </div>
+          </div>
+          <p class="inspection-boundary" id="profile-boundary">Personal profile Â· only exact actor-linked repository evidence is shown</p>
+          <p class="evidence-summary" id="profile-omitted">â€”</p>
+        </article>
+        <article class="panel">
+          <div class="card-heading"><div><p class="section-kicker">Personal profile</p><h2>Attributable observations</h2></div></div>
+          <div class="data-list" id="profile-capabilities"></div>
+        </article>
+        <article class="panel">
+          <div class="card-heading"><div><p class="section-kicker">Actor provenance</p><h2>Attribution evidence</h2></div></div>
+          <div class="data-list evidence-list" id="profile-actor-evidence"></div>
+        </article>
+        <article class="panel overview-card">
+          <div class="card-heading"><div><p class="section-kicker">Repository provenance</p><h2>Evidence behind personal observations</h2></div></div>
+          <div class="data-list evidence-list" id="profile-evidence"></div>
+        </article>
+      </section>
+
+      <section id="guided-profile" class="guided-profile panel" hidden>
+        <div class="guided-heading">
+          <p class="section-kicker">F8.2 guided profile</p>
+          <h2>Fill only what the evidence cannot establish.</h2>
+          <p class="muted">Private interview answers are saved locally for this exact profile. Publication and approval permissions stay disabled during the extended test phase.</p>
+        </div>
+
+        <div class="guided-actions">
+          <button id="prepare-interview-button" type="button" disabled>Prepare remaining questions</button>
+          <p class="form-status" id="interview-status" aria-live="polite">Inspect a personal profile first.</p>
+        </div>
+
+        <article id="interview-question" class="guided-block" hidden>
+          <p class="section-kicker">Private interview</p>
+          <h3 id="interview-question-text">â€”</h3>
+          <p class="field-help" id="interview-question-meta">â€”</p>
+          <form id="interview-answer-form" class="repository-form">
+            <label for="interview-answer">Private answer</label>
+            <textarea id="interview-answer" rows="4" required></textarea>
+            <div class="input-row action-row">
+              <button type="submit">Save private answer</button>
+            </div>
+          </form>
+        </article>
+
+        <article class="guided-block">
+          <p class="section-kicker">Publication firewall</p>
+          <h3>Private declarations · publication locked</h3>
+          <p class="field-help">No private answer can enter a publication context yet. This gate stays closed while local persistence is tested.</p>
+          <div id="profile-declarations" class="approval-list"></div>
+        </article>
+
+        <div class="guided-actions">
+          <button id="generate-outputs-button" type="button" disabled>Publication locked during testing</button>
+          <p class="form-status" id="output-status" aria-live="polite">Publication permissions are disabled during testing.</p>
+        </div>
+
+        <div class="guided-output-grid">
+          <article class="guided-block">
+            <p class="section-kicker">Approved profile highlights</p>
+            <div id="published-declarations" class="data-list"></div>
+          </article>
+          <article class="guided-block draft-output-block">
+            <p class="section-kicker">Evidence-backed drafts</p>
+            <div id="profile-outputs" class="draft-list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="result" class="result-grid" hidden>
+        <article class="panel overview-card">
+          <div class="card-heading">
+            <div>
+              <p class="section-kicker">Repository</p>
+              <h2 id="repository-name">â€”</h2>
+              <p class="acquisition-label" id="acquisition-label">â€”</p>
+            </div>
+            <span class="coverage-badge" id="coverage-badge">â€”</span>
+          </div>
+          <dl class="metrics" id="metrics"></dl>
+          <p class="inspection-boundary" id="inspection-boundary">Repository evidence only Â· no personal experience claim</p>
+        </article>
+
+        <article class="panel">
+          <div class="card-heading">
+            <div>
+              <p class="section-kicker">Composition</p>
+              <h2>Languages</h2>
+            </div>
+          </div>
+          <div class="data-list" id="languages"></div>
+        </article>
+
+        <article class="panel">
+          <div class="card-heading">
+            <div>
+              <p class="section-kicker">Signals</p>
+              <h2>Technologies</h2>
+            </div>
+          </div>
+          <div class="data-list" id="technologies"></div>
+        </article>
+
+        <article class="panel">
+          <div class="card-heading">
+            <div>
+              <p class="section-kicker">Repository profile</p>
+              <h2>Project domains</h2>
+            </div>
+          </div>
+          <div class="data-list" id="project-domains"></div>
+        </article>
+
+        <article class="panel">
+          <div class="card-heading">
+            <div>
+              <p class="section-kicker">Provenance</p>
+              <h2>Bounded evidence</h2>
+              <p class="evidence-summary" id="evidence-summary">â€”</p>
+            </div>
+          </div>
+          <div class="data-list evidence-list" id="evidence"></div>
+        </article>
+      </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
